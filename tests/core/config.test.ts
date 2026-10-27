@@ -8,6 +8,7 @@ import {
 	numberField,
 	SettingsError,
 	SettingsStore,
+	textRulesField,
 } from "../../src/core/config/index.ts";
 
 const catalog = {
@@ -31,6 +32,11 @@ const catalog = {
 		label: "Web search",
 		description: "Expose the web search tool",
 		default: true,
+	}),
+	"claude.replacePatterns": textRulesField({
+		label: "Prompt rules",
+		description: "Literal rules",
+		default: [],
 	}),
 };
 
@@ -60,6 +66,7 @@ describe("core/config", () => {
 			"quotas.refreshIntervalSec": 10,
 			"quotas.placement": "above-editor",
 			"synthetic.webSearch": false,
+			"claude.replacePatterns": [],
 		});
 		expect(store.sourceOf("quotas.refreshIntervalSec")).toBe("project");
 		expect(store.sourceOf("quotas.placement")).toBe("user");
@@ -107,5 +114,16 @@ describe("core/config", () => {
 			SettingsError,
 		);
 		expect(readFileSync(project, "utf8")).toBe("{ not json");
+	});
+
+	test("text rules keep match-only and replacement entries; one malformed entry rejects the list", async () => {
+		const rules = [{ match: "acme.example/docs" }, { match: "Acme", replacement: "the assistant" }];
+		write(user, { claude: { replacePatterns: rules } });
+		write(project, { claude: { replacePatterns: [...rules, { match: " " }] } });
+		const store = new SettingsStore(catalog, { user, project });
+		const problems = await store.load();
+
+		expect(problems.map((p) => [p.path, p.key])).toEqual([[project, "claude.replacePatterns"]]);
+		expect(store.get("claude.replacePatterns")).toEqual(rules);
 	});
 });

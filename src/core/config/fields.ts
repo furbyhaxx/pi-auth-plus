@@ -1,7 +1,13 @@
 /** Typed setting field descriptors; each field parses its own raw JSON value. */
 
-export type FieldValue = boolean | number | string | readonly string[];
-export type FieldKind = "boolean" | "number" | "enum" | "string" | "list";
+/** A literal text rule: rewrite `match` to `replacement`, or drop what contains `match` without one. */
+export interface TextRule {
+	readonly match: string;
+	readonly replacement?: string;
+}
+
+export type FieldValue = boolean | number | string | readonly string[] | readonly TextRule[];
+export type FieldKind = "boolean" | "number" | "enum" | "string" | "list" | "rules";
 
 export interface FieldOption<V extends string = string> {
 	readonly value: V;
@@ -84,6 +90,32 @@ export function listField(meta: Meta<readonly string[]>): Field<readonly string[
 			if (typeof raw === "string") return raw.split(/[,\s]+/).filter((item) => item !== "");
 			if (!Array.isArray(raw) || !raw.every((item) => typeof item === "string")) return undefined;
 			return raw;
+		},
+	};
+}
+
+function textRule(raw: unknown): TextRule | undefined {
+	if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+	const { match, replacement } = raw as { match?: unknown; replacement?: unknown };
+	if (typeof match !== "string" || match.trim() === "") return undefined;
+	if (replacement === undefined) return { match };
+	return typeof replacement === "string" ? { match, replacement } : undefined;
+}
+
+/** A list of literal text rules; one malformed entry rejects the list so the warning names it. */
+export function textRulesField(meta: Meta<readonly TextRule[]>): Field<readonly TextRule[]> {
+	return {
+		kind: "rules",
+		...meta,
+		parse: (raw) => {
+			if (!Array.isArray(raw)) return undefined;
+			const rules: TextRule[] = [];
+			for (const entry of raw) {
+				const rule = textRule(entry);
+				if (!rule) return undefined;
+				rules.push(rule);
+			}
+			return rules;
 		},
 	};
 }

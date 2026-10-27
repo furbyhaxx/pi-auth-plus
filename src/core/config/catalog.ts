@@ -1,7 +1,13 @@
 /** The one pi-auth-plus settings catalog; `auth-plus.json` keys are its dotted names. */
-import { booleanField, type SettingsStore } from "./index.ts";
+import { booleanField, type SettingsStore, textRulesField } from "./index.ts";
 
 export const SETTINGS = {
+	"claude.replacePatterns": textRulesField({
+		label: "Claude prompt rules",
+		description:
+			"Literal rules for claude system prompts: rewrite match to replacement, or drop paragraphs containing match",
+		default: [],
+	}),
 	"synthetic.webSearch": booleanField({
 		label: "Synthetic web search",
 		description:

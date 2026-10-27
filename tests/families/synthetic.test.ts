@@ -6,7 +6,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { FetchFn } from "../../src/core/http/index.ts";
 import { CATALOG_TTL_MS, parseCatalog } from "../../src/families/synthetic/catalog.ts";
 import { createSyntheticFamily, WEB_SEARCH_FLAG } from "../../src/families/synthetic/index.ts";
-import { parseResults, TOOL_NAME } from "../../src/families/synthetic/web-search.ts";
+import { parseResults, TOOL_NAME, truncateHead } from "../../src/families/synthetic/web-search.ts";
 import fixture from "../fixtures/synthetic/models.json";
 import search from "../fixtures/synthetic/search.json";
 import { testHost } from "../host.ts";
@@ -232,6 +232,14 @@ describe("families/synthetic", () => {
 		const flag = await registered(undefined, { flag: true });
 		flag.startSession();
 		expect(flag.tools.map((tool) => tool.name)).toEqual([TOOL_NAME]);
+	});
+
+	test("head truncation keeps whole lines within 50 KB and 2000 lines", () => {
+		expect(truncateHead("a\nb")).toEqual({ content: "a\nb", truncated: false });
+		const long = truncateHead(`${"x".repeat(30 * 1024)}\n${"y".repeat(30 * 1024)}`);
+		expect(long).toEqual({ content: "x".repeat(30 * 1024), truncated: true });
+		const many = truncateHead(Array.from({ length: 2500 }, (_, i) => String(i)).join("\n"));
+		expect(many.content.split("\n")).toHaveLength(2000);
 	});
 
 	test("keeps results without a publication date and returns passages with the full text saved", async () => {

@@ -2,13 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
-import {
-	DEFAULT_MAX_BYTES,
-	DEFAULT_MAX_LINES,
-	type ExtensionAPI,
-	formatSize,
-	truncateHead,
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { atomicWriteFile } from "../../core/fs/index.ts";
 import { type FetchFn, request } from "../../core/http/index.ts";
 import { PROVIDER } from "./catalog.ts";
@@ -16,6 +10,9 @@ import { PROVIDER } from "./catalog.ts";
 export const TOOL_NAME = "synthetic_web_search";
 export const SEARCH_URL = "https://api.synthetic.new/v2/search";
 const SEARCH_TIMEOUT_MS = 60_000;
+/** Pi's own tool-output limits (`DEFAULT_MAX_BYTES`, `DEFAULT_MAX_LINES`). */
+const MAX_BYTES = 50 * 1024;
+const MAX_LINES = 2000;
 
 export interface SearchResult {
 	readonly url: string;
@@ -99,10 +96,7 @@ export function registerWebSearch(pi: ExtensionAPI, deps: SearchDeps): void {
 			});
 			const results = parseResults(await response.json());
 			const summary = formatResults(results, false);
-			const truncation = truncateHead(summary, {
-				maxBytes: DEFAULT_MAX_BYTES,
-				maxLines: DEFAULT_MAX_LINES,
-			});
+			const truncation = truncateHead(summary);
 			let output = truncation.content;
 			let fullOutputPath: string | undefined;
 			const full = formatResults(results, true);
@@ -110,9 +104,9 @@ export function registerWebSearch(pi: ExtensionAPI, deps: SearchDeps): void {
 				fullOutputPath = join(deps.outputDir(), `pi-synthetic-search-${randomUUID()}.md`);
 				await atomicWriteFile(fullOutputPath, full, { mode: 0o600 });
 				const shown = truncation.truncated
-					? `Output truncated to ${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}. `
+					? `Output truncated to ${formatSize(byteLength(output))} of ${formatSize(byteLength(summary))}. `
 					: "";
-				output += `\n\n[${shown}Full page text (${formatSize(Buffer.byteLength(full))}) saved to: ${fullOutputPath}]`;
+				output += `\n\n[${shown}Full page text (${formatSize(byteLength(full))}) saved to: ${fullOutputPath}]`;
 			}
 			return {
 				content: [{ type: "text", text: output }],
@@ -125,6 +119,30 @@ export function registerWebSearch(pi: ExtensionAPI, deps: SearchDeps): void {
 			};
 		},
 	});
+}
+
+/** The leading whole lines of `value` within Pi's tool-output limits. */
+export function truncateHead(value: string): { content: string; truncated: boolean } {
+	const lines = value.split("\n");
+	let bytes = 0;
+	let kept = 0;
+	for (const line of lines) {
+		const next = bytes + byteLength(line) + (kept > 0 ? 1 : 0);
+		if (kept === MAX_LINES || next > MAX_BYTES) break;
+		bytes = next;
+		kept += 1;
+	}
+	return kept === lines.length
+		? { content: value, truncated: false }
+		: { content: lines.slice(0, kept).join("\n"), truncated: true };
+}
+
+function byteLength(value: string): number {
+	return Buffer.byteLength(value, "utf8");
+}
+
+function formatSize(bytes: number): string {
+	return bytes < 1024 ? `${bytes}B` : `${(bytes / 1024).toFixed(1)}KB`;
 }
 
 function text(value: unknown): string | undefined {

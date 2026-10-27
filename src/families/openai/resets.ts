@@ -9,11 +9,12 @@ import type {
 	ResetOutcome,
 	ResetOutcomeCode,
 } from "../../quotas/types.ts";
+import { CODEX_PROVIDER_ID } from "./identity.ts";
 import { openaiQuotaHeaders, timestamp } from "./quota.ts";
 
 const LIST_URL = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits";
 const CONSUME_URL = `${LIST_URL}/consume`;
-const CHECK_LIST = "Check /quotas reset openai before retrying.";
+const CHECK_LIST = `Check /quotas reset ${CODEX_PROVIDER_ID} before retrying.`;
 const POSSIBLY_SPENT = `the credit may already be spent. ${CHECK_LIST}`;
 const OUTCOME_CODES: readonly ResetOutcomeCode[] = [
 	"reset",
@@ -53,7 +54,7 @@ function parseCredit(raw: unknown): ResetCredit | undefined {
 export function parseOpenaiResetCredits(body: unknown, fetchedAt: number): ResetCreditList {
 	if (!isRecord(body) || !Array.isArray(body["credits"])) {
 		throw new Error(
-			`openai: GET ${LIST_URL} has no credits[] array; check the reset endpoint schema`,
+			`${CODEX_PROVIDER_ID}: GET ${LIST_URL} has no credits[] array; check the reset endpoint schema`,
 		);
 	}
 	const credits = body["credits"].map(parseCredit).filter((credit) => credit !== undefined);
@@ -62,7 +63,7 @@ export function parseOpenaiResetCredits(body: unknown, fetchedAt: number): Reset
 		typeof reported === "number" && Number.isInteger(reported) && reported >= 0
 			? reported
 			: credits.filter((credit) => credit.status === "available").length;
-	return { provider: "openai", fetchedAt, available, credits };
+	return { provider: CODEX_PROVIDER_ID, fetchedAt, available, credits };
 }
 
 /** Parses a consume verdict without treating an unknown response as success. */
@@ -71,12 +72,12 @@ export function parseOpenaiResetOutcome(body: unknown, creditId: string): ResetO
 	const outcome = OUTCOME_CODES.find((known) => known === code);
 	if (!isRecord(body) || !outcome) {
 		throw new Error(
-			`openai: POST ${CONSUME_URL} returned an unrecognized result; ${POSSIBLY_SPENT}`,
+			`${CODEX_PROVIDER_ID}: POST ${CONSUME_URL} returned an unrecognized result; ${POSSIBLY_SPENT}`,
 		);
 	}
 	const windows = body["windows_reset"];
 	return {
-		provider: "openai",
+		provider: CODEX_PROVIDER_ID,
 		creditId,
 		code: outcome,
 		windowsReset: typeof windows === "number" && windows >= 0 ? windows : 0,
@@ -87,7 +88,7 @@ async function credential(ctx: QuotaFetchContext) {
 	const auth = await ctx.auth();
 	if (!auth || auth.token.startsWith("sk-") || auth.extra["type"] === "api_key") {
 		throw new Error(
-			"openai: reset credits require a ChatGPT login; run /login openai with a ChatGPT login",
+			`${CODEX_PROVIDER_ID}: reset credits require a ChatGPT login; run /login openai with a ChatGPT login`,
 		);
 	}
 	return openaiQuotaHeaders(auth);
@@ -107,7 +108,7 @@ function httpFailure(
 			: CHECK_LIST;
 	const body = stripTerminalSequences(error.body).replaceAll(/\s+/g, " ").trim().slice(0, 200);
 	return new Error(
-		`openai: ${method} ${url} returned HTTP ${error.status}; ${hint}${body ? `: ${body}` : ""}`,
+		`${CODEX_PROVIDER_ID}: ${method} ${url} returned HTTP ${error.status}; ${hint}${body ? `: ${body}` : ""}`,
 	);
 }
 
@@ -117,7 +118,7 @@ export async function listOpenaiResetCredits(ctx: QuotaFetchContext): Promise<Re
 	let response: Response;
 	try {
 		response = await request(LIST_URL, {
-			provider: "openai",
+			provider: CODEX_PROVIDER_ID,
 			method: "GET",
 			headers,
 			secrets,
@@ -136,7 +137,7 @@ export async function listOpenaiResetCredits(ctx: QuotaFetchContext): Promise<Re
 		body = await response.json();
 	} catch {
 		throw new Error(
-			`openai: GET ${LIST_URL} returned invalid JSON (HTTP ${response.status}); ${CHECK_LIST}`,
+			`${CODEX_PROVIDER_ID}: GET ${LIST_URL} returned invalid JSON (HTTP ${response.status}); ${CHECK_LIST}`,
 		);
 	}
 	ctx.signal.throwIfAborted();
@@ -152,7 +153,7 @@ export async function consumeOpenaiResetCredit(
 	let response: Response;
 	try {
 		response = await request(CONSUME_URL, {
-			provider: "openai",
+			provider: CODEX_PROVIDER_ID,
 			method: "POST",
 			headers: { ...headers, "Content-Type": "application/json" },
 			body: JSON.stringify({ redeem_request_id: randomUUID(), credit_id: creditId }),
@@ -164,7 +165,9 @@ export async function consumeOpenaiResetCredit(
 		});
 	} catch (error) {
 		if (error instanceof ProviderHttpError) throw httpFailure(error, "POST", CONSUME_URL, true);
-		throw new Error(`openai: POST ${CONSUME_URL} did not complete; ${POSSIBLY_SPENT}`);
+		throw new Error(
+			`${CODEX_PROVIDER_ID}: POST ${CONSUME_URL} did not complete; ${POSSIBLY_SPENT}`,
+		);
 	}
 	const body: unknown = await response.json().catch(() => undefined);
 	return parseOpenaiResetOutcome(body, creditId);

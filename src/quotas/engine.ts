@@ -183,7 +183,8 @@ export class QuotaEngine {
 			Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]),
 		);
 		const providers = this.providers();
-		const hinted = providers.find((provider) => provider.id === hint);
+		const hintedId = hint ? this.options.registry.resolve(hint)?.provider.id : undefined;
+		const hinted = providers.find((provider) => provider.id === hintedId);
 		const ordered = hinted
 			? [hinted, ...providers.filter((provider) => provider !== hinted)]
 			: providers;

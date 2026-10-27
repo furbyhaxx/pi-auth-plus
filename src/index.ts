@@ -121,7 +121,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		if (!quotasEnabled || !settings.get("quotas.refreshOnRequest")) return;
 		quotaContext = ctx;
 		const id = ctx.model?.provider;
-		if (id && registry.byId(id)?.provider.quota) void quotas.refresh(id, { minAgeMs: 2000 });
+		const provider = id ? registry.resolve(id)?.provider : undefined;
+		if (provider?.quota) void quotas.refresh(provider.id, { minAgeMs: 2000 });
 	});
 	const host = { settings: () => settings };
 	await registerFamilyProviders(pi, registry, host);

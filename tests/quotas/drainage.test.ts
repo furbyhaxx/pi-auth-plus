@@ -94,7 +94,7 @@ test("header fallback, failures and out-of-order samples never create observatio
 	let instanceB = parseDrainageHistory(JSON.parse(JSON.stringify(instanceA)), NOW);
 	instanceA = recordDrainageHistory(
 		instanceA,
-		{ provider: "openai", fetchedAt: at + HOUR, source: "headers", windows: [] },
+		{ provider: "codex", fetchedAt: at + HOUR, source: "headers", windows: [] },
 		NOW,
 	);
 	expect(getDrainageMetrics(instanceA[0], NOW)?.window).toBeUndefined();
@@ -155,7 +155,7 @@ test("a window with undefined usedFraction records no sample", () => {
 	history = recordDrainageHistory(
 		history,
 		{
-			provider: "openai",
+			provider: "codex",
 			fetchedAt: at + HOUR,
 			source: "endpoint",
 			windows: [{ id: "5h", shortLabel: "5h", label: "Five hours", usedFraction: undefined }],
@@ -168,7 +168,7 @@ test("a window with undefined usedFraction records no sample", () => {
 
 function snapshot(at: number, used: number, resetAtMs?: number): ProviderQuotaSnapshot {
 	return {
-		provider: "openai",
+		provider: "codex",
 		fetchedAt: at,
 		source: "endpoint",
 		windows: [

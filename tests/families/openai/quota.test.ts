@@ -36,7 +36,7 @@ describe("OpenAI quota headers", () => {
 			NOW,
 		);
 		expect(snapshot).toMatchObject({
-			provider: "openai",
+			provider: "codex",
 			fetchedAt: NOW,
 			source: "headers",
 			tier: "pro",
@@ -129,16 +129,16 @@ describe("OpenAI quota", () => {
 		const family = createOpenaiFamily();
 		expect(family.register).toBeUndefined();
 		const registry = new Registry([family]);
-		for (const name of ["openai", "codex", "cox", "oai", "openai-codex"]) {
-			expect(registry.resolve(name)?.provider.id).toBe("openai");
+		for (const name of ["codex", "openai", "openai-codex", "chatgpt", "cx", "cox", "oai"]) {
+			expect(registry.resolve(name)?.provider.id).toBe("codex");
 		}
-		expect(openaiQuota).toMatchObject({ kind: "windows", shortLabel: "oai", parserVersion: 1 });
+		expect(openaiQuota).toMatchObject({ kind: "windows", shortLabel: "cox", parserVersion: 1 });
 	});
 
 	test("ports the upstream usage case and reset-credit 1, 0, unknown semantics", async () => {
 		const snapshot = await openaiQuota.fetch(context());
 		expect(snapshot).toMatchObject({
-			provider: "openai",
+			provider: "codex",
 			fetchedAt: NOW,
 			source: "endpoint",
 			tier: "pro",

@@ -60,13 +60,26 @@ test("resolves cc to Pi id claude and refreshes with the configured age", async 
 	]);
 });
 
+test.each(["codex", "openai", "openai-codex", "chatgpt", "cx", "cox", "oai"])(
+	"CLI JSON and table output canonicalize %s to codex",
+	async (provider) => {
+		for (const json of [true, false]) {
+			const { deps, output, calls } = setup();
+			expect(await runQuotaCli({ json, provider }, deps)).toBe(0);
+			if (json) expect(JSON.parse(output[0]?.[1] ?? "{}").providers[0].id).toBe("codex");
+			else expect(output[0]?.[1]).toContain("codex");
+			expect(calls[1]).toEqual(["codex", { minAgeMs: 60000 }]);
+		}
+	},
+);
+
 test("unknown provider prints known Pi ids without fetching", async () => {
 	const { deps, output, calls } = setup();
 	expect(await runQuotaCli({ json: true, provider: "nope" }, deps)).toBe(2);
 	expect(output).toEqual([
 		[
 			2,
-			'Unknown provider "nope". Known: synthetic, claude, antigravity, openai, xai, openrouter, deepseek\n',
+			'Unknown provider "nope". Known: synthetic, claude, antigravity, codex, xai, openrouter, deepseek\n',
 		],
 	]);
 	expect(calls).toEqual(["stop"]);

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { type FamilyAdapter, Registry, RegistryError } from "../../src/core/registry/index.ts";
+import { createOpenaiFamily } from "../../src/families/openai/index.ts";
 
 const anthropic: FamilyAdapter = {
 	id: "anthropic",
@@ -23,6 +24,14 @@ function thrownKey(families: FamilyAdapter[]): string | undefined {
 }
 
 describe("core/registry", () => {
+	test("Codex quota aliases resolve to codex while the vendor family remains openai", () => {
+		const registry = new Registry([createOpenaiFamily()]);
+		expect(registry.byId("codex")?.family.id).toBe("openai");
+		expect(registry.byId("openai")).toBeUndefined();
+		for (const alias of ["openai", "openai-codex", "chatgpt", "cx", "cox", "oai"]) {
+			expect(registry.resolve(alias)?.provider.id).toBe("codex");
+		}
+	});
 	test("resolves ids and aliases case-insensitively; byId takes exact ids only", () => {
 		const registry = new Registry([anthropic, google]);
 		expect(registry.resolve(" CC ")?.provider.id).toBe("claude");

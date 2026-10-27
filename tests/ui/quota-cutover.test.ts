@@ -1,14 +1,16 @@
 import { expect, spyOn, test } from "bun:test";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { createEventBus, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { channelName } from "../../src/core/bus/index.ts";
 import piAuthPlus from "../../src/index.ts";
 import { QuotaEngine } from "../../src/quotas/engine.ts";
 
-test("pi-quotas in settings keeps the engine off and warns once with a removal hint", async () => {
-	const starts: Array<() => unknown> = [];
-	const shutdowns: Array<() => unknown> = [];
+function rig(packages: string[]) {
+	const handlers = new Map<string, Array<(payload?: Record<string, unknown>) => unknown>>();
+	const bus = createEventBus();
 	const notices: [string, string | undefined][] = [];
 	const ctx = {
 		cwd: process.env["HOME"],
+		model: { provider: "openai-codex" },
 		mode: "rpc",
 		hasUI: true,
 		isProjectTrusted: () => false,
@@ -20,8 +22,9 @@ test("pi-quotas in settings keeps the engine off and warns once with a removal h
 	const pi: ExtensionAPI = {
 		on: (event: string, handler: unknown) => {
 			if (typeof handler !== "function") return unexpected();
-			if (event === "session_start") starts.push(() => handler({ type: event }, ctx));
-			if (event === "session_shutdown") shutdowns.push(() => handler({ type: event }, ctx));
+			const list = handlers.get(event) ?? [];
+			list.push((payload) => handler({ type: event, ...payload }, ctx));
+			handlers.set(event, list);
 			return () => {};
 		},
 		registerFlag: () => {},
@@ -29,9 +32,9 @@ test("pi-quotas in settings keeps the engine off and warns once with a removal h
 		registerCommand: () => {},
 		registerEntryRenderer: () => {},
 		registerProvider: () => {},
-		getSettings: () => ({ packages: ["npm:pi-quotas"] }),
+		getSettings: () => ({ packages }),
 		getCommands: () => [],
-		events: { on: () => () => {}, emit: unexpected },
+		events: bus,
 		registerTool: unexpected,
 		registerShortcut: unexpected,
 		registerMessageRenderer: unexpected,
@@ -57,12 +60,22 @@ test("pi-quotas in settings keeps the engine off and warns once with a removal h
 		registerVirtualModel: unexpected,
 		unregisterVirtualModel: unexpected,
 	};
+	return {
+		pi,
+		bus,
+		notices,
+		run: async (event: string, payload?: Record<string, unknown>) => {
+			for (const handler of handlers.get(event) ?? []) await handler(payload);
+		},
+	};
+}
+
+test("pi-quotas in settings keeps the engine off and warns once with a removal hint", async () => {
+	const { pi, notices, run } = rig(["npm:pi-quotas"]);
 	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
 	try {
 		await piAuthPlus(pi);
-		for (let session = 0; session < 2; session++) {
-			for (const handler of starts) await handler();
-		}
+		for (let session = 0; session < 2; session++) await run("session_start");
 		expect(start).not.toHaveBeenCalled();
 		expect(notices.filter(([message]) => message.includes("pi-quotas"))).toEqual([
 			[
@@ -71,7 +84,40 @@ test("pi-quotas in settings keeps the engine off and warns once with a removal h
 			],
 		]);
 	} finally {
-		for (const handler of shutdowns) await handler();
+		await run("session_shutdown");
 		start.mockRestore();
+	}
+});
+
+test("Codex turns ingest headers and publish codex, then refresh the canonical id", async () => {
+	const { pi, bus, run } = rig([]);
+	const snapshots: unknown[] = [];
+	const off = bus.on(channelName("quotas", "snapshot"), (raw) => snapshots.push(raw));
+	const refresh = spyOn(QuotaEngine.prototype, "refresh").mockResolvedValue(undefined);
+	const ingest = spyOn(QuotaEngine.prototype, "ingestHeaders");
+	try {
+		await piAuthPlus(pi);
+		await run("session_start");
+		refresh.mockClear();
+		await run("after_provider_response", {
+			headers: { "x-codex-primary-used-percent": "25", "x-codex-primary-window-minutes": "300" },
+		});
+		expect(ingest).toHaveBeenCalledWith(
+			{ "x-codex-primary-used-percent": "25", "x-codex-primary-window-minutes": "300" },
+			"openai-codex",
+		);
+		expect(await ingest.mock.results[0]?.value).toBe("codex");
+		expect(snapshots).toContainEqual({
+			v: 1,
+			provider: expect.objectContaining({ id: "codex", title: "OpenAI Codex", short: "cox" }),
+		});
+		await run("agent_end");
+		expect(refresh).toHaveBeenCalledTimes(1);
+		expect(refresh).toHaveBeenCalledWith("codex", { minAgeMs: 2000 });
+	} finally {
+		await run("session_shutdown");
+		off();
+		ingest.mockRestore();
+		refresh.mockRestore();
 	}
 });

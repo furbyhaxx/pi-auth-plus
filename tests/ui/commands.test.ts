@@ -109,7 +109,7 @@ describe("ui/commands", () => {
 			{
 				id: "openai",
 				label: "OpenAI",
-				providers: [{ id: "openai", label: "OpenAI", aliases: [] }],
+				providers: [{ id: "codex", label: "OpenAI Codex", aliases: ["openai"] }],
 			},
 		]);
 		const rpc = rig("rpc", { registry });
@@ -118,14 +118,14 @@ describe("ui/commands", () => {
 		expect(singular).toBeDefined();
 		expect(singular?.handler).toBe(plural?.handler);
 		expect(singular?.getArgumentCompletions).toBe(plural?.getArgumentCompletions);
-		expect((await singular?.getArgumentCompletions?.("op"))?.map((item) => item.value)).toEqual([
-			"openai",
+		expect((await singular?.getArgumentCompletions?.("co"))?.map((item) => item.value)).toEqual([
+			"codex",
 		]);
 		expect((await singular?.getArgumentCompletions?.("re"))?.map((item) => item.value)).toEqual([
 			"reset",
 		]);
-		await rpc.run("quota", "openai");
-		await rpc.run("quotas", "openai");
+		await rpc.run("quota", "codex");
+		await rpc.run("quotas", "codex");
 		expect(rpc.notices[0]).toEqual(rpc.notices[1]);
 		expect(rpc.notices[0]?.[0]).toStartWith("Auth › Quotas");
 	});

@@ -86,13 +86,13 @@ describe("plain quota summary", () => {
 				config,
 			),
 		).toBe("Claude: 0.00€ (prepaid)");
-		expect(formatPlainTextSummary([view(snapshot)], config, "openai")).toBe("");
+		expect(formatPlainTextSummary([view(snapshot)], config, "codex")).toBe("");
 		expect(formatPlainTextSummary([view(snapshot)], config, "claude")).toBe("Claude: no windows");
 		expect(
 			formatPlainTextSummary(
 				[
 					view(undefined),
-					{ ...view(snapshot), provider: { id: "openai", label: "OpenAI", aliases: [] } },
+					{ ...view(snapshot), provider: { id: "codex", label: "OpenAI", aliases: [] } },
 				],
 				config,
 			),

@@ -8,6 +8,7 @@ import type {
 	QuotaSource,
 	QuotaWindow,
 } from "../../quotas/types.ts";
+import { CODEX_PROVIDER_ID } from "./identity.ts";
 import { consumeOpenaiResetCredit, listOpenaiResetCredits } from "./resets.ts";
 
 const USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
@@ -116,7 +117,7 @@ function parseOpenaiHeaders(
 	}
 	return windows.length > 0
 		? {
-				provider: "openai",
+				provider: CODEX_PROVIDER_ID,
 				fetchedAt: now,
 				source: "headers",
 				tier: text(headers["x-codex-plan-type"]),
@@ -147,11 +148,11 @@ export function parseOpenaiQuota(payload: unknown, now: number): ProviderQuotaSn
 	const resetCredits = count !== undefined && count >= 0 ? Math.trunc(count) : undefined;
 	if (!windows.some((window) => window.usedFraction !== undefined) && resetCredits === undefined) {
 		throw new Error(
-			`openai: GET ${USAGE_URL} missing usable used_percent and rate_limit_reset_credits.available_count; retry or check the usage endpoint schema`,
+			`${CODEX_PROVIDER_ID}: GET ${USAGE_URL} missing usable used_percent and rate_limit_reset_credits.available_count; retry or check the usage endpoint schema`,
 		);
 	}
 	return {
-		provider: "openai",
+		provider: CODEX_PROVIDER_ID,
 		fetchedAt: now,
 		source: "endpoint",
 		tier: text(body["plan_type"]),
@@ -162,12 +163,12 @@ export function parseOpenaiQuota(payload: unknown, now: number): ProviderQuotaSn
 
 function needsLogin(now: number, reason: string): ProviderQuotaSnapshot {
 	return {
-		provider: "openai",
+		provider: CODEX_PROVIDER_ID,
 		fetchedAt: now,
 		source: "endpoint",
 		windows: [],
 		needsAuth: true,
-		error: `openai: ${reason}; run /login openai with a ChatGPT login`,
+		error: `${CODEX_PROVIDER_ID}: ${reason}; run /login openai with a ChatGPT login`,
 	};
 }
 
@@ -198,7 +199,7 @@ async function fetchQuota(ctx: QuotaFetchContext): Promise<ProviderQuotaSnapshot
 	let response: Response;
 	try {
 		response = await request(USAGE_URL, {
-			provider: "openai",
+			provider: CODEX_PROVIDER_ID,
 			method: "GET",
 			headers,
 			fetch: ctx.fetch,
@@ -219,7 +220,7 @@ async function fetchQuota(ctx: QuotaFetchContext): Promise<ProviderQuotaSnapshot
 		body = await response.json();
 	} catch {
 		throw new Error(
-			`openai: GET ${USAGE_URL} returned invalid JSON (HTTP ${response.status}); retry or check the usage endpoint schema`,
+			`${CODEX_PROVIDER_ID}: GET ${USAGE_URL} returned invalid JSON (HTTP ${response.status}); retry or check the usage endpoint schema`,
 		);
 	}
 	ctx.signal.throwIfAborted();
@@ -229,7 +230,7 @@ async function fetchQuota(ctx: QuotaFetchContext): Promise<ProviderQuotaSnapshot
 /** ChatGPT usage source with on-demand reset-credit listing and consumption. */
 export const openaiQuota: QuotaSource = {
 	kind: "windows",
-	shortLabel: "oai",
+	shortLabel: "cox",
 	parserVersion: 1,
 	fetch: fetchQuota,
 	headers: parseOpenaiHeaders,

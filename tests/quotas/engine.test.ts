@@ -261,7 +261,7 @@ describe("quota engine", () => {
 		expect(order).toEqual(["other", "fake"]);
 	});
 
-	test("a throwing hint falls through and aliases are not provider hints", async () => {
+	test("a throwing hint falls through for both canonical ids and aliases", async () => {
 		const order: string[] = [];
 		const { engine } = setup(() => {
 			order.push("fake");
@@ -287,7 +287,7 @@ describe("quota engine", () => {
 		expect(order).toEqual(["other", "fake"]);
 		order.length = 0;
 		expect(await engine.ingestHeaders({}, "other-alias")).toBe("fake");
-		expect(order).toEqual(["fake"]);
+		expect(order).toEqual(["other", "fake"]);
 	});
 
 	test("unclaimed, malformed and stopped ingests do not write", async () => {

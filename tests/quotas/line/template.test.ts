@@ -18,9 +18,9 @@ const DEFAULT_QUOTAS_CONFIG: LineConfig = {
 };
 const providers: readonly ProviderEntry[] = [
 	{
-		id: "openai",
-		label: "OpenAI",
-		aliases: ["codex", "cox", "oai", "openai-codex"],
+		id: "codex",
+		label: "OpenAI Codex",
+		aliases: ["openai", "openai-codex", "chatgpt", "cx", "cox", "oai"],
 		quota: { kind: "windows", shortLabel: "cox", parserVersion: 1, fetch: async () => snapshot() },
 	},
 	{
@@ -122,7 +122,7 @@ function win(period: string, scope?: string, usedFraction = 0.25): QuotaWindow {
 	};
 }
 function snapshot(windows: QuotaWindow[] = []): ProviderQuotaSnapshot {
-	return { provider: "openai", fetchedAt: 0, source: "endpoint", windows };
+	return { provider: "codex", fetchedAt: 0, source: "endpoint", windows };
 }
 function views(value: ProviderQuotaSnapshot | undefined): QuotaView[] {
 	return providers.map((provider) => ({
@@ -153,7 +153,7 @@ describe("quota templates", () => {
 		expect(render("{cl:pct}/{claude:pct}/{cc:pct}", value)).toEqual(["25%/25%/25%"]);
 		expect([...compileLineTemplate("{cl}{claude}{cc}{codex}").explicit]).toEqual([
 			"claude",
-			"openai",
+			"codex",
 		]);
 		expect(compile("{codex:pct}", () => undefined).unknown).toEqual(["{codex:pct}"]);
 		expect(compileLineTemplate("{google:pct}").unknown).toEqual(["{google:pct}"]);
@@ -167,6 +167,11 @@ describe("quota templates", () => {
 				false,
 			),
 		).toEqual([]);
+	});
+	test("canonical and legacy Codex tokens render the same usage", () => {
+		expect(render("{codex:pct}/{openai:pct}/{cx:pct}", snapshot([win("5h")]))).toEqual([
+			"25%/25%/25%",
+		]);
 	});
 	test("unknown usage and balance never become zero or an empty bar", () => {
 		const value = snapshot([{ id: "5h", label: "Five hours", shortLabel: "5h", period: "5h" }]);
@@ -259,7 +264,7 @@ describe("quota templates", () => {
 	});
 	test("all and short forms preserve every important window and authentication state", () => {
 		const snapshots = views(snapshot([win("5h"), win("7d", undefined, 0.5)]))
-			.filter((view) => view.provider.id === "openai" || view.provider.id === "claude")
+			.filter((view) => view.provider.id === "codex" || view.provider.id === "claude")
 			.map((view) =>
 				view.provider.id === "claude"
 					? { ...view, snapshot: { ...snapshot(), provider: "claude", needsAuth: true } }
@@ -268,7 +273,7 @@ describe("quota templates", () => {
 		const config = DEFAULT_QUOTAS_CONFIG;
 		expect(
 			renderLineTemplate(theme, compileLineTemplate("{all}"), snapshots, config, 0, false),
-		).toEqual(["OpenAI: 5h 25% 7d 50%", "Claude: login"]);
+		).toEqual(["OpenAI Codex: 5h 25% 7d 50%", "Claude: login"]);
 		expect(
 			renderLineTemplate(theme, compileLineTemplate("{all:short}"), snapshots, config, 0, false),
 		).toEqual(["cox: 25%/50%", "cl: login"]);

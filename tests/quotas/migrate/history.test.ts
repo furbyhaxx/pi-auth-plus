@@ -17,7 +17,7 @@ const registry = new Registry([
 		id: "test",
 		label: "Test",
 		providers: [
-			{ id: "openai", aliases: ["codex"] },
+			{ id: "codex", aliases: ["openai", "openai-codex"] },
 			{ id: "xai", aliases: ["grok"] },
 		].map((provider) => ({
 			...provider,
@@ -70,11 +70,11 @@ test("merges aliases under the lock, preserves state and is byte-identical on re
 	const first = engine();
 	const concurrent = engine();
 	await first.cache.sync();
-	await concurrent.cache.put("openai", {
-		snapshot: { provider: "openai", fetchedAt: clock, source: "endpoint", windows: [] },
+	await concurrent.cache.put("codex", {
+		snapshot: { provider: "codex", fetchedAt: clock, source: "endpoint", windows: [] },
 		drainage: [{ kind: "window", id: "primary", samples: [{ at: clock - 1000, value: 0.4 }] }],
 	});
-	const before = concurrent.cache.get("openai");
+	const before = concurrent.cache.get("codex");
 	const sourcePath = join(dir, "legacy.json");
 	await writeFile(
 		sourcePath,
@@ -102,9 +102,9 @@ test("merges aliases under the lock, preserves state and is byte-identical on re
 	expect(report).toEqual({
 		finished: true,
 		unknownProviders: ["unknown"],
-		changedProviders: ["openai", "xai"],
+		changedProviders: ["codex", "xai"],
 	});
-	const entry = first.cache.get("openai");
+	const entry = first.cache.get("codex");
 	expect(entry?.value.drainage[0]?.samples.map((s) => s.value)).toEqual([0.2, 0.4]);
 	expect(entry?.value.snapshot).toEqual(before?.value.snapshot);
 	expect(entry?.fetchedAt).toBe(before?.fetchedAt);
@@ -128,7 +128,7 @@ test("merges aliases under the lock, preserves state and is byte-identical on re
 
 test("concurrent migrations do not resurrect history discarded by a reversal", async () => {
 	const first = engine();
-	await first.cache.put("openai", {
+	await first.cache.put("codex", {
 		drainage: [{ kind: "window", id: "primary", samples: [{ at: clock - 2000, value: 0.5 }] }],
 	});
 	const sourcePath = join(dir, "legacy.json");
@@ -149,9 +149,9 @@ test("concurrent migrations do not resurrect history discarded by a reversal", a
 		migratePiQuotasHistory({ ...options, cache: first.cache }),
 		migratePiQuotasHistory({ ...options, cache: engine().cache }),
 	]);
-	expect(reports.flatMap((report) => report.changedProviders)).toEqual(["openai"]);
+	expect(reports.flatMap((report) => report.changedProviders)).toEqual(["codex"]);
 	await first.cache.sync(true);
-	expect(first.cache.get("openai")?.value.drainage[0]?.samples).toEqual([
+	expect(first.cache.get("codex")?.value.drainage[0]?.samples).toEqual([
 		{ at: clock - 1000, value: 0.4, resetAtMs: undefined },
 	]);
 	const bytes = await readFile(join(dir, "quotas.json"));
@@ -189,7 +189,7 @@ test("runOnce finishes missing sources, retries malformed sources, and records s
 		sourcePath,
 		JSON.stringify({ version: 1, history: [history("codex", clock, 0.2)] }),
 	);
-	expect(await migrate()).toMatchObject({ finished: true, changedProviders: ["openai"] });
+	expect(await migrate()).toMatchObject({ finished: true, changedProviders: ["codex"] });
 	const bytes = await readFile(join(dir, "quotas.json"));
 	clock += 100;
 	expect(await migrate()).toMatchObject({ finished: true, changedProviders: [] });

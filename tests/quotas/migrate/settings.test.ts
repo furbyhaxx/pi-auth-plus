@@ -13,7 +13,7 @@ const registry = new Registry([
 		id: "test",
 		label: "Test",
 		providers: [
-			{ id: "openai", label: "OpenAI", aliases: ["codex"] },
+			{ id: "codex", label: "OpenAI", aliases: ["openai", "openai-codex"] },
 			{ id: "xai", label: "xAI", aliases: ["grok"] },
 		],
 	},
@@ -70,7 +70,7 @@ describe("pi-quotas settings carry-over", () => {
 			quotas: {
 				linePlacement: "off",
 				percentDisplay: "remaining",
-				providers: ["openai", "xai"],
+				providers: ["codex", "xai"],
 				lineTemplate: template,
 			},
 			extra: 1,
@@ -146,7 +146,7 @@ describe("pi-quotas settings carry-over", () => {
 		expect(report.problems).toEqual([]);
 		expect(report.migrated.every((entry) => entry.scope === "project")).toBe(true);
 		expect(settings.get("quotas.linePlacement")).toBe("off");
-		expect(settings.get("quotas.providers")).toEqual(["xai", "openai"]);
+		expect(settings.get("quotas.providers")).toEqual(["xai", "codex"]);
 		expect(settings.get("quotas.refreshIntervalSec")).toBe(120);
 		expect(settings.get("quotas.compactWidthCols")).toBe(80);
 		expect(settings.get("quotas.alwaysShortIds")).toBe(true);

@@ -9,9 +9,9 @@ test("shows on-demand reset credits and leaves missing reset cells blank", () =>
 		generatedAt: 0,
 		providers: [
 			{
-				id: "openai",
-				title: "OpenAI",
-				short: "oai",
+				id: "codex",
+				title: "OpenAI Codex",
+				short: "cox",
 				state: "ok",
 				windows: [],
 				resets: { available: 1 },
@@ -29,7 +29,7 @@ test("shows on-demand reset credits and leaves missing reset cells blank", () =>
 	};
 
 	expect(header).toContain("On-Demand Resets");
-	expect(resetCell("openai")).toBe("1");
+	expect(resetCell("codex")).toBe("1");
 	expect(resetCell("claude")).toBe("");
 });
 
@@ -105,7 +105,7 @@ test("diagnostics sanitize provider errors and distinguish unknown from stale", 
 			providers: [
 				{ id: "claude", title: "", short: "", state: "unknown", windows: [] },
 				{
-					id: "openai",
+					id: "codex",
 					title: "",
 					short: "",
 					state: "stale",
@@ -116,7 +116,7 @@ test("diagnostics sanitize provider errors and distinguish unknown from stale", 
 			],
 		}),
 	).toBe(
-		"claude: not fetched yet\nopenai: stale: bad response; data from 2026-01-01 13:00:00 +01:00\n",
+		"claude: not fetched yet\ncodex: stale: bad response; data from 2026-01-01 13:00:00 +01:00\n",
 	);
 });
 

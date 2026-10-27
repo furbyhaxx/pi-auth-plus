@@ -28,7 +28,7 @@ describe("OpenAI reset credits", () => {
 
 	test("parses the captured list without inventing optional fields", () => {
 		const list = parseOpenaiResetCredits(liveList, NOW);
-		expect(list).toMatchObject({ provider: "openai", fetchedAt: NOW, available: 1 });
+		expect(list).toMatchObject({ provider: "codex", fetchedAt: NOW, available: 1 });
 		expect(list.credits).toEqual([
 			{
 				id: "RateLimitResetCredit_964ef9f41ca081918e9be9293ca7e29b",
@@ -197,7 +197,7 @@ describe("OpenAI reset credits", () => {
 				return Response.json({ code, windows_reset: 2 });
 			});
 			expect(await consumeOpenaiResetCredit(ctx, "credit-a")).toEqual({
-				provider: "openai",
+				provider: "codex",
 				creditId: "credit-a",
 				code,
 				windowsReset: 2,
@@ -218,7 +218,7 @@ describe("OpenAI reset credits", () => {
 	test("missing or invalid windows_reset defaults to zero", () => {
 		for (const windows_reset of [undefined, -1, "2"]) {
 			expect(parseOpenaiResetOutcome({ code: "no_credit", windows_reset }, "c")).toEqual({
-				provider: "openai",
+				provider: "codex",
 				creditId: "c",
 				code: "no_credit",
 				windowsReset: 0,
@@ -242,7 +242,7 @@ describe("OpenAI reset credits", () => {
 			expect(error).toBeInstanceOf(Error);
 			if (!(error instanceof Error)) throw new Error("Expected consume to fail");
 			expect(error.message).toContain("credit may already be spent");
-			expect(error.message).toContain("Check /quotas reset openai before retrying");
+			expect(error.message).toContain("Check /quotas reset codex before retrying");
 			expect(error.message).not.toContain("test-token");
 			expect(error.message).not.toContain("account-test-1");
 			expect(calls).toBe(1);

@@ -54,7 +54,7 @@ const SNAPSHOTS: Record<
 > = {
 	openrouter: { windows: [], credits: { remaining: 120.08, currency: "$" } },
 	deepseek: { windows: [], credits: { remaining: 13.2, currency: "$" } },
-	openai: { windows: [window("7d", 0.27)], resetCredits: 1 },
+	codex: { windows: [window("7d", 0.27)], resetCredits: 1 },
 	claude: { windows: [window("5h", 0.2), window("7d", 0.24)] },
 	antigravity: {
 		windows: [window("7d", 0, "gemini"), window("7d", 1, "gemini-4-argon")],
@@ -89,7 +89,7 @@ describe("quota line rows", () => {
 		expect(compileLineTemplate(config.lineTemplate, resolve).unknown).toEqual([]);
 		const rows = createQuotaLineRenderer(resolve)(300, theme, views(), config, 0);
 		expect(rows).toEqual([
-			"openrouter: 120.08$ · deepseek: 13.20$ · openai: 27% (1r) · claude: 5h/20% 7d/24% · antigravity: gem/0% arg/100% · synthetic: 84% · xai: 0%",
+			"openrouter: 120.08$ · deepseek: 13.20$ · codex: 27% (1r) · claude: 5h/20% 7d/24% · antigravity: gem/0% arg/100% · synthetic: 84% · xai: 0%",
 		]);
 	});
 

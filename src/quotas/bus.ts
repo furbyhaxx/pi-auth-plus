@@ -2,10 +2,13 @@
 import type { EventBus } from "@earendil-works/pi-coding-agent";
 import { publish, serve } from "../core/bus/index.ts";
 import type { AppSettings } from "../core/config/catalog.ts";
+import { redactText } from "../core/redact/index.ts";
 import type { Registry } from "../core/registry/index.ts";
 import type { QuotaEngine } from "./engine.ts";
 import { engineReport, type QuotaReport, type ReportProvider } from "./report.ts";
+import { pickResetCredit, type ResetRequester } from "./resets.ts";
 import { enabledQuotaProviders } from "./settings.ts";
+import type { ResetCredit, ResetCreditList, ResetOutcome } from "./types.ts";
 
 /** Read cached quotas, optionally refreshing entries older than the requested age. */
 export interface QuotaQueryRequest {
@@ -23,7 +26,14 @@ export interface QuotaRefreshRequest {
 export interface QuotaReadyPayload {
 	readonly v: 1;
 	readonly providers: readonly { readonly id: string; readonly aliases: readonly string[] }[];
-	readonly capabilities: readonly ("query" | "refresh" | "snapshot" | "event")[];
+	readonly capabilities: readonly (
+		| "query"
+		| "refresh"
+		| "resets"
+		| "reset"
+		| "snapshot"
+		| "event"
+	)[];
 }
 
 /** One changed provider's current report row. */
@@ -32,10 +42,18 @@ export interface QuotaSnapshotPayload {
 	readonly provider: ReportProvider;
 }
 
-/** Emitted only when a provider enters an actionable failure state. */
+/** Actionable failures and confirmed reset spends for session observers. */
 export type QuotaEventPayload =
 	| { v: 1; kind: "auth-required"; provider: string; message?: string | undefined }
-	| { v: 1; kind: "rate-limited"; provider: string; status: number };
+	| { v: 1; kind: "rate-limited"; provider: string; status: number }
+	| {
+			v: 1;
+			kind: "reset-consumed";
+			provider: string;
+			code: "reset";
+			windowsReset: number;
+			requester: ResetRequester;
+	  };
 
 /** Nonce correlation is supplied by the core/bus envelope. */
 export type QuotaReply =
@@ -73,6 +91,53 @@ export function parseQuotaRefresh(raw: unknown): QuotaRefreshRequest | undefined
 	return { providers: ids, force };
 }
 
+/** Read-only credit listing request using a Pi provider id or alias. */
+export interface QuotaResetsRequest {
+	readonly provider: string;
+}
+
+/** Spending requires both this explicit gate and an in-session interactive approval. */
+export interface QuotaResetRequest extends QuotaResetsRequest {
+	readonly creditId?: string | undefined;
+	readonly confirm: boolean;
+}
+
+/** Optional session-owned confirmation UI; absence always refuses a spend. */
+export interface QuotaBusOptions {
+	readonly confirmReset?: (
+		providerId: string,
+		credit: ResetCredit,
+		requester: "bus",
+	) => Promise<boolean>;
+}
+
+/** Nonce correlation is supplied by core/bus. */
+export type QuotaResetReply =
+	| { v: 1; ok: true; resets: ResetCreditList }
+	| { v: 1; ok: true; outcome: ResetOutcome }
+	| { v: 1; ok: false; error: string };
+
+/** Drops malformed credit-list requests at the bus boundary. */
+export function parseQuotaResets(raw: unknown): QuotaResetsRequest | undefined {
+	if (!record(raw) || typeof raw["provider"] !== "string" || !raw["provider"].trim())
+		return undefined;
+	return { provider: raw["provider"] };
+}
+
+/** Missing confirmation remains a valid request so it receives an explicit refusal. */
+export function parseQuotaReset(raw: unknown): QuotaResetRequest | undefined {
+	const request = parseQuotaResets(raw);
+	if (!request || !record(raw)) return undefined;
+	const creditId = raw["creditId"];
+	const confirm = raw["confirm"];
+	if (
+		(creditId !== undefined && typeof creditId !== "string") ||
+		(confirm !== undefined && typeof confirm !== "boolean")
+	)
+		return undefined;
+	return { ...request, creditId, confirm: confirm === true };
+}
+
 /** Registers the v1 quota service; disposal also suppresses replies already in flight. */
 export function registerQuotaBus(
 	events: EventBus,
@@ -80,6 +145,7 @@ export function registerQuotaBus(
 	registry: Registry,
 	settings: () => AppSettings,
 	now: () => number,
+	options: QuotaBusOptions = {},
 ): () => void {
 	let active = true;
 	const bus: EventBus = {
@@ -137,11 +203,62 @@ export function registerQuotaBus(
 			};
 		}
 	};
+	const resetRequest = async (
+		request: QuotaResetsRequest | QuotaResetRequest,
+	): Promise<QuotaResetReply> => {
+		try {
+			if ("confirm" in request && !request.confirm)
+				return { v: 1, ok: false, error: "A reset request needs confirm: true." };
+			const id = registry.resolve(request.provider)?.provider.id ?? request.provider;
+			const resets = await engine.listResets(id);
+			if (!("confirm" in request)) return { v: 1, ok: true, resets };
+			const credit = pickResetCredit(resets, request.creditId);
+			if (!credit)
+				return {
+					v: 1,
+					ok: false,
+					error:
+						request.creditId === undefined
+							? "No reset credit available."
+							: `Reset credit ${request.creditId} is not available.`,
+				};
+			if (
+				!active ||
+				!options.confirmReset ||
+				!(await options.confirmReset(id, credit, "bus")) ||
+				!active
+			)
+				return {
+					v: 1,
+					ok: false,
+					error: "The user did not approve the reset, or no interactive UI is available.",
+				};
+			return { v: 1, ok: true, outcome: await engine.consumeReset(id, credit.id, "bus") };
+		} catch (error) {
+			return {
+				v: 1,
+				ok: false,
+				error: redactText(error instanceof Error ? error.message : String(error)),
+			};
+		}
+	};
 	let previous = new Map(engine.view().map((view) => [view.provider.id, JSON.stringify(view)]));
 	let states = new Map(report().providers.map((provider) => [provider.id, provider.state]));
 	const off = [
 		serve(bus, "quotas", "query", parseQuotaQuery, (request) => respond(request, false)),
 		serve(bus, "quotas", "refresh", parseQuotaRefresh, (request) => respond(request, true)),
+		serve(bus, "quotas", "resets", parseQuotaResets, resetRequest),
+		serve(bus, "quotas", "reset", parseQuotaReset, resetRequest),
+		engine.onResetConsumed((outcome, requester) => {
+			publish(bus, "quotas", "event", {
+				v: 1,
+				kind: "reset-consumed",
+				provider: outcome.provider,
+				code: "reset",
+				windowsReset: outcome.windowsReset,
+				requester,
+			} satisfies QuotaEventPayload);
+		}),
 		engine.onChange(() => {
 			const views = engine.view();
 			const next = new Map(views.map((view) => [view.provider.id, JSON.stringify(view)]));
@@ -177,7 +294,7 @@ export function registerQuotaBus(
 			id: provider.id,
 			aliases: provider.aliases,
 		})),
-		capabilities: ["query", "refresh", "snapshot", "event"],
+		capabilities: ["query", "refresh", "resets", "reset", "snapshot", "event"],
 	} satisfies QuotaReadyPayload);
 	return () => {
 		active = false;

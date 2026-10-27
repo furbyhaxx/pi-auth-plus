@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, statSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,7 +14,9 @@ import { parseQuotaState } from "../../src/quotas/state.ts";
 import type {
 	ProviderQuotaSnapshot,
 	QuotaFetchContext,
+	QuotaResets,
 	QuotaSource,
+	ResetOutcome,
 } from "../../src/quotas/types.ts";
 
 let dir: string;
@@ -34,7 +36,11 @@ function snapshot(): ProviderQuotaSnapshot {
 	};
 }
 
-function setup(headers?: QuotaSource["headers"], others: ProviderEntry[] = []) {
+function setup(
+	headers?: QuotaSource["headers"],
+	others: ProviderEntry[] = [],
+	resets?: QuotaResets,
+) {
 	const settings = new SettingsStore(SETTINGS, { user: join(dir, "settings.json") });
 	const registry = new Registry([
 		{
@@ -50,6 +56,7 @@ function setup(headers?: QuotaSource["headers"], others: ProviderEntry[] = []) {
 						shortLabel: "f",
 						parserVersion: 1,
 						minPollMs,
+						...(resets ? { resets } : {}),
 						...(headers ? { headers } : {}),
 						fetch: async (ctx) => {
 							calls++;
@@ -91,6 +98,100 @@ afterEach(() => {
 });
 
 describe("quota engine", () => {
+	for (const code of [
+		"reset",
+		"nothing_to_reset",
+		"no_credit",
+		"already_redeemed",
+		"throw",
+	] as const) {
+		test(`reset ${code} consumes once and force-refreshes after an in-flight refresh`, async () => {
+			let consumed = 0;
+			const seen: ResetOutcome[] = [];
+			const outcome: ResetOutcome = {
+				provider: "fake",
+				code: code === "throw" ? "reset" : code,
+				creditId: "one",
+				windowsReset: 1,
+			};
+			const { engine } = setup(undefined, [], {
+				list: async (ctx) => {
+					expect(await ctx.auth()).toEqual({ token: "test-token", extra: { account: "test" } });
+					return { provider: "fake", fetchedAt: ctx.now(), available: 1, credits: [] };
+				},
+				consume: async (ctx, creditId) => {
+					consumed++;
+					expect(ctx.signal.aborted).toBe(false);
+					expect(creditId).toBe("one");
+					if (code === "throw") throw new Error("Consume uncertain");
+					return outcome;
+				},
+			});
+			expect(engine.resetSupport("fake")).toBe(true);
+			expect(await engine.listResets("fake")).toMatchObject({ available: 1 });
+			const off = engine.onResetConsumed((result, requester) => {
+				expect(requester).toBe("panel");
+				seen.push(result);
+			});
+			const started = Promise.withResolvers<void>();
+			const finish = Promise.withResolvers<ProviderQuotaSnapshot>();
+			fetchQuota = async () => {
+				started.resolve();
+				return finish.promise;
+			};
+			const refreshing = engine.refresh("fake");
+			await started.promise;
+			const pending = engine.consumeReset("fake", "one", "panel");
+			fetchQuota = async () => snapshot();
+			finish.resolve(snapshot());
+			await refreshing;
+			if (code === "throw") await expect(pending).rejects.toThrow("Consume uncertain");
+			else expect(await pending).toEqual(outcome);
+			expect(consumed).toBe(1);
+			expect(calls).toBe(2);
+			expect(seen).toEqual(code === "reset" ? [outcome] : []);
+			off();
+		});
+	}
+
+	test("refresh storage failures cannot hide the consume verdict or original error", async () => {
+		let failConsume = false;
+		const outcome: ResetOutcome = {
+			provider: "fake",
+			code: "reset",
+			creditId: "one",
+			windowsReset: 1,
+		};
+		const { engine } = setup(undefined, [], {
+			list: async () => ({ provider: "fake", fetchedAt: clock, available: 1, credits: [] }),
+			consume: async () => {
+				if (failConsume) throw new Error("Consume uncertain");
+				return outcome;
+			},
+		});
+		const refresh = spyOn(engine, "refresh").mockRejectedValue(new Error("Cache unavailable"));
+		expect(await engine.consumeReset("fake", "one")).toEqual(outcome);
+		failConsume = true;
+		await expect(engine.consumeReset("fake", "one")).rejects.toThrow("Consume uncertain");
+		expect(refresh).toHaveBeenCalledTimes(2);
+		refresh.mockRestore();
+	});
+
+	test("reset operations reject unknown, disabled, unsupported and stopped providers", async () => {
+		const { engine, settings } = setup();
+		expect(engine.resetSupport("missing")).toBe(false);
+		expect(engine.resetSupport("fake")).toBe(false);
+		await expect(engine.listResets("missing")).rejects.toThrow('Unknown provider "missing"');
+		await expect(engine.consumeReset("fake", "one")).rejects.toThrow(
+			"no verified on-demand reset endpoint",
+		);
+		await settings.save("runtime", { "quotas.providers": ["missing"] });
+		await expect(engine.listResets("fake")).rejects.toThrow("disabled");
+		engine.stop();
+		await expect(engine.listResets("fake")).rejects.toThrow("stopped");
+		await expect(engine.consumeReset("fake", "one")).rejects.toThrow("stopped");
+	});
+
 	test("headers overlay shared endpoint state without refreshing endpoint freshness", async () => {
 		fetchQuota = async () => ({
 			...snapshot(),

@@ -79,11 +79,11 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		quotaContext = undefined;
 		quotas.stop();
 	});
-	pi.on("agent_end", async (_event, ctx) => {
+	pi.on("agent_end", (_event, ctx) => {
 		if (!quotasEnabled || !settings.get("quotas.refreshOnRequest")) return;
 		quotaContext = ctx;
 		const id = ctx.model?.provider;
-		if (id && registry.byId(id)?.provider.quota) await quotas.refresh(id, { minAgeMs: 2000 });
+		if (id && registry.byId(id)?.provider.quota) void quotas.refresh(id, { minAgeMs: 2000 });
 	});
 	const host = { settings: () => settings };
 	for (const family of registry.families) await family.register?.(pi, host);

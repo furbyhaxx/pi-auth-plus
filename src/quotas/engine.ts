@@ -119,8 +119,9 @@ export class QuotaEngine {
 		const signal = this.controller.signal;
 		await this.cache.sync();
 		if (signal.aborted) return;
-		await Promise.all(this.providers().map((provider) => this.refresh(provider.id)));
-		if (signal.aborted) return;
+		// Fire and forget: Pi awaits session_start, and endpoints can take seconds.
+		for (const provider of this.providers())
+			void this.refresh(provider.id).catch(() => this.notify());
 		this.timer = setInterval(() => {
 			void this.tick().catch(() => this.notify());
 		}, 5_000);

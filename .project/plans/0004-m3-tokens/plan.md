@@ -5,9 +5,9 @@ document:
   title: "M3 tokens"
   description: "Accurate token counts per family: correct usage on every assistant turn, count sources, store, /tokens surface"
   status: "published"
-  revision: 3
+  revision: 4
   created_at: "2026-10-27T18:43:41+01:00"
-  updated_at: "2026-10-27T19:19:44+01:00"
+  updated_at: "2026-10-27T20:03:51+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -20,6 +20,9 @@ document:
     - revision: 3
       reason: "user scope decision"
       changes: ["Scope = counts + /tokens + offline tokenizers, no early compaction; Synthetic count_tokens exists (user correction)"]
+    - revision: 4
+      reason: "slice 3 shaped"
+      changes: ["Synthetic probe and tokenizer research results; asset delivery and usage-correction decisions; slice 3 units"]
 ---
 
 # M3 tokens
@@ -48,9 +51,44 @@ Goal: the token numbers Pi and our surfaces show are right, and say where they c
 ```
 [x] 1 Evidence     analyses/tokens/{usage-audit,count-endpoints}/report.md
 [x] 2 Usage fix    synthetic duplicate cache write dropped (message_end); antigravity clamp
-[.] 3 Counts       sources per family (usage > count endpoint > tokenizer) + content-hash store
+[>] 3 Counts       sources per family (usage > count endpoint > tokenizer) + content-hash store
 [.] 3b Tokenizers  offline tokenizer assets per family (research/tokenizers)
 [.] 4 Surface      /tokens tab, bus pi-auth-plus:v1:tokens:*, footer reuses the store
+```
+
+## Slice 3 (now)
+
+Evidence: `analyses/tokens/synthetic-counts/report.md`, `research/tokenizers/report.md`.
+
+- Synthetic: `count_tokens` = `message_start.input_tokens`, both scaled per model vs the
+  model's real HF tokenizer (DeepSeek 0.42x, GLM-4.7-Flash 1.36x, gpt-oss 2.44x); output
+  exact; context limit enforced on the real count (524288). `count_tokens` ignores tools and
+  500s on 5 of 14 always-on models.
+- Offline tokenizers exist only for open models (DeepSeek, gpt-oss, GLM, Qwen; Kimi unverified).
+  None for Claude, Gemini, GPT-6, Grok. `@huggingface/tokenizers@0.2.0` (Apache-2.0, no deps)
+  runs on Bun and Node: 195 ms load, ~4.5 MB/s encode (DeepSeek, 6.4 MB file).
+
+Decisions (user, 2026-10-27): tokenizer files download on first use from Hugging Face into
+`$XDG_CACHE_HOME/pi-auth-plus/tokenizers/`, pinned revision + hash check (HF paths-info gives
+LFS sha256 or git blob sha1), offline afterwards, fallback to provider usage. Synthetic's
+persisted usage is corrected to the tokenizer count at `message_end`; cost unchanged.
+
+Source precedence per family:
+
+```
+claude            usage > count_tokens (exact, drop metadata + billing block)
+antigravity       usage (Google countTokens unusable); gpt-oss tail: tokenizer
+synthetic hf:*    tokenizer (corrects usage) > usage > count_tokens
+openai/xai/opencode/deepseek   usage; tail: estimate
+```
+
+Units:
+
+```
+[>] U3a tokenizer store   src/tokens/tokenizer/ (download, verify, cache, LRU count memo)
+[>] U3b synthetic usage   message_end rescale to tokenizer count (fake store in tests)
+[ ] U3c wiring + live     default store into the synthetic family; live DeepSeek turn
+[.] U3d count engine      context breakdown by source, claude count_tokens, tail per family
 ```
 
 ## Decision (user, 2026-10-27)

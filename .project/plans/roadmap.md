@@ -112,7 +112,7 @@ detailed plan; later ones hold the ideas that must not get lost.
     plan: plans/0004-m3-tokens/plan.md
     [x] 1 evidence      usage correct on 7/8 routes; claude count_tokens exact
     [x] 2 usage fix     synthetic double count fixed (message_end)
-    [.] 3 counts        sources per family + content-hash store
+    [>] 3 counts        HF tokenizers on first use; synthetic usage corrected; engine
     [.] 4 surface       /tokens tab, bus, footer reuses the store
 [.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream
 ```

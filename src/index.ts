@@ -11,6 +11,7 @@ import { Registry } from "./core/registry/index.ts";
 import { FAMILIES } from "./families/index.ts";
 import { registerQuotaBus } from "./quotas/bus.ts";
 import { QuotaEngine } from "./quotas/engine.ts";
+import { createQuotaLine } from "./quotas/line/index.ts";
 import type { QuotaAuth } from "./quotas/types.ts";
 import { registerAuthCommands } from "./ui/commands/index.ts";
 
@@ -62,10 +63,17 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		fetch,
 		authFor: (id) => quotaAuthFor(id, quotaContext?.modelRegistry),
 	});
+	const quotaLine = createQuotaLine(pi, {
+		engine: quotas,
+		registry,
+		settings: () => settings,
+		now: Date.now,
+	});
 	let stopQuotaBus: (() => void) | undefined;
 	pi.on("session_start", async (_event, ctx) => {
 		stopQuotaBus?.();
 		stopQuotaBus = undefined;
+		quotaLine.stop();
 		quotas.stop();
 		quotaContext = ctx;
 		const configured = NO_EXTENSIONS ? {} : pi.getSettings();
@@ -79,6 +87,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		if (!quotasEnabled) return;
 		await quotas.start(ctx);
 		stopQuotaBus = registerQuotaBus(pi.events, quotas, registry, () => settings, Date.now);
+		quotaLine.start(ctx);
 	});
 	const pendingIngests = new Set<Promise<unknown>>();
 	pi.on("session_shutdown", async () => {
@@ -91,6 +100,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		quotaContext = undefined;
 		stopQuotaBus?.();
 		stopQuotaBus = undefined;
+		quotaLine.stop();
 		quotas.stop();
 	});
 	pi.on("after_provider_response", (event, ctx) => {

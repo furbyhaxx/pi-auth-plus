@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-27
+
 ### Added
 
 - **OpenCode Zen.** Pi's builtin `opencode` and `opencode-go` get the opencode 2.1.2 CLI
@@ -71,5 +73,6 @@ All notable changes to this project are documented here. The format follows
   pi-antigravity-auth or pi-quotas next to pi-auth-plus warns once and names the command that
   removes each.
 
-[Unreleased]: https://github.com/furbyhaxx/pi-auth-plus/compare/v0.1.0...dev
+[Unreleased]: https://github.com/furbyhaxx/pi-auth-plus/compare/v0.2.0...dev
+[0.2.0]: https://github.com/furbyhaxx/pi-auth-plus/releases/tag/v0.2.0
 [0.1.0]: https://github.com/furbyhaxx/pi-auth-plus/releases/tag/v0.1.0

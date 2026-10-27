@@ -5,7 +5,7 @@ document:
   title: "M1 providers"
   description: "Absorb the opencode, synthetic, claude and antigravity providers as vendor families"
   status: "published"
-  revision: 9
+  revision: 10
   created_at: "2026-10-27T10:20:46+01:00"
   updated_at: "2026-10-27T13:10:00+01:00"
   created_by: "pi"
@@ -40,6 +40,9 @@ document:
     - revision: 9
       reason: "antigravity slice done"
       changes: ["Units 1-7 landed and live-verified on both runtimes; migration unwired (no Pi seam); release next"]
+    - revision: 10
+      reason: "M1 released"
+      changes: ["Released as v0.2.0"]
 ---
 
 # M1 providers
@@ -196,4 +199,4 @@ migration is tested but unwired, because Pi 1.4 exposes no credential-store writ
 
 ## Later slices (sparse)
 
-- End of M1 (next): version bump to 0.2.0, release section, tag, push.
+- End of M1: released as v0.2.0.

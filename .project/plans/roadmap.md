@@ -5,7 +5,7 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 6
+  revision: 7
   created_at: "2026-10-27T09:43:00+01:00"
   updated_at: "2026-10-27T13:10:00+01:00"
   created_by: "pi"
@@ -29,6 +29,9 @@ document:
     - revision: 6
       reason: "antigravity slice done"
       changes: ["antigravity reviewed, ported and live-verified; fork login migration blocked on a Pi seam; M1 release is next"]
+    - revision: 7
+      reason: "M1 released as v0.2.0"
+      changes: ["M1 done except the blocked fork-login migration; M2 quotas is now"]
 ---
 
 # Roadmap
@@ -46,7 +49,7 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] ui/ frame + /auth router (empty tabs)
     [x] verify recipes: rpc-verify, parity-verify, aot-verify
     [x] conflict detection for the absorbed packages
-[>] M1 Providers                          plans/0002-m1-providers/plan.md
+[x] M1 Providers                          plans/0002-m1-providers/plan.md
     [x] opencode     patch builtin in the factory; 2.1.2 fingerprint; anonymous = Pi-Bolt only
     [x] synthetic    catalog via refreshModels, no network in factory; opt-in web search
     [x] claude       OAuth + API key, CC shaping, lazy version probe, replace patterns;
@@ -54,8 +57,8 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] antigravity  reviewed (one account, no vault/pool); one model per family, level via
                      thinkingLevelMap; agy 1.4.8 identity over fetch; live on both runtimes
     [!] fork login migration   tested, unwired: Pi 1.4 has no credential-store write
-    [ ] M1 release   version bump, tag, push
-[.] M2 Quotas       pi-quotas engine on core/ + families/; codex via Pi login, not its own
+    [x] M1 release   v0.2.0
+[>] M2 Quotas       pi-quotas engine on core/ + families/; codex via Pi login, not its own
                     OAuth file; reset-consume needs approval each time
 [.] M3 Tokens       per-family counting sources, content-hash store, footer reuses it
 [.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream

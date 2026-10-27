@@ -94,10 +94,19 @@ describe("families/xai quota", () => {
 			),
 		);
 		expect(snapshot.windows.map((window) => window.id)).toEqual(["7d", "ondemand", "monthly"]);
-		for (const window of snapshot.windows) {
+		for (const window of snapshot.windows.slice(1)) {
 			expect(window.usedFraction).toBeUndefined();
 			expect(window.valueText).toBeUndefined();
 		}
+	});
+
+	test("reads an omitted creditUsagePercent as 0% only while the period runs", async () => {
+		const end = Date.parse(credits.config.currentPeriod.end);
+		const body = { config: { currentPeriod: credits.config.currentPeriod } };
+		const active = await xaiQuota.fetch(context(bodies(body, {}), { now: () => end - 1 }));
+		expect(active.windows[0]?.usedFraction).toBe(0);
+		const ended = await xaiQuota.fetch(context(bodies(body, {}), { now: () => end + 1 }));
+		expect(ended.windows[0]?.usedFraction).toBeUndefined();
 	});
 
 	test("keeps period labels, dollar units, clamping and importance", async () => {

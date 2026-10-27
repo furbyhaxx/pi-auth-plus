@@ -97,6 +97,16 @@ function dollars(used: number | undefined, limit: number): string | undefined {
 	return used === undefined ? undefined : `$${used.toFixed(2)} / $${limit.toFixed(2)}`;
 }
 
+/** xAI omits `creditUsagePercent` for a fresh or unused period; once the period ended, absence is unknown. */
+function periodUsedFraction(
+	percent: number | undefined,
+	endMs: number | undefined,
+	now: number,
+): number | undefined {
+	if (percent !== undefined) return fraction(percent, 100);
+	return endMs !== undefined && now < endMs ? 0 : undefined;
+}
+
 function parseBilling(
 	creditsBody: unknown,
 	monthlyBody: unknown,
@@ -117,7 +127,7 @@ function parseBilling(
 			label: weekly ? "7d weekly quota" : "Current period",
 			period: weekly ? "7d" : month ? "1mo" : undefined,
 			scope: weekly || month ? undefined : "current period",
-			usedFraction: fraction(number(credits["creditUsagePercent"]), 100),
+			usedFraction: periodUsedFraction(number(credits["creditUsagePercent"]), resetAtMs, fetchedAt),
 			resetAtMs,
 			important: true,
 		});

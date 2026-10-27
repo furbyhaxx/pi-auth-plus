@@ -123,10 +123,9 @@ README.md, CHANGELOG.md, LICENSE, NOTICE, AGENTS.md
 
 This file describes the target state.
 
-- `families/index.ts` registers `opencode`, `synthetic`, `claude` and `antigravity`.
-  `FamilyAdapter` has no `quota`/`tokens` parts until those engines land. Until then `/quota`,
-  `/quotas` and `/tokens` are not registered (pi-quotas owns `/quota`, and Pi renames
-  duplicate commands to `/quota:1`), and `core/conflicts` does not list `pi-quotas`.
+- `families/index.ts` registers `opencode`, `synthetic`, `claude`, `antigravity`, `openai`,
+  `xai`, `openrouter` and `deepseek`. Quotas (M2) own `/quota` and `/quotas`, and
+  `core/conflicts` lists `pi-quotas`. `/tokens` is not registered until the M3 surface lands.
 - Pi 1.4 gives extensions no credential-store write. `core/auth/store.ts` is the one exception
   to "`/login` owns writes": a fill-only slot write to `auth.json` under Pi's own proper-lockfile
   lock (stale 30 s, file 0600), used by `google/migration.ts` once per process on the first
@@ -136,7 +135,9 @@ This file describes the target state.
 - No legacy migration exists yet: pi-synthetic-auth's `websearch.synthetic` in Pi's
   `settings.json` and its `SYNTHETIC_WEB_SEARCH` variable, and pi-claude-auth's replace
   patterns in Pi's `settings.json`, are not read.
-- `tokens/` does not exist yet.
+- `tokens/` has the source contracts (`types.ts`) and the Hugging Face tokenizer store
+  (`tokenizer/`: first-use download, pinned revision, hash check, offline cache under
+  `$XDG_CACHE_HOME/pi-auth-plus/tokenizers/`). No count engine or `FamilyAdapter.tokens` yet.
 - `core/auth` has slot reads, PKCE and code paste; the local callback server arrives with the
   first provider that needs one.
 - Absorption follows `.project/plans/roadmap.md`; delete each line here when its part lands.
@@ -255,8 +256,12 @@ Endpoints, auth, schemas, units and reset semantics per provider are in
 - Source precedence: provider-reported usage > native count endpoint > known tokenizer >
   generic tokenizer. Every count carries its source; anything but the first two is labelled an
   estimate.
-- Counts are keyed by tokenizer family and content hash and computed once: antigravity's
-  Claude models reuse the anthropic family's counts.
+- Counts are keyed by tokenizer and content hash and computed once. Antigravity's Claude
+  models do not reuse the anthropic family's counts: the wrapper tokenizes differently
+  (`.project/analyses/tokens/count-endpoints/`).
+- Synthetic `hf:` models: the model's own tokenizer outranks provider usage, because Synthetic
+  reports a per-model scaled unit while its context limit applies to real tokens
+  (`.project/analyses/tokens/synthetic-counts/`); its stored usage is rescaled at `message_end`.
 - Counting never blocks a request or a frame: async, batched, cached, rate-limited.
 - Pi has no hook to replace its estimators (pi-ai context clamping at 3.5 chars/token,
   compaction at 4). Both trust the latest assistant `usage` and estimate only what follows, so

@@ -7,10 +7,14 @@ import { backoffFor, HostCache } from "../../src/core/cache/index.ts";
 let path: string;
 let clock: number;
 
-function cache(parserVersion = 1): HostCache<{ used: number }> {
+function cache(
+	parserVersion = 1,
+	rateLimitStatuses?: readonly number[],
+): HostCache<{ used: number }> {
 	return new HostCache({
 		path,
 		now: () => clock,
+		...(rateLimitStatuses === undefined ? {} : { rateLimitStatuses }),
 		parserVersion: () => parserVersion,
 		parse: (raw) =>
 			typeof raw === "object" && raw !== null && "used" in raw && typeof raw.used === "number"
@@ -69,6 +73,94 @@ describe("core/cache", () => {
 		expect(await b.tryAcquire("claude", { minAgeMs: 0 })).toBe(true);
 	});
 
+	test("patches propagate without refreshing endpoint freshness", async () => {
+		const a = cache();
+		const b = cache();
+		await a.put("claude", { used: 1 });
+		const fetchedAt = clock;
+		await b.sync();
+		clock += 60_001;
+		const changes: number[] = [];
+		a.onChange((_key, entry) => changes.push(entry.value.used));
+		expect(await a.patch("claude", (current) => ({ used: (current?.used ?? 0) + 1 }))).toBe(true);
+		expect(a.get("claude")).toEqual({
+			value: { used: 2 },
+			fetchedAt,
+			updatedAt: clock,
+			parserVersion: 1,
+		});
+		expect(changes).toEqual([2]);
+		expect(await b.sync()).toBe(true);
+		expect(b.get("claude")).toEqual(a.get("claude"));
+		expect(await b.tryAcquire("claude", { minAgeMs: 60_000 })).toBe(true);
+	});
+
+	test("patches sync before changing values and preserve leases and backoff", async () => {
+		const a = cache();
+		const b = cache();
+		await a.put("claude", { used: 1 });
+		await b.sync();
+		clock += 1_000;
+		await a.put("claude", { used: 4 });
+		expect(await a.tryAcquire("claude", { minAgeMs: 0 })).toBe(true);
+		clock += 1_000;
+		await b.patch("claude", (current) => ({ used: (current?.used ?? 0) + 1 }));
+		expect(b.get("claude")?.value.used).toBe(5);
+		expect(await cache().tryAcquire("claude", { minAgeMs: 0 })).toBe(false);
+
+		await a.fail("claude", { backoffMs: 60_000, status: 429 });
+		clock += 1_000;
+		await b.patch("claude", () => ({ used: 6 }));
+		expect(await cache().tryAcquire("claude", { minAgeMs: 0, force: true })).toBe(false);
+	});
+
+	test("a missing entry can be patched without becoming fresh; undefined leaves it unchanged", async () => {
+		const a = cache();
+		const changes: number[] = [];
+		a.onChange((_key, entry) => changes.push(entry.value.used));
+		expect(await a.patch("missing", () => undefined)).toBe(false);
+		expect(a.get("missing")).toBeUndefined();
+		expect(await a.patch("claude", (current) => ({ used: current?.used ?? 2 }))).toBe(true);
+		const entry = a.get("claude");
+		expect(entry).toEqual({
+			value: { used: 2 },
+			fetchedAt: 0,
+			updatedAt: clock,
+			parserVersion: 1,
+		});
+		clock += 1_000;
+		expect(await a.patch("claude", () => undefined)).toBe(false);
+		expect(a.get("claude")).toEqual(entry);
+		expect(changes).toEqual([2]);
+		expect(await a.tryAcquire("claude", { minAgeMs: 60_000 })).toBe(true);
+	});
+
+	test("legacy entries default updatedAt to fetchedAt and retain their parser version on patch", async () => {
+		const a = cache();
+		await a.put("claude", { used: 1 });
+		writeFileSync(
+			path,
+			JSON.stringify({
+				version: 1,
+				entries: { claude: { value: { used: 3 }, fetchedAt: clock, parserVersion: 2 } },
+			}),
+		);
+		const reader = cache();
+		await reader.sync();
+		expect(reader.get("claude")?.updatedAt).toBe(clock);
+		clock += 1_000;
+		await reader.patch("claude", () => ({ used: 4 }));
+		expect(reader.get("claude")?.parserVersion).toBe(2);
+	});
+
+	test("configured 403 rate limits block forced refreshes while defaults allow them", async () => {
+		await cache().fail("claude", { backoffMs: 60_000, status: 403 });
+		expect(await cache(1, [403, 429]).tryAcquire("claude", { minAgeMs: 0, force: true })).toBe(
+			false,
+		);
+		expect(await cache().tryAcquire("claude", { minAgeMs: 0, force: true })).toBe(true);
+	});
+
 	test("a corrupt cache file is treated as empty and then replaced", async () => {
 		await cache().put("claude", { used: 1 });
 		writeFileSync(path, "{ torn");
@@ -85,5 +177,9 @@ describe("core/cache", () => {
 		expect(backoffFor({ status: 429, retryAfterMs: 9_999_999 }, policy)).toBe(900_000);
 		expect(backoffFor({ status: 429 }, policy)).toBe(300_000);
 		expect(backoffFor({ status: 503 }, policy)).toBe(60_000);
+		expect(backoffFor({ status: 403, retryAfterMs: 5_000 }, policy)).toBe(60_000);
+		const configured = { ...policy, rateLimitStatuses: [403, 429] };
+		expect(backoffFor({ status: 403, retryAfterMs: 5_000 }, configured)).toBe(5_000);
+		expect(backoffFor({ status: 403 }, configured)).toBe(300_000);
 	});
 });

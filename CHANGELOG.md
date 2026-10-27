@@ -16,6 +16,17 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - `just rpc-verify` runs against a throwaway agent dir.
+- pi-quotas is no longer reported as a conflict, and `/quota`, `/quotas` and `/tokens` are not
+  registered until the quota and token engines land, so pi-quotas keeps its `/quota` (Pi
+  renamed both to `/quota:1` and `/quota:2`). Use `/auth quotas` for the tab.
+
+### Fixed
+
+- **Antigravity turns never hang.** A turn fails with `RESPONSE_TIMEOUT` when no response
+  headers arrive, and with `STREAM_STALLED` when the stream sends nothing, each after 180 s or
+  Pi's `timeoutMs`.
+- **Antigravity request hooks.** `before_provider_request` and `after_provider_response`
+  extensions now see Antigravity turns, and a payload they return is what gets sent.
 
 ## [0.2.0] - 2026-10-27
 

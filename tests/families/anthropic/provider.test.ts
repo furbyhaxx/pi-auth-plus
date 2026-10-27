@@ -47,12 +47,17 @@ const SSE = [
 interface Captured {
 	url: string;
 	headers: Headers;
-	body: { system?: { text: string }[]; tools?: { name: string }[] };
+	body: {
+		system?: { text: string }[];
+		tools?: { name: string }[];
+		metadata?: { user_id: string };
+	};
 }
 
 function capture(sink: Captured[]): typeof fetch {
 	const fake = async (input: string | URL | Request, init?: RequestInit) => {
 		const url = input instanceof Request ? input.url : String(input);
+		if (init?.method === "HEAD") return new Response(null);
 		sink.push({ url, headers: new Headers(init?.headers), body: JSON.parse(String(init?.body)) });
 		return new Response(SSE, { headers: { "content-type": "text/event-stream" } });
 	};
@@ -70,7 +75,7 @@ function setup() {
 		auth: claudeAuth(),
 		version: async () => VERSION,
 		rules: () => [],
-		env: {},
+		env: process.env,
 	});
 	const model = provider.getModels().find((entry) => entry.id === "claude-sonnet-5-5");
 	if (!model) throw new Error("claude-sonnet-5-5 missing from Pi's anthropic catalog");
@@ -88,7 +93,8 @@ describe("families/anthropic/provider", () => {
 		const sent: Captured[] = [];
 		const message: AssistantMessage = await provider
 			.stream(model, context, {
-				headers: { Authorization: `Bearer ${OAUTH}` },
+				headers: { Authorization: `Bearer ${OAUTH}`, "X-Auth-Plus-Account-Uuid": "test-account" },
+				sessionId: "019a2445-634a-7000-8000-000000000001",
 				fetch: capture(sent),
 				maxRetries: 0,
 			})
@@ -98,6 +104,14 @@ describe("families/anthropic/provider", () => {
 		expect(request?.url).toContain("/v1/messages?beta=true");
 		expect(request?.headers.get("authorization")).toBe(`Bearer ${OAUTH}`);
 		expect(request?.headers.get("x-api-key")).toBeNull();
+		expect(request?.headers.has("x-auth-plus-account-uuid")).toBe(false);
+		expect(request?.headers.get("x-claude-code-session-id")).toBe(
+			"019a2445-634a-7000-8000-000000000001",
+		);
+		expect(JSON.parse(request?.body.metadata?.user_id ?? "null")).toMatchObject({
+			account_uuid: "test-account",
+			session_id: "019a2445-634a-7000-8000-000000000001",
+		});
 		expect(request?.headers.get("user-agent")).toBe(`claude-cli/${VERSION} (external, cli)`);
 		expect(request?.body.system?.[0]?.text).toContain(`cc_version=${VERSION}.`);
 		expect(request?.body.system?.[1]?.text).toBe(CLAUDE_CODE_IDENTITY);

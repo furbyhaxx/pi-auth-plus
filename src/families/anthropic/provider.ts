@@ -66,8 +66,17 @@ export function claudeProvider(deps: ClaudeProviderDeps): Provider<"anthropic-me
 	): { model: AnthropicModel; options: T | undefined } {
 		const token = oauthToken(options);
 		if (!token) return { model, options };
+		const headers = { ...options?.headers };
+		let accountUuid = "";
+		for (const key of Object.keys(headers)) {
+			if (key.toLowerCase() !== "x-auth-plus-account-uuid") continue;
+			accountUuid = headers[key] ?? "";
+			delete headers[key];
+		}
 		const fetch = claudeFetch({
 			token,
+			accountUuid,
+			...(options?.sessionId ? { sessionId: options.sessionId } : {}),
 			version: deps.version,
 			rules: deps.rules(),
 			restore: toolNameRestorer(transcriptToolNames(context)),
@@ -79,7 +88,7 @@ export function claudeProvider(deps: ClaudeProviderDeps): Provider<"anthropic-me
 			options: {
 				...(options as T),
 				apiKey: undefined,
-				headers: { ...options?.headers, Authorization: `Bearer ${token}` },
+				headers: { ...headers, Authorization: `Bearer ${token}` },
 				fetch,
 			},
 		};

@@ -5,8 +5,11 @@
 import type { FetchFunction, StreamOptions } from "@earendil-works/pi-ai";
 import type { TextRule } from "../../core/config/fields.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
+import { deviceId, sessionId } from "./identity.ts";
 import { insecureTls, mergeRequestHeaders, shapeBody, shapeHeaders, shapeUrl } from "./request.ts";
 import { restoreToolNames } from "./response.ts";
+
+let preflightStarted = false;
 
 const BEARER_PREFIX = "Bearer ";
 const OAUTH_KEY_MARKER = "sk-ant-oat";
@@ -28,6 +31,8 @@ export class InsecureTlsUnsupportedError extends Error {
 
 export interface ClaudeTransport {
 	readonly token: string;
+	readonly sessionId?: string;
+	readonly accountUuid?: string;
 	readonly version: () => Promise<string>;
 	readonly rules: readonly TextRule[];
 	readonly restore: (wire: string) => string;
@@ -61,16 +66,38 @@ export function claudeFetch(transport: ClaudeTransport): FetchFunction {
 	const insecure = insecureTls(transport.env);
 	const wrapped = async (input: string | URL | Request, init?: RequestInit) => {
 		if (insecure && !("Bun" in globalThis)) throw new InsecureTlsUnsupportedError();
+		const url = shapeUrl(input, transport.env);
+		const target = new URL(url instanceof Request ? url.url : String(url));
+		if (!preflightStarted && target.pathname === "/v1/messages") {
+			preflightStarted = true;
+			const hello = new URL("/api/hello", target);
+			void Promise.resolve()
+				.then(() =>
+					underlying(hello, {
+						method: "HEAD",
+						signal: AbortSignal.timeout(10_000),
+						...(insecure ? { tls: { rejectUnauthorized: false } } : {}),
+					}),
+				)
+				.catch(() => undefined);
+		}
+		const session = sessionId(transport.sessionId);
+		const userId = JSON.stringify({
+			device_id: await deviceId(transport.env),
+			account_uuid: transport.accountUuid ?? "",
+			session_id: session,
+		});
 		const version = await transport.version();
 		const headers = shapeHeaders(mergeRequestHeaders(input, init), transport.token, version);
+		headers.set("x-claude-code-session-id", session);
 		let body = await requestBody(input, init);
 		if (typeof body === "string") {
-			body = shapeBody(body, version, transport.rules);
+			body = shapeBody(body, version, transport.rules, userId);
 			for (const name of STALE_BODY_HEADERS) headers.delete(name);
 		}
 		const shaped: BunRequestInit = { ...init, body, headers };
 		if (insecure) shaped.tls = { rejectUnauthorized: false };
-		const response = await underlying(shapeUrl(input, transport.env), shaped);
+		const response = await underlying(url, shaped);
 		return restoreToolNames(response, transport.restore);
 	};
 	return Object.assign(wrapped, { preconnect: underlying.preconnect });

@@ -84,6 +84,13 @@ function parseTokens(value: unknown, now: number): OAuthCredential {
 		access: value.access_token,
 		refresh: value.refresh_token,
 		expires: now + value.expires_in * 1000,
+		...("account" in value &&
+		value.account !== null &&
+		typeof value.account === "object" &&
+		"uuid" in value.account &&
+		typeof value.account.uuid === "string"
+			? { accountUuid: value.account.uuid }
+			: {}),
 	};
 }
 
@@ -217,7 +224,13 @@ export function claudeAuth(
 					}
 				}
 			},
-			toAuth: async (credential) => ({ headers: { Authorization: `Bearer ${credential.access}` } }),
+			toAuth: async (credential) => ({
+				headers: {
+					Authorization: `Bearer ${credential.access}`,
+					"x-auth-plus-account-uuid":
+						typeof credential["accountUuid"] === "string" ? credential["accountUuid"] : "",
+				},
+			}),
 		},
 		apiKey: {
 			name: "Claude API key",

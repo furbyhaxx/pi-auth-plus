@@ -11,6 +11,7 @@ const stored: OAuthCredential = {
 	refresh: "test-old-refresh",
 	expires: 0,
 	account: "extra",
+	accountUuid: "test-account",
 };
 const tokens = {
 	access_token: "test-new-access",
@@ -68,7 +69,7 @@ test("subscription login sends PKCE, state, scopes and JSON exchange", async () 
 			expect(url?.searchParams.get("code_challenge")).toBe(
 				createHash("sha256").update(body.code_verifier).digest("base64url"),
 			);
-			return Response.json(tokens);
+			return Response.json({ ...tokens, account: { uuid: "login-account" } });
 		},
 	});
 	const credential = await oauth.login(
@@ -100,11 +101,35 @@ test("subscription login sends PKCE, state, scopes and JSON exchange", async () 
 		access: tokens.access_token,
 		refresh: tokens.refresh_token,
 		expires: 61000,
+		accountUuid: "login-account",
 	});
 	expect(await oauth.toAuth(credential)).toEqual({
-		headers: { Authorization: `Bearer ${tokens.access_token}` },
+		headers: {
+			Authorization: `Bearer ${tokens.access_token}`,
+			"x-auth-plus-account-uuid": "login-account",
+		},
 	});
 	expect(calls).toBe(1);
+});
+
+test("token account uuid is stored, forwarded internally and retained on refresh", async () => {
+	let response = { ...tokens, account: { uuid: "test-account" } };
+	const { oauth } = methods({
+		fetch: async () => Response.json(response),
+	});
+	const credential = await oauth.refresh(stored, signal);
+	expect(credential["accountUuid"]).toBe("test-account");
+	expect(await oauth.toAuth(credential)).toEqual({
+		headers: {
+			Authorization: `Bearer ${tokens.access_token}`,
+			"x-auth-plus-account-uuid": "test-account",
+		},
+	});
+	response = { ...tokens, account: { uuid: "updated-account" } };
+	const updated = await oauth.refresh(credential, signal);
+	expect(updated["accountUuid"]).toBe("updated-account");
+	const withoutAccount = methods({ fetch: async () => Response.json(tokens) }).oauth;
+	expect((await withoutAccount.refresh(updated, signal))["accountUuid"]).toBe("updated-account");
 });
 
 test("state mismatch refuses exchange", async () => {

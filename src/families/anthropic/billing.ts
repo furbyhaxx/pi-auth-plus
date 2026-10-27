@@ -34,6 +34,5 @@ export function billingBlock(messages: unknown, version: string): string | undef
 	// Indexing samples UTF-16 code units, including lone surrogates, rather than code points.
 	const sample = SAMPLE_POSITIONS.map((position) => text[position] ?? "0").join("");
 	const suffix = digest(`${SALT}${sample}${version}`).slice(0, 3);
-	const cch = digest(text).slice(0, 5);
-	return `x-anthropic-billing-header: cc_version=${version}.${suffix}; cc_entrypoint=sdk-cli; cch=${cch};`;
+	return `x-anthropic-billing-header: cc_version=${version}.${suffix}; cc_entrypoint=cli;`;
 }

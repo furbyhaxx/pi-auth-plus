@@ -5,9 +5,9 @@ document:
   title: "M2 quotas"
   description: "Port the pi-quotas engine, seven providers, line, panels, bus and CLI onto core/ and families/"
   status: "published"
-  revision: 4
+  revision: 5
   created_at: "2026-10-27T14:28:39+01:00"
-  updated_at: "2026-10-27T15:34:04+01:00"
+  updated_at: "2026-10-27T15:37:07+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -23,6 +23,9 @@ document:
     - revision: 4
       reason: "slice 5 done"
       changes: ["Quota line live-verified on both runtimes, all placements, 80/120/160 columns"]
+    - revision: 5
+      reason: "slice 6 started"
+      changes: ["Slice 6 (panels) units in detail; dashboard tabs are pluggable views"]
 ---
 
 # M2 quotas
@@ -102,10 +105,33 @@ plus the pi-workbench handoff at 120; 80 columns switches to short ids and wraps
 Known gap kept for parity: the own footer omits Pi's newer `(sub)` cost suffix (M3 removes the
 footer token math anyway).
 
-## Slice 6+: sparse
+## Slice 6: panels (now)
 
-- Panels (next): `/auth quotas` tab with per-window detail, drainage and refresh; settings tab
-  edits the catalog (incl. the line template with preview).
+Outcome: `/auth quotas` shows live per-provider quota detail with refresh, and `/auth settings`
+edits every catalog key with staged edits, scope choice and a live line-template preview.
+
+Groundwork (done, `226b0c7`): `AuthDashboard` renders each tab through a `TabView`
+(`src/ui/dashboard/view.ts`); Providers and Tokens stay static `RowsView`s. A view sees keys
+first; `finish({editSetting})` closes the panel so the command can open a Pi dialog.
+`engineReport()` in `report.ts` is the one report builder for the bus and the panel.
+
+Units. U15 and U16 run in parallel; U17 needs both.
+
+15. **U15 quotas tab**. `src/ui/dashboard/quotas.ts` + test. pi-quotas `ui/panel.ts` quotas
+    half: selection, `r`/`R` refresh, `a` solo/all, `p` cycle placement, bars, countdowns,
+    drainage, auth/error rows. Test: unknown usage shows `?` with no filled bar; selection
+    survives a data change; refresh hits the selected provider.
+16. **U16 settings tab**. `src/ui/dashboard/settings.ts` + test. pi-quotas `ui/settings.ts`
+    over our catalog and `SettingsStore`: staged edits, save to user/project/session, default
+    reset, list/rules fields via a Pi editor after close, template preview. Test: staged edits
+    save only to the chosen scope; a shadowed key warns.
+17. **U17 wiring** (me). `src/ui/commands/index.ts`, `src/index.ts`: live tabs, `/auth quotas
+    <provider>`, `/quota` and `/quotas` entry points only while pi-quotas is not loaded, line
+    remount on placement change, editor follow-up. tmux pass at 36/57/80/140 columns.
+
+## Slice 7+: sparse
+
 - Resets: openai only (`codex-resets.ts`), `ctx.ui.select` with "Keep the credit" first.
+- CLI: `--quotas-json`, `--quotas-list`.
 - Cutover: fill-only migration of pi-quotas' cache/config, live parity run, setup swap, release.
 - The footer token math stays until M3.

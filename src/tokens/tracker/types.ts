@@ -9,6 +9,7 @@ export type TrackerReason =
 	| "turn_end"
 	| "session_compact"
 	| "session_tree"
+	| "session_shutdown"
 	| "request";
 
 /** Keeps the latest report for the current session and model, recomputed on Pi events. */

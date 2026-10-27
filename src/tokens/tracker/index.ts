@@ -66,8 +66,7 @@ export function createTokenTracker(
 		cancel();
 		ctx = undefined;
 		latest = undefined;
-		// The public reason union has no shutdown member; clearing is a tracker request.
-		notify("request");
+		notify("session_shutdown");
 	}
 
 	const unsubscribe = [

@@ -1,0 +1,10 @@
+── Auth › Quotas ──── 0 providers ──
+  Providers▸Quotas Tokens Settings
+ Quota monitoring is not available …
+
+
+
+────────────────────────────────────
+ Usage windows and credits per prov…
+ tab switch · esc close
+────────────────────────────────────

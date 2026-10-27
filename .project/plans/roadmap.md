@@ -24,7 +24,7 @@ detailed plan; later ones hold the ideas that must not get lost.
 ```text
 [>] M0 Foundation                         plans/0001-m0-foundation/plan.md
     [x] AGENTS.md adopted, default branch dev
-    [ ] tooling scaffold, just check green
+    [x] tooling scaffold, just check + rpc-verify green
     [ ] research and analyses imported with provenance
     [ ] pi-provider-seams report
     [ ] core/ seams (paths, config, http, redact, registry, bus, cache, auth)

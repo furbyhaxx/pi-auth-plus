@@ -124,8 +124,6 @@ This file describes the target state.
 - Scaffold only: `src/index.ts` registers nothing; `core/`, `ui/`, `families/`, engines,
   `docs/` and `just parity-verify`/`aot-verify` do not exist yet. Absorption follows
   `.project/plans/roadmap.md`; delete each line here when its part lands.
-- Bun's `os.homedir()` ignores a runtime `HOME` change; `core/paths` resolves from env and
-  Pi's agent-dir helper, so tests stay isolated.
 
 ## Provider integration
 
@@ -315,7 +313,9 @@ Adopted from pi-workbench; a new surface looks like the existing ones.
   a regression fix gets a test that reproduces it.
 - No network and no real credentials: fake the transport, use captured fixtures, fake theme
   and terminal. Inject clocks, ids and widths.
-- Never touch the user's real `auth.json`, caches or vault state in tests.
+- Never touch the user's real `auth.json`, caches or vault state in tests. Bun's
+  `os.homedir()` ignores a runtime `HOME` change, so path code resolves from env and Pi's
+  agent-dir helper, never `os.homedir()` directly.
 - Live verification is separate from the suite and never replaces it.
 
 ## Git and delivery

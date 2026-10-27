@@ -13,6 +13,10 @@ All notable changes to this project are documented here. The format follows
   by all Pi sessions on the host, with per-provider backoff on 403/429 and a drainage history.
   Windows a provider reports without numbers show as unknown, never as 0%. The engine stays off
   while pi-quotas is loaded; the status line and `/quota` arrive in later releases.
+- **Quota updates from responses.** A claude or ChatGPT turn updates that provider's windows
+  from its response headers, without an extra request.
+- **Quotas bus.** Extensions can query and refresh quotas and watch snapshots and
+  auth/rate-limit events on `pi-auth-plus:v1:quotas:*`; provider names accept aliases.
 - Quota aliases from pi-quotas: `cl` and `cc` for claude, `ag` for antigravity.
 - **Antigravity login carry-over.** On the first session start, a pi-antigravity-auth login
   stored under Pi's `google` slot is copied into an empty `antigravity` slot, under the same

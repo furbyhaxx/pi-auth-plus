@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 11
+  revision: 12
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T14:56:16+01:00"
+  updated_at: "2026-10-27T15:11:48+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -44,6 +44,9 @@ document:
     - revision: 11
       reason: "M2 slices 1-3 done"
       changes: ["Engine + 7 quota fetchers merged and live-verified; headers + bus is now"]
+    - revision: 12
+      reason: "M2 slice 4 done"
+      changes: ["Header ingestion + quotas bus live-verified; status line is now"]
 ---
 
 # Roadmap
@@ -78,9 +81,10 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 1 engine core   contract, registry quota part, cache gaps, drainage, engine
     [x] 2-3 fetchers    claude, antigravity, synthetic, openrouter, deepseek, xai, openai
                         (openai success path unverified live: credential gets HTTP 401)
-    [>] 4 headers + bus after_provider_response ingestion; pi-auth-plus:v1:quotas:*
-    [ ] 5 line          templates, placements, widget, footer
-    [.] 6-7             panels, resets (panel only) + read-only CLI
+    [x] 4 headers + bus after_provider_response ingestion; pi-auth-plus:v1:quotas:*
+    [>] 5 line          templates, placements, widget, footer
+    [ ] 6 panels        /auth quotas with refresh, settings tab
+    [.] 7               resets (panel only) + read-only CLI
     [.] 8 cutover       migration, live parity, swap pi-quotas out, release
 [.] M3 Tokens       per-family counting sources, content-hash store, footer reuses it
 [.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream

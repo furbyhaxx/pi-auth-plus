@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 10
+  revision: 11
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T14:28:43+01:00"
+  updated_at: "2026-10-27T14:56:16+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -41,6 +41,9 @@ document:
     - revision: 10
       reason: "M2 planned"
       changes: ["Plan 0003: full parity first, Pi ids, read-only namespaced CLI; slice 1 engine core is now"]
+    - revision: 11
+      reason: "M2 slices 1-3 done"
+      changes: ["Engine + 7 quota fetchers merged and live-verified; headers + bus is now"]
 ---
 
 # Roadmap
@@ -72,8 +75,12 @@ detailed plan; later ones hold the ideas that must not get lost.
 [>] M2 Quotas       pi-quotas engine on core/ + families/; codex via Pi login, not its own
                     OAuth file; reset-consume needs approval each time
     plan: plans/0003-m2-quotas/plan.md; full parity first, then one setup swap
-    [>] 1 engine core   contract, registry quota part, cache gaps, drainage, engine
-    [.] 2-7             7 providers, headers+bus, line, panels, resets (panel only) + CLI
+    [x] 1 engine core   contract, registry quota part, cache gaps, drainage, engine
+    [x] 2-3 fetchers    claude, antigravity, synthetic, openrouter, deepseek, xai, openai
+                        (openai success path unverified live: credential gets HTTP 401)
+    [>] 4 headers + bus after_provider_response ingestion; pi-auth-plus:v1:quotas:*
+    [ ] 5 line          templates, placements, widget, footer
+    [.] 6-7             panels, resets (panel only) + read-only CLI
     [.] 8 cutover       migration, live parity, swap pi-quotas out, release
 [.] M3 Tokens       per-family counting sources, content-hash store, footer reuses it
 [.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream

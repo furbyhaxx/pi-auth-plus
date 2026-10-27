@@ -5,15 +5,18 @@ document:
   title: "M2 quotas"
   description: "Port the pi-quotas engine, seven providers, line, panels, bus and CLI onto core/ and families/"
   status: "published"
-  revision: 1
+  revision: 2
   created_at: "2026-10-27T14:28:39+01:00"
-  updated_at: "2026-10-27T14:28:39+01:00"
+  updated_at: "2026-10-27T14:56:16+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       reason: "document creation"
       changes: ["User decisions D32 recorded; slice 1 (engine core) in detail, slices 2-8 sparse"]
+    - revision: 2
+      reason: "slices 1-3 done"
+      changes: ["Engine and all seven fetchers merged and live-verified; slice 4 (headers + bus) in detail"]
 ---
 
 # M2 quotas
@@ -38,6 +41,10 @@ Agent decisions (not user-facing choices):
 
 - Unknown is never zero: deepseek missing balance, xai double failure and antigravity missing
   `remainingFraction` become errors or unknown values, not `0`/`1`.
+- A window or balance the provider exposes stays visible even when its numbers are missing
+  (usage `undefined`). xai: an omitted `creditUsagePercent` is 0% while the period runs (the
+  API omits it for unused periods), unknown after it ended. antigravity: a missing
+  `remainingFraction` is unknown, because an exhausted bucket was recorded with an explicit `0`.
 - The antigravity project id leaves `tier`; it never reaches the UI, `--quotas-json` or the bus.
 - Credentials come from `ctx.modelRegistry.getProviderAuth(id)`: Pi refreshes OAuth, and the
   token is `auth.apiKey` or the bearer of `auth.headers.Authorization` (our header-only claude
@@ -49,57 +56,70 @@ Agent decisions (not user-facing choices):
 ## Slices
 
 ```
-[>] 1 Engine core       contract, registry quota part, cache gaps, drainage, engine, settings
-[.] 2 Existing families claude, antigravity, synthetic fetchers (+ fixtures from pi-quotas)
-[.] 3 New families      openrouter, deepseek, openai (ChatGPT), xai as quota-only adapters
-[.] 4 Headers + bus     header ingestion in our transports; pi-auth-plus:v1:quotas:* + report
-[.] 5 Line              template parser/renderer, line placements, widget, footer
+[x] 1 Engine core       contract, registry quota part, cache gaps, drainage, engine, settings
+[x] 2 Existing families claude, antigravity, synthetic fetchers (+ fixtures from pi-quotas)
+[x] 3 New families      openrouter, deepseek, openai (ChatGPT), xai as quota-only adapters
+[>] 4 Headers + bus     header ingestion from after_provider_response; pi-auth-plus:v1:quotas:* + report
+[ ] 5 Line              template parser/renderer, line placements, widget, footer
 [.] 6 Panels            /auth quotas panel with refresh, settings panel from the catalog
 [.] 7 Resets + CLI      panel resets with confirm dialog; --quotas-json / --quotas-list
 [.] 8 Cutover           fill-only quotas.json migration, docs, live parity run, setup swap, release
 ```
 
-## Slice 1: engine core (now)
+## Slices 1-3: done
 
-Outcome: a fake family with a `quota` part refreshes through the engine, lands in the host
-cache, survives a second session reading the same file, and backs off on 429/403. No real
-provider is wired yet.
+Engine (`src/quotas/{types,engine,state,settings,drainage}.ts`) on `HostCache` at
+`cacheDir()/quotas.json`; session start and turn end never wait on the network. Seven quota
+parts, each live-verified read-only on 2026-10-27: claude, antigravity, synthetic, openrouter,
+deepseek, xai, openai. openai returned HTTP 401 for the current credential (needs a ChatGPT
+`/login openai`), so its success path is fixture-tested only. Aliases `cl`, `cc`, `ag` added.
 
-Units, in order. U1 defines the interfaces; U2 and U3 run in parallel; U4 builds on all three.
+## Slice 4: headers + bus (now)
 
-1. **U1 contract** (me). Write scope: `src/quotas/types.ts`, `src/core/registry/index.ts`.
-   - Port the snapshot types with `provider: string` (a Pi id). Drop `ProviderQuotaId`,
-     `PROVIDER_META`, `piProviders`.
-   - `ProviderEntry.quota?: QuotaSource` with `kind`, `shortLabel`, `parserVersion`,
-     `minPollMs?`, and `fetch(ctx: QuotaFetchContext): Promise<ProviderQuotaSnapshot>`.
-   - `QuotaFetchContext` = `{ auth(): Promise<QuotaAuth | undefined>, fetch, signal, now }`.
-   - Test that matters: none beyond typecheck (types only).
-2. **U2 cache gaps**. Write scope: `src/core/cache/index.ts`, `tests/core/cache.test.ts`.
-   - `backoffFor` treats a configurable set of statuses (default 429) as rate limits; the quota
-     engine passes `[403, 429]`.
-   - A `patch(key, fn)` that changes the value without touching `fetchedAt`, lease or backoff.
-   - Test: a patched entry keeps its `fetchedAt`, and a second `HostCache` on the same file sees
-     the patched value after `sync()`.
-3. **U3 drainage**. Write scope: `src/quotas/drainage.ts`, `tests/quotas/drainage.test.ts`.
-   Port `cache/drainage.ts` as pure functions over samples stored inside the cached value.
-   Test: the ported pi-quotas drainage cases pass unchanged in meaning.
-4. **U4 engine + settings**. Write scope: `src/quotas/{engine,state,settings}.ts`,
-   `src/core/config/catalog.ts` (`quotas.*` keys), `src/index.ts` wiring, `tests/quotas/engine.test.ts`.
-   - `HostCache<QuotaState>` at `cacheDir()/quotas.json`; `QuotaState` = endpoint snapshot,
-     optional header partial with `observedAt`, drainage samples.
-   - Timer lifecycle from pi-quotas `runtime.ts` (start on `session_start`, stop on shutdown,
-     `refreshIntervalSec`, per-provider `minPollMs`, `refreshOnRequest`).
-   - Off when pi-quotas is loaded (reuse `core/conflicts` package detection).
-   - Test: two engines on one cache file, one fake source: only one fetch per interval, the other
-     engine sees the result; a 403 from the source backs off and a forced refresh does not bypass it.
+Outcome: a claude or ChatGPT turn updates that provider's windows from response headers
+without a poll, and another extension can query, refresh and watch quotas over
+`pi-auth-plus:v1:quotas:*`.
 
-Verification: `bun test tests/core/cache.test.ts tests/quotas`, `bun run typecheck`, `bun run lint`.
+Facts that shape it:
 
-## Slice 2+: sparse
+- Pi fires `after_provider_response` (`{status, headers}`, no provider id) from the agent's
+  `onResponse` for every provider, ours included (antigravity was fixed to call it). One handler
+  covers all of them; a second ingestion inside our fetch wrappers would double-count.
+- Header shapes (pi-quotas `providers/parse.ts:40-140`): ChatGPT
+  `x-codex-{primary,secondary}-{used-percent,window-minutes,reset-at}` + `x-codex-plan-type`;
+  claude `anthropic-ratelimit-unified-{5h,7d,7d_oi,overage}-{utilization,reset}` (fraction,
+  may exceed 1, clamped).
+- Nobody consumes the pi-quotas bus, so the channel contract is new, without compat shims.
 
-- Fixtures: port pi-quotas `tests/fixtures/*.json`, keep them unchanged, one assertion each.
-- claude: `api.anthropic.com/api/oauth/usage`, 300 s floor, version/headers from the family.
-- antigravity: reuse `families/google/project.ts` and `transport.ts`; five buckets per
-  `.project/analyses/antigravity-cli/1.4.8/05-quota.md`.
-- openai: ChatGPT `backend-api/wham/*`, needs the account id from Pi's `openai` OAuth credential.
+Units. U8 defines the interface; U9, U10, U11 run in parallel (disjoint files); I wire
+`src/index.ts`.
+
+8. **U8 contract** (me). `QuotaSource.headers?(headers, now)` returns a `source: "headers"`
+   snapshot or `undefined` when the shape is not its own.
+9. **U9 header parsers**. Write scope: `src/families/{anthropic,openai}/quota.ts` + tests.
+   Test: a real-shaped header set yields the windows; an unrelated header set yields `undefined`;
+   a missing utilization stays unknown.
+10. **U10 engine ingestion**. Write scope: `src/quotas/{engine,state}.ts`, new
+    `src/quotas/merge.ts`, `tests/quotas/`. `engine.ingestHeaders(headers, hint)` asks the hinted
+    provider's parser first, then the others; the claimant's state gets `headers` via
+    `cache.patch` (no `fetchedAt` move) plus a drainage sample. `view()` returns the endpoint
+    snapshot overlaid with newer header windows (per window id; labels, period and scope from the
+    endpoint). Test: a header patch after an endpoint fetch shows the header value, keeps the
+    endpoint's other windows and `fetchedAt`, and a later endpoint fetch wins again.
+11. **U11 report + bus**. Write scope: `src/quotas/{report,bus}.ts`, tests. `QuotaReport` from
+    pi-quotas `cli/report.ts` with Pi ids; channels `ready`, `snapshot`, `event`
+    (`auth-required`, `rate-limited`), `query {providers?, maxAgeSec?}`, `refresh {providers?,
+    force?}` over `core/bus`. Resets channels come with slice 7. Test: a `query` for an alias
+    answers with the Pi id, an unknown provider gets an error listing known ids.
+
+Verification: `bun test --isolate tests/quotas tests/families/{anthropic,openai}`, typecheck,
+lint; then one live claude turn on Pi-Bolt and stock Pi with pi-quotas absent, showing the
+header-updated windows in the cache file.
+
+## Slice 5+: sparse
+
+- Line: pi-quotas `render/*` template parser and placements; Pi ids, aliases resolve.
+- Panels: `/auth quotas` with refresh; settings tab from the catalog.
+- Resets: openai only (`codex-resets.ts`), `ctx.ui.select` with "Keep the credit" first.
+- Cutover: fill-only migration of pi-quotas' cache/config, live parity run, setup swap, release.
 - The footer token math stays until M3.

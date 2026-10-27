@@ -241,9 +241,10 @@ Endpoints, auth, schemas, units and reset semantics per provider are in
   provider payload.
 - Units are explicit; a missing field is `undefined`, never `0`. Keep "no limit", "0% used"
   and "unknown" distinguishable. Every window a provider exposes stays visible.
-- Quota state from response headers is ingested inside our own providers' fetch wrappers, and
-  for builtins from `after_provider_response` attributed by the header shape (the event has no
-  provider id; `ctx.model` is only a hint). Never poll for what a response already said.
+- Quota state from response headers is ingested from `after_provider_response`, which Pi fires
+  for builtins and our providers alike (ours must call `onResponse`). Each family's
+  `QuotaSource.headers` claims its own header shape; the event has no provider id and
+  `ctx.model` is only a hint. Never poll for what a response already said.
 - One host cache (atomic writes, leases, backoff with Retry-After) so concurrent sessions do
   not fetch twice. A corrupt cache file is ignored, never fatal. No timers outlive the session.
 

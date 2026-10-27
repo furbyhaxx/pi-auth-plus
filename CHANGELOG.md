@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Quota engine (preview).** Quotas for `claude`, `antigravity`, `synthetic`, `openai`
+  (ChatGPT), `xai`, `openrouter` and `deepseek` refresh in the background into a cache shared
+  by all Pi sessions on the host, with per-provider backoff on 403/429 and a drainage history.
+  Windows a provider reports without numbers show as unknown, never as 0%. The engine stays off
+  while pi-quotas is loaded; the status line and `/quota` arrive in later releases.
+- Quota aliases from pi-quotas: `cl` and `cc` for claude, `ag` for antigravity.
 - **Antigravity login carry-over.** On the first session start, a pi-antigravity-auth login
   stored under Pi's `google` slot is copied into an empty `antigravity` slot, under the same
   file lock Pi's `/login` takes. The `google` slot is left untouched. On failure a warning

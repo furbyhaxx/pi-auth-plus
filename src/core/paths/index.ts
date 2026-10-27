@@ -43,6 +43,11 @@ export function cacheDir(env: PathEnv = process.env): string {
 	return join(agentDir(env), "cache", "auth-plus");
 }
 
+/** Downloaded artifacts shared across sessions, independent of Pi's agent directory. */
+export function xdgCacheDir(env: PathEnv = process.env): string {
+	return join(xdgBase(env, "XDG_CACHE_HOME", [".cache"]), APP_DIR_NAME);
+}
+
 export function stateDir(env: PathEnv = process.env): string {
 	return join(xdgBase(env, "XDG_STATE_HOME", [".local", "state"]), APP_DIR_NAME);
 }

@@ -12,6 +12,9 @@ import { FAMILIES } from "./families/index.ts";
 import { registerQuotaBus } from "./quotas/bus.ts";
 import { QuotaEngine } from "./quotas/engine.ts";
 import { createQuotaLine } from "./quotas/line/index.ts";
+import { quotaLineConfig } from "./quotas/line/line.ts";
+import { formatPlainTextSummary } from "./quotas/line/summary.ts";
+import { engineReport } from "./quotas/report.ts";
 import type { QuotaAuth } from "./quotas/types.ts";
 import { registerAuthCommands } from "./ui/commands/index.ts";
 
@@ -126,6 +129,35 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			return ambient ? { state: "ambient", ...ambient } : stored;
 		},
 		now: Date.now,
+		quotas: () =>
+			quotasEnabled
+				? {
+						report: () => engineReport(quotas, settings, Date.now()),
+						refreshing: (id) =>
+							quotas.view().some((view) => view.provider.id === id && view.refreshing),
+						refresh: (id, force) => quotas.refresh(id, { force, minAgeMs: 0 }),
+						onChange: (listener) => quotas.onChange(listener),
+						lineConfig: () => quotaLineConfig(settings),
+						linePlacement: () => settings.get("quotas.linePlacement"),
+						setLinePlacement: async (next) => {
+							await settings.save("user", { "quotas.linePlacement": next });
+							quotaLine.settingsChanged();
+						},
+						now: Date.now,
+						text: (provider) =>
+							formatPlainTextSummary(
+								quotas.view(),
+								quotaLineConfig(settings),
+								provider,
+								Date.now(),
+							),
+					}
+				: "pi-quotas is loaded and still owns quotas. Remove it from your Pi settings to use these.",
+		settings: {
+			store: () => settings,
+			onSaved: () => quotaLine.settingsChanged(),
+			preview: (source, width, theme) => quotaLine.preview(source, width, theme),
+		},
 	});
 
 	let warned = false;

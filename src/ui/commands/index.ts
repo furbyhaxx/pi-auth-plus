@@ -2,25 +2,65 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { type AutocompleteItem, Text } from "@earendil-works/pi-tui";
 import type { CredentialStatus } from "../../core/auth/index.ts";
+import { type AppSettings, SETTINGS } from "../../core/config/catalog.ts";
+import { type SaveScope, SettingsError } from "../../core/config/index.ts";
 import type { Registry } from "../../core/registry/index.ts";
+import type { LineTheme } from "../../quotas/line/format.ts";
 import {
 	AuthDashboard,
 	type DashboardModel,
+	type DashboardResult,
 	dashboardText,
+	RowsView,
 	resolveTab,
 	staticViews,
 	TABS,
 	type TabId,
 } from "../dashboard/index.ts";
+import { type QuotasTabDeps, QuotasView } from "../dashboard/quotas.ts";
+import { SettingsView } from "../dashboard/settings.ts";
 import { sanitize } from "../frame/index.ts";
 
 export const NOTE_TYPE = "auth-plus-note";
 export const AUTH_USAGE = `Usage: /auth [${TABS.map((tab) => tab.id).join("|")}]`;
 
+/** The live Quotas tab plus its plain-text form for print and RPC modes. */
+export interface QuotaPanelDeps extends QuotasTabDeps {
+	text(provider?: string): string;
+}
+
+export interface SettingsPanelDeps {
+	store(): AppSettings;
+	onSaved(keys: readonly string[], scope: SaveScope): void;
+	preview?(
+		source: string,
+		width: number,
+		theme: LineTheme,
+	): { rows: readonly string[]; unknown: readonly string[] };
+}
+
 export interface AuthCommandDeps {
 	readonly registry: Registry;
 	readonly status: (providerId: string) => CredentialStatus;
 	readonly now: () => number;
+	/** Live quotas, or why they are unavailable in this session. */
+	readonly quotas?: () => QuotaPanelDeps | string;
+	readonly settings?: SettingsPanelDeps;
+}
+
+type SettingKey = keyof typeof SETTINGS;
+
+const SCOPES: readonly { readonly label: string; readonly scope: SaveScope }[] = [
+	{ label: "User (all projects)", scope: "user" },
+	{ label: "Project", scope: "project" },
+	{ label: "This session only", scope: "runtime" },
+];
+
+function settingsText(store: AppSettings): string {
+	const lines = (Object.keys(SETTINGS) as SettingKey[]).map(
+		(key) => `  ${key} = ${sanitize(JSON.stringify(store.get(key)))} (${store.sourceOf(key)})`,
+	);
+	return ["Auth › Settings", ...lines].join("\n");
 }
 
 function editDistance(a: string, b: string): number {
@@ -97,13 +137,100 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		} else pi.appendEntry(NOTE_TYPE, { text });
 	};
 
-	const open = async (ctx: ExtensionCommandContext, tab: TabId) => {
-		const model = dashboardModel(deps);
-		if (ctx.mode !== "tui" || !ctx.hasUI) return report(ctx, dashboardText(tab, model), "info");
-		await ctx.ui.custom(
-			(tui, theme, keys, done) =>
-				new AuthDashboard(tui, theme, keys, done, staticViews(model), tab, model.providers.length),
+	const quotaTarget = (target: string | undefined): string | undefined =>
+		target === undefined ? undefined : deps.registry.resolve(target)?.provider.id;
+
+	const headless = (tab: TabId, model: DashboardModel, target?: string): string => {
+		const quotas = deps.quotas?.();
+		if (tab === "quotas" && quotas !== undefined)
+			return typeof quotas === "string"
+				? `Auth › Quotas\n  ${quotas}`
+				: `Auth › Quotas\n${quotas.text(quotaTarget(target))}`;
+		if (tab === "settings" && deps.settings) return settingsText(deps.settings.store());
+		return dashboardText(tab, model);
+	};
+
+	const editSetting = async (ctx: ExtensionCommandContext, key: string): Promise<void> => {
+		const settings = deps.settings;
+		if (!settings || !(key in SETTINGS)) return;
+		const name = key as SettingKey;
+		const field = SETTINGS[name];
+		const store = settings.store();
+		const edited = await ctx.ui.editor(
+			`${field.label} (JSON)`,
+			JSON.stringify(store.get(name), null, 2),
 		);
+		if (edited === undefined) return;
+		let raw: unknown;
+		try {
+			raw = JSON.parse(edited);
+		} catch (error) {
+			return report(
+				ctx,
+				`${field.label}: not valid JSON (${String(error)}); nothing saved.`,
+				"error",
+			);
+		}
+		const value = field.parse(raw);
+		if (value === undefined)
+			return report(ctx, `${field.label}: value has the wrong shape; nothing saved.`, "error");
+		const choice = await ctx.ui.select(
+			`Save ${field.label} to`,
+			SCOPES.map((entry) => entry.label),
+		);
+		const scope = SCOPES.find((entry) => entry.label === choice)?.scope;
+		if (!scope) return;
+		try {
+			await store.save(scope, { [name]: value });
+		} catch (error) {
+			if (error instanceof SettingsError) return report(ctx, error.message, "error");
+			throw error;
+		}
+		settings.onSaved([name], scope);
+	};
+
+	const open = async (ctx: ExtensionCommandContext, tab: TabId, target?: string) => {
+		const model = dashboardModel(deps);
+		if (ctx.mode !== "tui" || !ctx.hasUI) return report(ctx, headless(tab, model, target), "info");
+		let current: { tab: TabId; select?: string } = { tab, ...(target ? { select: target } : {}) };
+		for (;;) {
+			const opened = current;
+			const result = await ctx.ui.custom<DashboardResult>((tui, theme, keys, done) => {
+				const views = staticViews(dashboardModel(deps));
+				const quotas = deps.quotas?.();
+				if (typeof quotas === "string")
+					views.quotas = (host) => new RowsView(host, { rows: [], empty: quotas });
+				else if (quotas)
+					views.quotas = (host) =>
+						new QuotasView(
+							host,
+							theme,
+							quotas,
+							opened.tab === "quotas" ? quotaTarget(opened.select) : undefined,
+						);
+				const settings = deps.settings;
+				if (settings)
+					views.settings = (host) =>
+						new SettingsView(
+							host,
+							{
+								store: settings.store,
+								onSaved: settings.onSaved,
+								...(settings.preview
+									? {
+											previewTemplate: (source: string, width: number) =>
+												settings.preview?.(source, width, theme) ?? { rows: [], unknown: [] },
+										}
+									: {}),
+							},
+							opened.tab === "settings" ? opened.select : undefined,
+						);
+				return new AuthDashboard(tui, theme, keys, done, views, opened.tab, model.providers.length);
+			});
+			if (!result) return;
+			await editSetting(ctx, result.editSetting);
+			current = { tab: "settings", select: result.editSetting };
+		}
 	};
 
 	pi.registerCommand("auth", {
@@ -112,7 +239,13 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		handler: async (args, ctx) => {
 			const parsed = parseAuthArgs(args);
 			if ("error" in parsed) return report(ctx, parsed.error, "error");
-			await open(ctx, parsed.tab);
+			await open(ctx, parsed.tab, parsed.target);
 		},
+	});
+
+	// `/quota` stays with pi-quotas until the cutover; `/quotas` is free meanwhile.
+	pi.registerCommand("quotas", {
+		description: "Quota windows and credits; /quotas <provider> focuses one",
+		handler: async (args, ctx) => open(ctx, "quotas", args.trim().split(/\s+/)[0] || undefined),
 	});
 }

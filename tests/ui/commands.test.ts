@@ -57,8 +57,8 @@ describe("ui/commands", () => {
 
 	test("without a TUI the dashboard renders as text and opens the named section", async () => {
 		const rpc = rig("rpc");
-		// No /quota entry point until the quota engine lands: pi-quotas owns that name meanwhile.
-		expect(rpc.names).toEqual(["auth"]);
+		// `/quota` stays with pi-quotas until the cutover.
+		expect(rpc.names).toEqual(["auth", "quotas"]);
 		await rpc.run("auth");
 		expect(rpc.notices[0]).toEqual([
 			"Auth › Providers\n  Claude: not signed in · /login claude",

@@ -80,7 +80,13 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		await quotas.start(ctx);
 		stopQuotaBus = registerQuotaBus(pi.events, quotas, registry, () => settings, Date.now);
 	});
-	pi.on("session_shutdown", () => {
+	const pendingIngests = new Set<Promise<unknown>>();
+	pi.on("session_shutdown", async () => {
+		// Print mode exits right after the turn; let header writes land, bounded.
+		await Promise.race([
+			Promise.allSettled(pendingIngests),
+			new Promise((resolve) => setTimeout(resolve, 2_000).unref()),
+		]);
 		quotasEnabled = false;
 		quotaContext = undefined;
 		stopQuotaBus?.();
@@ -88,7 +94,10 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		quotas.stop();
 	});
 	pi.on("after_provider_response", (event, ctx) => {
-		if (quotasEnabled) void quotas.ingestHeaders(event.headers, ctx.model?.provider);
+		if (!quotasEnabled) return;
+		const ingest = quotas.ingestHeaders(event.headers, ctx.model?.provider);
+		pendingIngests.add(ingest);
+		void ingest.finally(() => pendingIngests.delete(ingest));
 	});
 	pi.on("agent_end", (_event, ctx) => {
 		if (!quotasEnabled || !settings.get("quotas.refreshOnRequest")) return;

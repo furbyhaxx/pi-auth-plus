@@ -18,6 +18,9 @@ import { quotaLineConfig } from "./quotas/line/line.ts";
 import { formatPlainTextSummary } from "./quotas/line/summary.ts";
 import { carryOverPiQuotas } from "./quotas/migrate/index.ts";
 import { engineReport } from "./quotas/report.ts";
+import { createTokenEngine } from "./tokens/engine/index.ts";
+import { defaultTokenizerStore } from "./tokens/tokenizer/index.ts";
+import { createTokenTracker } from "./tokens/tracker/index.ts";
 import { registerAuthCommands } from "./ui/commands/index.ts";
 import { confirmReset } from "./ui/commands/resets.ts";
 
@@ -42,6 +45,24 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		}
 	});
 	let quotaContext: ExtensionContext | undefined;
+	const tokens = createTokenTracker(pi, {
+		engine: createTokenEngine({
+			families: registry.families,
+			deps: {
+				auth: (id) => quotaAuthFor(id, quotaContext?.modelRegistry),
+				fetch,
+				tokenizers: defaultTokenizerStore(),
+			},
+			tools: () => {
+				const active = new Set(pi.getActiveTools());
+				return pi
+					.getAllTools()
+					.filter((tool) => active.has(tool.name))
+					.map(({ name, description, parameters }) => ({ name, description, parameters }));
+			},
+		}),
+	});
+	void tokens;
 	let quotasEnabled = false;
 	const quotas = new QuotaEngine({
 		registry,

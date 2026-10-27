@@ -212,7 +212,7 @@ export class SettingsView implements TabView {
 			const rendered =
 				active && this.#mode === "edit"
 					? (this.#input.render(valueWidth)[0] ?? "")
-					: truncateToWidth(text, valueWidth);
+					: truncateToWidth(text, valueWidth, "…");
 			rows.push(
 				` ${active ? theme.fg("accent", "❯") : " "} ${padTo(field.label, labelWidth)} ${padTo(rendered, valueWidth)} ${theme.fg(key in this.#staged ? "warning" : "dim", source)}`,
 			);
@@ -244,10 +244,14 @@ export class SettingsView implements TabView {
 		return {
 			lines: [...rows.slice(this.#offset, this.#offset + available), ...details.slice(0, reserved)]
 				.slice(0, bodyRows)
-				.map((line) => truncateToWidth(line, width)),
+				.map((line) => truncateToWidth(line, width, "…")),
 			above: this.#offset,
 			below: Math.max(0, rows.length - this.#offset - available),
-			description: truncateToWidth(theme.fg("muted", field?.description ?? ""), width),
+			description: truncateToWidth(
+				theme.fg("muted", sanitize(field?.description ?? "")),
+				Math.max(1, width - 1),
+				"…",
+			),
 			modal: this.#mode !== "list",
 			hints:
 				this.#mode === "edit"

@@ -19,7 +19,7 @@ const tokens = {
 };
 
 function oauth(deps: Parameters<typeof antigravityAuth>[0]) {
-	const method = antigravityAuth(deps).oauth;
+	const method = antigravityAuth({ sleep: async () => {}, ...deps }).oauth;
 	if (!method) throw new Error("Missing OAuth method");
 	return method;
 }

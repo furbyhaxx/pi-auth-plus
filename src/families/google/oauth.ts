@@ -96,10 +96,16 @@ function parseTokens(value: unknown, now: number, refresh?: string): OAuthCreden
 
 /** Builds Pi-native login without performing I/O until login or refresh. */
 export function antigravityAuth(
-	deps: { fetch?: FetchFn; now?: () => number; random?: (length: number) => Uint8Array } = {},
+	deps: {
+		fetch?: FetchFn;
+		now?: () => number;
+		random?: (length: number) => Uint8Array;
+		sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
+	} = {},
 ): ProviderAuth {
 	const fetchFn = deps.fetch ?? fetch;
 	const now = deps.now ?? Date.now;
+	const sleep = deps.sleep ?? ((ms, signal) => delay(ms, undefined, { signal }));
 
 	async function exchange(
 		body: Record<string, string>,
@@ -193,7 +199,7 @@ export function antigravityAuth(
 			async refresh(credential, signal) {
 				for (let attempt = 0; ; attempt++) {
 					signal.throwIfAborted();
-					if (attempt > 0) await delay(500 * 2 ** (attempt - 1), undefined, { signal });
+					if (attempt > 0) await sleep(500 * 2 ** (attempt - 1), signal);
 					try {
 						const data = await exchange(
 							{ grant_type: "refresh_token", refresh_token: credential.refresh },

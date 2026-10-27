@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import type { FetchFn } from "../../core/http/index.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
-import type { TokenizerStore } from "../../tokens/types.ts";
+import { estimateCounter, tokenizerCounter } from "../../tokens/estimate/index.ts";
+import type { TokenCounter, TokenizerStore } from "../../tokens/types.ts";
 import { BASE_URL, bundledModels, PROVIDER, refreshCatalog } from "./catalog.ts";
 import { syntheticQuota } from "./quota.ts";
 import { requestModel, syntheticTokenizerRepo } from "./request-tokens.ts";
@@ -21,6 +22,7 @@ export function createSyntheticFamily(
 	outputDir: () => string = tmpdir,
 	tokenizers?: TokenizerStore,
 ): FamilyAdapter {
+	const counters = new Map<string, TokenCounter>();
 	return {
 		id: PROVIDER,
 		label: "Synthetic",
@@ -34,6 +36,17 @@ export function createSyntheticFamily(
 					env["SYNTHETIC_API_KEY"] ? { source: "SYNTHETIC_API_KEY", limited: false } : undefined,
 			},
 		],
+		tokens: (model, deps) => {
+			if (model.provider !== PROVIDER) return undefined;
+			const cached = counters.get(model.id);
+			if (cached) return cached;
+			const repo = syntheticTokenizerRepo(model.id);
+			const counter = repo
+				? tokenizerCounter(repo, deps.tokenizers, estimateCounter("synthetic"), true)
+				: estimateCounter("synthetic");
+			counters.set(model.id, counter);
+			return counter;
+		},
 		providerRegistrations: () => [
 			{
 				name: PROVIDER,

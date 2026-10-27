@@ -5,6 +5,7 @@ import type { CredentialStatus } from "../../core/auth/index.ts";
 import { type AppSettings, SETTINGS } from "../../core/config/catalog.ts";
 import { type SaveScope, SettingsError } from "../../core/config/index.ts";
 import type { Registry } from "../../core/registry/index.ts";
+import { loginCodex } from "../../families/openai/codex-auth/index.ts";
 import type { LineTheme } from "../../quotas/line/format.ts";
 import {
 	AuthDashboard,
@@ -47,6 +48,8 @@ export interface AuthCommandDeps {
 	/** Live quotas, or why they are unavailable in this session. */
 	readonly quotas?: () => QuotaPanelDeps | string;
 	readonly settings?: SettingsPanelDeps;
+	readonly loginCodex?: typeof loginCodex;
+	readonly signal?: AbortSignal;
 }
 
 type SettingKey = keyof typeof SETTINGS;
@@ -257,16 +260,74 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		},
 	});
 
+	const runCodexLogin = async (
+		ctx: ExtensionCommandContext,
+		mode: "auto" | "device" | "browser",
+	): Promise<void> => {
+		if (!ctx.hasUI) return report(ctx, "Codex login needs an interactive session", "error");
+		try {
+			const credential = await (deps.loginCodex ?? loginCodex)({
+				mode,
+				onStatus: (message) => {
+					if (!deps.signal?.aborted) ctx.ui.notify(sanitize(message), "info");
+				},
+				...(deps.signal ? { signal: deps.signal } : {}),
+			});
+			if (deps.signal?.aborted) return;
+			const quotas = deps.quotas?.();
+			if (quotas && typeof quotas !== "string") await quotas.refresh("codex", true);
+			if (deps.signal?.aborted) return;
+			report(
+				ctx,
+				`Codex quota authenticated${credential.email ? ` (${sanitize(credential.email)})` : ""}${credential.planType ? ` [${sanitize(credential.planType)}]` : ""}`,
+				"info",
+			);
+		} catch (error) {
+			if (deps.signal?.aborted) return;
+			report(
+				ctx,
+				`Codex login failed: ${sanitize(error instanceof Error ? error.message : String(error))}`,
+				"error",
+			);
+		}
+	};
+
 	const quotaCommand: Parameters<ExtensionAPI["registerCommand"]>[1] = {
-		description: "Quota windows and credits; /quotas <provider> focuses one",
+		description:
+			"Quota windows and credits; <provider> focuses one; codex login [--device|--browser]",
 		getArgumentCompletions: (prefix) => {
-			const items = ["reset", ...deps.registry.providers().map(({ provider }) => provider.id)]
+			const items = [
+				"reset",
+				...deps.registry.providers().map(({ provider }) => provider.id),
+				"codex login",
+				"codex login --device",
+				"codex login --browser",
+			]
 				.filter((name) => name.startsWith(prefix.trim().toLowerCase()))
 				.map((name) => ({ value: name, label: name }));
 			return items.length ? items : null;
 		},
 		handler: async (args, ctx) => {
-			const [word, target, extra] = args.trim().split(/\s+/);
+			const tokens = args.trim().split(/\s+/);
+			const [word, target, extra] = tokens;
+			if (word?.toLowerCase() === "login" || target?.toLowerCase() === "login") {
+				const provider = word?.toLowerCase() === "login" ? target : word;
+				if (
+					!provider ||
+					quotaTarget(provider) !== "codex" ||
+					tokens.length > 3 ||
+					(extra !== undefined && extra !== "--device" && extra !== "--browser")
+				)
+					return report(
+						ctx,
+						"Usage: /quota codex login [--device|--browser] (or /quota login codex).",
+						"error",
+					);
+				return runCodexLogin(
+					ctx,
+					extra === "--device" ? "device" : extra === "--browser" ? "browser" : "auto",
+				);
+			}
 			if (word?.toLowerCase() !== "reset" && word?.toLowerCase() !== "resets")
 				return open(ctx, "quotas", word || undefined);
 			const quotas = deps.quotas?.();

@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-27
+
 ### Fixed
 
 - **pi-quotas template carry-over uses Pi ids.** Provider names in a carried-over
@@ -151,7 +153,8 @@ All notable changes to this project are documented here. The format follows
   pi-antigravity-auth or pi-quotas next to pi-auth-plus warns once and names the command that
   removes each.
 
-[Unreleased]: https://github.com/furbyhaxx/pi-auth-plus/compare/v0.3.0...dev
+[Unreleased]: https://github.com/furbyhaxx/pi-auth-plus/compare/v0.3.1...dev
+[0.3.1]: https://github.com/furbyhaxx/pi-auth-plus/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/furbyhaxx/pi-auth-plus/releases/tag/v0.3.0
 [0.2.0]: https://github.com/furbyhaxx/pi-auth-plus/releases/tag/v0.2.0
 [0.1.0]: https://github.com/furbyhaxx/pi-auth-plus/releases/tag/v0.1.0

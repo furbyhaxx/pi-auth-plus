@@ -1,6 +1,6 @@
 {
 	"name": "@furbyhaxx/pi-auth-plus",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"description": "Subscription and API-key providers that behave like Pi builtins, quota monitoring and accurate token counting.",
 	"license": "MIT",
 	"type": "module",

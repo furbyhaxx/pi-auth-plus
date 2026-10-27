@@ -18,6 +18,7 @@ import { quotaLineConfig } from "./quotas/line/line.ts";
 import { formatPlainTextSummary } from "./quotas/line/summary.ts";
 import { carryOverPiQuotas } from "./quotas/migrate/index.ts";
 import { engineReport } from "./quotas/report.ts";
+import { registerTokenBus } from "./tokens/bus.ts";
 import { createTokenEngine } from "./tokens/engine/index.ts";
 import { defaultTokenizerStore } from "./tokens/tokenizer/index.ts";
 import { createTokenTracker } from "./tokens/tracker/index.ts";
@@ -62,7 +63,15 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			},
 		}),
 	});
-	void tokens;
+	let stopTokenBus: (() => void) | undefined;
+	pi.on("session_start", () => {
+		stopTokenBus?.();
+		stopTokenBus = registerTokenBus(pi.events, tokens);
+	});
+	pi.on("session_shutdown", () => {
+		stopTokenBus?.();
+		stopTokenBus = undefined;
+	});
 	let quotasEnabled = false;
 	const quotas = new QuotaEngine({
 		registry,

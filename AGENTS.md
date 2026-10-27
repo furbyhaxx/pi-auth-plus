@@ -158,7 +158,10 @@ Read it before touching registration, and correct it when Pi changes.
   bundled snapshot in `assets/` covers only a first run that never refreshed (print mode never
   does).
 - **Login is Pi's.** Every provider logs in and out through Pi's `/login` and `/logout` via the
-  provider's `oauth` or API-key config. No login commands or flows of our own.
+  provider's `oauth` or API-key config. No login commands or flows of our own. One user-approved
+  exception: the `codex` quota (ChatGPT usage rejects Pi's `openai` login) reads Pi's
+  `openai-codex` login, else pi-quotas' `quotas-codex-auth.json` via `/quota codex login`
+  (`src/families/openai/codex-auth/`, refresh under a file lock).
 - **Reuse Pi's wire implementations.** When the protocol matches a Pi `api`
   (`anthropic-messages`, `openai-completions`, …), set `api`, `baseUrl` and headers and let Pi
   stream. A custom `streamSimple` only where no Pi `api` fits (antigravity), and its `api` must

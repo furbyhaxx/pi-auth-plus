@@ -5,9 +5,9 @@ document:
   title: "M2 quotas"
   description: "Port the pi-quotas engine, seven providers, line, panels, bus and CLI onto core/ and families/"
   status: "published"
-  revision: 8
+  revision: 9
   created_at: "2026-10-27T14:28:39+01:00"
-  updated_at: "2026-10-27T16:32:21+01:00"
+  updated_at: "2026-10-27T17:50:57+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -32,6 +32,9 @@ document:
     - revision: 8
       reason: "slice 7 done"
       changes: ["Resets with confirm and read-only CLI live on both runtimes; slice 8 (cutover) in detail"]
+    - revision: 9
+      reason: "codex credential decision (D33)"
+      changes: ["ChatGPT quota id becomes codex with its own credential chain and login; U20-U25 and codex units done"]
 ---
 
 # M2 quotas
@@ -51,6 +54,14 @@ Input: `.project/analyses/quotas/pi-quotas-inventory.md` (pi-quotas `3284a14`).
 - **Ids = Pi provider ids everywhere**: `openai` (not `codex`), `claude`, `antigravity`,
   `synthetic`, `openrouter`, `deepseek`, `xai`. Old names (`codex`, `cox`, `cl`, `ag`, `grok`, ...)
   stay as registry aliases, so `/quota codex` and `{codex:...}` templates still resolve.
+
+**D33 (user, 2026-10-27, deliberate change of the id rule and the login rule above).** Pi's
+`openai` login ("Sign in with ChatGPT") gets HTTP 401 on every ChatGPT usage and reset endpoint
+(`.project/analyses/quotas/openai-chatgpt-login.md`), and `/login openai-codex` duplicates the
+Codex models in the picker. So the ChatGPT quota is `codex` everywhere (aliases `openai`,
+`openai-codex`, `chatgpt`, `cx`, `cox`, `oai`); its credential is Pi's `openai-codex` login,
+else pi-quotas' `quotas-codex-auth.json` (refreshed under a file lock), and
+`/quota codex login [--device|--browser]` writes that file.
 
 Agent decisions (not user-facing choices):
 
@@ -78,7 +89,7 @@ Agent decisions (not user-facing choices):
 [x] 5 Line              template parser/renderer, line placements, widget, footer
 [x] 6 Panels            /auth quotas panel with refresh, settings panel from the catalog
 [x] 7 Resets + CLI      panel resets with confirm dialog; --quotas-json / --quotas-list
-[>] 8 Cutover           fill-only quotas.json migration, docs, live parity run, setup swap, release
+[>] 8 Cutover           carry-over, docs, parity run, bus client, codex (D33); swap + release left
 ```
 
 ## Slices 1-3: done
@@ -149,26 +160,22 @@ and matches pi-quotas side by side; then pi-quotas leaves the setup and M2 is re
 Inputs: pi-quotas config `<agentDir>/quotas.json` (user) and `<cwd>/.pi/quotas.json` (project),
 cache `<agentDir>/cache/quotas-cache.json` (inventory lines 424, 504).
 
-Units. U20-U22 run in parallel; U23 after them; swap and release last.
+Units (all landed on dev unless marked):
 
-20. **U20 settings carry-over**. Fill-only, per scope: pi-quotas `quotas.json` keys become
-    `quotas.*` in `auth-plus.json` where that key is unset; `enabledProviders` maps to Pi ids,
-    `lineTemplate` is kept verbatim (aliases resolve), `lineTemplateNarrow` dropped. Runs once
-    at session start, under the settings lock. Test: a set key is never overwritten.
-21. **U21 history carry-over**. pi-quotas drainage history and last snapshots seed an empty
-    `cache/auth-plus/quotas.json`, ids mapped (`codex`->`openai`, `grok`->`xai`). Test: a
-    non-empty cache is left alone.
-22. **U22 `/quota` + conflict**. Register `/quota [provider]` (same handler as `/quotas`);
-    pi-quotas joins the conflict list with a removal hint. The engine-off coexistence path
-    stays for anyone who keeps both. Test: rpc `get_commands` lists `quota` once without
-    pi-quotas.
-23. **U23 docs**. README section plus `docs/quotas.md` (line grammar, placements, settings,
-    panel keys, resets, CLI) and `docs/events.md` (`pi-auth-plus:v1:quotas:*` contract).
-24. **U24 parity run** (analyst). Same host, same moment: pi-quotas `--json` vs
-    `--quotas-json`, line text at 80/140 columns, panel per provider. Every difference is
-    either fixed or listed as intended (Pi ids, unknown-not-zero).
-
-Then: swap `pi-quotas` out of `~/.pi/agent/settings.json` (D29), live check, release v0.3.0.
+- [x] U20 settings carry-over, U21 history carry-over (once, fill-only, only without pi-quotas;
+      history merges into the host cache, snapshots are not imported).
+- [x] U22 `/quota` + pi-quotas conflict hint.
+- [x] U23 docs: `docs/{quotas,events,configuration,commands,getting-started}.md`, README.
+- [x] U24 parity run (`.project/analyses/quotas/parity-run.md`): missing reset counts fixed;
+      remaining differences are titles/order (intended) and pi-quotas' own staleness.
+- [x] U25 `@furbyhaxx/pi-auth-plus/bus` client.
+- [x] Codex (D33): credential store with locked refresh, id `codex`, `QuotaSource.auth`
+      resolver, `/quota codex login`, Providers tab and panel show the codex login commands.
+      Live: `--quotas-json codex` ok on Pi-Bolt and stock Pi through the pi-quotas file.
+- [x] Cache fix: same-millisecond writes from another session win over stale memory.
+- [ ] Swap `pi-quotas` out of `~/.pi/agent/settings.json` (D29); live tmux pass at
+      36/57/80/140 (line, `/auth` Providers + Quotas, `/quota codex login --device` first leg);
+      release v0.3.0.
 
 ## Later
 

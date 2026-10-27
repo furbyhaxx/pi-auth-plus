@@ -69,7 +69,8 @@ picker. The `codex` quota source therefore resolves its credential in this order
 `/quota codex login [--device|--browser]` (also `/quota login codex`, or any `codex`
 alias) runs the Codex OAuth login and writes that file, without registering models.
 `--device` forces the device-code flow, `--browser` the browser callback flow; the
-default tries the browser and falls back to the device code. It needs an interactive
+default uses the browser and falls back to the device code when the local callback
+server cannot start. It needs an interactive
 session. An existing pi-quotas file keeps working without a new login, and its token is
 refreshed under a file lock, so parallel sessions never spend the same refresh token.
 The Providers tab shows the sign-in state of whichever credential is used.

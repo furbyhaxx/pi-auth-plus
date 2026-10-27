@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 15
+  revision: 16
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T16:32:30+01:00"
+  updated_at: "2026-10-27T17:51:21+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -56,6 +56,9 @@ document:
     - revision: 15
       reason: "M2 slice 7 done"
       changes: ["Resets behind a confirm dialog + read-only CLI live; cutover is now"]
+    - revision: 16
+      reason: "codex decision (D33), cutover units landed"
+      changes: ["ChatGPT quota is codex with its own login file; carry-over, docs, parity, bus client done; swap + release left"]
 ---
 
 # Roadmap
@@ -84,18 +87,18 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] fork login migration   locked fill-only auth.json write (Pi has no store seam)
     [x] swap review   analyses/absorbed-packages-review/report.md; fixes landed
     [x] user setup swapped   4 packages -> pi-auth-plus; pi-quotas kept until M2
-[>] M2 Quotas       pi-quotas engine on core/ + families/; codex via Pi login, not its own
-                    OAuth file; reset-consume needs approval each time
+[>] M2 Quotas       pi-quotas engine on core/ + families/; reset-consume needs approval each
+                    time; codex = openai-codex login or pi-quotas' file (D33)
     plan: plans/0003-m2-quotas/plan.md; full parity first, then one setup swap
     [x] 1 engine core   contract, registry quota part, cache gaps, drainage, engine
     [x] 2-3 fetchers    claude, antigravity, synthetic, openrouter, deepseek, xai, openai
-                        (openai success path unverified live: credential gets HTTP 401)
+                        (Pi's openai login gets 401 -> codex credential chain, live ok)
     [x] 4 headers + bus after_provider_response ingestion; pi-auth-plus:v1:quotas:*
     [x] 5 line          templates, placements, widget, footer
     [x] 6 panels        /auth quotas + settings tabs, /quotas
-    [x] 7 resets + CLI  openai reset from the tab (confirm); --quotas-json/--quotas-list
-    [>] 8 cutover       settings + history carry-over, /quota, docs, live parity,
-                        swap pi-quotas out, release v0.3.0
+    [x] 7 resets + CLI  codex reset from the tab (confirm); --quotas-json/--quotas-list
+    [>] 8 cutover       [x] carry-over, /quota, docs, parity run, bus client,
+                        [x] codex id + /quota codex login; [ ] swap pi-quotas, release v0.3.0
 [.] M3 Tokens       per-family counting sources, content-hash store, footer reuses it
 [.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream
 ```

@@ -28,10 +28,31 @@ const REF_SUFFIX_RE = /(?:\.git)?(?:@[^@/\\]*)?$/;
 
 /** The absorbed package a source string or file path names, if any. */
 export function absorbedName(source: string): AbsorbedPackage | undefined {
-	const segments = source
+	return ABSORBED_PACKAGES.find((name) => matchesSource(name, source));
+}
+
+function matchesSource(name: string, source: string): boolean {
+	return source
 		.split(SEGMENT_SPLIT_RE)
-		.map((segment) => segment.replace(REF_SUFFIX_RE, ""));
-	return ABSORBED_PACKAGES.find((name) => segments.includes(name));
+		.some((segment) => segment.replace(REF_SUFFIX_RE, "") === name);
+}
+
+/** Whether Pi loads a named package through settings or a registered command's source path. */
+export function loadsPackage(
+	name: string,
+	packages: readonly PackageEntry[],
+	extensions: readonly string[],
+	commandPaths: readonly string[],
+): boolean {
+	return (
+		packages.some(
+			(entry) =>
+				loadsExtensions(entry) &&
+				matchesSource(name, typeof entry === "string" ? entry : entry.source),
+		) ||
+		extensions.some((path) => !path.startsWith("-") && matchesSource(name, path)) ||
+		commandPaths.some((path) => matchesSource(name, path))
+	);
 }
 
 function loadsExtensions(entry: PackageEntry): boolean {

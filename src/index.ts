@@ -1,15 +1,39 @@
 /** Pi entrypoint: awaits family registration and wires commands, flags and events. */
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+import { join } from "node:path";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { credentialStatus, readCredential } from "./core/auth/index.ts";
 import { type AppSettings, SETTINGS } from "./core/config/catalog.ts";
 import { SettingsStore } from "./core/config/index.ts";
-import { conflictMessage, detectConflicts } from "./core/conflicts/index.ts";
-import { projectSettingsPath, userSettingsPath } from "./core/paths/index.ts";
+import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts/index.ts";
+import { cacheDir, projectSettingsPath, userSettingsPath } from "./core/paths/index.ts";
 import { Registry } from "./core/registry/index.ts";
 import { FAMILIES } from "./families/index.ts";
+import { QuotaEngine } from "./quotas/engine.ts";
+import type { QuotaAuth } from "./quotas/types.ts";
 import { registerAuthCommands } from "./ui/commands/index.ts";
 
 const NO_EXTENSIONS = process.argv.some((arg) => arg === "--no-extensions" || arg === "-ne");
+
+/** Uses Pi's refreshed auth, including header-only bearers, plus stored OAuth extras. */
+export async function quotaAuthFor(
+	id: string,
+	modelRegistry: Pick<ExtensionContext["modelRegistry"], "getProviderAuth"> | undefined,
+): Promise<QuotaAuth | undefined> {
+	const resolved = await modelRegistry?.getProviderAuth(id);
+	const auth = resolved?.auth;
+	const authorization = Object.entries(auth?.headers ?? {}).find(
+		([name]) => name.toLowerCase() === "authorization",
+	)?.[1];
+	const token =
+		auth?.apiKey ||
+		(typeof authorization === "string"
+			? /^Bearer\s+(.+)$/i.exec(authorization)?.[1]?.trim()
+			: undefined);
+	if (!token) return undefined;
+	const stored = readCredential(id);
+	return { token, extra: stored?.type === "oauth" ? stored.extra : {} };
+}
 
 export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	const registry = new Registry(FAMILIES);
@@ -26,6 +50,40 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			const lines = problems.map((p) => `${p.path}${p.key ? ` ${p.key}` : ""}: ${p.reason}`);
 			ctx.ui.notify(`pi-auth-plus settings:\n${lines.join("\n")}`, "warning");
 		}
+	});
+	let quotaContext: ExtensionContext | undefined;
+	let quotasEnabled = false;
+	const quotas = new QuotaEngine({
+		registry,
+		cachePath: join(cacheDir(), "quotas.json"),
+		settings: () => settings,
+		now: Date.now,
+		fetch,
+		authFor: (id) => quotaAuthFor(id, quotaContext?.modelRegistry),
+	});
+	pi.on("session_start", async (_event, ctx) => {
+		quotas.stop();
+		quotaContext = ctx;
+		const configured = NO_EXTENSIONS ? {} : pi.getSettings();
+		const commandPaths = pi.getCommands().map((command) => command.sourceInfo.path);
+		quotasEnabled = !loadsPackage(
+			"pi-quotas",
+			configured.packages ?? [],
+			configured.extensions ?? [],
+			commandPaths,
+		);
+		if (quotasEnabled) await quotas.start(ctx);
+	});
+	pi.on("session_shutdown", () => {
+		quotasEnabled = false;
+		quotaContext = undefined;
+		quotas.stop();
+	});
+	pi.on("agent_end", async (_event, ctx) => {
+		if (!quotasEnabled || !settings.get("quotas.refreshOnRequest")) return;
+		quotaContext = ctx;
+		const id = ctx.model?.provider;
+		if (id && registry.byId(id)?.provider.quota) await quotas.refresh(id, { minAgeMs: 2000 });
 	});
 	const host = { settings: () => settings };
 	for (const family of registry.families) await family.register?.(pi, host);

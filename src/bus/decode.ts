@@ -1,7 +1,12 @@
-/** Structural decoders for the public quota bus, independent of the service runtime. */
+/** Structural decoders for the public bus, independent of the service runtime. */
+
 import type { QuotaEventPayload, QuotaReadyPayload, QuotaSnapshotPayload } from "../quotas/bus.ts";
 import type { QuotaReport, ReportProvider } from "../quotas/report.ts";
 import type { ResetCredit, ResetCreditList, ResetOutcome } from "../quotas/types.ts";
+import type { TokenContextPayload, TokenQueryResult, TokenReadyPayload } from "../tokens/bus.ts";
+import type { BreakdownPart, ContextReport } from "../tokens/engine/index.ts";
+import type { TrackerReason } from "../tokens/tracker/types.ts";
+import type { TokenCount } from "../tokens/types.ts";
 
 type RecordValue = Record<string, unknown>;
 function record(raw: unknown): raw is RecordValue {
@@ -215,4 +220,91 @@ export function decodeEvent(raw: unknown): QuotaEventPayload | undefined {
 			requester,
 		};
 	return undefined;
+}
+
+function tokenCount(raw: unknown): raw is TokenCount {
+	return (
+		record(raw) &&
+		finite(raw["tokens"]) &&
+		["provider", "count-endpoint", "tokenizer", "estimate"].some(
+			(source) => raw["source"] === source,
+		)
+	);
+}
+function contextReport(raw: unknown): raw is ContextReport {
+	return (
+		record(raw) &&
+		string(raw["provider"]) &&
+		string(raw["model"]) &&
+		tokenCount(raw["tokens"]) &&
+		tokenCount(raw["tail"]) &&
+		finite(raw["tailMessages"]) &&
+		finite(raw["computedAt"]) &&
+		optionalFields(raw, ["contextWindow", "percent"], finite) &&
+		optionalFields(raw, ["anchor"], tokenCount) &&
+		(raw["pi"] === undefined || raw["pi"] === null || finite(raw["pi"]))
+	);
+}
+function breakdownPart(raw: unknown): raw is BreakdownPart {
+	return (
+		record(raw) &&
+		["system", "tools", "user", "assistant", "toolResult", "other"].some(
+			(kind) => raw["kind"] === kind,
+		) &&
+		tokenCount(raw["count"]) &&
+		finite(raw["items"])
+	);
+}
+function trackerReason(raw: unknown): raw is TrackerReason {
+	return [
+		"session_start",
+		"session_shutdown",
+		"model_select",
+		"message_end",
+		"turn_end",
+		"session_compact",
+		"session_tree",
+		"request",
+	].some((reason) => raw === reason);
+}
+/** Decodes a nullable report and optional full-request contribution counts. */
+export function decodeTokenResult(raw: unknown): TokenQueryResult | undefined {
+	if (!record(raw) || (raw["report"] !== null && !contextReport(raw["report"]))) return undefined;
+	const breakdown = raw["breakdown"];
+	if (breakdown !== undefined && (!Array.isArray(breakdown) || !breakdown.every(breakdownPart)))
+		return undefined;
+	return { report: raw["report"], ...(breakdown === undefined ? {} : { breakdown }) };
+}
+/** Decodes the versioned token query success or refusal. */
+export function decodeTokenReply(
+	raw: unknown,
+): { ok: true; value: TokenQueryResult } | { ok: false; error: string } | undefined {
+	if (!record(raw) || raw["v"] !== 1) return undefined;
+	if (raw["ok"] === false && string(raw["error"])) return { ok: false, error: raw["error"] };
+	if (raw["ok"] !== true) return undefined;
+	const value = decodeTokenResult(raw);
+	return value === undefined ? undefined : { ok: true, value };
+}
+/** Decodes token channel capabilities without importing service runtime code. */
+export function decodeTokenReady(raw: unknown): TokenReadyPayload | undefined {
+	if (!record(raw) || raw["v"] !== 1 || !Array.isArray(raw["capabilities"])) return undefined;
+	const capabilities = raw["capabilities"];
+	if (
+		!capabilities.every(
+			(item): item is "query" | "context" => item === "query" || item === "context",
+		)
+	)
+		return undefined;
+	return { v: 1, capabilities };
+}
+/** Decodes a tracker change, including explicit report clearing. */
+export function decodeTokenContext(raw: unknown): TokenContextPayload | undefined {
+	if (
+		!record(raw) ||
+		raw["v"] !== 1 ||
+		!trackerReason(raw["reason"]) ||
+		(raw["report"] !== null && !contextReport(raw["report"]))
+	)
+		return undefined;
+	return { v: 1, reason: raw["reason"], report: raw["report"] };
 }

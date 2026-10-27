@@ -1,6 +1,6 @@
-/** Cheap typed consumers for pi-auth-plus' versioned quota bus. */
+/** Cheap typed consumers for pi-auth-plus' versioned quota and token buses. */
 import type { EventBus } from "@earendil-works/pi-coding-agent";
-import { channelName, request, subscribe } from "../core/bus/index.ts";
+import { channelName, subscribe } from "../core/bus/index.ts";
 import type {
 	QuotaEventPayload,
 	QuotaQueryRequest,
@@ -19,23 +19,11 @@ import {
 	decodeResets,
 	decodeSnapshot,
 } from "./decode.ts";
+import { ask, type QuotaRequestOptions } from "./request.ts";
 
-/** Bounds requests to 15 seconds by default and supports caller cancellation. */
-export interface QuotaRequestOptions {
-	readonly timeoutMs?: number | undefined;
-	readonly signal?: AbortSignal | undefined;
-}
-/** A refused, unanswered or cancelled quota request. */
-export class QuotaBusError extends Error {
-	/** Machine-readable request failure. */
-	readonly reason: "rejected" | "timeout" | "aborted";
-	/** Creates a failure with the service's refusal or transport recovery message. */
-	constructor(reason: "rejected" | "timeout" | "aborted", message: string) {
-		super(message);
-		this.name = "QuotaBusError";
-		this.reason = reason;
-	}
-}
+export { QuotaBusError, type QuotaRequestOptions } from "./request.ts";
+export * from "./tokens.ts";
+
 /** Versioned broadcast and request channels; replies use core/bus nonce envelopes. */
 export const QUOTA_CHANNELS = {
 	ready: channelName("quotas", "ready"),
@@ -47,45 +35,20 @@ export const QUOTA_CHANNELS = {
 	reset: channelName("quotas", "reset"),
 } as const;
 
-async function ask<T>(
-	events: EventBus,
-	event: string,
-	payload: unknown,
-	key: string,
-	decode: (raw: unknown) => T | undefined,
-	options: QuotaRequestOptions,
-): Promise<T> {
-	const timeoutMs = options.timeoutMs ?? 15_000;
-	let reply: { ok: true; value: T } | { ok: false; error: string } | undefined;
-	try {
-		reply = await request(
-			events,
-			"quotas",
-			event,
-			payload,
-			(raw) => decodeReply(raw, key, decode),
-			{ timeoutMs, signal: options.signal },
-		);
-	} catch (error) {
-		if (error instanceof DOMException && error.name === "AbortError")
-			throw new QuotaBusError("aborted", "Quota request aborted");
-		throw error;
-	}
-	if (reply === undefined)
-		throw new QuotaBusError(
-			"timeout",
-			`pi-auth-plus did not answer ${channelName("quotas", event)} within ${timeoutMs} ms; is the extension loaded?`,
-		);
-	if (!reply.ok) throw new QuotaBusError("rejected", reply.error);
-	return reply.value;
-}
 /** Reads cached quotas, fetching entries older than maxAgeSec first. */
 export function queryQuotas(
 	events: EventBus,
 	query: QuotaQueryRequest = {},
 	options: QuotaRequestOptions = {},
 ): Promise<QuotaReport> {
-	return ask(events, "query", query, "report", decodeReport, options);
+	return ask(
+		events,
+		"quotas",
+		"query",
+		query,
+		(raw) => decodeReply(raw, "report", decodeReport),
+		options,
+	);
 }
 /** Fetches selected providers, optionally bypassing freshness and backoff. */
 export function refreshQuotas(
@@ -93,7 +56,14 @@ export function refreshQuotas(
 	refresh: QuotaRefreshRequest = {},
 	options: QuotaRequestOptions = {},
 ): Promise<QuotaReport> {
-	return ask(events, "refresh", refresh, "report", decodeReport, options);
+	return ask(
+		events,
+		"quotas",
+		"refresh",
+		refresh,
+		(raw) => decodeReply(raw, "report", decodeReport),
+		options,
+	);
 }
 /** Lists available on-demand reset credits without spending them. */
 export function listQuotaResets(
@@ -101,7 +71,14 @@ export function listQuotaResets(
 	provider: string,
 	options: QuotaRequestOptions = {},
 ): Promise<ResetCreditList> {
-	return ask(events, "resets", { provider }, "resets", decodeResets, options);
+	return ask(
+		events,
+		"quotas",
+		"resets",
+		{ provider },
+		(raw) => decodeReply(raw, "resets", decodeResets),
+		options,
+	);
 }
 /** Requests a user-approved reset, waiting up to 180 seconds for the dialog by default. */
 export function requestQuotaReset(
@@ -109,10 +86,17 @@ export function requestQuotaReset(
 	reset: { provider: string; creditId?: string; confirm: true },
 	options: QuotaRequestOptions = {},
 ): Promise<ResetOutcome> {
-	return ask(events, "reset", reset, "outcome", decodeOutcome, {
-		...options,
-		timeoutMs: options.timeoutMs ?? 180_000,
-	});
+	return ask(
+		events,
+		"quotas",
+		"reset",
+		reset,
+		(raw) => decodeReply(raw, "outcome", decodeOutcome),
+		{
+			...options,
+			timeoutMs: options.timeoutMs ?? 180_000,
+		},
+	);
 }
 /** Subscribes to validated service announcements; returns an unsubscribe function. */
 export function subscribeQuotaReady(

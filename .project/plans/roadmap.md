@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 2
+  revision: 3
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T10:12:29+01:00"
+  updated_at: "2026-10-27T10:19:20+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -17,6 +17,9 @@ document:
     - revision: 2
       reason: "M0 progress"
       changes: ["core seams, ui frame + /auth, verify recipes and conflict detection done"]
+    - revision: 3
+      reason: "M0 complete, released as v0.1.0"
+      changes: ["imports and seams report done; M1 is now current"]
 ---
 
 # Roadmap
@@ -25,16 +28,16 @@ Legend: `[x]` done, `[>]` now, `[ ]` next, `[.]` later. Only the current milesto
 detailed plan; later ones hold the ideas that must not get lost.
 
 ```text
-[>] M0 Foundation                         plans/0001-m0-foundation/plan.md
+[x] M0 Foundation                         plans/0001-m0-foundation/plan.md
     [x] AGENTS.md adopted, default branch dev
     [x] tooling scaffold, just check + rpc-verify green
     [x] research and analyses imported with provenance
-    [ ] pi-provider-seams report
+    [x] pi-provider-seams report
     [x] core/ seams (paths, config, http, redact, registry, bus, cache, auth)
     [x] ui/ frame + /auth router (empty tabs)
     [x] verify recipes: rpc-verify, parity-verify, aot-verify
     [x] conflict detection for the absorbed packages
-[ ] M1 Providers
+[>] M1 Providers
     [ ] opencode     patch builtin; fix late registration (registers in session_start today)
     [ ] synthetic    catalog via refreshModels, no network in factory, web search
     [ ] claude       CC version pin, mcp_ rename, cch billing header, replace patterns

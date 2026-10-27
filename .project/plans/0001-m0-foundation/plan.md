@@ -4,16 +4,19 @@ document:
   id: "PLAN-0001"
   title: "M0 foundation"
   description: "Tooling, imported knowledge, core seams, UI frame and verify recipes before any provider lands"
-  status: "published"
-  revision: 1
+  status: "completed"
+  revision: 2
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T09:43:00+01:00"
+  updated_at: "2026-10-27T10:19:20+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       reason: "document creation"
       changes: ["M0 slices after AGENTS.md approval"]
+    - revision: 2
+      reason: "milestone complete"
+      changes: ["all slices landed; released as v0.1.0"]
 ---
 
 # M0 foundation

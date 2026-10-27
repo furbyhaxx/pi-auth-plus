@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-27
+
 ### Added
 
 - **Package scaffold.** Bun, TypeScript and Biome tooling with an isolated test setup; the
@@ -16,3 +18,6 @@ All notable changes to this project are documented here. The format follows
 - **Absorbed-package warning.** Loading pi-claude-auth, pi-opencode-auth, pi-synthetic-auth,
   pi-antigravity-auth or pi-quotas next to pi-auth-plus warns once and names the command that
   removes each.
+
+[Unreleased]: https://github.com/furbyhaxx/pi-auth-plus/compare/v0.1.0...dev
+[0.1.0]: https://github.com/furbyhaxx/pi-auth-plus/releases/tag/v0.1.0

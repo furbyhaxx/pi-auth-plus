@@ -5,9 +5,9 @@ document:
   title: "M1 providers"
   description: "Absorb the opencode, synthetic, claude and antigravity providers as vendor families"
   status: "published"
-  revision: 2
+  revision: 3
   created_at: "2026-10-27T10:20:46+01:00"
-  updated_at: "2026-10-27T10:45:33+01:00"
+  updated_at: "2026-10-27T10:50:39+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -19,6 +19,9 @@ document:
       changes:
         - "Recorded the opencode 2.1.2 fingerprint and the stock-Pi transport limit."
         - "Synthetic now; web search is its remaining unit; claude next."
+    - revision: 3
+      reason: "synthetic slice done"
+      changes: ["Web-search tool landed and live-verified; claude is now"]
 ---
 
 # M1 providers
@@ -55,11 +58,13 @@ Fixed vs pi-opencode-auth: registration moves from `session_start` to the factor
 `--model opencode/...` and session restore work), and the anonymous key no longer overrides
 an env or models.json key.
 
-## Slice 2: synthetic (now)
+## Slice 2: synthetic (done)
 
-Status: the catalog and provider are done (`2b91acd`, `3ffaa1b`). Live: `--list-models
-synthetic`, a turn on `hf:zai-org/GLM-5.3-Flash` in Pi-Bolt and stock Pi, and the refresh
-persisted in `models-store.json`. Remaining: the web-search tool.
+Outcome: the catalog and provider landed in `2b91acd` and `3ffaa1b`, and the web search after
+them. Live: `--list-models synthetic`, a turn on `hf:zai-org/GLM-5.3-Flash` in Pi-Bolt and stock
+Pi, and the refresh persisted in `models-store.json`. The tool was called in both runtimes, and
+the `auth-plus.json` setting toggles it. Legacy opt-in migration is deferred to the migration
+engine.
 
 Source: `pi-synthetic-auth` (438 LOC): provider delegating streaming to the builtin
 anthropic api, live catalog fetched in the factory today, opt-in web-search tool.

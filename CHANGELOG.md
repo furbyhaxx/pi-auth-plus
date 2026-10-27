@@ -46,9 +46,10 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - `just rpc-verify` runs against a throwaway agent dir.
-- pi-quotas is no longer reported as a conflict, and `/quota`, `/quotas` and `/tokens` are not
-  registered until the quota and token engines land, so pi-quotas keeps its `/quota` (Pi
-  renamed both to `/quota:1` and `/quota:2`). Use `/auth quotas` for the tab.
+- **pi-quotas cutover.** `/quota [provider]` now shares `/quotas` routing, completions and
+  reset commands. pi-quotas is reported as a conflict with a removal hint; remove it to enable
+  the quota engine. Keeping both packages loaded lets Pi rename duplicate `/quota` commands
+  to `/quota:1` and `/quota:2`.
 
 ### Fixed
 

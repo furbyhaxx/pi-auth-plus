@@ -257,8 +257,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		},
 	});
 
-	// `/quota` stays with pi-quotas until the cutover; `/quotas` is free meanwhile.
-	pi.registerCommand("quotas", {
+	const quotaCommand: Parameters<ExtensionAPI["registerCommand"]>[1] = {
 		description: "Quota windows and credits; /quotas <provider> focuses one",
 		getArgumentCompletions: (prefix) => {
 			const items = ["reset", ...deps.registry.providers().map(({ provider }) => provider.id)]
@@ -292,5 +291,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 				report(ctx, text, tone),
 			);
 		},
-	});
+	};
+	pi.registerCommand("quotas", quotaCommand);
+	pi.registerCommand("quota", quotaCommand);
 }

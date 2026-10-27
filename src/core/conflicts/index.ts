@@ -6,6 +6,7 @@ export const ABSORBED_PACKAGES = [
 	"pi-opencode-auth",
 	"pi-synthetic-auth",
 	"pi-antigravity-auth",
+	"pi-quotas",
 ] as const;
 
 export type AbsorbedPackage = (typeof ABSORBED_PACKAGES)[number];

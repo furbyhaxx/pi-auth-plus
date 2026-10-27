@@ -10,20 +10,19 @@ import {
 
 import type { DashboardResult } from "../../src/ui/dashboard/view.ts";
 
-type Handler = (args: string, ctx: ExtensionCommandContext) => Promise<void>;
-
 function rig(
 	mode: "tui" | "rpc",
 	overrides: Partial<AuthCommandDeps> = {},
 	results: DashboardResult[] = [],
 ) {
 	let panels = 0;
-	const handlers = new Map<string, Handler>();
+	const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 	const notes: string[] = [];
 	const notices: [string, string | undefined][] = [];
 	const pi = {
-		registerCommand: (name: string, options: { handler: Handler }) =>
-			handlers.set(name, options.handler),
+		registerCommand: (name: string, options: Parameters<ExtensionAPI["registerCommand"]>[1]) => {
+			commands.set(name, options);
+		},
 		registerEntryRenderer: () => {},
 		appendEntry: (_type: string, data: { text: string }) => notes.push(data.text),
 	} as unknown as ExtensionAPI;
@@ -53,11 +52,11 @@ function rig(
 		},
 	} as unknown as ExtensionCommandContext;
 	const run = (name: string, args = "") => {
-		const handler = handlers.get(name);
+		const handler = commands.get(name)?.handler;
 		if (!handler) throw new Error(`/${name} is not registered`);
 		return handler(args, ctx);
 	};
-	return { run, notes, notices, names: [...handlers.keys()], panels: () => panels };
+	return { run, notes, notices, commands, names: [...commands.keys()], panels: () => panels };
 }
 
 describe("ui/commands", () => {
@@ -88,6 +87,8 @@ describe("ui/commands", () => {
 		const f = rig("tui", { quotas: () => quotas }, [{ reset: "claude" }, undefined]);
 		await f.run("quotas", "reset cc");
 		await f.run("quotas", "resets");
+		await f.run("quota", "reset");
+		await f.run("quota", "reset cc");
 		await f.run("quotas", "reset unknown");
 		expect(f.notices.at(-1)).toEqual([
 			"Usage: /quotas reset [provider]. Supported: claude.",
@@ -98,8 +99,35 @@ describe("ui/commands", () => {
 		expect(consumed).toEqual([
 			["claude", "credit", "command"],
 			["claude", "credit", "command"],
+			["claude", "credit", "command"],
+			["claude", "credit", "command"],
 			["claude", "credit", "panel"],
 		]);
+	});
+	test("quota shares the quotas handler, completions and provider routing", async () => {
+		const registry = new Registry([
+			{
+				id: "openai",
+				label: "OpenAI",
+				providers: [{ id: "openai", label: "OpenAI", aliases: [] }],
+			},
+		]);
+		const rpc = rig("rpc", { registry });
+		const singular = rpc.commands.get("quota");
+		const plural = rpc.commands.get("quotas");
+		expect(singular).toBeDefined();
+		expect(singular?.handler).toBe(plural?.handler);
+		expect(singular?.getArgumentCompletions).toBe(plural?.getArgumentCompletions);
+		expect((await singular?.getArgumentCompletions?.("op"))?.map((item) => item.value)).toEqual([
+			"openai",
+		]);
+		expect((await singular?.getArgumentCompletions?.("re"))?.map((item) => item.value)).toEqual([
+			"reset",
+		]);
+		await rpc.run("quota", "openai");
+		await rpc.run("quotas", "openai");
+		expect(rpc.notices[0]).toEqual(rpc.notices[1]);
+		expect(rpc.notices[0]?.[0]).toStartWith("Auth › Quotas");
 	});
 	test("sections resolve by id, alias and singular form; unknown input names the closest", () => {
 		expect(parseAuthArgs("")).toEqual({ tab: "providers" });
@@ -117,8 +145,7 @@ describe("ui/commands", () => {
 
 	test("without a TUI the dashboard renders as text and opens the named section", async () => {
 		const rpc = rig("rpc");
-		// `/quota` stays with pi-quotas until the cutover.
-		expect(rpc.names).toEqual(["auth", "quotas"]);
+		expect(rpc.names).toEqual(["auth", "quotas", "quota"]);
 		await rpc.run("auth");
 		expect(rpc.notices[0]).toEqual([
 			"Auth › Providers\n  Claude: not signed in · /login claude",

@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { conflictMessage, detectConflicts } from "../../src/core/conflicts/index.ts";
 
 describe("core/conflicts", () => {
-	// pi-quotas is not absorbed until the quota engine lands, so it never counts as a conflict.
 	test("finds each absorbed package once across settings forms and command paths", () => {
 		const conflicts = detectConflicts(
 			[
@@ -29,6 +28,11 @@ describe("core/conflicts", () => {
 				via: "package",
 			},
 			{
+				name: "pi-quotas",
+				source: "npm:@furbyhaxx/pi-quotas@1.2.0",
+				via: "package",
+			},
+			{
 				name: "pi-synthetic-auth",
 				source: "npm:@furbyhaxx/pi-synthetic-auth@1.2.0",
 				via: "package",
@@ -39,6 +43,7 @@ describe("core/conflicts", () => {
 				via: "path",
 			},
 		]);
+		expect(conflictMessage(conflicts)).toContain("pi remove npm:@furbyhaxx/pi-quotas@1.2.0");
 		expect(conflictMessage(conflicts)).toContain(
 			"pi remove npm:@furbyhaxx/pi-synthetic-auth@1.2.0; stop loading /mnt/Projects/furbyhaxx/pi-opencode-auth/index.ts",
 		);

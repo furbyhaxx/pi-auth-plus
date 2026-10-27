@@ -7,7 +7,7 @@ import { SettingsStore } from "../../src/core/config/index.ts";
 import { detectConflicts, loadsPackage } from "../../src/core/conflicts/index.ts";
 import { ProviderHttpError } from "../../src/core/http/index.ts";
 import { type ProviderEntry, Registry } from "../../src/core/registry/index.ts";
-import { quotaAuthFor } from "../../src/index.ts";
+import { quotaAuthFor } from "../../src/quotas/auth.ts";
 import { QuotaEngine } from "../../src/quotas/engine.ts";
 import { enabledQuotaProviders } from "../../src/quotas/settings.ts";
 import { parseQuotaState } from "../../src/quotas/state.ts";

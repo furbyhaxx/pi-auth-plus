@@ -1,5 +1,4 @@
 /** Owns endpoint refresh scheduling and host-shared quota state for one session. */
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Backoff, backoffFor, HostCache } from "../core/cache/index.ts";
 import type { AppSettings } from "../core/config/catalog.ts";
 import { type FetchFn, ProviderHttpError } from "../core/http/index.ts";
@@ -250,7 +249,7 @@ export class QuotaEngine {
 	}
 
 	/** Starts a new session's sync, initial refresh and unreferenced poll timer. */
-	async start(_ctx: ExtensionContext): Promise<void> {
+	async start(): Promise<void> {
 		this.stop();
 		this.controller = new AbortController();
 		const signal = this.controller.signal;

@@ -9,36 +9,16 @@ import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts
 import { cacheDir, projectSettingsPath, userSettingsPath } from "./core/paths/index.ts";
 import { Registry, registerFamilyProviders } from "./core/registry/index.ts";
 import { FAMILIES } from "./families/index.ts";
+import { quotaAuthFor } from "./quotas/auth.ts";
 import { registerQuotaBus } from "./quotas/bus.ts";
 import { QuotaEngine } from "./quotas/engine.ts";
 import { createQuotaLine } from "./quotas/line/index.ts";
 import { quotaLineConfig } from "./quotas/line/line.ts";
 import { formatPlainTextSummary } from "./quotas/line/summary.ts";
 import { engineReport } from "./quotas/report.ts";
-import type { QuotaAuth } from "./quotas/types.ts";
 import { registerAuthCommands } from "./ui/commands/index.ts";
 
 const NO_EXTENSIONS = process.argv.some((arg) => arg === "--no-extensions" || arg === "-ne");
-
-/** Uses Pi's refreshed auth, including header-only bearers, plus stored OAuth extras. */
-export async function quotaAuthFor(
-	id: string,
-	modelRegistry: Pick<ExtensionContext["modelRegistry"], "getProviderAuth"> | undefined,
-): Promise<QuotaAuth | undefined> {
-	const resolved = await modelRegistry?.getProviderAuth(id);
-	const auth = resolved?.auth;
-	const authorization = Object.entries(auth?.headers ?? {}).find(
-		([name]) => name.toLowerCase() === "authorization",
-	)?.[1];
-	const token =
-		auth?.apiKey ||
-		(typeof authorization === "string"
-			? /^Bearer\s+(.+)$/i.exec(authorization)?.[1]?.trim()
-			: undefined);
-	if (!token) return undefined;
-	const stored = readCredential(id);
-	return { token, extra: stored?.type === "oauth" ? stored.extra : {} };
-}
 
 export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	const registry = new Registry(FAMILIES);
@@ -88,7 +68,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			commandPaths,
 		);
 		if (!quotasEnabled) return;
-		await quotas.start(ctx);
+		await quotas.start();
 		stopQuotaBus = registerQuotaBus(pi.events, quotas, registry, () => settings, Date.now);
 		quotaLine.start(ctx);
 	});

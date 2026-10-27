@@ -5,9 +5,9 @@ document:
   title: "M1 providers"
   description: "Absorb the opencode, synthetic, claude and antigravity providers as vendor families"
   status: "published"
-  revision: 6
+  revision: 7
   created_at: "2026-10-27T10:20:46+01:00"
-  updated_at: "2026-10-27T11:33:55+01:00"
+  updated_at: "2026-10-27T11:46:39+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -31,6 +31,9 @@ document:
     - revision: 6
       reason: "claude wire alignment planned"
       changes: ["Slice 3b: match the real Claude Code CLI on the wire, two units plus live verification"]
+    - revision: 7
+      reason: "claude wire alignment done"
+      changes: ["Units A-C landed and live-verified; identity line and cache control fixed during live verification"]
 ---
 
 # M1 providers
@@ -114,7 +117,7 @@ runtimes. A side-by-side capture against Claude Code 2.1.310 found wire differen
 absorbed package already had (tool names, `cch`, user agent, betas, the deferred placeholder
 name); they are listed in `.project/analyses/claude-code-cli/tracking.md` and await a decision.
 
-## Slice 3b: claude wire alignment (now)
+## Slice 3b: claude wire alignment (done)
 
 Decision (user, 2026-10-27): match the real CLI fully. Evidence: interactive and `-p` captures
 of Claude Code 2.1.311 with its own login, plus the 2.1.310 binary
@@ -126,9 +129,16 @@ of Claude Code 2.1.311 with its own login, plus the 2.1.310 binary
 | B | identity | `anthropic/{billing,request,oauth,transport,provider}.ts`, new `anthropic/identity.ts` | billing `cc_entrypoint=cli`, no `cch`; the CLI's beta set first; `x-claude-code-session-id` and `metadata.user_id` `{device_id, account_uuid, session_id}` share one UUID; `account.uuid` kept from token responses; one unauthenticated `HEAD /api/hello` per process |
 | C | live | `tracking.md` | Pi-Bolt and stock Pi: a turn with a tool call, proxy capture compared field by field with the CLI capture |
 
+Outcome: unit A in `e19fd7e`/`b55276a`, unit B in `30c1206`, merged and live-verified on
+Pi-Bolt and stock Pi (HTTP 200, a `Bash` tool call round-trip). Live verification also caught the
+identity line: the old Agent SDK line belonged to `sdk-cli`, so it is now the interactive CLI's
+`You are Claude Code, Anthropic's official CLI for Claude.` with cache control (`864490c`).
+
 Deliberate deviations: `x-stainless-*` stay Pi's SDK values; cache TTL stays Pi's
 `cacheRetention`; the auto-mode betas and `safeguards` body (`afk-mode`, `dangerous-tool-use`)
-and `thinking-display-updates` are not sent, because Pi has no such modes.
+and `thinking-display-updates` are not sent, because Pi has no such modes. Pi's two body betas
+are appended after the CLI set. Logins stored before 3b send an empty `account_uuid` until their
+next refresh.
 
 ## Later slices (sparse)
 

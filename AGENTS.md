@@ -182,8 +182,11 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
 
 ### Family invariants
 
-- **claude:** Claude Code identity and billing system block, the beta and user-agent set, and
-  the `mcp_` tool-name rewrite in both directions, including streamed responses. Version
+- **claude:** match the interactive Claude Code CLI on the wire (`cc_entrypoint=cli`, no
+  `cch`): identity and billing system blocks, the CLI's beta order and user agent, session
+  header and `metadata.user_id`, the `/api/hello` preflight, and bare PascalCase tool names
+  (`DeferredToolPlaceholder` for Pi's placeholder) rewritten in both directions, including
+  streamed responses. Deviations and evidence: `.project/analyses/claude-code-cli/tracking.md`. Version
   precedence: env override > installed `claude --version` (if newer) > pinned. Subscription
   models carry zero cost.
 - **antigravity:** the wire envelope, request metadata and payload order; the raw transport

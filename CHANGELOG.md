@@ -21,9 +21,12 @@ All notable changes to this project are documented here. The format follows
   it keeps results without a publication date, which pi-synthetic-auth dropped.
 - **Claude Pro/Max.** The `claude` provider logs in through `/login claude` (Claude Pro/Max
   OAuth with a pasted code, or an API key typed in, created from the console, or taken from
-  `ANTHROPIC_API_KEY`). Subscription turns carry Claude Code's identity and billing block, the
-  `mcp_` tool names (restored in streamed and JSON responses), and zero cost; API-key turns use
-  Pi's Anthropic path unchanged. Logins stored by pi-claude-auth carry over.
+  `ANTHROPIC_API_KEY`). Subscription turns look like the interactive Claude Code CLI on the
+  wire: its identity and billing blocks, beta set, session header, request metadata and bare
+  tool names (`Bash`, `WebSearch`, restored in streamed and JSON responses), at zero cost.
+  API-key turns use Pi's Anthropic path unchanged. Logins stored by pi-claude-auth carry over.
+  Compared with pi-claude-auth, the `mcp_` tool prefix and the `cch` billing field are gone,
+  since the real CLI sends neither.
 - **Claude version.** The reported Claude Code version is the newest of the pinned 2.1.306 and
   the installed `claude`, overridable by `ANTHROPIC_CLAUDE_CODE_VERSION`. The `claude --version`
   probe now runs on the first request instead of at startup.

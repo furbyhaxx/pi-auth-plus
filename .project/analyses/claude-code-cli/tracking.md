@@ -5,9 +5,9 @@ document:
   title: "Claude Code CLI tracking"
   description: "The Claude Code request surface pi-auth-plus imitates for Claude Pro/Max OAuth, where it is pinned, and how it compares with the real CLI on the wire."
   status: "published"
-  revision: 2
+  revision: 3
   created_at: "2026-10-27T11:12:03+01:00"
-  updated_at: "2026-10-27T11:33:55+01:00"
+  updated_at: "2026-10-27T11:46:20+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -17,6 +17,9 @@ document:
     - revision: 2
       reason: "logged-in CLI captures and binary evidence"
       changes: ["Interactive and -p captures of 2.1.311 with its own login; cch gate, entrypoint, suffix input, metadata.user_id; open follow-ups resolved by the user's decision to match the CLI"]
+    - revision: 3
+      reason: "wire aligned with the interactive CLI"
+      changes: ["Imitated surface rewritten for slice 3b; deliberate deviations listed; live-verified on both runtimes"]
 ---
 
 # Claude Code CLI tracking
@@ -26,21 +29,35 @@ document:
 | pinned version | 2.1.306 (floor; an installed newer `claude` or `ANTHROPIC_CLAUDE_CODE_VERSION` wins) |
 | pinned in | `src/families/anthropic/version.ts` (`PINNED_VERSION`) |
 | installed / npm latest | 2.1.310 / 2.1.311 (2026-10-27) |
-| last live verification | 2026-10-27, Pi 1.4.0 on Pi-Bolt and stock Pi (Node): `claude/claude-sonnet-5-5`, stored OAuth login, one turn with a `bash` tool call, HTTP 200 on every request |
+| last live verification | 2026-10-27, Pi 1.4.0 on Pi-Bolt and stock Pi (Node): `claude/claude-sonnet-5-5`, stored OAuth login, one turn with a `Bash` tool call, HTTP 200 on every request, after the slice 3b alignment |
 | method | local logging proxy via `ANTHROPIC_BASE_URL=http://127.0.0.1:18471`, forwarding to `api.anthropic.com`; token redacted at capture |
 
-## Imitated surface (as sent on 2026-10-27)
+## Imitated surface (interactive CLI, as sent since slice 3b)
 
+- Once per process: `HEAD /api/hello`, unauthenticated, not awaited.
 - `POST /v1/messages?beta=true`, `Authorization: Bearer sk-ant-oat…`, no `x-api-key`.
-- `User-Agent: claude-cli/<version> (external, cli)`, `x-app: cli`.
-- `anthropic-beta`: `oauth-2025-04-20`, `interleaved-thinking-2025-05-14`, then Pi's own betas
-  for the request (`mid-conversation-output-config-2026-07-01`,
-  `thinking-binding-controls-2026-08-01`, `inline-tools-2026-09-15` on Claude 5.5).
-- `system`: `[billing, identity, sanitized prompt]`; billing is
-  `x-anthropic-billing-header: cc_version=<version>.<suffix>; cc_entrypoint=sdk-cli; cch=<cch>;`.
-- Tools renamed `mcp_` + upper-case first letter (`mcp_Bash`); restored on the way back.
+- `User-Agent: claude-cli/<version> (external, cli)`, `x-app: cli`,
+  `x-claude-code-session-id: <Pi session UUID>`.
+- `anthropic-beta`: the CLI's main-turn set in its order (`claude-code-20250219` …
+  `extended-cache-ttl-2025-04-11`, see below), then Pi's own betas the body needs
+  (`mid-conversation-output-config-2026-07-01`, `thinking-binding-controls-2026-08-01`).
+- `system`: `[billing, identity, sanitized prompt]`. Billing is
+  `x-anthropic-billing-header: cc_version=<version>.<suffix>; cc_entrypoint=cli;`; identity is
+  `You are Claude Code, Anthropic's official CLI for Claude.` with Pi's `cache_control`.
+- `metadata.user_id`: JSON string `{"device_id","account_uuid","session_id"}`. The device id is
+  32 random bytes persisted in `<stateDir>/claude-device-id`; the account UUID comes from the
+  token response (`account.uuid`) and is stored on the credential.
+- Tools: bare PascalCase (`bash` → `Bash`, `web_search` → `WebSearch`), `mcp__…` names unchanged,
+  Pi's placeholder sent as the CLI's `DeferredToolPlaceholder`; also inside `tool_addition` and
+  `tool_removal`. Restored exactly on the way back.
 
-## Real CLI vs pi-auth-plus (Claude Code 2.1.310, `claude -p`, same token, same proxy)
+Deliberate deviations: `x-stainless-*` stay Pi's SDK values (`0.129.0`, timeout `300`); the
+cache TTL follows Pi's `cacheRetention` (the CLI uses `1h`); the auto-mode `safeguards` body and
+its betas (`afk-mode`, `dangerous-tool-use`) and `thinking-display-updates` are not sent; Pi's
+two body betas are appended. Logins stored before slice 3b send an empty `account_uuid` until
+their next token refresh.
+
+## Before slice 3b: real CLI vs pi-auth-plus (Claude Code 2.1.310, `claude -p`)
 
 | aspect | Claude Code 2.1.310 | pi-auth-plus (= pi-claude-auth 0.2.2) |
 |---|---|---|
@@ -98,12 +115,10 @@ characters 4, 7 and 20 of the first non-meta user message (the typed prompt, bef
 prepends its `<system-reminder>` blocks); pi-auth-plus' algorithm reproduces both observed
 suffixes (`ccc`, `033`).
 
-## Resolved follow-ups
+## Former follow-ups
 
-The user decided on 2026-10-27 to match the real CLI fully. Plan:
-`.project/plans/0002-m1-providers/plan.md`, slice 3b.
-
-## Open follow-ups (superseded by slice 3b)
+The user decided on 2026-10-27 to match the real CLI fully; slice 3b of
+`.project/plans/0002-m1-providers/plan.md` resolved all four:
 
 - Map Pi's `__pi_deferred_placeholder__` to `DeferredToolPlaceholder`: Claude Code sends the
   same mechanism under that name, and the current wire name carries a literal `pi`.
@@ -118,3 +133,4 @@ The user decided on 2026-10-27 to match the real CLI fully. Plan:
 | date | version | change |
 |---|---|---|
 | 2026-10-27 | 2.1.306 floor, 2.1.310 detected | absorbed into pi-auth-plus; probe moved to first request; replace patterns moved to `auth-plus.json` |
+| 2026-10-27 | 2.1.311 detected | slice 3b: wire aligned with the interactive CLI (tool names, identity, betas, session, metadata, preflight; `cch` dropped) |

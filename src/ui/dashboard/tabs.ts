@@ -92,6 +92,16 @@ function providerRow(provider: ProviderStatus, nowMs: number): Row {
 		return { label, value: `not signed in · /login ${provider.id}`, tone: "warning" };
 	}
 	if (status.state === "api_key") return { label, value: "API key", tone: "success" };
+	if (status.state === "ambient") {
+		const source = sanitize(status.source);
+		return status.limited
+			? {
+					label,
+					value: `${source} · limited · /login ${provider.id} for full access`,
+					tone: "warning",
+				}
+			: { label, value: `API key from ${source}`, tone: "success" };
+	}
 	if (status.expired) {
 		return {
 			label,

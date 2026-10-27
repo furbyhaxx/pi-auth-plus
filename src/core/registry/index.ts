@@ -1,11 +1,14 @@
 /** Family registry: the only place engines and the UI learn provider ids, aliases and families. */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { AmbientCredential } from "../auth/index.ts";
 
 /** One Pi provider id a family owns, with the extra names users may type for it. */
 export interface ProviderEntry {
 	readonly id: string;
 	readonly label: string;
 	readonly aliases: readonly string[];
+	/** The credential Pi falls back to when `auth.json` has no slot for this provider. */
+	readonly ambient?: () => AmbientCredential | undefined;
 }
 
 /** Everything one vendor contributes. Engine parts (quota, tokens) join as their engines land. */

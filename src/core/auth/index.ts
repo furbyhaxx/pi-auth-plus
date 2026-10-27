@@ -20,9 +20,18 @@ export interface StoredOAuth {
 
 export type StoredCredential = StoredApiKey | StoredOAuth;
 
+/** A credential Pi uses when no slot is stored: an env variable, models.json or a free tier. */
+export interface AmbientCredential {
+	/** Where it comes from, shown to the user: an env variable name, `models.json`, `anonymous`. */
+	readonly source: string;
+	/** True when it reaches only part of the provider (anonymous or free tiers). */
+	readonly limited: boolean;
+}
+
 /** Non-secret summary of a slot, safe for the dashboard, logs and bus payloads. */
 export type CredentialStatus =
 	| { readonly state: "missing" }
+	| ({ readonly state: "ambient" } & AmbientCredential)
 	| { readonly state: "api_key" }
 	| { readonly state: "oauth"; readonly expiresAt: number; readonly expired: boolean };
 

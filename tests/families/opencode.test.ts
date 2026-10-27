@@ -26,8 +26,10 @@ async function registerWith(env: Record<string, string | undefined>, models?: un
 		writeFileSync(path, JSON.stringify(models));
 	}
 	const fake = fakePi();
-	await createOpencodeFamily(env, () => 1_700_000_000_000).register?.(fake.pi);
-	return fake;
+	const family = createOpencodeFamily(env, () => 1_700_000_000_000);
+	await family.register?.(fake.pi);
+	const ambient = family.providers.map((provider) => provider.ambient?.()?.source);
+	return { ...fake, ambient };
 }
 
 describe("families/opencode", () => {
@@ -67,16 +69,21 @@ describe("families/opencode", () => {
 
 	test("registers the anonymous Zen key only when no env or models.json key would be shadowed", async () => {
 		const env = { ...process.env, OPENCODE_API_KEY: undefined };
-		expect((await registerWith(env)).registered).toEqual([
-			{ id: "opencode", config: { apiKey: "public" } },
-		]);
-		expect((await registerWith({ ...env, OPENCODE_API_KEY: "sk-zen" })).registered).toEqual([]);
-		expect(
-			(await registerWith(env, { providers: { opencode: { apiKey: "$ZEN" } } })).registered,
-		).toEqual([]);
-		expect(
-			(await registerWith(env, { providers: { "opencode-go": { apiKey: "k" } } })).registered,
-		).toHaveLength(1);
+		const anonymous = await registerWith(env);
+		expect(anonymous.registered).toEqual([{ id: "opencode", config: { apiKey: "public" } }]);
+		expect(anonymous.ambient).toEqual(["anonymous", undefined]);
+
+		const keyed = await registerWith({ ...env, OPENCODE_API_KEY: "sk-zen" });
+		expect(keyed.registered).toEqual([]);
+		expect(keyed.ambient).toEqual(["OPENCODE_API_KEY", "OPENCODE_API_KEY"]);
+
+		const configured = await registerWith(env, { providers: { opencode: { apiKey: "$ZEN" } } });
+		expect(configured.registered).toEqual([]);
+		expect(configured.ambient).toEqual(["models.json", undefined]);
+
+		const goOnly = await registerWith(env, { providers: { "opencode-go": { apiKey: "k" } } });
+		expect(goOnly.registered).toHaveLength(1);
+		expect(goOnly.ambient).toEqual(["anonymous", "models.json"]);
 	});
 
 	test("stamps each request with the session id and a fresh request id", async () => {

@@ -13,7 +13,12 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	for (const family of registry.families) await family.register?.(pi);
 	registerAuthCommands(pi, {
 		registry,
-		status: (providerId) => credentialStatus(readCredential(providerId), Date.now()),
+		status: (providerId) => {
+			const stored = credentialStatus(readCredential(providerId), Date.now());
+			if (stored.state !== "missing") return stored;
+			const ambient = registry.resolve(providerId)?.provider.ambient?.();
+			return ambient ? { state: "ambient", ...ambient } : stored;
+		},
 		now: Date.now,
 	});
 

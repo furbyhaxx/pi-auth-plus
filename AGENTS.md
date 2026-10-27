@@ -124,7 +124,9 @@ README.md, CHANGELOG.md, LICENSE, NOTICE, AGENTS.md
 This file describes the target state.
 
 - `families/index.ts` registers `opencode`, `synthetic`, `claude` and `antigravity`.
-  `FamilyAdapter` has no `quota`/`tokens` parts until those engines land.
+  `FamilyAdapter` has no `quota`/`tokens` parts until those engines land. Until then `/quota`,
+  `/quotas` and `/tokens` are not registered (pi-quotas owns `/quota`, and Pi renames
+  duplicate commands to `/quota:1`), and `core/conflicts` does not list `pi-quotas`.
 - Pi 1.4 gives extensions no credential-store write. `core/auth/store.ts` is the one exception
   to "`/login` owns writes": a fill-only slot write to `auth.json` under Pi's own proper-lockfile
   lock (stale 30 s, file 0600), used by `google/migration.ts` once per process on the first

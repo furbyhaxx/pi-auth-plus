@@ -22,13 +22,6 @@ export interface AuthCommandDeps {
 	readonly now: () => number;
 }
 
-/** Standalone commands and the dashboard tab each one opens. */
-export const ENTRY_POINTS: Readonly<Record<string, TabId>> = {
-	quota: "quotas",
-	quotas: "quotas",
-	tokens: "tokens",
-};
-
 function editDistance(a: string, b: string): number {
 	let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
 	for (let i = 1; i <= a.length; i++) {
@@ -117,10 +110,4 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 			await open(ctx, parsed.tab);
 		},
 	});
-	for (const [name, tab] of Object.entries(ENTRY_POINTS)) {
-		pi.registerCommand(name, {
-			description: `Open /auth ${tab}`,
-			handler: (_args, ctx) => open(ctx, tab),
-		});
-	}
 }

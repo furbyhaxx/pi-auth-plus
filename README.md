@@ -23,8 +23,9 @@ Planned:
 pi install git:https://github.com/furbyhaxx/pi-auth-plus
 ```
 
-pi-auth-plus replaces pi-claude-auth, pi-opencode-auth, pi-synthetic-auth,
-pi-antigravity-auth and pi-quotas. Remove those before installing it.
+pi-auth-plus replaces pi-claude-auth, pi-opencode-auth, pi-synthetic-auth and
+pi-antigravity-auth. Remove those before installing it. Keep pi-quotas until pi-auth-plus
+ships its quota engine.
 
 ## License
 

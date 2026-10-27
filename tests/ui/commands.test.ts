@@ -54,15 +54,16 @@ describe("ui/commands", () => {
 		expect(authCompletions("zz")).toBeNull();
 	});
 
-	test("without a TUI the dashboard renders as text; entry points open their section", async () => {
+	test("without a TUI the dashboard renders as text and opens the named section", async () => {
 		const rpc = rig("rpc");
-		expect(rpc.names.sort()).toEqual(["auth", "quota", "quotas", "tokens"]);
+		// No /quota entry point until the quota engine lands: pi-quotas owns that name meanwhile.
+		expect(rpc.names).toEqual(["auth"]);
 		await rpc.run("auth");
 		expect(rpc.notices[0]).toEqual([
 			"Auth › Providers\n  Claude: not signed in · /login claude",
 			"info",
 		]);
-		await rpc.run("quota");
+		await rpc.run("auth", "quota");
 		expect(rpc.notices[1]?.[0]).toStartWith("Auth › Quotas");
 		await rpc.run("auth", "nope");
 		expect(rpc.notices[2]?.[1]).toBe("error");

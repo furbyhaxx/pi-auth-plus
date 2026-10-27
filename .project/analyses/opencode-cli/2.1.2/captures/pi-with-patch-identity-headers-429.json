@@ -1,0 +1,276 @@
+{
+  "captured_at": "2026-10-27T09:28:19.942Z",
+  "method": "POST",
+  "path": "/inference/v1/chat/completions",
+  "upstream": "https://opencode.ai/inference/v1/chat/completions",
+  "status": 429,
+  "request_headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "authorization": "Bearer public",
+    "connection": "keep-alive",
+    "content-length": "36872",
+    "content-type": "application/json",
+    "host": "127.0.0.1:18901",
+    "user-agent": "opencode/1.18.18",
+    "x-opencode-client": "cli",
+    "x-opencode-project": "global",
+    "x-opencode-request": "msg_17cb06d75001stbF61fmUMekoa",
+    "x-opencode-session": "ses_e834f928cffeB2ivyxwvf5Aic7",
+    "x-stainless-arch": "x64",
+    "x-stainless-lang": "js",
+    "x-stainless-os": "Linux",
+    "x-stainless-package-version": "7.19.0",
+    "x-stainless-retry-count": "0",
+    "x-stainless-runtime": "node",
+    "x-stainless-runtime-version": "v26.3.0",
+    "x-stainless-timeout": "300"
+  },
+  "request_body": {
+    "model": "big-pickle",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are an expert coding assistant operating inside Pi-Bolt, a build of pi (a coding agent harness) compiled ahead of time. You help users by reading files, executing commands, editing code, and writing new files.\n\n<tools>\n- read: Read file contents\n- bash: Execute bash commands (ls, grep, find, etc.)\n- edit: Make precise file edits with exact text replacement, including multiple disjoint edits in one call\n- write: Create or overwrite files\n- grep: Search file contents for patterns (respects .gitignore)\n- find: Find files by glob pattern (respects .gitignore)\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>\n\n<rules>\n- Use read to examine files instead of cat or sed.\n- You can inspect PI_* environment variables for current model and session details.\n- Use edit for precise changes (edits[].oldText must match exactly)\n- When changing multiple separate locations in one file, use one edit call with multiple entries in edits[] instead of multiple edit calls\n- Each edits[].oldText is matched against the original file, not after earlier edits are applied. Do not emit overlapping or nested edits. Merge nearby changes into one edit.\n- Keep edits[].oldText as small as possible while still being unique in the file. Do not pad with large unchanged regions.\n- Use write only for new files or complete rewrites.\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>\n\n<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64/README.md\n- Additional docs: /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64/docs\n- Examples: /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md), MCP servers (docs/mcp.md), codemode scripts and non-LLM models such as classifiers and image models (docs/codemode.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n- This is Pi-Bolt: its command is `pi-bolt`, and it is updated with `pi-bolt update` (https://github.com/opensec-git/Pi-Bolt). The install and update commands in pi's README install pi itself, not Pi-Bolt: do not suggest them.\n</docs>\n\n<project_context>\nProject-specific instructions and guidelines:\n\n<project_instructions path=\"/mnt/Projects/furbyhaxx/pi-auth-plus/AGENTS.md\">\n# AGENTS.md — pi-auth-plus\n\nPi package (`@furbyhaxx/pi-auth-plus`): subscription and API-key providers that behave like Pi\nbuiltins (`claude`, `antigravity`, `synthetic`, a patched `opencode`), quota and credit\nmonitoring, and accurate token counting, with one `/auth` dashboard; login stays in Pi's\n`/login`. It supersedes\n`pi-claude-auth`, `pi-opencode-auth`, `pi-synthetic-auth`, `pi-antigravity-auth` and\n`pi-quotas`. These instructions apply to the whole repository.\n\n## Project goals\n\nIn priority order:\n\n1. **Builtin parity.** Every provider we add or patch works like one of Pi's own: `--model`,\n   `--list-models`, `/model`, `/login`, `/logout`, scoped models, cycling, session restore, RPC\n   and print mode. A regression here outranks everything else.\n2. **Honest numbers and failures.** Quotas, credits and token counts are reported by their\n   owner or shown as unknown, never interpolated. Every failure names the provider, endpoint,\n   status and a recovery action.\n3. **No credential leaks.** Tokens, refresh tokens, cookies and keys appear in no log, output,\n   fixture, doc, bus payload or commit.\n4. **Performance.** The factory does no network I/O; per-request shaping, per-chunk stream\n   mapping and per-frame rendering are measured hot paths. Code is written for Pi-Bolt's AOT\n   compiler ([Pi-Bolt AOT](#pi-bolt-aot-and-performance)).\n5. **One Pi-native UI.** One `/auth` family and the pi-workbench UI language: shared frame,\n   keys from keybindings, the same widths and truncation rules.\n6. **Vertical isolation.** A vendor change stays inside its family directory; engines never\n   import a family directly.\n7. **Testable core.** Transforms, parsers, catalogs, quota and token math are plain functions\n   over plain data; Pi and TUI wiring stays thin.\n\n## Tech stack\n\n- Bun `1.4.3` (`.bun-version`, `packageManager`); `bun test` for tests.\n- TypeScript `7.0.2`, the strictness flags in `tsconfig.json`, erasable syntax only, explicit\n  `.ts` import specifiers.\n- Biome `2.5.15`: tabs, 100 columns, no `any`, no non-null assertions.\n- Pi APIs (`@earendil-works/pi-coding-agent`, `-pi-ai`, `-pi-agent-core`, `-pi-tui`) and\n  `typebox` as `peerDependencies: \"*\"`, pinned exactly in `devDependencies`. Development types\n  target Pi 1.4; terminal acceptance uses Pi-Bolt.\n- Runs on Pi-Bolt (Bun) and stock Pi (Node `>=22.19`): `node:*` APIs by default; a `Bun.*` API\n  only behind a runtime check with a `node:*` fallback, and only where a measurement shows the\n  gain.\n- Runtime dependencies: none. Each new one needs user approval.\n- `Justfile` is the command surface.\n\n## Commands and completion criteria\n\n`just check` (typecheck + lint + test) is the required gate. Single steps: `just typecheck`,\n`just lint`, `just test`, `just format`.\n\n- `just rpc-verify`: loads the extension in a real Pi RPC session (`PI_BIN`, default\n  `pi-bolt`). Required after changing provider, command, flag or event registration, the\n  factory, or settings persistence.\n- `just parity-verify`: runs `--list-models` and `--model <id>` resolution against an isolated\n  agent dir with dummy credentials and asserts every provider of ours is listed. Required after\n  touching provider registration or catalogs.\n- `just aot-verify`: bundles `src/index.ts` with Pi externalized and checks the AOT rules\n  (literal imports only, no value import from `pi-coding-agent`, per-module bytecode budget).\n  Required after adding modules, embedded assets or dependencies.\n- Run the narrow test while iterating and `just check` once before merging; fix every error\n  and warning. Docs-only changes need no gate.\n- Never claim a check passed unless it ran in this session and you read its output.\n- Live verification is authorized and expected for `claude`, `antigravity`, `opencode` (free\n  models), `synthetic`, `openai`/`codex`, `xai` and `openrouter` (classifiers only), on the\n  user's configured accounts, plus every quota and token-count endpoint those reach. Capture\n  request and response with secrets redacted; a mock never proves a provider path. Pick model\n  ids from `.project/references/models.md`. Missing credential: report it, never fake it.\n- Irreversible or account-changing calls (consuming a reset credit, creating an API key,\n  revoking a token) need explicit user approval each time.\n- Panel, line or renderer changes need a live Pi-Bolt terminal pass (tmux capture) at the\n  [TUI widths](#tui-widths). Captures go to `.project/analyses/<group>/<slug>/captures/`.\n- Implement, validate and QA fully before claiming completion or pushing.\n\n## Repository shape\n\n```text\nsrc/\n  index.ts              Pi entrypoint: awaits family registration, registers commands, flags,\n                        events. No logic.\n  core/                 shared seams, no vendor knowledge\n    paths/              agent dir, XDG state/cache/data, project .pi\n    config/             settings catalog, layers, sanitizing parse, staged save, legacy migration\n    cache/              host cache: atomic write, leases, backoff, parser-version fences\n    http/               fetch with AbortSignal + timeout, ProviderHttpError, Retry-After\n    auth/               auth.json slot access, PKCE, callback server, manual code paste\n    bus/                versioned pi.events channels, nonce replies, consumer helpers\n    redact/             secret redaction for errors, captures and bus payloads\n    registry/           family registry: provider ids, aliases, capabilities\n    conflicts/          detection of absorbed packages loaded alongside, one warning\n  ui/                   frame, menus, settings panel, render kit, /auth command router\n  families/<vendor>/    everything one vendor needs, exposed as one FamilyAdapter\n    anthropic/          claude provider, anthropic/claude quota and token counting\n    google/             antigravity provider, quota and token counting\n    openai/             codex quota and token counting\n    synthetic/          synthetic provider, catalog, web search, quota, token counting\n    opencode/           builtin opencode patch\n    xai/ openrouter/ deepseek/   quota (and token counting where available)\n  quotas/               quota engine: snapshots, refresh, header ingestion, line, panel, CLI\n  tokens/               token engine: source selection, content-hash store, family dedup\ntests/                  bun:test suite mirroring src/; fixtures/ hold captured payloads\nassets/                 embedded data (catalog snapshots, tokenizer tables), imported with\n                        `with { type: \"file\" }` or `{ type: \"text\" }`\nscripts/                development only, not shipped: verify helpers, upstream probes\ndocs/                   end-user documentation (layout below)\nskills/                 bundled agent skills, only when a real agent workflow exists\n.project/               development artifacts (layout below)\nREADME.md, CHANGELOG.md, LICENSE, NOTICE, AGENTS.md\n```\n\n- A family module exports one `FamilyAdapter` (`provider?`, `quota?`, `tokens?`, ids,\n  aliases). `src/index.ts` lists the adapters as literal imports; engines reach families only\n  through `core/registry`.\n- Split a module by responsibility; ~400 lines is the point where a module does two jobs.\n- Tests live in `tests/`, mirroring `src/`. Fixtures stay byte-for-byte as captured.\n- The package ships raw TypeScript: `pi.extensions` → `./src/index.ts`, `files` ships `src/`,\n  `assets/`, `docs/`. No build step; Pi-Bolt compiles the installed package itself.\n- Import `@earendil-works/*` only through specifiers Pi's loader aliases (`pi-ai`,\n  `pi-ai/compat`, `pi-ai/oauth`, `pi-coding-agent`, `pi-tui`); anything else mixes Pi versions.\n\n## Not yet aligned\n\nThis file describes the target state.\n\n- No family is registered yet: `families/index.ts` lists none, so `/auth` tabs are empty and\n  `just parity-verify` checks zero providers. `FamilyAdapter` has no `quota`/`tokens` parts\n  until those engines land.\n- `quotas/`, `tokens/` and `docs/` do not exist yet; the dashboard's Settings tab has no\n  settings panel yet (`core/config` exists).\n- `core/auth` reads slots only; PKCE, the callback server and code paste arrive with the first\n  OAuth provider.\n- Absorption follows `.project/plans/roadmap.md`; delete each line here when its part lands.\n\n## Provider integration\n\n`.project/research/pi-provider-seams/report.md` records the Pi startup order and API facts.\nRead it before touching registration, and correct it when Pi changes.\n\n- **Register in the factory.** Pi drains provider registrations after the awaited factories\n  and before model resolution. Anything registered in `session_start` or later misses\n  `--model`, `--list-models`, scoped models and session restore. If registration depends on\n  credential state, resolve it in the factory from Pi's auth storage and environment.\n- **No network in the factory.** Dynamic catalogs use Pi's own lifecycle: `refreshModels`\n  restores `context.stored` (Pi's `models-store.json`) when `allowNetwork` is false, fetches\n  only when allowed and stale (`stored.checkedAt`, or `force`), and persists through\n  `publish({ persist })` only when the catalog changed. Pi runs the network refresh in the\n  background after interactive start and when `/model` opens. No catalog cache of our own; a\n  bundled snapshot in `assets/` covers only a first run that never refreshed (print mode never\n  does).\n- **Login is Pi's.** Every provider logs in and out through Pi's `/login` and `/logout` via the\n  provider's `oauth` or API-key config. No login commands or flows of our own.\n- **Reuse Pi's wire implementations.** When the protocol matches a Pi `api`\n  (`anthropic-messages`, `openai-completions`, …), set `api`, `baseUrl` and headers and let Pi\n  stream. A custom `streamSimple` only where no Pi `api` fits (antigravity), and its `api` must\n  equal the models' `api` or Pi ignores it. It must forward the `onPayload`/`onResponse`\n  callback options, or Pi's request hooks never see its traffic.\n- **Re-registration merges.** `registerProvider` merges defined keys over the previous\n  registration. To drop `oauth`, `streamSimple` or headers, register the full intended config\n  with those keys explicitly replaced; never rely on omission. Provider ids are global: another\n  extension registering the same id merges into ours (the conflict check exists for this). A\n  provider without explicit auth still gets Pi's generic API-key prompt in `/login`.\n- **One mechanism per concern.** Body and header shaping for our providers happens inside the\n  provider (fetch wrapper or stream). Patches to a Pi builtin (`opencode`) use\n  `before_provider_headers` / `before_provider_request`. Those events and\n  `after_provider_response` carry no provider id. Identify the request from the request itself\n  (Pi's own provider headers or the base URL); `ctx.model` is the session model and can differ\n  for helper calls, so it is a hint, never the filter.\n- **Credentials live in Pi's `auth.json`**, under our provider ids, so `/login` and `/logout`\n  work. A separate credential file needs a recorded reason in the provider's research report.\n- Every request honors the caller's `AbortSignal` with a bounded timeout. A turn never hangs.\n\n### Provider ids\n\nAPI-key and subscription access get separate ids: `anthropic` → `claude`, `google` →\n`antigravity`, `openai` → `codex`, `xai` → `grok`. `synthetic` is one id, since both behave\nalike. Aliases come from `core/registry`; never hardcode an id outside its family. Provider\nand model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the first slash.\n\n### Family invariants\n\n- **claude:** Claude Code identity and billing system block, the beta and user-agent set, and\n  the `mcp_` tool-name rewrite in both directions, including streamed responses. Version\n  precedence: env override > installed `claude --version` (if newer) > pinned. Subscription\n  models carry zero cost.\n- **antigravity:** the wire envelope, request metadata and payload order; the raw transport\n  timeouts and abort forwarding; exact wire model ids with retired models refused before any\n  credential work; schema allowlist sanitizer; strip thinking blocks for Claude models;\n  cross-model signature sanitizing.\n- **antigravity scope:** pi-antigravity-auth is a fork whose feature set, UX and API surface\n  get a dedicated review with the user before porting. Nothing from it is ported unreviewed,\n  and no `@cortexkit/*` package is used.\n- **opencode:** spoof headers only when Pi's own opencode headers are present; a stored or\n  environment key always wins over the anonymous fallback.\n- **synthetic:** live catalog with real prices and limits, cached with a TTL; the web-search\n  tool stays opt-in.\n\n### Upstream client tracking\n\nWe impersonate clients that change without notice. Each has\n`.project/analyses/<client>/tracking.md` (`claude-code-cli`, `antigravity-cli`,\n`opencode-cli`, `synthetic-api`): pinned version, where it is pinned in `src/`, the surface we\nimitate (headers, user-agent, body shape, endpoints), last live verification and its evidence.\n\n- Bumping a pinned version means a `<client>/<version>/report.md` with the observed delta,\n  refreshed fixtures, a live verification, and the `tracking.md` row, in the same change.\n\n## Quotas\n\nEndpoints, auth, schemas, units and reset semantics per provider are in\n`.project/research/provider-quotas/`. Read the relevant report before changing a fetcher.\n\n- One fetcher + one parser per family, normalized to the quota snapshot. UI never reads a\n  provider payload.\n- Units are explicit; a missing field is `undefined`, never `0`. Keep \"no limit\", \"0% used\"\n  and \"unknown\" distinguishable. Every window a provider exposes stays visible.\n- Quota state from response headers is ingested inside our own providers' fetch wrappers, and\n  for builtins from `after_provider_response` attributed by the header shape (the event has no\n  provider id; `ctx.model` is only a hint). Never poll for what a response already said.\n- One host cache (atomic writes, leases, backoff with Retry-After) so concurrent sessions do\n  not fetch twice. A corrupt cache file is ignored, never fatal. No timers outlive the session.\n\n## Token counting\n\n- Source precedence: provider-reported usage > native count endpoint > known tokenizer >\n  generic tokenizer. Every count carries its source; anything but the first two is labelled an\n  estimate.\n- Counts are keyed by tokenizer family and content hash and computed once: antigravity's\n  Claude models reuse the anthropic family's counts.\n- Counting never blocks a request or a frame: async, batched, cached, rate-limited.\n- Pi has no hook to replace its estimators (pi-ai context clamping at 3.5 chars/token,\n  compaction at 4). Both trust the latest assistant `usage` and estimate only what follows, so\n  set authoritative `usage` in our streams and correct builtin messages in `message_end` (the\n  returned same-role replacement persists). Publish counts on the bus for our own surfaces;\n  `session_before_compact` changes compaction, not estimation. Patching Pi internals needs\n  user approval.\n\n## Pi-Bolt AOT and performance\n\nPi-Bolt compiles installed packages into its executable (`pi-bolt compile`). Write for that\ncompiler (`docs/PLUGINS.md` of Pi-Bolt):\n\n- **Factory stays light:** registration from cached data only; sockets, timers and refreshes\n  start in `session_start` or on first use.\n- **Type-only imports** from `pi-coding-agent`; value imports cost startup on every launch.\n  Value imports from `pi-ai` and `typebox` are free.\n- **Literal imports only.** Lazy loading uses a table of literal `import()` thunks.\n- **Embed files** (`with { type: \"file\" | \"text\" }`); never read beside the source.\n- **Bytecode budget:** no module or function above 256 KB of bytecode. Large data (tokenizer\n  ranks, catalogs) ships as an embedded file and loads lazily, never as a JS literal.\n- **Hot paths** (stream mapping, request shaping, renderers): regex literals, module-level\n  helpers, one object shape, no `Proxy`/getters, no intrinsic overrides.\n- Measure before and after with `PI_TIMING=1` (factory time) and focused benchmarks; record\n  baselines in `.project/analyses/performance/`.\n\n## Settings and data\n\n- Layers: defaults < user (`<agentDir>/auth-plus.json`) < project (`<cwd>/.pi/auth-plus.json`,\n  trusted projects only) < runtime. One settings catalog in `core/config`; features never read\n  config files directly.\n- Host cache (quota snapshots, token counts) under `<agentDir>/cache/auth-plus/`; state and\n  data follow XDG (dirs 0700, files 0600).\n- Legacy migration from the absorbed packages is one-time, fill-only and non-destructive:\n  legacy files are never deleted or rewritten.\n- Stored formats (`auth.json` slots, cache files, settings, bus payloads) change only with a\n  reader for the old form.\n- Resolve paths from `ctx.cwd` and the agent-dir helpers, never `process.cwd()`.\n\n## Event bus\n\nChannels are `pi-auth-plus:v1:<area>:<event>` (`quotas`, `tokens`, `auth`), with nonce\nreplies; the contract is `docs/events.md` and the client helpers ship as\n`@furbyhaxx/pi-auth-plus/bus`. A payload change is a versioned contract change: new channel\nversion or additive fields only. `pi.events` emits synchronously and never awaits listeners,\nso request/reply goes through nonce reply channels, never through emit ordering.\n\n## Slash commands and panels\n\nAdopted from pi-workbench; a new surface looks like the existing ones.\n\n- `/auth` is the only command family: status of every provider (signed in, plan,\n  expiry, quota), settings, quotas and token counts. It never logs in; it points to\n  `/login <id>`. Standalone commands (`/quota`, `/quotas`, `/tokens`) are entry points into\n  the same handlers.\n- Commands with arguments provide `getArgumentCompletions`. Subcommands accept forgiving\n  aliases and singular/plural forms; providers are selectable by id or alias. Unknown input\n  reports the usage line and the closest valid names.\n- Headless-safe: panels need `ctx.mode === \"tui\" && ctx.hasUI`. Without a TUI, read-only\n  output renders as text; interactive-only actions say so and name the alternative.\n- Feedback via `ctx.ui.notify` with the right tone; multi-line results render as a message.\n- Panels use `ctx.ui.custom` and the one shared frame in `ui/`. Keys come from the user's\n  keybindings and hint rows show them. Enter confirms, Esc goes back (asks before discarding\n  staged edits), Ctrl+C dismisses, Tab switches sections, `/` or typing filters long lists.\n- Panels size to content, cap at terminal height minus Pi's footer, then scroll. Side-by-side\n  layouts fall back to a separate screen when narrow.\n- Settings panels stage edits, show each value's source scope and save to an explicit scope;\n  saving preserves unknown keys, and a malformed file blocks the save.\n- A panel, refresh or login belongs to the session that started it; late results after\n  shutdown change nothing. Display state is monotonic.\n- Surfaces are configurable: visible fields, density, placement and appearance come from\n  settings with sensible defaults, never one hard-coded layout.\n- New surfaces or layout changes are the user's call: show captures at the check widths, or a\n  served HTML mock for larger designs, before settling a layout.\n\n### TUI widths\n\n- Theme tokens and Pi's ANSI-aware helpers (`visibleWidth`, `truncateToWidth`,\n  `wrapTextWithAnsi`); never `String.length` for layout.\n- Every line fits. Check 36, 57, 80 and 140 columns. Identity and primary state survive\n  truncation; secondary metrics go first.\n- Color is never the only signal. Strip control characters from provider-supplied text.\n\n## Code conventions\n\n- Explicit, readable code; descriptive names; early returns; no dead code; kebab-case files;\n  named exports except the Pi entry's default export.\n- Types describe reality: no `any`, no non-null assertions, no silencing casts, no\n  `@ts-ignore`/`@ts-expect-error`.\n- `node:` protocol imports; `import type` for types; top-level imports, plus literal lazy\n  `import()` thunks where startup cost justifies them.\n- Validate unknown input once at the boundary that owns it (provider payloads, config files,\n  bus messages, auth.json), then stay typed.\n- Errors carry what failed, where, and a recovery action; no empty catch blocks.\n- No compat shims or feature flags in a `0.x` package, except the documented legacy migration.\n- Public modules get a lean module doc comment: what it owns. Comments state constraints.\n\n## Testing\n\n- `bun:test` only; `tests/setup.ts` isolates HOME, XDG and agent dirs per file. Assert\n  observable behavior: shaped requests, mapped stream events, parsed snapshots, rendered lines\n  at a given width, settings precedence, migration outcomes.\n- Every new transform, parser, renderer or key branch gets a case that fails when it breaks;\n  a regression fix gets a test that reproduces it.\n- No network and no real credentials: fake the transport, use captured fixtures, fake theme\n  and terminal. Inject clocks, ids and widths.\n- Never touch the user's real `auth.json`, caches or vault state in tests. Bun's\n  `os.homedir()` ignores a runtime `HOME` change, so path code resolves from env and Pi's\n  agent-dir helper, never `os.homedir()` directly.\n- Live verification is separate from the suite and never replaces it.\n\n## Git and delivery\n\n- Conventional Commits, granular, English. Stage explicit paths; never `git add -A`/`.`.\n- Never `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`,\n  `git commit --no-verify` or force-push. Never touch files you did not change.\n- `dev` is the default branch; work happens on `dev` or on feature branches merged into it.\n- Installed from `git:https://github.com/furbyhaxx/pi-auth-plus`, so unpushed work never\n  reaches a session. After `just check` and the relevant live verification: commit, merge to\n  `dev`, push, `pi-bolt update --extensions`, then `pi-bolt compile` and confirm with\n  `pi-bolt compile --status`. That sequence is the authorized default; do not ask again.\n- Releases are the agent's job too: at the end of a verified slice, bump the `0.x` version,\n  move `[Unreleased]` into a dated release section, tag `vX.Y.Z` and push the tag.\n- Delete worktrees and branches once merged. Publishing to a registry stays with the user.\n\n## Documentation sync\n\n```text\ndocs/\n  getting-started.md      install, first login, migrating from the absorbed packages, conflicts\n  providers/<id>.md       claude, antigravity, synthetic, opencode: login, models, env, caveats\n  quotas.md               status line, templates, panel, --list-quotas, resets\n  tokens.md               sources per family, accuracy, dedup\n  commands.md             /auth reference with aliases\n  configuration.md        settings catalog, layers, files, environment variables\n  events.md               pi.events contract for other extensions\n  performance.md          Pi-Bolt compile, startup budget, how to measure\n  troubleshooting.md\n  development/architecture.md   invariants: seams, registry, engines, data flow\n```\n\nAdding or removing a provider, model family, command, flag, setting, environment variable,\nbus channel or storage location is a docs change in the same commit. `README.md` lists\nfeatures, install and the conflict note; it points into `docs/`.\n\nMarkdown is lean but complete: no walls of text, no filler, and never an instruction, fact or\ninvariant dropped to save lines. When a file grows unwieldy, split it by topic (a `docs/`\npage, a nested `AGENTS.md`) instead of cutting content. Implementation status and evidence\nlive in `.project/`, never in `AGENTS.md`.\n\n## Changelog\n\n`CHANGELOG.md`, [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). New entries under\n`## [Unreleased]` in the right subsection; read it first and append. One bullet per change: a\nbold lead-in, then why and what a user must do. Released sections are immutable.\n\n## Development artifacts\n\nPlans, specs, designs, research, analyses, reviews and ideas live in `.project/`, never in\n`docs/`, and are committed.\n\n```text\n.project/\n  plans/roadmap.md                    milestone tree: done / now / next / later\n  plans/<NNNN-slug>/plan.md           current and next slice only; evidence/ beside it\n  specs/<NNNN-slug>.md                contracts and decisions, updated when reality differs\n  designs/<slug>/                     architecture and UX decisions, HTML mocks\n  research/<slug>/report.md           third-party facts: APIs, protocols, prior art\n  analyses/<client>/                  upstream client tracking (tracking.md + <version>/)\n  analyses/<group>/<slug>/            local QA, measurements, root causes; captures/ beside them\n  reviews/<slug>/  ideas/<slug>/      on demand\n  references/models.md                model ids pre-authorized for tests, docs and live runs\n```\n\n- Every artifact starts with the nested `document:` frontmatter (`type`, `id`, `title`,\n  `description`, `status` = `sketch|draft|published|archived`, `revision`, `created_at`,\n  `updated_at`, `created_by`, `updated_by`, `changelog`), timestamps from `date -Iseconds`.\n  Imported artifacts add `source: \"<repo>@<sha>:<path>\"` and keep their original author.\n- Bump `revision` with a `changelog` entry on every substantive change. Superseded artifacts\n  get `status: \"archived\"` and a link to the successor.\n- Evidence (captures, request/response dumps, fixtures) sits beside the report with\n  credentials redacted. Reference artifacts by relative path.\n\n## Absorbed packages\n\n`pi-claude-auth`, `pi-opencode-auth`, `pi-synthetic-auth`, `pi-antigravity-auth` and\n`pi-quotas` are reference implementations, not code to copy. Read their source for behavior,\nthen rebuild it in this architecture. Their research and analyses are imported into\n`.project/` with provenance. Loading any of them next to pi-auth-plus is a conflict: detect it\nat startup, warn once, and name the package to remove.\n\n## Self-maintenance\n\npi-auth-plus serves the user's models and footer in every session, including yours. If login,\nstreaming, quotas or counts misbehave live, reproduce with `pi-bolt -e ./src/index.ts`,\nconfirm loading with `just rpc-verify`, and fix it in the owning family or engine. Until the\nfix ships, `-builtin:pi-auth-plus` or `pi-bolt --no-extensions` disables it.\n\n## What to avoid\n\n- Registering providers, catalogs or OAuth after the factory.\n- Network calls or heavy disk work in the factory.\n- New runtime dependencies, frameworks or model-facing tools without user approval; no\n  `@cortexkit/*` packages at all.\n- Login flows, credential files or model caches of our own where Pi's `/login`, `auth.json`\n  or `models-store.json` already serve.\n- Weakening type safety, an invariant or a test to get a check green.\n- Hardcoded machine-specific paths, agent dirs, accounts or credentials.\n- Printing, logging or committing secrets, `auth.json` contents or unredacted dumps.\n- Stubs, placeholders or TODOs presented as finished work.\n- Drive-by refactors, reformatting or dependency upgrades inside an unrelated change.\n\n## User override\n\nIf the user's instructions conflict with a rule here, name the rule and the conflict, get\nconfirmation, then follow the user.\n\n</project_instructions>\n</project_context>\n\n<skills>\nThe following skills provide specialized instructions for specific tasks.\nUse the read tool to load a skill's file when the task matches its description.\nWhen a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.\n\n<available_skills>\n  <skill>\n    <name>reverse-engineer-anything</name>\n    <description>Reverse engineer native, managed, Electron/JavaScript, packaged, firmware, and browser targets with REA. Use shipped-artifact or requested runtime evidence to explain features, compare versions, decompile code, or guide a reconstruction. Skip REA for ordinary source-repository architecture analysis.</description>\n    <location>/home/furbyhaxx/.agents/skills/reverse-engineer-anything/SKILL.md</location>\n  </skill>\n</available_skills>\n</skills>\n\n<cwd>\n/mnt/Projects/furbyhaxx/pi-auth-plus\n</cwd>"
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply with exactly: pong"
+          }
+        ]
+      }
+    ],
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "max_tokens": 32000,
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "read",
+          "description": "Read the contents of a file. Supports text files and images (jpg, png, gif, webp, bmp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "path",
+              "offset",
+              "limit"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Path to the file to read (relative or absolute)"
+              },
+              "offset": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "description": "Line number to start reading from (1-indexed)"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "description": "Maximum number of lines to read"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "strict": true
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "bash",
+          "description": "Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last 2000 lines or 50KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "command",
+              "timeout"
+            ],
+            "properties": {
+              "command": {
+                "type": "string",
+                "description": "Shell command to execute"
+              },
+              "timeout": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "description": "Timeout in seconds (optional, no default timeout)"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "strict": true
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "edit",
+          "description": "Edit a single file using exact text replacement. Every edits[].oldText must match a unique, non-overlapping region of the original file. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "path",
+              "edits"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Path to the file to edit (relative or absolute)"
+              },
+              "edits": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "oldText",
+                    "newText"
+                  ],
+                  "properties": {
+                    "oldText": {
+                      "type": "string",
+                      "description": "Exact text for one targeted replacement. It must be unique in the original file and must not overlap with any other edits[].oldText in the same call."
+                    },
+                    "newText": {
+                      "type": "string",
+                      "description": "Replacement text for this targeted edit."
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "description": "One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead."
+              }
+            },
+            "additionalProperties": false
+          },
+          "strict": true
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "write",
+          "description": "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "path",
+              "content"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Path to the file to write (relative or absolute)"
+              },
+              "content": {
+                "type": "string",
+                "description": "Content to write to the file"
+              }
+            },
+            "additionalProperties": false
+          },
+          "strict": true
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "grep",
+          "description": "Search file contents for a pattern. Returns matching lines with file paths and line numbers. Respects .gitignore. Output is truncated to 100 matches or 50KB (whichever is hit first). Long lines are truncated to 500 chars.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "pattern"
+            ],
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "Search pattern (regex or literal string)"
+              },
+              "path": {
+                "type": "string",
+                "description": "Directory or file to search (default: current directory)"
+              },
+              "glob": {
+                "type": "string",
+                "description": "Filter files by glob pattern, e.g. '*.ts' or '**/*.spec.ts'"
+              },
+              "ignoreCase": {
+                "type": "boolean",
+                "description": "Case-insensitive search (default: false)"
+              },
+              "literal": {
+                "type": "boolean",
+                "description": "Treat pattern as literal string instead of regex (default: false)"
+              },
+              "context": {
+                "type": "number",
+                "description": "Number of lines to show before and after each match (default: 0)"
+              },
+              "limit": {
+                "type": "number",
+                "description": "Maximum number of matches to return (default: 100)"
+              }
+            }
+          },
+          "strict": false
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "find",
+          "description": "Search for files by glob pattern. Returns matching file paths relative to the search directory. Respects .gitignore. Output is truncated to 1000 results or 50KB (whichever is hit first).",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "pattern"
+            ],
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "Glob pattern to match files, e.g. '*.ts', '**/*.json', or 'src/**/*.spec.ts'"
+              },
+              "path": {
+                "type": "string",
+                "description": "Directory to search in (default: current directory)"
+              },
+              "limit": {
+                "type": "number",
+                "description": "Maximum number of results (default: 1000)"
+              }
+            }
+          },
+          "strict": false
+        }
+      }
+    ],
+    "reasoning_effort": "medium"
+  },
+  "response_body": "{\"type\":\"error\",\"error\":{\"type\":\"FreeUsageLimitError\",\"message\":\"Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go\"}}"
+}

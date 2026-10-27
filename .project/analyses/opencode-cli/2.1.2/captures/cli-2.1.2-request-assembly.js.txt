@@ -1,0 +1,4 @@
+// Extracted from the compiled opencode 2.1.2 binary (Bun single-file, /$bunfs/root/chunk-*.js)
+// via `strings -n 4 /home/furbyhaxx/.opencode/bin/opencode`. Minified names preserved.
+
+eH=YN(h),rH=BJ({model:S.model,http:{headers:{"x-opencode-session-id":h.id,...h.parentID?{"x-opencode-parent-session-id":h.parentID}:{},"x-session-affinity":eH,"X-Session-Id":eH,...h.parentID?{"x-parent-session-id":h.parentID}:{},"User-Agent":rl(A),"x-opencode-project":h.projectID,"x-opencode-session":eH,"x-opencode-client":A.name}},promptCacheKey:/^ses_[0-9a-f]{64}$/.test(eH)?eH.slice(4):eH,system:J.system,messages:$J(cJ(J.messages,S.capabilities,S.model.provider)),tools:Array.from(AH,([mH,_H])=>({..._H,name:mH})),toolChoice:a.toolChoice,generation:Object.keys(F).length===0?void 0:F,providerOptions:Object.keys($H).length===0?void 0:$H}),Q=rH.model.route.endpoint.baseURL,C=yield*H.trigger("session","model.request",{...l,baseURL:Q,headers:{...rH.http?.headers}}),HH=C.baseURL!==void

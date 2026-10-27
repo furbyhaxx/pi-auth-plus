@@ -1,0 +1,276 @@
+{
+  "captured_at": "2026-10-27T09:34:52.548Z",
+  "method": "POST",
+  "path": "/inference/v1/chat/completions",
+  "upstream": "https://opencode.ai/inference/v1/chat/completions",
+  "status": 200,
+  "request_headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "authorization": "Bearer public",
+    "connection": "keep-alive",
+    "content-length": "9067",
+    "content-type": "application/json",
+    "host": "127.0.0.1:18901",
+    "user-agent": "opencode/1.18.18",
+    "x-opencode-client": "cli",
+    "x-opencode-project": "global",
+    "x-opencode-request": "msg_17cb6664300173eSuLEoqQhluu",
+    "x-opencode-session": "ses_e834999beffenquYrB5JhUC7uh",
+    "x-stainless-arch": "x64",
+    "x-stainless-lang": "js",
+    "x-stainless-os": "Linux",
+    "x-stainless-package-version": "7.19.0",
+    "x-stainless-retry-count": "0",
+    "x-stainless-runtime": "node",
+    "x-stainless-runtime-version": "v26.3.0",
+    "x-stainless-timeout": "300"
+  },
+  "request_body": {
+    "model": "big-pickle",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are an expert coding assistant operating inside Pi-Bolt, a build of pi (a coding agent harness) compiled ahead of time. You help users by reading files, executing commands, editing code, and writing new files.\n\n<tools>\n- read: Read file contents\n- bash: Execute bash commands (ls, grep, find, etc.)\n- edit: Make precise file edits with exact text replacement, including multiple disjoint edits in one call\n- write: Create or overwrite files\n- grep: Search file contents for patterns (respects .gitignore)\n- find: Find files by glob pattern (respects .gitignore)\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>\n\n<rules>\n- Use read to examine files instead of cat or sed.\n- You can inspect PI_* environment variables for current model and session details.\n- Use edit for precise changes (edits[].oldText must match exactly)\n- When changing multiple separate locations in one file, use one edit call with multiple entries in edits[] instead of multiple edit calls\n- Each edits[].oldText is matched against the original file, not after earlier edits are applied. Do not emit overlapping or nested edits. Merge nearby changes into one edit.\n- Keep edits[].oldText as small as possible while still being unique in the file. Do not pad with large unchanged regions.\n- Use write only for new files or complete rewrites.\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>\n\n<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64/README.md\n- Additional docs: /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64/docs\n- Examples: /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md), MCP servers (docs/mcp.md), codemode scripts and non-LLM models such as classifiers and image models (docs/codemode.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n- This is Pi-Bolt: its command is `pi-bolt`, and it is updated with `pi-bolt update` (https://github.com/opensec-git/Pi-Bolt). The install and update commands in pi's README install pi itself, not Pi-Bolt: do not suggest them.\n</docs>\n\n<skills>\nThe following skills provide specialized instructions for specific tasks.\nUse the read tool to load a skill's file when the task matches its description.\nWhen a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.\n\n<available_skills>\n  <skill>\n    <name>reverse-engineer-anything</name>\n    <description>Reverse engineer native, managed, Electron/JavaScript, packaged, firmware, and browser targets with REA. Use shipped-artifact or requested runtime evidence to explain features, compare versions, decompile code, or guide a reconstruction. Skip REA for ordinary source-repository architecture analysis.</description>\n    <location>/home/furbyhaxx/.agents/skills/reverse-engineer-anything/SKILL.md</location>\n  </skill>\n</available_skills>\n</skills>\n\n<cwd>\n/tmp\n</cwd>\n\n<env>\n  Working directory: /tmp\n  Platform: linux\n</env>"
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply with exactly: pong"
+          }
+        ]
+      }
+    ],
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "max_tokens": 32000,
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "read",
+          "description": "Read the contents of a file. Supports text files and images (jpg, png, gif, webp, bmp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "path",
+              "offset",
+              "limit"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Path to the file to read (relative or absolute)"
+              },
+              "offset": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "description": "Line number to start reading from (1-indexed)"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "description": "Maximum number of lines to read"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "strict": true
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "bash",
+          "description": "Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last 2000 lines or 50KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "command",
+              "timeout"
+            ],
+            "properties": {
+              "command": {
+                "type": "string",
+                "description": "Shell command to execute"
+              },
+              "timeout": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "description": "Timeout in seconds (optional, no default timeout)"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "strict": true
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "edit",
+          "description": "Edit a single file using exact text replacement. Every edits[].oldText must match a unique, non-overlapping region of the original file. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "path",
+              "edits"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Path to the file to edit (relative or absolute)"
+              },
+              "edits": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "oldText",
+                    "newText"
+                  ],
+                  "properties": {
+                    "oldText": {
+                      "type": "string",
+                      "description": "Exact text for one targeted replacement. It must be unique in the original file and must not overlap with any other edits[].oldText in the same call."
+                    },
+                    "newText": {
+                      "type": "string",
+                      "description": "Replacement text for this targeted edit."
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "description": "One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead."
+              }
+            },
+            "additionalProperties": false
+          },
+          "strict": true
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "write",
+          "description": "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "path",
+              "content"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Path to the file to write (relative or absolute)"
+              },
+              "content": {
+                "type": "string",
+                "description": "Content to write to the file"
+              }
+            },
+            "additionalProperties": false
+          },
+          "strict": true
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "grep",
+          "description": "Search file contents for a pattern. Returns matching lines with file paths and line numbers. Respects .gitignore. Output is truncated to 100 matches or 50KB (whichever is hit first). Long lines are truncated to 500 chars.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "pattern"
+            ],
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "Search pattern (regex or literal string)"
+              },
+              "path": {
+                "type": "string",
+                "description": "Directory or file to search (default: current directory)"
+              },
+              "glob": {
+                "type": "string",
+                "description": "Filter files by glob pattern, e.g. '*.ts' or '**/*.spec.ts'"
+              },
+              "ignoreCase": {
+                "type": "boolean",
+                "description": "Case-insensitive search (default: false)"
+              },
+              "literal": {
+                "type": "boolean",
+                "description": "Treat pattern as literal string instead of regex (default: false)"
+              },
+              "context": {
+                "type": "number",
+                "description": "Number of lines to show before and after each match (default: 0)"
+              },
+              "limit": {
+                "type": "number",
+                "description": "Maximum number of matches to return (default: 100)"
+              }
+            }
+          },
+          "strict": false
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "find",
+          "description": "Search for files by glob pattern. Returns matching file paths relative to the search directory. Respects .gitignore. Output is truncated to 1000 results or 50KB (whichever is hit first).",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "pattern"
+            ],
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "Glob pattern to match files, e.g. '*.ts', '**/*.json', or 'src/**/*.spec.ts'"
+              },
+              "path": {
+                "type": "string",
+                "description": "Directory to search in (default: current directory)"
+              },
+              "limit": {
+                "type": "number",
+                "description": "Maximum number of results (default: 1000)"
+              }
+            }
+          },
+          "strict": false
+        }
+      }
+    ],
+    "reasoning_effort": "medium"
+  },
+  "response_body": "data: {\"id\":\"mai-api-d0d62e65-64fe-48f0-8e16-8d82683a6f3a\",\"object\":\"chat.completion.chunk\",\"created\":1793093692,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"finish_reason\":\"stop\",\"delta\":{\"role\":\"assistant\",\"content\":\"pong\",\"reasoning\":null,\"tool_calls\":null}}],\"usage\":null}\n\ndata: {\"id\":\"mai-api-d0d62e65-64fe-48f0-8e16-8d82683a6f3a\",\"object\":\"chat.completion.chunk\",\"created\":1793093692,\"model\":\"big-pickle\",\"choices\":[],\"usage\":{\"prompt_tokens\":1772,\"completion_tokens\":9,\"total_tokens\":1781,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":1},\"cost\":0,\"opencode\":{\"billing_source\":\"free\",\"list_cost\":0,\"tokens\":{\"input\":1772,\"output\":9,\"reasoning\":1,\"cache_read\":0,\"cache_write_5m\":0,\"cache_write_1h\":0}}}}\n\ndata: [DONE]\n\n"
+}

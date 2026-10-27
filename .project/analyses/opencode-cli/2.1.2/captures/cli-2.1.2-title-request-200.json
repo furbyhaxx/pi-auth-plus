@@ -1,0 +1,42 @@
+{
+  "captured_at": "2026-10-27T09:28:55.627Z",
+  "method": "POST",
+  "path": "/probe/chat/completions",
+  "upstream": "https://opencode.ai/inference/openai/v1/chat/completions",
+  "status": 200,
+  "request_headers": {
+    "accept": "*/*",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "b3": "431b62a8d5d097150e2c162489b33618-884c75fbaf19acea-1-2838060af2729c29",
+    "connection": "keep-alive",
+    "content-length": "2379",
+    "content-type": "application/json",
+    "host": "127.0.0.1:18900",
+    "traceparent": "00-431b62a8d5d097150e2c162489b33618-884c75fbaf19acea-01",
+    "user-agent": "opencode/latest/2.1.2/cli",
+    "x-opencode-client": "cli",
+    "x-opencode-project": "470c8549ef01a2a9d3c85b22965766cefc874134",
+    "x-opencode-session": "ses_e834f0fe5ffeKKPwSF57zSPvJH",
+    "x-opencode-session-id": "ses_e834f0fe5ffeKKPwSF57zSPvJH",
+    "x-session-affinity": "ses_e834f0fe5ffeKKPwSF57zSPvJH",
+    "x-session-id": "ses_e834f0fe5ffeKKPwSF57zSPvJH"
+  },
+  "request_body": {
+    "model": "big-pickle",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a title generator. You output ONLY a thread title. Nothing else.\n\n<task>\nGenerate a brief title that would help the user find this conversation later.\n\nFollow all rules in <rules>\nUse the <examples> so you know what a good title looks like.\nYour output must be:\n- A single line\n- <=50 characters\n- No explanations\n</task>\n\n<rules>\n- you MUST use the same language as the user message you are summarizing\n- Title must be grammatically correct and read naturally - no word salad\n- Never include tool names in the title (e.g. \"read tool\", \"bash tool\", \"edit tool\")\n- Focus on the main topic or question the user needs to retrieve\n- Vary your phrasing - avoid repetitive patterns like always starting with \"Analyzing\"\n- When a file is mentioned, focus on WHAT the user wants to do WITH the file, not just that they shared it\n- Keep exact: technical terms, numbers, filenames, HTTP codes\n- Remove: the, this, my, a, an\n- Never assume tech stack\n- Never use tools\n- NEVER respond to questions, just generate a title for the conversation\n- The title should NEVER include \"summarizing\" or \"generating\" when generating a title\n- DO NOT SAY YOU CANNOT GENERATE A TITLE OR COMPLAIN ABOUT THE INPUT\n- Always output something meaningful, even if the input is minimal.\n- If the user message is short or conversational (e.g. \"hello\", \"lol\", \"what's up\", \"hey\"):\n  -> create a title that reflects the user's tone or intent (such as Greeting, Quick check-in, Light chat, Intro message, etc.)\n</rules>\n\n<examples>\n\"debug 500 errors in production\" -> Debugging production 500 errors\n\"refactor user service\" -> Refactoring user service\n\"why is app.js failing\" -> app.js failure investigation\n\"implement rate limiting\" -> Rate limiting implementation\n\"how do I connect postgres to my API\" -> Postgres API connection\n\"best practices for React hooks\" -> React hooks best practices\n\"@src/credential.ts can you add refresh token support\" -> Credential refresh token support\n\"@utils/parser.ts this is broken\" -> Parser bug fix\n\"look at @config.json\" -> Config review\n\"@App.tsx add dark mode toggle\" -> Dark mode toggle in App\n</examples>"
+      },
+      {
+        "role": "user",
+        "content": "\"Reply with exactly: pong\""
+      }
+    ],
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    }
+  },
+  "response_body": "data: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\"\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\"The\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\" user message\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\" is: \\\"Reply with exactly\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\": pong\\\"\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\" - this\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\" is a short conversational\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\"/instruction message\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\". I need\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\" to create\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\" a title reflecting\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\" intent\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\". Something\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\" like \\\"Ex\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":1793093334,\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\"act reply\"}}],\"usage\":null}\n\ndata: {\"id\":\"0217930933336697dca00f85baedac28bed28ae8d5f3a99988734\",\"object\":\"chat.completion.chunk\",\"created\":17930933"
+}

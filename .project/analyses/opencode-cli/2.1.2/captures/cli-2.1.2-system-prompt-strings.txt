@@ -1,0 +1,39 @@
+# String-table slice of the compiled opencode 2.1.2 binary covering the system-prompt env block
+# and the request header names (`strings -n 4 /home/furbyhaxx/.opencode/bin/opencode`).
+# The runtime concatenates these constants; order in the table is not template order.
+
+Today's date:
+Today's date is now:
+<env>
+  Platform: linux
+</env>
+  Working directory:
+  Workspace root folder:
+  Is directory a git repo:
+  Prefer
+ over generic system temporary directories such as /tmp; it is pre-created and approved for external access.
+Here is some useful information about the environment you are running in:
+The environment you are running in is now:
+repository-cache:
+repos
+core/reference-guidance
+core/skill-guidance
+Questions
+lock
+httpFallback
+streamFailures
+fallbackB
+^ses_[0-9a-f]{64}$
+model.request
+http.request
+http.response
+x-opencode-session-id
+x-opencode-parent-session-id
+x-session-affinity
+X-Session-Id
+x-parent-session-id
+User-Agent
+x-opencode-project
+x-opencode-session
+x-opencode-client
+promptCacheKey

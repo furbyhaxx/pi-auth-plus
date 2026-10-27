@@ -3,9 +3,11 @@ import { tmpdir } from "node:os";
 import type { FetchFn } from "../../core/http/index.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
+import type { TokenizerStore } from "../../tokens/types.ts";
 import { BASE_URL, bundledModels, PROVIDER, refreshCatalog } from "./catalog.ts";
 import { syntheticQuota } from "./quota.ts";
-import { correctSyntheticUsage } from "./usage.ts";
+import { requestModel, syntheticTokenizerRepo } from "./request-tokens.ts";
+import { correctSyntheticRequestUsage } from "./usage.ts";
 import { registerWebSearch } from "./web-search.ts";
 
 /** Enables the web-search tool for one run, next to the `synthetic.webSearch` setting. */
@@ -17,6 +19,7 @@ export function createSyntheticFamily(
 	fetchFn: FetchFn = fetch,
 	now: () => number = Date.now,
 	outputDir: () => string = tmpdir,
+	tokenizers?: TokenizerStore,
 ): FamilyAdapter {
 	return {
 		id: PROVIDER,
@@ -49,15 +52,31 @@ export function createSyntheticFamily(
 				description: "Offer the Synthetic web search tool for this run",
 				type: "boolean",
 			});
-			// The project layer of the setting needs the session's cwd and trust, so the tool
-			// registers at session start rather than in the factory.
+			let payload: unknown;
+			const preload = (model: { provider: string; id: string } | undefined): void => {
+				payload = undefined;
+				if (model?.provider !== PROVIDER) return;
+				const repo = syntheticTokenizerRepo(model.id);
+				if (repo) void tokenizers?.load(repo);
+			};
+			pi.on("model_select", ({ model }) => preload(model));
+			pi.on("before_provider_request", (event, ctx) => {
+				payload = undefined;
+				if (ctx.model?.provider !== PROVIDER || requestModel(event.payload) !== ctx.model.id)
+					return;
+				payload = event.payload;
+			});
 			pi.on("message_end", ({ message }) => {
 				if (message.role !== "assistant") return;
-				const corrected = correctSyntheticUsage(message);
+				const request = payload;
+				payload = undefined;
+				const corrected = correctSyntheticRequestUsage(message, request, tokenizers);
 				return corrected && { message: corrected };
 			});
 			let searchRegistered = false;
-			pi.on("session_start", () => {
+			// The project setting needs the session's cwd and trust before tool registration.
+			pi.on("session_start", (_event, ctx) => {
+				if (tokenizers) preload(ctx.model);
 				if (searchRegistered) return;
 				const enabled =
 					pi.getFlag(WEB_SEARCH_FLAG) === true || host.settings().get("synthetic.webSearch");

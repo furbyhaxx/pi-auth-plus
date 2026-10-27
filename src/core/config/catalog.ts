@@ -1,11 +1,16 @@
 /** The one pi-auth-plus settings catalog; `auth-plus.json` keys are its dotted names. */
 import {
 	booleanField,
+	enumField,
 	listField,
 	numberField,
 	type SettingsStore,
+	stringField,
 	textRulesField,
 } from "./index.ts";
+
+const DEFAULT_LINE_TEMPLATE =
+	"{openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {openai:id}: {openai:window-7d-used-percent}[ ({openai:resets-available}r)] · {claude:id}: 5h/{claude:window-5h-used-percent} 7d/{claude:window-7d-used-percent}[ ({claude:resets-available}r)] · {antigravity:id}: gem/{antigravity:window-7d-gemini-used-percent} arg/{antigravity:window-7d-gemini-4-argon-used-percent} · {synthetic:id}: {synthetic:window-7d-used-percent}[ ({synthetic:resets-available}r)] · {xai:id}: {xai:window-7d-used-percent}[ ({xai:resets-available}r)]";
 
 export const SETTINGS = {
 	"quotas.refreshIntervalSec": numberField({
@@ -24,6 +29,59 @@ export const SETTINGS = {
 		label: "Quota providers",
 		description: "Provider ids or aliases to refresh; an empty list enables every quota source",
 		default: [],
+	}),
+	"quotas.linePlacement": enumField({
+		label: "Quota line placement",
+		description: "Where the quota line renders; below-editor-last uses the footer",
+		default: "below-editor-first",
+		options: [
+			{ value: "above-editor", label: "Above editor" },
+			{ value: "below-editor-first", label: "Below editor, first" },
+			{ value: "below-editor-last", label: "Below editor, last (footer)" },
+			{ value: "off", label: "Off" },
+		],
+	}),
+	"quotas.percentDisplay": enumField({
+		label: "Quota percent",
+		description: "Show used or remaining percentages",
+		default: "used",
+		options: [
+			{ value: "used", label: "Used" },
+			{ value: "remaining", label: "Remaining" },
+		],
+	}),
+	"quotas.compactWidthCols": numberField({
+		label: "Compact width",
+		description: "Below this terminal width the line uses short provider ids",
+		default: 100,
+		min: 40,
+		max: 220,
+		step: 5,
+	}),
+	"quotas.alwaysShortIds": booleanField({
+		label: "Always short ids",
+		description: "Use short provider ids at every width",
+		default: false,
+	}),
+	"quotas.creditHealthyUsd": numberField({
+		label: "Healthy credit (USD)",
+		description: "Credit balance at or above this renders as healthy",
+		default: 50,
+		min: 5,
+		max: 500,
+		step: 5,
+	}),
+	"quotas.creditCriticalUsd": numberField({
+		label: "Critical credit (USD)",
+		description: "Credit balance at or below this renders as critical",
+		default: 5,
+		min: 0,
+		max: 100,
+	}),
+	"quotas.lineTemplate": stringField({
+		label: "Quota line template",
+		description: "Template tokens {provider:field}; provider ids and aliases both resolve",
+		default: DEFAULT_LINE_TEMPLATE,
 	}),
 	"claude.replacePatterns": textRulesField({
 		label: "Claude prompt rules",

@@ -3,6 +3,7 @@ import type { PathEnv } from "../../core/paths/index.ts";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
 import { claudeAuth } from "./oauth.ts";
 import { claudeProvider, PROVIDER } from "./provider.ts";
+import { claudeQuota } from "./quota.ts";
 import { probeInstalledClaude, ReportedVersion, type VersionProbe } from "./version.ts";
 
 export function createAnthropicFamily(
@@ -17,6 +18,7 @@ export function createAnthropicFamily(
 				id: PROVIDER,
 				label: "Claude",
 				aliases: [],
+				quota: claudeQuota,
 				ambient: () =>
 					env["ANTHROPIC_API_KEY"] ? { source: "ANTHROPIC_API_KEY", limited: false } : undefined,
 			},

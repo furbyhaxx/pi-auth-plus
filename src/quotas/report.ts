@@ -58,9 +58,11 @@ export function buildQuotaReport(
 	now: number,
 	drainage?: ReportDrainageSource,
 ): QuotaReport {
-	const staleAfterMs = Math.max(1000, settings.get("quotas.refreshIntervalSec") * 1000) * 2;
+	const intervalMs = Math.max(1000, settings.get("quotas.refreshIntervalSec") * 1000);
 	const providers = views.map((view): ReportProvider => {
 		const { provider, snapshot, backoff } = view;
+		// A provider's polling floor delays refreshes, so data within it is still current.
+		const staleAfterMs = Math.max(intervalMs, provider.quota?.minPollMs ?? 0) * 2;
 		const limited = backoff && backoff.until > now && [403, 429].includes(backoff.status ?? 0);
 		const state: ReportState = snapshot?.needsAuth
 			? "needs-auth"

@@ -64,6 +64,27 @@ describe("quota report", () => {
 		expect(JSON.stringify(report)).not.toContain("NaN");
 	});
 
+	test("staleness waits for the provider's polling floor", () => {
+		const floored: QuotaView = {
+			...view({ ...snapshot, fetchedAt: now - 300_000 }),
+			provider: {
+				...provider,
+				quota: {
+					kind: "windows",
+					shortLabel: "cl",
+					parserVersion: 1,
+					fetch: async () => snapshot,
+					minPollMs: 300_000,
+				},
+			},
+		};
+		const old: QuotaView = { ...floored, snapshot: { ...snapshot, fetchedAt: now - 600_001 } };
+		expect(buildQuotaReport([floored, old], settings, now).providers.map((p) => p.state)).toEqual([
+			"ok",
+			"stale",
+		]);
+	});
+
 	test("distinguishes unknown, stale, error, auth and active rate limits", () => {
 		const cases: [QuotaView, ReportState][] = [
 			[{ ...view(), snapshot: undefined }, "unknown"],

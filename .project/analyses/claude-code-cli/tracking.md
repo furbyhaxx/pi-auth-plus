@@ -5,15 +5,18 @@ document:
   title: "Claude Code CLI tracking"
   description: "The Claude Code request surface pi-auth-plus imitates for Claude Pro/Max OAuth, where it is pinned, and how it compares with the real CLI on the wire."
   status: "published"
-  revision: 1
+  revision: 2
   created_at: "2026-10-27T11:12:03+01:00"
-  updated_at: "2026-10-27T11:12:03+01:00"
+  updated_at: "2026-10-27T11:33:55+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       reason: "document creation"
       changes: ["claude slice live-verified; first side-by-side capture against Claude Code 2.1.310"]
+    - revision: 2
+      reason: "logged-in CLI captures and binary evidence"
+      changes: ["Interactive and -p captures of 2.1.311 with its own login; cch gate, entrypoint, suffix input, metadata.user_id; open follow-ups resolved by the user's decision to match the CLI"]
 ---
 
 # Claude Code CLI tracking
@@ -55,7 +58,52 @@ document:
 Anthropic accepted every request in both columns. Which of these differences Anthropic checks is
 unknown; none is refused today.
 
-## Open follow-ups (not in the absorb scope)
+## Logged-in CLI captures (Claude Code 2.1.311, 2026-10-27)
+
+Same proxy, the CLI's own `claude.ai` login, `apiProvider: firstParty`.
+
+| aspect | `claude -p` | interactive `claude` |
+|---|---|---|
+| preflight | `HEAD /api/hello`, no auth, Bun's UA | same |
+| user agent | `claude-cli/2.1.311 (external, sdk-cli)` | `claude-cli/2.1.311 (external, cli)` |
+| billing block | `cc_version=2.1.311.ccc; cc_entrypoint=sdk-cli;` | `cc_version=2.1.311.ccc; cc_entrypoint=cli;` |
+| `cch` | absent | absent |
+| `x-app` | `cli` | `cli` |
+| session | `x-claude-code-session-id: <uuid>` | same; the same UUID is `session_id` in `metadata.user_id` |
+| `metadata.user_id` | JSON string `{"device_id":<64 hex>,"account_uuid":<uuid>,"session_id":<uuid>}` | same |
+| identity block | `cache_control: {ephemeral, ttl: 1h}`; billing block has none | same |
+
+Interactive main-turn betas, in order: `claude-code-20250219`, `oauth-2025-04-20`,
+`interleaved-thinking-2025-05-14`, `context-management-2025-06-27`, `per-turn-control-2026-07-01`,
+`mid-conversation-tool-changes-2026-07-01`, `inline-tools-2026-09-15`, `advisor-tool-2026-03-01`,
+`thinking-token-count-2026-05-13`, `advanced-tool-use-2025-11-20`, `effort-2025-11-24`,
+`dangerous-tool-use-2026-09-03`, `thinking-display-updates-2026-08-18`, `afk-mode-2026-01-31`,
+`extended-cache-ttl-2025-04-11`. The last three before the TTL beta come with auto mode
+(`safeguards` body field) and `thinking.display: "updates"`. Side requests differ: a
+`max_tokens: 1` quota probe sends only the first five, the title request adds
+`redact-thinking-2026-02-12` and `structured-outputs-2025-12-15`.
+
+Tools: 15 bare PascalCase names (`Agent`, `Bash`, `Edit`, `Read`, `Write`, `Skill`, `ToolSearch`,
+…) plus `DeferredToolPlaceholder` with `defer_loading: true`, description `Reserved placeholder
+that keeps deferred tool loading active; never call this tool.` and schema
+`{type: object, properties: {}}`.
+
+Binary evidence (2.1.310 builder `Y2o`): ` cch=00000;` is appended only when
+`provider === "firstParty" && Ci()` or on Vertex, where
+`Ci() = CLAUDE_CODE_ARTIFACT_PRESENCE ?? flag("tengu_brass_plover", false)`. It is a remote
+feature flag, off for this account. The same gate adds `cc_prev_req`, `cc_prompt_id`,
+`cc_turn_origin` and `cc_prompt_index`/`cc_turn_index`. The entrypoint is
+`CLAUDE_CODE_ENTRYPOINT`, default `cli`, `sdk-cli` in `-p` mode. The version suffix hashes
+characters 4, 7 and 20 of the first non-meta user message (the typed prompt, before the CLI
+prepends its `<system-reminder>` blocks); pi-auth-plus' algorithm reproduces both observed
+suffixes (`ccc`, `033`).
+
+## Resolved follow-ups
+
+The user decided on 2026-10-27 to match the real CLI fully. Plan:
+`.project/plans/0002-m1-providers/plan.md`, slice 3b.
+
+## Open follow-ups (superseded by slice 3b)
 
 - Map Pi's `__pi_deferred_placeholder__` to `DeferredToolPlaceholder`: Claude Code sends the
   same mechanism under that name, and the current wire name carries a literal `pi`.

@@ -5,9 +5,9 @@ document:
   title: "M1 providers"
   description: "Absorb the opencode, synthetic, claude and antigravity providers as vendor families"
   status: "published"
-  revision: 5
+  revision: 6
   created_at: "2026-10-27T10:20:46+01:00"
-  updated_at: "2026-10-27T11:12:53+01:00"
+  updated_at: "2026-10-27T11:33:55+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -28,6 +28,9 @@ document:
     - revision: 5
       reason: "claude slice done"
       changes: ["All six units landed and live-verified on Pi-Bolt and stock Pi; antigravity review is next"]
+    - revision: 6
+      reason: "claude wire alignment planned"
+      changes: ["Slice 3b: match the real Claude Code CLI on the wire, two units plus live verification"]
 ---
 
 # M1 providers
@@ -110,6 +113,22 @@ Pi with the stored login (HTTP 200 throughout); `parity-verify` lists 17 `claude
 runtimes. A side-by-side capture against Claude Code 2.1.310 found wire differences that the
 absorbed package already had (tool names, `cch`, user agent, betas, the deferred placeholder
 name); they are listed in `.project/analyses/claude-code-cli/tracking.md` and await a decision.
+
+## Slice 3b: claude wire alignment (now)
+
+Decision (user, 2026-10-27): match the real CLI fully. Evidence: interactive and `-p` captures
+of Claude Code 2.1.311 with its own login, plus the 2.1.310 binary
+(`.project/analyses/claude-code-cli/tracking.md`).
+
+| # | Unit | Write scope | Test that matters |
+| --- | --- | --- | --- |
+| A | bare tool names | `anthropic/{tool-names,request,response}.ts` | Pi tools go out PascalCase (`bash` → `Bash`, `web_search` → `WebSearch`) everywhere a name appears (tools, `tool_choice`, `tool_use`, `tool_reference`, `tool_addition`, `tool_removal`); Pi's placeholder goes out as `DeferredToolPlaceholder`; responses split at any byte restore the exact Pi names |
+| B | identity | `anthropic/{billing,request,oauth,transport,provider}.ts`, new `anthropic/identity.ts` | billing `cc_entrypoint=cli`, no `cch`; the CLI's beta set first; `x-claude-code-session-id` and `metadata.user_id` `{device_id, account_uuid, session_id}` share one UUID; `account.uuid` kept from token responses; one unauthenticated `HEAD /api/hello` per process |
+| C | live | `tracking.md` | Pi-Bolt and stock Pi: a turn with a tool call, proxy capture compared field by field with the CLI capture |
+
+Deliberate deviations: `x-stainless-*` stay Pi's SDK values; cache TTL stays Pi's
+`cacheRetention`; the auto-mode betas and `safeguards` body (`afk-mode`, `dangerous-tool-use`)
+and `thinking-display-updates` are not sent, because Pi has no such modes.
 
 ## Later slices (sparse)
 

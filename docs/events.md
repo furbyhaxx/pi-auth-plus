@@ -32,11 +32,29 @@ import {
 | `listQuotaResets` | Provider string, optional request options | `ResetCreditList` |
 | `requestQuotaReset` | `{ provider: string, creditId?: string, confirm: true }`, optional request options | `ResetOutcome` |
 
-`QuotaRequestOptions` has `timeoutMs?: number` and `signal?: AbortSignal`. Helpers reject
+`QuotaRequestOptions` has `timeoutMs?: number` and `signal?: AbortSignal`. The default
+timeout is 15 seconds; `requestQuotaReset` defaults to 180 seconds to leave time for the
+user's dialog. Helpers reject
 with `QuotaBusError`, whose `reason` is `rejected` (service refusal), `timeout` (no valid
 reply in time), or `aborted` (caller cancellation). Cancellation/timeout stops waiting;
 it cannot undo a reset already approved or a consume already sent. Never retry a reset
-automatically. Allow enough time for its human confirmation dialog.
+automatically.
+
+Broadcast helpers return an unsubscribe function and deliver only payloads that pass
+validation:
+
+| Helper | Channel |
+|---|---|
+| `subscribeQuotaReady(events, handler)` | `ready` |
+| `subscribeQuotaSnapshot(events, handler)` | `snapshot` |
+| `subscribeQuotaEvent(events, handler)` | `event` |
+
+`QUOTA_CHANNELS` exports the full channel names (`ready`, `snapshot`, `event`, `query`,
+`refresh`, `resets`, `reset`). Exported types: `QuotaReport`, `ReportProvider`,
+`ReportWindow`, `ReportCredits`, `ResetCredit`, `ResetCreditList`, `ResetOutcome`,
+`ResetOutcomeCode`, `QuotaQueryRequest`, `QuotaRefreshRequest`, `QuotaResetsRequest`,
+`QuotaResetRequest`, `QuotaReply`, `QuotaResetReply`, `QuotaReadyPayload`,
+`QuotaSnapshotPayload` and `QuotaEventPayload`.
 
 For example, inside another extension's session-start handler:
 
@@ -103,7 +121,7 @@ ordinary failure backoff. Active HTTP 403/429 holds are never bypassed.
 
 ### Reset approval
 
-`resets` is read-only. Only enabled `openai` has reset support. `reset` needs both
+`resets` is read-only. Only enabled `codex` has reset support. `reset` needs both
 `confirm: true` and the user's explicit approval in the owning session's UI. Missing or
 false confirmation receives a refusal. Missing UI or a dismissed dialog also refuses.
 The dialog identifies that another extension requested the action, with **Keep the
@@ -178,6 +196,7 @@ interface ReportProvider {
   short: string;
   state: "ok" | "stale" | "error" | "needs-auth" | "rate-limited" | "unknown";
   windows: ReportWindow[];
+  resets?: { available: number };
   credits?: ReportCredits;
   tier?: string;
   needsAuth?: boolean;
@@ -229,8 +248,9 @@ zero. A real zero is valid. `state: "ok"` means a current report without a provi
 failure, not that every optional metric is known. Staleness is more than twice the
 larger of the configured refresh interval and provider polling floor.
 
-The report does not expose reset-credit counts; use `resets` for their authoritative
-listing. Reset result shapes are:
+`resets.available` is the provider-reported count of on-demand reset credits; it is
+absent when unreported. Use the `resets` operation for the individual credits. Reset
+result shapes are:
 
 ```typescript
 interface ResetCreditList {

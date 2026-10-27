@@ -7,7 +7,7 @@ and a shared `/auth` dashboard.
 
 - `claude` (Pro/Max or API key), `antigravity` (Google OAuth), `synthetic`, and anonymous
   OpenCode Zen for Pi's builtin `opencode`. Login stays in Pi's `/login`.
-- Quotas and credits for Claude, Antigravity, Synthetic, ChatGPT (`openai`), xAI,
+- Quotas and credits for Claude, Antigravity, Synthetic, ChatGPT (`codex`), xAI,
   OpenRouter and DeepSeek: configurable status line, live panel and host-shared cache.
 - `/auth` provider status and staged settings; `/quotas` and `/quota` open quota detail.
 - ChatGPT reset credits with explicit approval, read-only quota CLI, and an extension bus.

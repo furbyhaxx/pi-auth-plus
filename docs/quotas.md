@@ -15,14 +15,15 @@ accepted aliases.
 | `claude` | `cl`, `cc` | `cl` | Claude subscription session (5h), weekly (7d), scoped weekly windows, spend caps and enabled extra usage; response-header updates |
 | `antigravity` | `agy`, `ag` | `ag` | Every reported quota bucket in each group, including Gemini, Argon and third-party pools; reset times |
 | `synthetic` | None | `syn` | Subscription request count, weekly plan budget, hourly search requests |
-| `openai` | `codex`, `cox`, `oai`, `openai-codex` | `oai` | ChatGPT primary, secondary and additional primary windows, plan and reset-credit count; response-header updates |
+| `codex` | `openai`, `openai-codex`, `chatgpt`, `cx` | `cx` (pending verification) | ChatGPT primary, secondary and additional primary windows, plan and reset-credit count; response-header updates |
 | `xai` | `grok` | `xai` | Current included period (weekly where reported), positive on-demand cap and positive monthly included limit |
 | `openrouter` | `or` | `or` | USD account balance, account-credit usage and positive key spend cap; daily/weekly/monthly spend breakdown |
 | `deepseek` | `ds` | `ds` | Prepaid USD or CNY balance, with granted and topped-up amounts when reported |
 
 Credentials resolve through Pi's model registry, including OAuth refresh. Use
 [the login reference](getting-started.md#sign-in) for the required credential kind.
-There is no dedicated quota credential file and no read from a project `.auth.json`.
+`codex` is the exception: see [Codex login](#codex-login). There is no read from a
+project `.auth.json`.
 OpenCode's `opencode` and `opencode-go` have no quota source.
 
 Provider details:
@@ -40,7 +41,7 @@ Provider details:
   limit; weekly usage is the complement of the reported remaining percentage. An
   existing meter with missing numbers stays visible as unknown. Subscription duration
   is unspecified; a past regeneration time is not taken as evidence of a full reset.
-- **OpenAI:** reads ChatGPT `/backend-api/wham/usage`, not OpenAI API billing. Window
+- **Codex (ChatGPT):** reads ChatGPT `/backend-api/wham/usage`, not OpenAI API billing. Window
   duration comes from the response: primary does not always mean 5h. Reset credits
   are counts, not money. Paid overage balances are not reported here.
 - **xAI:** reads both `/v1/billing?format=credits` and `/v1/billing` on the Grok CLI
@@ -55,6 +56,22 @@ Provider details:
   Supported currencies are USD and CNY. Missing usable amounts produce an error or an
   unknown balance, never a fabricated zero. There are no timed windows or concurrency
   counters.
+
+## Codex login
+
+> **Pending verification:** this section describes the `codex` credential path decided on
+> 2026-10-27; check it against the code once it lands.
+
+Pi's `openai` login ("Sign in with ChatGPT") is rejected with HTTP 401 by the ChatGPT
+usage endpoints, and `/login openai-codex` adds duplicate Codex models to the model
+picker. The `codex` quota source therefore resolves its credential in this order:
+
+1. Pi's `openai-codex` login, if one is stored (`/login openai-codex`).
+2. Otherwise pi-quotas' dedicated file `<agentDir>/quotas-codex-auth.json`.
+
+`/quota codex login [--device|--browser]` runs the Codex OAuth login and writes that
+file, without registering models. `--device` forces the device-code flow, `--browser`
+the browser callback flow. An existing pi-quotas file keeps working without a new login.
 
 ## Status line
 
@@ -111,11 +128,11 @@ do not. A missing nested group does not hide its parent. Keep the preceding spac
 the group:
 
 ```text
-{openai:id}: {openai:window-7d-used-percent}[ ({openai:resets-available}r)]
+{codex:id}: {codex:window-7d-used-percent}[ ({codex:resets-available}r)]
 ```
 
-With 27% usage and one credit this reads `openai: 27% (1r)`; without a credit it reads
-`openai: 27%`. Before data arrives, fields show `…`; missing login shows `login`;
+With 27% usage and one credit this reads `codex: 27% (1r)`; without a credit it reads
+`codex: 27%`. Before data arrives, fields show `…`; missing login shows `login`;
 an error without usable windows or balance shows `err`; unknown metrics show `?`.
 
 Escape literal brackets, braces and backslashes with a backslash; double the backslash
@@ -134,14 +151,14 @@ Examples:
 
 ```text
 {all}
-{claude:short,wins,rst}{sep}{openai:short,pct}[ ({openai:resets-available}r)]
+{claude:short,wins,rst}{sep}{codex:short,pct}[ ({codex:resets-available}r)]
 {openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining}
 ```
 
 The exact default template is:
 
 ```text
-{openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {openai:id}: {openai:window-7d-used-percent}[ ({openai:resets-available}r)] · {claude:id}: 5h/{claude:window-5h-used-percent} 7d/{claude:window-7d-used-percent}[ ({claude:resets-available}r)] · {antigravity:id}: gem/{antigravity:window-7d-gemini-used-percent} arg/{antigravity:window-7d-gemini-4-argon-used-percent} · {synthetic:id}: {synthetic:window-7d-used-percent}[ ({synthetic:resets-available}r)] · {xai:id}: {xai:window-7d-used-percent}[ ({xai:resets-available}r)]
+{openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {codex:id}: {codex:window-7d-used-percent}[ ({codex:resets-available}r)] · {claude:id}: 5h/{claude:window-5h-used-percent} 7d/{claude:window-7d-used-percent}[ ({claude:resets-available}r)] · {antigravity:id}: gem/{antigravity:window-7d-gemini-used-percent} arg/{antigravity:window-7d-gemini-4-argon-used-percent} · {synthetic:id}: {synthetic:window-7d-used-percent}[ ({synthetic:resets-available}r)] · {xai:id}: {xai:window-7d-used-percent}[ ({xai:resets-available}r)]
 ```
 
 ## Quotas tab
@@ -168,9 +185,9 @@ See [commands](commands.md) for shared dashboard and Settings keys.
 
 ## Reset credits
 
-Only `openai` supports spending reset credits. Use `x` on its Quotas row or
+Only `codex` supports spending reset credits. Use `x` on its Quotas row or
 `/quotas reset [provider]` (also `/quota reset`, `resets`). With no provider, the first
-enabled reset-capable provider is used: currently `openai`.
+enabled reset-capable provider is used: currently `codex`.
 
 Credits are listed first; the soonest-expiring available credit is selected. The dialog
 shows the credit and current windows. **Keep the credit** is the first choice; only
@@ -181,7 +198,7 @@ A consume is sent once and never retried. Every attempt is followed by a forced 
 refresh, including failures or a provider refusal. Outcomes are `reset`,
 `nothing_to_reset`, `no_credit` or `already_redeemed`; only `reset` confirms a spend.
 If a request fails or is interrupted, the credit may already be spent: list again with
-`/quotas reset openai` and inspect before approving anything else. There is no CLI reset.
+`/quotas reset codex` and inspect before approving anything else. There is no CLI reset.
 [Bus reset requests](events.md) still require the same in-session approval.
 
 ## Read-only CLI
@@ -206,16 +223,17 @@ old requested entries through the same polling floors, leases and backoff as ses
   query fails.
 - Exit **2**: an unknown or disabled provider was requested; details go to stderr.
 
-The table has Provider, Window, Used, Remaining, Resets at, and Drainage (window/1h/24h)
-columns. It uses Pi ids, one row per window or balance, original currencies and absolute
+The table has Provider, Window, Used, Remaining, Resets at, On-Demand Resets and Drainage
+(window/1h/24h) columns. On-Demand Resets is the provider-wide available reset-credit
+count on the provider's first row; a reported zero shows `0`, an unreported count is blank. It uses Pi ids, one row per window or balance, original currencies and absolute
 Europe/Zurich reset times with offset. Unknown percentages/balances show `?`; absent
 reset times and rates are blank. Percentages have up to two decimals with `<0.01%` and
 `>99.99%` boundary notation. Table diagnostics go to stderr; stdout contains the table.
 Color requires a TTY; `NO_COLOR` or `FORCE_COLOR=0` disables it.
 
 JSON is the versioned [QuotaReport](events.md#report-shape), with omitted unknown fields;
-it does not include the snapshot's reset-credit count. Use the bus `resets` request to
-list credits. No CLI flag spends a credit.
+`resets.available` carries the reported reset-credit count. Use the bus `resets` request
+for the individual credits. No CLI flag spends a credit.
 
 ## Shared cache, refresh and drainage
 

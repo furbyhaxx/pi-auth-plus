@@ -20,7 +20,7 @@ before model resolution, so scoped models and session restore use the same ids.
 
 ## Sign-in
 
-Use Pi's `/login` and `/logout`, not quota-specific login commands. Credentials stay in
+Use Pi's `/login` and `/logout`. The one exception is the `codex` quota credential below. Credentials stay in
 Pi's `<agentDir>/auth.json`; OAuth refresh is handled through Pi. Check `/auth providers`
 for stored credentials, environment/model-file sources and anonymous access.
 
@@ -30,7 +30,7 @@ for stored credentials, environment/model-file sources and anonymous access.
 | `antigravity` | `/login antigravity`: Google OAuth. One account; subscription turns have zero listed cost. |
 | `synthetic` | `/login synthetic` with an API key, or `SYNTHETIC_API_KEY`. |
 | `opencode`, `opencode-go` | Pi's `/login opencode` or `/login opencode-go` for keyed access. An environment/stored/model-file key wins over the anonymous fallback. Zen's anonymous free models work on Pi-Bolt only; stock Pi's HTTP client is refused with `429 FreeUsageLimitError`. |
-| `openai` | Pi's `/login openai` with a ChatGPT login for quota monitoring and reset credits; a regular OpenAI API key cannot read ChatGPT subscription usage. |
+| `codex` (ChatGPT quota) | Pi's `/login openai-codex` if present; otherwise `/quota codex login [--device\|--browser]`, which writes `<agentDir>/quotas-codex-auth.json`. Pi's `openai` login and OpenAI API keys cannot read ChatGPT usage. See [Codex login](quotas.md#codex-login). |
 | `xai` | Pi's `/login xai` with a credential accepted by the Grok CLI billing service; a regular inference key need not grant billing access. |
 | `openrouter` | Pi's `/login openrouter`; its API credential supplies credit and key-cap reporting. |
 | `deepseek` | Pi's `/login deepseek` with an API key for balance reporting. |
@@ -113,14 +113,15 @@ are not synchronized; edit `auth-plus.json` instead. Invalid field values are sk
 so inspect the startup warning and `/auth settings` after migration. Numeric values use
 the new catalog ranges (notably, interval `0` becomes 15 seconds).
 
-The old dedicated `quotas-codex-auth.json` and project `.auth.json` credentials are not
-imported. Use `/login openai` with a ChatGPT login. Reports use `openai` and `xai`;
-`codex`, `cox` and `grok` remain accepted quota aliases. The compact Synthetic id `syn`
-is a display label, not an accepted input alias.
+pi-quotas' `<agentDir>/quotas-codex-auth.json` is read directly, so an existing Codex
+quota login keeps working (pending verification, see [Codex login](quotas.md#codex-login));
+project `.auth.json` credentials are not read. Reports use `codex` and `xai`; `openai`
+and `grok` are accepted aliases, `cox` is not. The compact Synthetic id `syn` is a
+display label, not an accepted input alias.
 
 Replace `/quota settings` with `/auth settings`, `/quota refresh` with panel `r`/`R`,
-and `/quota line` with panel `p` or the placement setting. Use `/login openai` instead
-of `/quota codex login`. Scripts switch from `--list-quotas [--json]` to
+and `/quota line` with panel `p` or the placement setting. `/quota codex login` keeps
+its pi-quotas form. Scripts switch from `--list-quotas [--json]` to
 `--quotas-list` or `--quotas-json`. There is no command-line reset spend; use the
 [interactive reset flow](quotas.md#reset-credits). Integrations switch to the
 [new bus contract](events.md).

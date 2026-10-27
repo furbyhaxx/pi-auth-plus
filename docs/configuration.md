@@ -22,7 +22,7 @@ Files are partial JSON objects with nested sections, not dotted top-level keys:
 ```json
 {
   "quotas": {
-    "providers": ["claude", "openai"],
+    "providers": ["claude", "codex"],
     "linePlacement": "below-editor-first",
     "percentDisplay": "remaining"
   },
@@ -76,6 +76,7 @@ no separate narrow line template. For interactive save/edit keys see
 | `<agentDir>/auth.json` | Pi's credentials, shared with `/login` and `/logout` |
 | `<agentDir>/models.json` | Pi's model/provider overrides |
 | `<agentDir>/models-store.json` | Pi's persisted dynamic catalogs; no separate catalog cache |
+| `<agentDir>/quotas-codex-auth.json` | Codex quota credential written by `/quota codex login` (shared with pi-quotas); read when no Pi `openai-codex` login exists |
 | `<agentDir>/cache/auth-plus/quotas.json` | Host-shared quota snapshots, headers, drainage, leases and backoff |
 | `$XDG_STATE_HOME/pi-auth-plus/migrations.json` | Completed one-time carry-overs; default `~/.local/state/pi-auth-plus/migrations.json` |
 | `$XDG_DATA_HOME/pi-auth-plus/` | Data directory; default `~/.local/share/pi-auth-plus/` |

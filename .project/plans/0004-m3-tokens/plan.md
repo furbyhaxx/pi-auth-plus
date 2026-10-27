@@ -5,9 +5,9 @@ document:
   title: "M3 tokens"
   description: "Accurate token counts per family: correct usage on every assistant turn, count sources, store, /tokens surface"
   status: "published"
-  revision: 2
+  revision: 3
   created_at: "2026-10-27T18:43:41+01:00"
-  updated_at: "2026-10-27T18:58:01+01:00"
+  updated_at: "2026-10-27T19:19:44+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -17,6 +17,9 @@ document:
     - revision: 2
       reason: "slices 1-2 done"
       changes: ["Live usage audit and count probes recorded; synthetic double count fixed; slice 3+ scope awaits user"]
+    - revision: 3
+      reason: "user scope decision"
+      changes: ["Scope = counts + /tokens + offline tokenizers, no early compaction; Synthetic count_tokens exists (user correction)"]
 ---
 
 # M3 tokens
@@ -45,9 +48,25 @@ Goal: the token numbers Pi and our surfaces show are right, and say where they c
 ```
 [x] 1 Evidence     analyses/tokens/{usage-audit,count-endpoints}/report.md
 [x] 2 Usage fix    synthetic duplicate cache write dropped (message_end); antigravity clamp
-[.] 3 Counts       count sources per family + content-hash store (shape set by slice 1)
+[.] 3 Counts       sources per family (usage > count endpoint > tokenizer) + content-hash store
+[.] 3b Tokenizers  offline tokenizer assets per family (research/tokenizers)
 [.] 4 Surface      /tokens tab, bus pi-auth-plus:v1:tokens:*, footer reuses the store
 ```
+
+## Decision (user, 2026-10-27)
+
+Remaining scope: count sources per family, content-hash store, `/tokens` tab, bus
+`pi-auth-plus:v1:tokens:*`, and offline tokenizers. No early compaction (`ctx.compact()` from
+our count was offered and not chosen). Synthetic gets a live probe.
+
+User correction: Synthetic documents `POST /anthropic/v1/messages/count_tokens`
+(subscriber-only, free against limits, always-on models only). It answers 200 on our key with
+`x-api-key` or `Bearer` (16 tokens for "What is the capital of France?"); the earlier 500
+came from parts of the full Anthropic payload. Provider capabilities are checked against
+current docs before they are stated; tokenizer availability is researched, not assumed.
+
+In flight: `analyses/tokens/synthetic-counts/` (shape support, which count is real, which
+one the context limit enforces) and `research/tokenizers/` (offline tokenizer per family).
 
 ## Slices 1-2 results (2026-10-27)
 
@@ -61,7 +80,7 @@ Goal: the token numbers Pi and our surfaces show are right, and say where they c
 - Pi's remaining error is the tail estimate after the last usage anchor: JSON tool results
   run at 2.1-3.5 chars/token, so 4 chars/token is 12-55 % low (claude 33 %, antigravity
   Claude 48 %). Whole-context estimates without an anchor are -26 % to +16 %.
-- Count endpoints: Anthropic `count_tokens` works on the claude OAuth login and is exact
+- Count endpoints (U2; Synthetic row superseded by the decision section): Anthropic `count_tokens` works on the claude OAuth login and is exact
   (0 delta, 6 payloads, p50 166 ms; drop `metadata` and the billing system block, keep
   identity). Google `countTokens` ignores system and tools (-50 % on Claude), unusable.
   xAI tokenize 404, OpenAI `input_tokens` 401, Synthetic/Zen 500/404.

@@ -20,12 +20,13 @@ import {
 import { type QuotasTabDeps, QuotasView } from "../dashboard/quotas.ts";
 import { SettingsView } from "../dashboard/settings.ts";
 import { sanitize } from "../frame/index.ts";
+import { type ResetFlowDeps, runResetFlow } from "./resets.ts";
 
 export const NOTE_TYPE = "auth-plus-note";
 export const AUTH_USAGE = `Usage: /auth [${TABS.map((tab) => tab.id).join("|")}]`;
 
 /** The live Quotas tab plus its plain-text form for print and RPC modes. */
-export interface QuotaPanelDeps extends QuotasTabDeps {
+export interface QuotaPanelDeps extends QuotasTabDeps, ResetFlowDeps {
 	text(provider?: string): string;
 }
 
@@ -131,7 +132,11 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 			new Text(theme.fg("toolOutput", sanitize(String(entry.data?.text ?? ""))), 0, 0),
 	);
 
-	const report = (ctx: ExtensionCommandContext, text: string, tone: "info" | "error") => {
+	const report = (
+		ctx: ExtensionCommandContext,
+		text: string,
+		tone: "info" | "warning" | "error",
+	) => {
 		if (ctx.hasUI && (ctx.mode !== "tui" || tone === "error" || !text.includes("\n"))) {
 			ctx.ui.notify(text, tone);
 		} else pi.appendEntry(NOTE_TYPE, { text });
@@ -228,8 +233,17 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 				return new AuthDashboard(tui, theme, keys, done, views, opened.tab, model.providers.length);
 			});
 			if (!result) return;
-			await editSetting(ctx, result.editSetting);
-			current = { tab: "settings", select: result.editSetting };
+			if ("reset" in result) {
+				const quotas = deps.quotas?.();
+				if (quotas && typeof quotas !== "string")
+					await runResetFlow(ctx, result.reset, "panel", quotas, deps.registry, (text, tone) =>
+						report(ctx, text, tone),
+					);
+				current = { tab: "quotas", select: result.reset };
+			} else {
+				await editSetting(ctx, result.editSetting);
+				current = { tab: "settings", select: result.editSetting };
+			}
 		}
 	};
 
@@ -246,6 +260,37 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 	// `/quota` stays with pi-quotas until the cutover; `/quotas` is free meanwhile.
 	pi.registerCommand("quotas", {
 		description: "Quota windows and credits; /quotas <provider> focuses one",
-		handler: async (args, ctx) => open(ctx, "quotas", args.trim().split(/\s+/)[0] || undefined),
+		getArgumentCompletions: (prefix) => {
+			const items = ["reset", ...deps.registry.providers().map(({ provider }) => provider.id)]
+				.filter((name) => name.startsWith(prefix.trim().toLowerCase()))
+				.map((name) => ({ value: name, label: name }));
+			return items.length ? items : null;
+		},
+		handler: async (args, ctx) => {
+			const [word, target, extra] = args.trim().split(/\s+/);
+			if (word?.toLowerCase() !== "reset" && word?.toLowerCase() !== "resets")
+				return open(ctx, "quotas", word || undefined);
+			const quotas = deps.quotas?.();
+			if (!quotas || typeof quotas === "string")
+				return report(
+					ctx,
+					typeof quotas === "string" ? quotas : "Quotas are unavailable in this session.",
+					"warning",
+				);
+			const supported = deps.registry
+				.providers()
+				.map(({ provider }) => provider.id)
+				.filter((id) => quotas.resetSupport(id));
+			const id = target ? quotaTarget(target) : supported[0];
+			if (!id || !supported.includes(id) || extra)
+				return report(
+					ctx,
+					`Usage: /quotas reset [provider]. Supported: ${supported.join(", ") || "none"}.`,
+					"error",
+				);
+			await runResetFlow(ctx, id, "command", quotas, deps.registry, (text, tone) =>
+				report(ctx, text, tone),
+			);
+		},
 	});
 }

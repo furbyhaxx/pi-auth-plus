@@ -10,6 +10,7 @@ import {
 	type LineConfig,
 } from "../../quotas/line/values.ts";
 import type { QuotaReport, ReportProvider } from "../../quotas/report.ts";
+import { unsupportedResetMessage } from "../../quotas/resets.ts";
 import { padTo, sanitize } from "../frame/index.ts";
 import type { TabBody, TabView, TabViewHost } from "./view.ts";
 
@@ -20,6 +21,8 @@ export type LinePlacement = (typeof SETTINGS)["quotas.linePlacement"]["default"]
 export interface QuotasTabDeps {
 	/** Current normalized quota state. */
 	report(): QuotaReport;
+	/** Whether an enabled provider can spend reset credits. */
+	resetSupport(id: string): boolean;
 	/** Whether a provider has a refresh in flight. */
 	refreshing(id: string): boolean;
 	/** Refresh one provider; failures are reflected in the report. */
@@ -245,6 +248,9 @@ export class QuotasView implements TabView {
 				{ key: "r/R", action: "refresh", priority: 2 },
 				{ key: "a", action: this.#solo ? "show all" : "solo", priority: 3 },
 				{ key: "p", action: "position", priority: 4 },
+				...(this.#selected && this.#deps.resetSupport(this.#selected)
+					? [{ key: "x", action: "reset", priority: 3 }]
+					: []),
 			],
 			...(this.#placementError
 				? { description: this.#host.theme.fg("error", this.#placementError) }
@@ -321,7 +327,21 @@ export class QuotasView implements TabView {
 		} else if (data === "R")
 			void this.#refresh(this.#deps.report().providers.map((provider) => provider.id));
 		else if (data === "p") void this.#cyclePlacement();
-		else return false;
+		else if (data === "x") {
+			this.#providers();
+			const id = this.#selected;
+			if (id && this.#deps.resetSupport(id)) this.#host.finish({ reset: id });
+			else if (id) {
+				this.#placementError = unsupportedResetMessage(
+					id,
+					this.#deps
+						.report()
+						.providers.filter((provider) => this.#deps.resetSupport(provider.id))
+						.map((provider) => provider.id),
+				);
+				this.#refreshHost();
+			}
+		} else return false;
 		return true;
 	}
 

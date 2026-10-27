@@ -3,7 +3,10 @@ import type { Keybinding, KeybindingsManager } from "@earendil-works/pi-tui";
 import type { HintItem, PanelTheme } from "../frame/index.ts";
 
 /** A follow-up the command runs after the panel closes, because it needs a Pi dialog. */
-export type DashboardResult = { readonly editSetting: string } | undefined;
+export type DashboardResult =
+	| { readonly editSetting: string }
+	| { readonly reset: string }
+	| undefined;
 
 export interface TabViewHost {
 	readonly theme: PanelTheme;

@@ -10,7 +10,7 @@ import type { LineTheme } from "../../src/quotas/line/format.ts";
 import type { LineConfig } from "../../src/quotas/line/values.ts";
 import type { QuotaReport, ReportProvider } from "../../src/quotas/report.ts";
 import { fitLabel, type LinePlacement, QuotasView } from "../../src/ui/dashboard/quotas.ts";
-import type { TabViewHost } from "../../src/ui/dashboard/view.ts";
+import type { DashboardResult, TabViewHost } from "../../src/ui/dashboard/view.ts";
 
 const theme = {
 	colors: {
@@ -39,6 +39,7 @@ function open(providers: readonly ReportProvider[], solo?: string) {
 	let renders = 0;
 	let unsubscribed = 0;
 	const calls: [string, boolean][] = [];
+	const finished: DashboardResult[] = [];
 	const busy = new Set<string>();
 	let reject = false;
 	const config: LineConfig = { percentDisplay: "used", creditHealthyUsd: 50, creditCriticalUsd: 5 };
@@ -49,13 +50,14 @@ function open(providers: readonly ReportProvider[], solo?: string) {
 		refresh: () => {
 			renders++;
 		},
-		finish: () => {},
+		finish: (result) => finished.push(result),
 	};
 	const view = new QuotasView(
 		host,
 		theme,
 		{
 			report: () => report,
+			resetSupport: (id) => id === "one",
 			refreshing: (id) => busy.has(id),
 			refresh: async (id, force) => {
 				calls.push([id, force]);
@@ -80,6 +82,7 @@ function open(providers: readonly ReportProvider[], solo?: string) {
 	return {
 		view,
 		calls,
+		finished,
 		busy,
 		config,
 		placement: () => placement,
@@ -100,6 +103,20 @@ const lines = (view: QuotasView, width = 140, rows = 100) =>
 const selected = (view: QuotasView) => lines(view).find((line) => line.includes("❯"));
 
 describe("quotas tab", () => {
+	test("reset finishes only for supported providers and hints follow selection", () => {
+		const f = open([provider("one"), provider("two")]);
+		expect(f.view.render(80, 10).hints).toContainEqual({ key: "x", action: "reset", priority: 3 });
+		expect(f.view.handleInput("x")).toBe(true);
+		expect(f.finished).toEqual([{ reset: "one" }]);
+		f.view.handleInput("j");
+		expect(f.view.render(80, 10).hints?.some((hint) => hint.key === "x")).toBe(false);
+		f.view.handleInput("x");
+		expect(f.finished).toEqual([{ reset: "one" }]);
+		expect(f.view.render(80, 10).description).toContain(
+			"two exposes no verified on-demand reset endpoint. Supported: one.",
+		);
+		f.view.dispose();
+	});
 	test("unknown usage and credits stay unknown, and every window remains visible", () => {
 		const fixture = open([
 			{
@@ -172,7 +189,7 @@ describe("quotas tab", () => {
 		}
 		f.busy.add("one");
 		expect(f.view.render(80, 10).state).toContain("refreshing");
-		for (const key of ["\t", "\x1b[Z", "\x1b[D", "\x1b[C", "\x1b", "l", "x"])
+		for (const key of ["\t", "\x1b[Z", "\x1b[D", "\x1b[C", "\x1b", "l"])
 			expect(f.view.handleInput(key)).toBe(false);
 		f.view.dispose();
 	});

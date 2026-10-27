@@ -17,6 +17,7 @@ import { quotaLineConfig } from "./quotas/line/line.ts";
 import { formatPlainTextSummary } from "./quotas/line/summary.ts";
 import { engineReport } from "./quotas/report.ts";
 import { registerAuthCommands } from "./ui/commands/index.ts";
+import { confirmReset } from "./ui/commands/resets.ts";
 
 const NO_EXTENSIONS = process.argv.some((arg) => arg === "--no-extensions" || arg === "-ne");
 
@@ -69,7 +70,17 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		);
 		if (!quotasEnabled) return;
 		await quotas.start();
-		stopQuotaBus = registerQuotaBus(pi.events, quotas, registry, () => settings, Date.now);
+		stopQuotaBus = registerQuotaBus(pi.events, quotas, registry, () => settings, Date.now, {
+			confirmReset: (id, credit, requester) =>
+				confirmReset(
+					quotaContext,
+					id,
+					credit,
+					requester,
+					engineReport(quotas, settings, Date.now()),
+					registry,
+				),
+		});
 		quotaLine.start(ctx);
 	});
 	const pendingIngests = new Set<Promise<unknown>>();
@@ -114,6 +125,9 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			quotasEnabled
 				? {
 						report: () => engineReport(quotas, settings, Date.now()),
+						resetSupport: (id) => quotas.resetSupport(id),
+						listResets: (id) => quotas.listResets(id),
+						consumeReset: (id, creditId, requester) => quotas.consumeReset(id, creditId, requester),
 						refreshing: (id) =>
 							quotas.view().some((view) => view.provider.id === id && view.refreshing),
 						refresh: (id, force) => quotas.refresh(id, { force, minAgeMs: 0 }),

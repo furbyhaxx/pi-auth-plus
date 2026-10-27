@@ -1,5 +1,6 @@
 /** Family registry: the only place engines and the UI learn provider ids, aliases and families. */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { QuotaSource } from "../../quotas/types.ts";
 import type { AmbientCredential } from "../auth/index.ts";
 import type { AppSettings } from "../config/catalog.ts";
 
@@ -10,9 +11,11 @@ export interface ProviderEntry {
 	readonly aliases: readonly string[];
 	/** The credential Pi falls back to when `auth.json` has no slot for this provider. */
 	readonly ambient?: () => AmbientCredential | undefined;
+	/** How this provider reports usage limits and balances. */
+	readonly quota?: QuotaSource;
 }
 
-/** Everything one vendor contributes. Engine parts (quota, tokens) join as their engines land. */
+/** Everything one vendor contributes. A family without `register` only adds quota or status to a Pi builtin. */
 export interface FamilyAdapter {
 	readonly id: string;
 	readonly label: string;

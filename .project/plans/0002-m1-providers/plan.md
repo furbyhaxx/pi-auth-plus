@@ -5,9 +5,9 @@ document:
   title: "M1 providers"
   description: "Absorb the opencode, synthetic, claude and antigravity providers as vendor families"
   status: "published"
-  revision: 7
+  revision: 8
   created_at: "2026-10-27T10:20:46+01:00"
-  updated_at: "2026-10-27T11:46:39+01:00"
+  updated_at: "2026-10-27T12:10:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -34,6 +34,9 @@ document:
     - revision: 7
       reason: "claude wire alignment done"
       changes: ["Units A-C landed and live-verified; identity line and cache control fixed during live verification"]
+    - revision: 8
+      reason: "antigravity review done, slice planned"
+      changes: ["Slice 4: review decisions, level codec landed, units 1-7 with write scope and the test that matters"]
 ---
 
 # M1 providers
@@ -140,7 +143,46 @@ and `thinking-display-updates` are not sent, because Pi has no such modes. Pi's 
 are appended after the CLI set. Logins stored before 3b send an empty `account_uuid` until their
 next refresh.
 
+## Slice 4: antigravity (now)
+
+Source: the `pi-antigravity-auth` fork 3.0.12, inventoried against agy 1.4.8 in
+`.project/analyses/pi-antigravity-auth/inventory.md`. Wire evidence: the agy dossier in
+`.project/analyses/antigravity-cli/1.4.8/` (another session's directory: read only).
+
+Decisions (user, 2026-10-27):
+
+- The Claustrum vault is dropped, and so is the account pool: one account through `/login antigravity`.
+- Provider id `antigravity`, with a fill-only migration from the fork's `google` slot.
+- One Pi model per family: `antigravity/gemini-4-argon`, `gemini-3.8-flash`,
+  `claude-opus-5-5`, `claude-sonnet-5-5`, `gpt-oss-120b`. The catalog level
+  (`gemini-4-argon-low`) is picked per request from the effective Pi thinking level through
+  `thinkingLevelMap`; there is no `antigravity-` prefix and no level suffix.
+- Catalog via `refreshModels` (`v1internal:fetchAvailableModels`) plus a bundled snapshot.
+- Plain `fetch` with the CLI's 7 headers and the agy 1.4.8 user agent; the fork's raw TLS client is ported only if the wire refuses `fetch`.
+- The project id is re-derived once per session through `loadCodeAssist`, never packed into `refresh`.
+- Signatures are carried for the same model only, and thinking is stripped for Claude.
+- A live capture settles the redirect, the scopes (+`aicode`, `openid`), the envelope `userAgent` and `toolConfig`.
+- The `/antigravity` menu becomes `/auth` tabs, and quota comes in M2.
+
+Wire facts: the envelope `model` is the catalog level id, and `labels.model_enum` is the catalog
+`model` (`MODEL_PLACEHOLDER_M419`). Argon levels send `thinkingLevel`, Claude levels send
+`thinkingBudget: 0` plus `thinkingLevel`, and Flash and GPT-OSS levels send a `thinkingBudget`.
+Pi's `api/google-shared` already converts messages and tools and keeps signatures only for the
+same provider and model.
+
+| # | Unit | Write scope | Test that matters |
+| --- | --- | --- | --- |
+| 0 | level codec (done) | `google/levels.ts` | an encoded level survives a `models-store.json` round trip; foreign values are refused; thinking configs match the CLI |
+| 1 | catalog | `google/catalog.ts`, `assets/antigravity/models.json` | the live 1.4.8 catalog yields exactly the 5 families in `agentModelSorts` order, each with a map holding only its catalog levels (`off`/`minimal` null, GPT-OSS medium only); auxiliary, internal and image models are excluded; offline restores stored models |
+| 2 | login + project | `google/oauth.ts`, `google/project.ts` | the auth URL carries the 7 scopes and the remote redirect; a pasted code with the wrong state is refused; refresh retries 5xx and fails 4xx without leaking a token; the project is discovered once per session |
+| 3 | request | `google/request.ts`, `google/schema.ts` | the envelope and request keys match the 1.3.5 capture's order, labels and `thinkingConfig` for the chosen level; Claude turns carry no earlier thinking; tool schemas pass the allowlist |
+| 4 | stream + errors | `google/stream.ts`, `google/errors.ts` | an SSE body split at every byte boundary yields identical Pi events (text, thinking, signatures, tool calls, usage); `RATE_LIMIT_EXCEEDED` and the other named reasons map to a cause with a recovery hint |
+| 5 | migration | `google/migration.ts` | a fork OAuth slot under `google` fills an empty `antigravity` slot with the unpacked refresh; an existing `antigravity` slot and a non-OAuth `google` slot stay untouched |
+| 6 | wiring | `google/{provider,transport,index}.ts`, `families/index.ts` | the effective Pi level selects the wire level; zero cost; the 7 headers and UA go out; `parity-verify` lists `antigravity` |
+| 7 | live + tracking | `.project/analyses/agy-cli/tracking.md` | Pi-Bolt and stock Pi: a turn on Argon and Claude, a tool call, and a level switch mid-session, with request heads captured redacted |
+
+Units 1-5 run in parallel; unit 6 integrates them.
+
 ## Later slices (sparse)
 
-- **antigravity**: review session with the user first (features, UX, API, vault yes/no),
-  then port as provider id `antigravity` with migration from `google`.
+- End of M1: version bump, release section, tag.

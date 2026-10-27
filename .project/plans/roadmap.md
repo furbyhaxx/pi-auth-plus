@@ -38,8 +38,8 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] verify recipes: rpc-verify, parity-verify, aot-verify
     [x] conflict detection for the absorbed packages
 [>] M1 Providers                          plans/0002-m1-providers/plan.md
-    [ ] opencode     patch builtin; fix late registration (registers in session_start today)
-    [ ] synthetic    catalog via refreshModels, no network in factory, web search
+    [x] opencode     patch builtin in the factory; 2.1.2 fingerprint; anonymous = Pi-Bolt only
+    [>] synthetic    [x] catalog via refreshModels, no network in factory  [ ] web search
     [ ] claude       CC version pin, mcp_ rename, cch billing header, replace patterns
     [ ] antigravity  review session with the user FIRST (features, UX, API, vault yes/no),
                      then port as provider id `antigravity` with migration from `google`

@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **OpenCode Zen.** Pi's builtin `opencode` and `opencode-go` get the opencode 2.1.2 CLI
+  identity, so anonymous free models (`opencode/big-pickle` and others) answer without a key.
+  The anonymous key is used only when no `OPENCODE_API_KEY`, stored login or models.json key
+  exists, and it is registered at startup, so `--model opencode/...` and session restore work.
+- **Synthetic.** The `synthetic` provider logs in through `/login synthetic` or
+  `SYNTHETIC_API_KEY`. Its catalog has real prices and limits, refreshes in the background,
+  and is never fetched at startup.
+- **Providers tab.** Shows environment, models.json and anonymous credentials beside stored
+  logins.
+
+### Known limits
+
+- Anonymous OpenCode Zen works from Pi-Bolt only. Zen refuses stock Pi's Node HTTP client with
+  `429 FreeUsageLimitError` regardless of headers. Keyed Zen requests are untested.
+
 ## [0.1.0] - 2026-10-27
 
 ### Added

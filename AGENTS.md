@@ -122,9 +122,9 @@ README.md, CHANGELOG.md, LICENSE, NOTICE, AGENTS.md
 
 This file describes the target state.
 
-- No family is registered yet: `families/index.ts` lists none, so `/auth` tabs are empty and
-  `just parity-verify` checks zero providers. `FamilyAdapter` has no `quota`/`tokens` parts
-  until those engines land.
+- `families/index.ts` registers `opencode` and `synthetic` only; `claude` and `antigravity`
+  follow M1. `FamilyAdapter` has no `quota`/`tokens` parts until those engines land.
+- The synthetic web-search tool is not ported yet.
 - `quotas/`, `tokens/` and `docs/` do not exist yet; the dashboard's Settings tab has no
   settings panel yet (`core/config` exists).
 - `core/auth` reads slots only; PKCE, the callback server and code paste arrive with the first
@@ -164,7 +164,9 @@ Read it before touching registration, and correct it when Pi changes.
   `before_provider_headers` / `before_provider_request`. Those events and
   `after_provider_response` carry no provider id. Identify the request from the request itself
   (Pi's own provider headers or the base URL); `ctx.model` is the session model and can differ
-  for helper calls, so it is a hint, never the filter.
+  for helper calls, so it is a hint, never the filter on its own. `before_provider_request`
+  runs before the headers event and its payload carries no headers, so a payload patch requires
+  both: the session model is ours and the payload's `model` equals that model's id.
 - **Credentials live in Pi's `auth.json`**, under our provider ids, so `/login` and `/logout`
   work. A separate credential file needs a recorded reason in the provider's research report.
 - Every request honors the caller's `AbortSignal` with a bounded timeout. A turn never hangs.
@@ -190,9 +192,15 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
   get a dedicated review with the user before porting. Nothing from it is ported unreviewed,
   and no `@cortexkit/*` package is used.
 - **opencode:** spoof headers only when Pi's own opencode headers are present; a stored or
-  environment key always wins over the anonymous fallback.
-- **synthetic:** live catalog with real prices and limits, cached with a TTL; the web-search
-  tool stays opt-in.
+  environment key always wins over the anonymous fallback. Zen's free tier checks the
+  `opencode/` user agent, `x-opencode-client: cli`, a `ses_` session-affinity header and an
+  `<env>` block with the working directory in the system message. It also gates on the HTTP
+  client: Bun's fetch passes, Node's undici (stock Pi) and curl get `429 FreeUsageLimitError` for
+  identical bytes, so anonymous free models work from Pi-Bolt only. No workaround exists at the
+  header or body level (`.project/analyses/opencode-cli/2.1.2/report.md`).
+- **synthetic:** native `anthropic-messages` with no stream of our own; the catalog comes from
+  `refreshModels` with Pi's store and a 4 h TTL, and has real prices and limits. Rows without a usable
+  price or tool support are skipped. The web-search tool stays opt-in.
 
 ### Upstream client tracking
 

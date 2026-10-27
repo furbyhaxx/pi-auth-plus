@@ -5,15 +5,20 @@ document:
   title: "M1 providers"
   description: "Absorb the opencode, synthetic, claude and antigravity providers as vendor families"
   status: "published"
-  revision: 1
+  revision: 2
   created_at: "2026-10-27T10:20:46+01:00"
-  updated_at: "2026-10-27T10:20:46+01:00"
+  updated_at: "2026-10-27T10:45:33+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       reason: "document creation"
       changes: ["opencode slice in detail, synthetic next, claude and antigravity sparse"]
+    - revision: 2
+      reason: "opencode slice done, synthetic catalog done"
+      changes:
+        - "Recorded the opencode 2.1.2 fingerprint and the stock-Pi transport limit."
+        - "Synthetic now; web search is its remaining unit; claude next."
 ---
 
 # M1 providers
@@ -22,7 +27,14 @@ Goal: each absorbed provider runs from `src/families/<vendor>/`, registered in t
 logged in through Pi's `/login`, visible in `/auth` Providers, and live-verified in Pi-Bolt
 and stock Pi. Order: opencode, synthetic, claude, antigravity (smallest risk first).
 
-## Slice 1: opencode (now)
+## Slice 1: opencode (done)
+
+Outcome: done in `77e6b62` and earlier commits. Units 1-4 are done, with these deviations. Request
+ids were dropped, because the CLI 2.1.2 identity needs only the session id, sent as four
+affinity headers. A `before_provider_request` hook adds the CLI's `<env>` block, which Zen
+checks. Unit 5: Pi-Bolt answers `pong` anonymously. Stock Pi cannot: Zen refuses Node's HTTP
+client for identical bytes. The keyed lane is untested because the host has no Zen key.
+Evidence: `.project/analyses/opencode-cli/2.1.2/` (not `providers/opencode/`).
 
 Source: `pi-opencode-auth` (132 LOC). It patches Pi's builtin `opencode` (Zen) and
 `opencode-go` so Zen's free tier accepts the requests.
@@ -43,7 +55,11 @@ Fixed vs pi-opencode-auth: registration moves from `session_start` to the factor
 `--model opencode/...` and session restore work), and the anonymous key no longer overrides
 an env or models.json key.
 
-## Slice 2: synthetic (next)
+## Slice 2: synthetic (now)
+
+Status: the catalog and provider are done (`2b91acd`, `3ffaa1b`). Live: `--list-models
+synthetic`, a turn on `hf:zai-org/GLM-5.3-Flash` in Pi-Bolt and stock Pi, and the refresh
+persisted in `models-store.json`. Remaining: the web-search tool.
 
 Source: `pi-synthetic-auth` (438 LOC): provider delegating streaming to the builtin
 anthropic api, live catalog fetched in the factory today, opt-in web-search tool.

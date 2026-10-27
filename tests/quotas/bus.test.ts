@@ -8,9 +8,9 @@ import { SETTINGS } from "../../src/core/config/catalog.ts";
 import { SettingsStore } from "../../src/core/config/index.ts";
 import { ProviderHttpError } from "../../src/core/http/index.ts";
 import { Registry } from "../../src/core/registry/index.ts";
-import { registerQuotaBus } from "../../src/quotas/bus.ts";
+import { type QuotaBusOptions, registerQuotaBus } from "../../src/quotas/bus.ts";
 import { QuotaEngine } from "../../src/quotas/engine.ts";
-import type { ProviderQuotaSnapshot } from "../../src/quotas/types.ts";
+import type { ProviderQuotaSnapshot, QuotaResets } from "../../src/quotas/types.ts";
 
 let dir: string;
 let clock: number;
@@ -22,7 +22,7 @@ const snap = (): ProviderQuotaSnapshot => ({
 	source: "endpoint",
 	windows: [{ id: "5h", label: "Five hours", shortLabel: "5h" }],
 });
-function setup() {
+function setup(options: QuotaBusOptions = {}, resets?: QuotaResets) {
 	const settings = new SettingsStore(SETTINGS, { user: join(dir, "settings.json") });
 	const registry = new Registry([
 		{
@@ -33,7 +33,13 @@ function setup() {
 					id: "claude",
 					label: "Claude",
 					aliases: ["cc", "cl"],
-					quota: { kind: "windows", shortLabel: "cl", parserVersion: 1, fetch: () => fetchQuota() },
+					quota: {
+						kind: "windows",
+						shortLabel: "cl",
+						parserVersion: 1,
+						fetch: () => fetchQuota(),
+						...(resets ? { resets } : {}),
+					},
 				},
 			],
 		},
@@ -61,6 +67,7 @@ function setup() {
 		registry,
 		() => settings,
 		() => clock,
+		options,
 	);
 	cleanup.push(() => {
 		stop();
@@ -81,6 +88,164 @@ afterEach(() => {
 });
 
 describe("quota bus", () => {
+	for (const approval of [undefined, false, true]) {
+		test(`reset requires interactive approval (${approval}) and consumes exactly once`, async () => {
+			let consumed = 0;
+			let prompts = 0;
+			let fetched = 0;
+			const credit = { id: "early", type: "reset", status: "available" };
+			const outcome = {
+				provider: "claude",
+				code: "reset" as const,
+				creditId: credit.id,
+				windowsReset: 2,
+			};
+			const resets: QuotaResets = {
+				list: async () => ({
+					provider: "claude",
+					fetchedAt: clock,
+					available: 1,
+					credits: [credit],
+				}),
+				consume: async (_ctx, id) => {
+					consumed++;
+					expect(id).toBe(credit.id);
+					return outcome;
+				},
+			};
+			const { ask, events, engine } = setup(
+				approval === undefined
+					? {}
+					: {
+							confirmReset: async (id, selected, requester) => {
+								prompts++;
+								expect([id, selected, requester]).toEqual(["claude", credit, "bus"]);
+								return approval;
+							},
+						},
+				resets,
+			);
+			fetchQuota = async () => {
+				fetched++;
+				return snap();
+			};
+			await engine.refresh("claude");
+			expect(await ask("resets", { provider: "cc" })).toMatchObject({
+				ok: true,
+				resets: { available: 1 },
+			});
+			expect(consumed).toBe(0);
+			expect(prompts).toBe(0);
+			expect(await ask("reset", { provider: "cc" })).toMatchObject({
+				ok: false,
+				error: "A reset request needs confirm: true.",
+			});
+			expect(prompts).toBe(0);
+			const reply = await ask("reset", { provider: "cc", confirm: true });
+			if (approval === true) {
+				expect(reply).toEqual({ v: 1, ok: true, outcome });
+				expect(consumed).toBe(1);
+				expect(fetched).toBe(2);
+				expect(events).toEqual([
+					{
+						v: 1,
+						kind: "reset-consumed",
+						provider: "claude",
+						code: "reset",
+						windowsReset: 2,
+						requester: "bus",
+					},
+				]);
+			} else {
+				expect(reply).toEqual({
+					v: 1,
+					ok: false,
+					error: "The user did not approve the reset, or no interactive UI is available.",
+				});
+				expect(consumed).toBe(0);
+				expect(fetched).toBe(1);
+				expect(events).toEqual([]);
+			}
+		});
+	}
+
+	test("disposal while approval is pending prevents a late spend", async () => {
+		const started = Promise.withResolvers<void>();
+		const approval = Promise.withResolvers<boolean>();
+		let consumed = 0;
+		const { ask, stop, events } = setup(
+			{
+				confirmReset: async () => {
+					started.resolve();
+					return approval.promise;
+				},
+			},
+			{
+				list: async () => ({
+					provider: "claude",
+					fetchedAt: clock,
+					available: 1,
+					credits: [{ id: "one", type: "reset", status: "available" }],
+				}),
+				consume: async () => {
+					consumed++;
+					throw new Error("Must not consume");
+				},
+			},
+		);
+		const pending = ask("reset", { provider: "cc", confirm: true });
+		await started.promise;
+		stop();
+		approval.resolve(true);
+		expect(await pending).toBeUndefined();
+		expect(consumed).toBe(0);
+		expect(events).toEqual([]);
+	});
+
+	test("reset channels reject malformed, unsupported, unknown and unavailable requests", async () => {
+		const unsupported = setup();
+		expect(await unsupported.ask("resets", { provider: "cc" })).toMatchObject({
+			ok: false,
+			error: expect.stringContaining("no verified"),
+		});
+		expect(await unsupported.ask("resets", { provider: "missing" })).toMatchObject({
+			ok: false,
+			error: expect.stringContaining("Known: claude"),
+		});
+		for (const payload of [
+			null,
+			{},
+			{ provider: 1 },
+			{ provider: "" },
+			{ provider: "cc", confirm: "yes" },
+			{ provider: "cc", creditId: 1 },
+		])
+			expect(await unsupported.ask("reset", payload)).toBeUndefined();
+		let consumed = 0;
+		const { ask } = setup(
+			{
+				confirmReset: async () => {
+					throw new Error("Must not prompt");
+				},
+			},
+			{
+				list: async () => ({ provider: "claude", fetchedAt: clock, available: 0, credits: [] }),
+				consume: async () => {
+					consumed++;
+					throw new Error("Must not consume");
+				},
+			},
+		);
+		expect(await ask("reset", { provider: "cc", confirm: true })).toMatchObject({
+			ok: false,
+			error: "No reset credit available.",
+		});
+		expect(await ask("reset", { provider: "cc", confirm: true, creditId: "gone" })).toMatchObject({
+			ok: false,
+			error: "Reset credit gone is not available.",
+		});
+		expect(consumed).toBe(0);
+	});
 	test("announces capabilities once and answers aliases with Pi ids without fetching", async () => {
 		const { engine, ask, ready } = setup();
 		await engine.cache.put("claude", { snapshot: snap(), drainage: [] });
@@ -89,7 +254,7 @@ describe("quota bus", () => {
 			{
 				v: 1,
 				providers: [{ id: "claude", aliases: ["cc", "cl"] }],
-				capabilities: ["query", "refresh", "snapshot", "event"],
+				capabilities: ["query", "refresh", "resets", "reset", "snapshot", "event"],
 			},
 		]);
 		expect(await ask("query", { providers: ["cc", "claude"] })).toMatchObject({

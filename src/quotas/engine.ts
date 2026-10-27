@@ -6,9 +6,18 @@ import { type FetchFn, ProviderHttpError } from "../core/http/index.ts";
 import type { ProviderEntry, Registry } from "../core/registry/index.ts";
 import { recordDrainageHistory } from "./drainage.ts";
 import { effectiveSnapshot } from "./merge.ts";
+import { type ResetRequester, unsupportedResetMessage } from "./resets.ts";
 import { enabledQuotaProviders } from "./settings.ts";
 import { parseQuotaState, type QuotaState } from "./state.ts";
-import type { ProviderQuotaSnapshot, QuotaAuth, QuotaSource } from "./types.ts";
+import type {
+	ProviderQuotaSnapshot,
+	QuotaAuth,
+	QuotaFetchContext,
+	QuotaResets,
+	QuotaSource,
+	ResetCreditList,
+	ResetOutcome,
+} from "./types.ts";
 
 export interface QuotaEngineOptions {
 	readonly registry: Registry;
@@ -44,6 +53,9 @@ export class QuotaEngine {
 	private readonly options: QuotaEngineOptions;
 	private readonly refreshing = new Map<string, Promise<void>>();
 	private readonly listeners = new Set<() => void>();
+	private readonly resetListeners = new Set<
+		(outcome: ResetOutcome, requester: ResetRequester) => void
+	>();
 	private controller = new AbortController();
 	private timer: ReturnType<typeof setInterval> | undefined;
 
@@ -78,6 +90,87 @@ export class QuotaEngine {
 	onChange(listener: () => void): () => void {
 		this.listeners.add(listener);
 		return () => this.listeners.delete(listener);
+	}
+
+	/** Whether an enabled Pi provider exposes on-demand resets. */
+	resetSupport(id: string): boolean {
+		return this.providers().some((provider) => provider.id === id && provider.quota?.resets);
+	}
+
+	/** Lists credits without consuming or refreshing quotas. */
+	async listResets(id: string): Promise<ResetCreditList> {
+		const resets = this.resetSource(id);
+		return resets.list(this.context(id, this.controller.signal));
+	}
+
+	/** Consumes once, then refreshes even when the provider reports no spend or throws. */
+	async consumeReset(
+		id: string,
+		creditId: string,
+		requester: ResetRequester = "command",
+	): Promise<ResetOutcome> {
+		const resets = this.resetSource(id);
+		const signal = this.controller.signal;
+		try {
+			const outcome = await resets.consume(this.context(id, signal), creditId);
+			if (!signal.aborted && outcome.code === "reset") {
+				for (const listener of this.resetListeners) listener(outcome, requester);
+			}
+			return outcome;
+		} finally {
+			try {
+				try {
+					await this.refreshing.get(id);
+				} finally {
+					if (!signal.aborted) await this.refresh(id, { force: true });
+				}
+			} catch {
+				// Refresh storage failures must not hide a spend verdict or invite a consume retry.
+				this.notify();
+			}
+		}
+	}
+
+	/** Observes only confirmed provider verdicts that spent a credit. */
+	onResetConsumed(
+		listener: (outcome: ResetOutcome, requester: ResetRequester) => void,
+	): () => void {
+		this.resetListeners.add(listener);
+		return () => this.resetListeners.delete(listener);
+	}
+
+	private resetSource(id: string): QuotaResets {
+		if (this.controller.signal.aborted)
+			throw new Error("Quota engine is stopped. Start a session before requesting resets.");
+		if (!this.options.registry.byId(id)?.provider.quota) {
+			const known = this.options.registry
+				.providers()
+				.filter(({ provider }) => provider.quota)
+				.map(({ provider }) => provider.id);
+			throw new Error(`Unknown provider "${id}". Known: ${known.join(", ")}`);
+		}
+		const provider = this.providers().find((provider) => provider.id === id);
+		if (!provider)
+			throw new Error(`Quota provider "${id}" is disabled. Enable it in quotas.providers.`);
+		if (!provider.quota?.resets)
+			throw new Error(
+				unsupportedResetMessage(
+					id,
+					this.providers()
+						.filter((provider) => provider.quota?.resets)
+						.map((provider) => provider.id),
+				),
+			);
+		return provider.quota.resets;
+	}
+
+	private context(id: string, signal: AbortSignal): QuotaFetchContext {
+		return {
+			auth: () => this.options.authFor(id),
+			fetch: this.options.fetch,
+			signal,
+			now: this.options.now,
+		};
 	}
 
 	/** Stores the first enabled parser's claim without refreshing endpoint freshness. */
@@ -204,12 +297,7 @@ export class QuotaEngine {
 		});
 		if (!acquired || signal.aborted) return;
 		try {
-			const snapshot = await source.fetch({
-				auth: () => this.options.authFor(id),
-				fetch: this.options.fetch,
-				signal,
-				now: this.options.now,
-			});
+			const snapshot = await source.fetch(this.context(id, signal));
 			if (signal.aborted) return;
 			// Headers observed while this fetch was in flight are newer than its snapshot; keep them.
 			await this.cache.putWith(id, (current) => ({

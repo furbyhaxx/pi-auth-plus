@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-27
+
+### Fixed
+
+- **Named windows tolerate older cache writers.** When several windows share a period,
+  a window whose id equals the name wins, so sessions still running v0.3.0 can no longer
+  turn the claude 7d value into `?` through the shared cache.
+
 ## [0.3.1] - 2026-10-27
 
 ### Fixed
@@ -153,8 +161,9 @@ All notable changes to this project are documented here. The format follows
   pi-antigravity-auth or pi-quotas next to pi-auth-plus warns once and names the command that
   removes each.
 
-[Unreleased]: https://github.com/furbyhaxx/pi-auth-plus/compare/v0.3.1...dev
-[0.3.1]: https://github.com/furbyhaxx/pi-auth-plus/compare/v0.3.0...v0.3.1
+[Unreleased]: https://github.com/furbyhaxx/pi-auth-plus/compare/v0.3.2...dev
+[0.3.2]: https://github.com/furbyhaxx/pi-auth-plus/releases/tag/v0.3.2
+[0.3.1]: https://github.com/furbyhaxx/pi-auth-plus/releases/tag/v0.3.1
 [0.3.0]: https://github.com/furbyhaxx/pi-auth-plus/releases/tag/v0.3.0
 [0.2.0]: https://github.com/furbyhaxx/pi-auth-plus/releases/tag/v0.2.0
 [0.1.0]: https://github.com/furbyhaxx/pi-auth-plus/releases/tag/v0.1.0

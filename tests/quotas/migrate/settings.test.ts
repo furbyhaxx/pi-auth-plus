@@ -47,7 +47,8 @@ async function source(value: unknown) {
 
 describe("pi-quotas settings carry-over", () => {
 	test("fills unset keys, resolves aliases, and never reapplies after a later deletion", async () => {
-		const template = " {codex:id} / {grok:id} ";
+		const template = " {codex:id} / {Grok:id|bold} [{openai}] \\{grok:id} {all} {nope:id} ";
+		const canonical = " {codex:id} / {xai:id|bold} [{codex}] \\{grok:id} {all} {nope:id} ";
 		const legacy = {
 			linePlacement: "above-editor",
 			percentDisplay: "remaining",
@@ -71,11 +72,11 @@ describe("pi-quotas settings carry-over", () => {
 				linePlacement: "off",
 				percentDisplay: "remaining",
 				providers: ["codex", "xai"],
-				lineTemplate: template,
+				lineTemplate: canonical,
 			},
 			extra: 1,
 		});
-		expect(settings.get("quotas.lineTemplate")).toBe(template);
+		expect(settings.get("quotas.lineTemplate")).toBe(canonical);
 		expect(JSON.parse(await readFile(join(dir, "quotas.json"), "utf8"))).toEqual(legacy);
 		await settings.save("user", { "quotas.percentDisplay": null });
 		const before = await readFile(userSettingsPath(), "utf8");

@@ -96,6 +96,8 @@ export async function migratePiQuotasSettings({
 							raw = [...ids];
 						}
 					}
+					if (name === "lineTemplate" && typeof raw === "string")
+						raw = canonicalTemplate(raw, registry);
 					const parsed = SETTINGS[key].parse(raw);
 					if (parsed === undefined) {
 						problems.push({
@@ -124,6 +126,15 @@ export async function migratePiQuotasSettings({
 		}
 	}
 	return { migrated, unknownProviders, problems };
+}
+
+/** Rewrites resolvable provider names in `{name...}` tokens to Pi ids, since `{x:id}` renders the spelling. */
+function canonicalTemplate(template: string, registry: Registry): string {
+	return template.replace(/\\.|\{([^{}|:]*)(?=[:|}])/g, (match, name: string | undefined) => {
+		if (name === undefined) return match;
+		const id = registry.resolve(name.trim().toLowerCase())?.provider.id;
+		return id ? `{${id}` : match;
+	});
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

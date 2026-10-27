@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **pi-quotas template carry-over uses Pi ids.** Provider names in a carried-over
+  `lineTemplate` become Pi ids, so `{grok:id}` shows `xai` instead of `grok`.
+
 ## [0.3.0] - 2026-10-27
 
 ### Added

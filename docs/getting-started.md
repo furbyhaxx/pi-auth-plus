@@ -101,7 +101,8 @@ Carry-over runs only after pi-quotas is removed:
   `.pi/auth-plus.json`. Untrusted project settings are neither read nor migrated.
 - `enabledProviders` becomes `quotas.providers`, resolving aliases to Pi ids.
   Unknown names warn and are skipped. Existing destination keys always win.
-- `lineTemplate` is preserved verbatim; aliases still resolve. `lineTemplateNarrow`
+- `lineTemplate` keeps its layout; provider names in tokens become Pi ids
+  (`{grok:id}` becomes `{xai:id}`, so the line shows `xai`). `lineTemplateNarrow`
   is not imported: one template wraps at every width.
 - `<agentDir>/cache/quotas-cache.json` contributes drainage history to the new host
   cache. Compatible history merges with existing observations; old snapshots and

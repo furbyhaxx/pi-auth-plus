@@ -43,14 +43,17 @@ function requestWindow(
 	meter: Record<string, unknown> | undefined,
 	metadata: Pick<QuotaWindow, "id" | "shortLabel" | "label" | "period" | "scope" | "important">,
 ): QuotaWindow | undefined {
-	const limit = finiteNumber(meter?.["limit"]);
-	const requests = finiteNumber(meter?.["requests"]);
-	if (limit === undefined || limit <= 0 || requests === undefined) return undefined;
+	if (!meter) return undefined;
+	const limit = finiteNumber(meter["limit"]);
+	const requests = finiteNumber(meter["requests"]);
+	const resetAtMs = timestampMs(meter["renewsAt"]);
+	if (limit === undefined || limit <= 0 || requests === undefined)
+		return { ...metadata, resetAtMs };
 	return {
 		...metadata,
 		usedFraction: clamp01(requests / limit),
 		valueText: `${requests}/${limit} used`,
-		resetAtMs: timestampMs(meter?.["renewsAt"]),
+		resetAtMs,
 	};
 }
 
@@ -79,15 +82,19 @@ export function parseSyntheticQuota(
 	});
 	if (subscriptionWindow) windows.push(subscriptionWindow);
 	const percentRemaining = finiteNumber(weekly?.["percentRemaining"]);
-	if (percentRemaining !== undefined) {
+	if (weekly) {
 		windows.push({
 			id: "7d",
 			shortLabel: "7d",
 			label: "7d plan budget",
 			period: "7d",
-			usedFraction: clamp01(1 - percentRemaining / 100),
-			valueText: `${Number(percentRemaining.toFixed(2))}% left`,
-			resetAtMs: timestampMs(weekly?.["nextRegenAt"]),
+			...(percentRemaining === undefined
+				? {}
+				: {
+						usedFraction: clamp01(1 - percentRemaining / 100),
+						valueText: `${Number(percentRemaining.toFixed(2))}% left`,
+					}),
+			resetAtMs: timestampMs(weekly["nextRegenAt"]),
 			important: true,
 		});
 	}

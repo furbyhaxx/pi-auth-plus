@@ -138,21 +138,26 @@ describe("Synthetic quotas", () => {
 		expect((await fetchQuota()).windows.map((window) => window.id)).toEqual(["7d", "search-1h"]);
 	});
 
-	test("does not turn zero limits or absent counts into zero usage", async () => {
+	test("keeps windows with zero limits or absent counts visible with unknown usage", async () => {
 		for (const subscription of [{ limit: 0, requests: 0 }, { limit: 500 }, { requests: 2 }]) {
 			respond({ subscription, planWeeklyLimit: liveQuota.planWeeklyLimit });
-			expect((await fetchQuota()).windows.map((window) => window.id)).toEqual(["7d"]);
+			const windows = (await fetchQuota()).windows;
+			expect(windows.map((window) => window.id)).toEqual(["subscription", "7d"]);
+			expect(windows[0]?.usedFraction).toBeUndefined();
 		}
 		for (const hourly of [{ limit: 0, requests: 0 }, { limit: 250 }, { requests: 2 }]) {
 			respond({ subscription: liveQuota.subscription, search: { hourly } });
-			expect((await fetchQuota()).windows.map((window) => window.id)).toEqual(["subscription"]);
+			const windows = (await fetchQuota()).windows;
+			expect(windows.map((window) => window.id)).toEqual(["subscription", "search-1h"]);
+			expect(windows[1]?.usedFraction).toBeUndefined();
 		}
 	});
 
 	test("leaves missing weekly fields unknown and rejects nonnumeric percentages", async () => {
 		for (const planWeeklyLimit of [{}, { percentRemaining: "16" }, { nextRegenAt: "invalid" }]) {
 			respond({ subscription: liveQuota.subscription, planWeeklyLimit });
-			expect((await fetchQuota()).windows).toHaveLength(1);
+			const weekly = (await fetchQuota()).windows.find((window) => window.id === "7d");
+			expect(weekly?.usedFraction).toBeUndefined();
 		}
 		respond({ planWeeklyLimit: { percentRemaining: 16 } });
 		const window = (await fetchQuota()).windows[0];

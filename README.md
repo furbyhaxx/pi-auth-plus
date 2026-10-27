@@ -1,21 +1,19 @@
 # pi-auth-plus
 
-One [Pi](https://pi.dev) package for subscription and API-key providers that behave like Pi
-builtins, plus quota monitoring and accurate token counting.
-
-> Status: providers (M1). Quotas and token counting are not in yet; see
-> [the roadmap](.project/plans/roadmap.md).
+One [Pi](https://pi.dev) package for subscription and API-key providers, quota monitoring
+and a shared `/auth` dashboard.
 
 ## Features
 
-- Providers: `claude` (Pro/Max or API key), `antigravity` (Google OAuth), `synthetic`, and
-  anonymous OpenCode Zen for Pi's builtin `opencode`. Log in with Pi's `/login`.
+- `claude` (Pro/Max or API key), `antigravity` (Google OAuth), `synthetic`, and anonymous
+  OpenCode Zen for Pi's builtin `opencode`. Login stays in Pi's `/login`.
+- Quotas and credits for Claude, Antigravity, Synthetic, ChatGPT (`openai`), xAI,
+  OpenRouter and DeepSeek: configurable status line, live panel and host-shared cache.
+- `/auth` provider status and staged settings; `/quotas` and `/quota` open quota detail.
+- ChatGPT reset credits with explicit approval, read-only quota CLI, and an extension bus.
+- Optional Synthetic web search with highlights and full-page text files.
 
-Planned:
-
-- Quotas and credits for every supported vendor, in the footer and a panel.
-- Token counting from each vendor's own counting source.
-- One `/auth` dashboard: provider status, quotas, tokens, settings.
+Token counting is not available in the Tokens tab.
 
 ## Install
 
@@ -23,9 +21,17 @@ Planned:
 pi install git:https://github.com/furbyhaxx/pi-auth-plus
 ```
 
-pi-auth-plus replaces pi-claude-auth, pi-opencode-auth, pi-synthetic-auth and
-pi-antigravity-auth. Remove those before installing it. Keep pi-quotas until pi-auth-plus
-ships its quota engine.
+Remove pi-claude-auth, pi-opencode-auth, pi-synthetic-auth, pi-antigravity-auth **and
+pi-quotas** before loading it. Keeping pi-quotas loaded disables this package's session
+quota engine. Anonymous OpenCode Zen requires Pi-Bolt.
+
+## Documentation
+
+- [Getting started and migration](docs/getting-started.md)
+- [Quotas: providers, line templates, resets and CLI](docs/quotas.md)
+- [Commands and keys](docs/commands.md)
+- [Settings, files and environment](docs/configuration.md)
+- [Event bus for extensions](docs/events.md)
 
 ## License
 

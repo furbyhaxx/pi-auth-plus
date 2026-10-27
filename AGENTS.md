@@ -136,8 +136,7 @@ This file describes the target state.
 - No legacy migration exists yet: pi-synthetic-auth's `websearch.synthetic` in Pi's
   `settings.json` and its `SYNTHETIC_WEB_SEARCH` variable, and pi-claude-auth's replace
   patterns in Pi's `settings.json`, are not read.
-- `quotas/`, `tokens/` and `docs/` do not exist yet; the dashboard's Settings tab has no
-  settings panel yet (`core/config` exists).
+- `tokens/` does not exist yet.
 - `core/auth` has slot reads, PKCE and code paste; the local callback server arrives with the
   first provider that needs one.
 - Absorption follows `.project/plans/roadmap.md`; delete each line here when its part lands.

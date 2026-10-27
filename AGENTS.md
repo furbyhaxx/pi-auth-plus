@@ -162,9 +162,9 @@ Read it before touching registration, and correct it when Pi changes.
 - **One mechanism per concern.** Body and header shaping for our providers happens inside the
   provider (fetch wrapper or stream). Patches to a Pi builtin (`opencode`) use
   `before_provider_headers` / `before_provider_request`. Those events and
-  `after_provider_response` carry no provider id: filter on `ctx.model.provider` first, which
-  is the session model and can differ for helper calls, so the patch must also check the
-  request itself (base URL or Pi's own headers) before touching it.
+  `after_provider_response` carry no provider id. Identify the request from the request itself
+  (Pi's own provider headers or the base URL); `ctx.model` is the session model and can differ
+  for helper calls, so it is a hint, never the filter.
 - **Credentials live in Pi's `auth.json`**, under our provider ids, so `/login` and `/logout`
   work. A separate credential file needs a recorded reason in the provider's research report.
 - Every request honors the caller's `AbortSignal` with a bounded timeout. A turn never hangs.
@@ -214,8 +214,8 @@ Endpoints, auth, schemas, units and reset semantics per provider are in
 - Units are explicit; a missing field is `undefined`, never `0`. Keep "no limit", "0% used"
   and "unknown" distinguishable. Every window a provider exposes stays visible.
 - Quota state from response headers is ingested inside our own providers' fetch wrappers, and
-  for builtins from `after_provider_response` attributed via `ctx.model` plus the header shape
-  (the event has no provider id). Never poll for what a response already said.
+  for builtins from `after_provider_response` attributed by the header shape (the event has no
+  provider id; `ctx.model` is only a hint). Never poll for what a response already said.
 - One host cache (atomic writes, leases, backoff with Retry-After) so concurrent sessions do
   not fetch twice. A corrupt cache file is ignored, never fatal. No timers outlive the session.
 

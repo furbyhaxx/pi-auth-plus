@@ -24,6 +24,11 @@ export function authPath(env: PathEnv = process.env): string {
 	return join(agentDir(env), "auth.json");
 }
 
+/** Pi's user model and provider overrides (`models.json`). */
+export function modelsPath(env: PathEnv = process.env): string {
+	return join(agentDir(env), "models.json");
+}
+
 export function userSettingsPath(env: PathEnv = process.env): string {
 	return join(agentDir(env), SETTINGS_FILE_NAME);
 }

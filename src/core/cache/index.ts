@@ -203,7 +203,14 @@ export class HostCache<T> {
 			const incoming = this.parseEntry(key, value);
 			if (incoming === undefined) continue;
 			const existing = this.entries.get(key);
-			if (existing && existing.updatedAt >= incoming.updatedAt) continue;
+			// On equal timestamps the file wins unless it holds this entry as written: local entries only change in mutate.
+			if (
+				existing &&
+				(existing.updatedAt > incoming.updatedAt ||
+					(existing.updatedAt === incoming.updatedAt &&
+						JSON.stringify(existing) === JSON.stringify(value)))
+			)
+				continue;
 			this.entries.set(key, incoming);
 			this.notify(key, incoming);
 			changed = true;

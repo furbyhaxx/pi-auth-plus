@@ -40,6 +40,21 @@ describe("core/cache", () => {
 		expect([...reader.all().keys()].sort()).toEqual([...keys].sort());
 	});
 
+	test("a write from another session in the same millisecond is neither ignored nor overwritten", async () => {
+		const a = cache();
+		const b = cache();
+		await a.put("claude", { used: 1 });
+		await b.sync();
+		await b.patch("claude", () => ({ used: 2 }));
+
+		await a.sync(true);
+		expect(a.get("claude")?.value).toEqual({ used: 2 });
+		await a.put("codex", { used: 3 });
+		const reader = cache();
+		await reader.sync();
+		expect(reader.get("claude")?.value).toEqual({ used: 2 });
+	});
+
 	test("entries written by an older parser are ignored", async () => {
 		await cache(1).put("claude", { used: 5 });
 		const newer = cache(2);

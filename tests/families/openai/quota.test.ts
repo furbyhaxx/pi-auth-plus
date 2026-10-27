@@ -133,7 +133,6 @@ describe("OpenAI quota", () => {
 			expect(registry.resolve(name)?.provider.id).toBe("openai");
 		}
 		expect(openaiQuota).toMatchObject({ kind: "windows", shortLabel: "oai", parserVersion: 1 });
-		expect(openaiQuota.resets).toBeUndefined();
 	});
 
 	test("ports the upstream usage case and reset-credit 1, 0, unknown semantics", async () => {

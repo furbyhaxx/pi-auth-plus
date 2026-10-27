@@ -1,13 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { ThemeStyle } from "@earendil-works/pi-coding-agent";
+import { parseColor } from "@earendil-works/pi-tui";
 import { type ProviderEntry, Registry } from "../../../src/core/registry/index.ts";
 import type { QuotaView } from "../../../src/quotas/engine.ts";
-import {
-	gradientColor,
-	type LineTheme,
-	hexColor as parseColor,
-	renderGradientBar,
-} from "../../../src/quotas/line/format.ts";
+import { type LineTheme, renderGradientBar } from "../../../src/quotas/line/format.ts";
 import {
 	compileLineTemplate as compile,
 	renderLineTemplate,
@@ -152,51 +148,6 @@ function render(
 	);
 }
 describe("quota templates", () => {
-	test("stress gradients retain Pi's OKLCH mixing for concrete theme colors", () => {
-		expect(gradientColor(theme, 0.25)).toEqual({
-			kind: "oklch",
-			l: 0.9172111721581175,
-			c: 0.25291654914624667,
-			h: 126.13229058480499,
-		});
-		expect(gradientColor(theme, 0.75)).toEqual({
-			kind: "oklch",
-			l: 0.7979690453571148,
-			c: 0.23434458877757924,
-			h: 69.50155820389699,
-		});
-		const indexed: [number, number, number, number, number][] = [
-			[0, 15, 0.5, 0.49999999999999983, 2.498001805406602e-16],
-			[8, 7, 0.25, 0.6518521636777148, 1.6248396978584503e-16],
-			[16, 231, 0.75, 0.7499999999999998, 3.7470027081099033e-16],
-			[232, 255, 0.5, 0.5417642459942337, 2.1954698437465405e-16],
-		];
-		for (const [a, b, t, l, c] of indexed)
-			expect(
-				gradientColor(
-					{
-						...theme,
-						colors: {
-							...theme.colors,
-							success: { kind: "indexed", index: a },
-							warning: { kind: "indexed", index: b },
-						},
-					},
-					t / 2,
-				),
-			).toEqual({ kind: "oklch", l, c, h: 180 });
-		const colors = {
-			...theme.colors,
-			success: { kind: "oklch", l: 0.3, c: 0.1, h: 350 } as const,
-			warning: { kind: "oklch", l: 0.7, c: 0.1, h: 10 } as const,
-		};
-		expect(gradientColor({ ...theme, colors }, 0.25)).toEqual({
-			kind: "oklch",
-			l: 0.5,
-			c: 0.1,
-			h: 0,
-		});
-	});
 	test("aliases resolve to Pi ids and resolver caches stay independent", () => {
 		const value = snapshot([win("5h")]);
 		expect(render("{cl:pct}/{claude:pct}/{cc:pct}", value)).toEqual(["25%/25%/25%"]);

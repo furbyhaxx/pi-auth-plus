@@ -1,5 +1,5 @@
 /** Owns pure quota value formatting and stress math shared by the line, panel and CLI. */
-import { stripVTControlCharacters } from "node:util";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 
 /** Settings needed by quota-line formatting. */
 export interface LineConfig {
@@ -47,30 +47,10 @@ export function formatResetCountdown(resetAtMs: number | undefined, now = Date.n
 	return `${mins}m`;
 }
 
-function stripApc(text: string): string {
-	let result = "";
-	let start = 0;
-	let open = text.indexOf("\u001b_");
-	while (open >= 0) {
-		let end = open + 2;
-		while (
-			end < text.length &&
-			text[end] !== "\u0007" &&
-			!(text[end] === "\u001b" && text[end + 1] === "\\")
-		)
-			end++;
-		if (end === text.length) break;
-		result += text.slice(start, open);
-		start = end + (text[end] === "\u0007" ? 1 : 2);
-		open = text.indexOf("\u001b_", start);
-	}
-	return result + text.slice(start);
-}
-
 /** Strips terminal sequences and C0/C1 controls from provider-supplied text before display. */
 export function plainText(text: string): string {
 	let result = "";
-	for (const char of stripVTControlCharacters(stripApc(text))) {
+	for (const char of stripTerminalSequences(text)) {
 		const code = char.codePointAt(0) ?? 0;
 		result += code < 32 || (code >= 127 && code <= 159) ? " " : char;
 	}

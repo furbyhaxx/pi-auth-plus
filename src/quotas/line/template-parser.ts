@@ -1,7 +1,7 @@
 /** Owns template syntax, optional groups and validated token styles. */
 import type { ThemeToken } from "@earendil-works/pi-coding-agent";
 import type { Color } from "@earendil-works/pi-tui";
-import { hexColor } from "./format.ts";
+import { parseColor } from "@earendil-works/pi-tui";
 import { plainText } from "./values.ts";
 
 /** Fixed fields, in addition to named window percentages. */
@@ -127,7 +127,7 @@ function parseStyle(source: string): TokenStyle | undefined {
 		if (!match) return undefined;
 		const value = match[2] ?? "";
 		const color = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)
-			? hexColor(value)
+			? parseColor(value)
 			: TOKENS.find((token) => token === value);
 		if (!color) return undefined;
 		if (match[1] === "fg") style.fg = color;

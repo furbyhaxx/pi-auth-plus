@@ -2,6 +2,7 @@
 
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { handleQuotaCli, registerQuotaCliFlags } from "./cli/index.ts";
 import { credentialStatus, readCredential } from "./core/auth/index.ts";
 import { type AppSettings, SETTINGS } from "./core/config/catalog.ts";
 import { SettingsStore } from "./core/config/index.ts";
@@ -22,6 +23,8 @@ import { confirmReset } from "./ui/commands/resets.ts";
 const NO_EXTENSIONS = process.argv.some((arg) => arg === "--no-extensions" || arg === "-ne");
 
 export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
+	registerQuotaCliFlags(pi);
+	await handleQuotaCli(process.argv.slice(2));
 	const registry = new Registry(FAMILIES);
 	let settings: AppSettings = new SettingsStore(SETTINGS, { user: userSettingsPath() });
 	// Registered before the families so their session_start handlers see this session's settings.

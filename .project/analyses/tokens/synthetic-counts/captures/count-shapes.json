@@ -1,0 +1,119 @@
+{
+  "at": "2026-10-27T18:26:55.261Z",
+  "endpoint": "POST https://api.synthetic.new/anthropic/v1/messages/count_tokens",
+  "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+  "cases": [
+    {
+      "name": "01-text-only",
+      "bytes": 123,
+      "status": 200,
+      "body": "{\"input_tokens\":16}",
+      "ms": 328
+    },
+    {
+      "name": "02-text-array",
+      "bytes": 148,
+      "status": 200,
+      "body": "{\"input_tokens\":16}",
+      "ms": 117
+    },
+    {
+      "name": "03-text-system",
+      "bytes": 149,
+      "status": 200,
+      "body": "{\"input_tokens\":18}",
+      "ms": 117
+    },
+    {
+      "name": "04-max-tokens-temperature-stream",
+      "bytes": 209,
+      "status": 200,
+      "body": "{\"input_tokens\":16}",
+      "ms": 111
+    },
+    {
+      "name": "05-metadata",
+      "bytes": 154,
+      "status": 200,
+      "body": "{\"input_tokens\":16}",
+      "ms": 112
+    },
+    {
+      "name": "06-tools",
+      "bytes": 5154,
+      "status": 200,
+      "body": "{\"input_tokens\":16}",
+      "ms": 114
+    },
+    {
+      "name": "07-thinking-disabled",
+      "bytes": 154,
+      "status": 200,
+      "body": "{\"input_tokens\":16}",
+      "ms": 115
+    },
+    {
+      "name": "08-thinking-enabled",
+      "bytes": 174,
+      "status": 200,
+      "body": "{\"input_tokens\":16}",
+      "ms": 113
+    },
+    {
+      "name": "09-assistant-tool-use + tool_result",
+      "bytes": 372,
+      "status": 200,
+      "body": "{\"input_tokens\":38}",
+      "ms": 124
+    },
+    {
+      "name": "10-thinking-block",
+      "bytes": 307,
+      "status": 200,
+      "body": "{\"input_tokens\":20}",
+      "ms": 120
+    },
+    {
+      "name": "11-image",
+      "bytes": 306,
+      "status": 200,
+      "body": "{\"input_tokens\":92}",
+      "ms": 124
+    },
+    {
+      "name": "12-pi-request-1-verbatim",
+      "bytes": 72923,
+      "status": 200,
+      "body": "{\"input_tokens\":6273}",
+      "ms": 324
+    },
+    {
+      "name": "13-pi-request-2-verbatim",
+      "bytes": 80548,
+      "status": 200,
+      "body": "{\"input_tokens\":7222}",
+      "ms": 150
+    },
+    {
+      "name": "14-pi-request-1-minus-stream-maxthinking",
+      "bytes": 72923,
+      "status": 200,
+      "body": "{\"input_tokens\":6273}",
+      "ms": 114
+    },
+    {
+      "name": "15-pi-request-1-minus-tools",
+      "bytes": 67892,
+      "status": 200,
+      "body": "{\"input_tokens\":6273}",
+      "ms": 115
+    },
+    {
+      "name": "16-pi-request-1-flat-text",
+      "bytes": 72641,
+      "status": 200,
+      "body": "{\"input_tokens\":6273}",
+      "ms": 156
+    }
+  ]
+}

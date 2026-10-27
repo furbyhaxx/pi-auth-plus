@@ -1,0 +1,27 @@
+{
+  "note": "output_tokens vs the model's own tokenizer on the returned text",
+  "generations": [
+    {
+      "at": "2026-10-27T18:23:02.572Z",
+      "usage": {
+        "input_tokens": 22,
+        "output_tokens": 128,
+        "cache_creation_input_tokens": 22,
+        "cache_read_input_tokens": 0
+      },
+      "chars": 612,
+      "deepseek_v41_tokens": 127
+    },
+    {
+      "at": "2026-10-27T18:26:41.319Z",
+      "usage": {
+        "input_tokens": 35,
+        "output_tokens": 209,
+        "cache_creation_input_tokens": 35,
+        "cache_read_input_tokens": 0
+      },
+      "chars": 1225,
+      "deepseek_v41_tokens": 208
+    }
+  ]
+}

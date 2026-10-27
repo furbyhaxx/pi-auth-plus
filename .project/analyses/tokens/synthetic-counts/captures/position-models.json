@@ -1,0 +1,82 @@
+{
+  "at": "2026-10-27T18:23:26.021Z",
+  "results": [
+    {
+      "name": "pos:hex-then-prose",
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "chars": 40000,
+      "input_tokens": 7323,
+      "ms": 500
+    },
+    {
+      "name": "pos:prose-then-hex",
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "chars": 40000,
+      "input_tokens": 7322,
+      "ms": 155
+    },
+    {
+      "name": "model:gpt-oss-120b:prose",
+      "model": "hf:openai/gpt-oss-120b",
+      "chars": 20000,
+      "input_tokens": 14231,
+      "ms": 740
+    },
+    {
+      "name": "model:gpt-oss-120b:hex",
+      "model": "hf:openai/gpt-oss-120b",
+      "chars": 20000,
+      "input_tokens": 27681,
+      "ms": 849
+    },
+    {
+      "name": "model:GLM-4.7-Flash:prose",
+      "model": "hf:zai-org/GLM-4.7-Flash",
+      "chars": 20000,
+      "input_tokens": 7871,
+      "ms": 740
+    },
+    {
+      "name": "model:GLM-4.7-Flash:hex",
+      "model": "hf:zai-org/GLM-4.7-Flash",
+      "chars": 20000,
+      "input_tokens": 18032,
+      "ms": 658
+    },
+    {
+      "name": "model:Kimi-K3:prose",
+      "model": "hf:moonshotai/Kimi-K3",
+      "chars": 20000,
+      "input_tokens": "HTTP 500 ",
+      "ms": 478
+    },
+    {
+      "name": "model:Kimi-K3:hex",
+      "model": "hf:moonshotai/Kimi-K3",
+      "chars": 20000,
+      "input_tokens": "HTTP 500 ",
+      "ms": 475
+    },
+    {
+      "name": "model:Qwen3.8-27B:prose",
+      "model": "hf:Qwen/Qwen3.8-27B",
+      "chars": 20000,
+      "input_tokens": "HTTP 500 ",
+      "ms": 645
+    },
+    {
+      "name": "model:Qwen3.8-27B:hex",
+      "model": "hf:Qwen/Qwen3.8-27B",
+      "chars": 20000,
+      "input_tokens": "HTTP 500 ",
+      "ms": 436
+    },
+    {
+      "name": "model:syn-large-text:prose",
+      "model": "syn:large:text",
+      "chars": 20000,
+      "input_tokens": 2517,
+      "ms": 213
+    }
+  ]
+}

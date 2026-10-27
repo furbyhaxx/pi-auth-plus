@@ -1,0 +1,145 @@
+{
+  "at": "2026-10-27T18:21:22.863Z",
+  "tokenizer": "deepseek-ai/DeepSeek-V4.1-Flash-1017 tokenizer.json (HF), run with tokenizers 0.23.3",
+  "rows": [
+    {
+      "case": "user:prose-120",
+      "chars": 120,
+      "count_tokens": 29,
+      "count_status": 200,
+      "deepseek_v41_tokens": 38,
+      "ratio_count_over_real": 0.7632
+    },
+    {
+      "case": "user:prose-1000",
+      "chars": 1000,
+      "count_tokens": 128,
+      "count_status": 200,
+      "deepseek_v41_tokens": 274,
+      "ratio_count_over_real": 0.4672
+    },
+    {
+      "case": "user:prose-5000",
+      "chars": 5000,
+      "count_tokens": 610,
+      "count_status": 200,
+      "deepseek_v41_tokens": 1418,
+      "ratio_count_over_real": 0.4302
+    },
+    {
+      "case": "user:prose-20000",
+      "chars": 20000,
+      "count_tokens": 2517,
+      "count_status": 200,
+      "deepseek_v41_tokens": 5949,
+      "ratio_count_over_real": 0.4231
+    },
+    {
+      "case": "user:prose-40000",
+      "chars": 40000,
+      "count_tokens": 5014,
+      "count_status": 200,
+      "deepseek_v41_tokens": 11880,
+      "ratio_count_over_real": 0.4221
+    },
+    {
+      "case": "user:prose-66000",
+      "chars": 66000,
+      "count_tokens": 8263,
+      "count_status": 200,
+      "deepseek_v41_tokens": 19599,
+      "ratio_count_over_real": 0.4216
+    },
+    {
+      "case": "user:json-1000",
+      "chars": 1000,
+      "count_tokens": 167,
+      "count_status": 200,
+      "deepseek_v41_tokens": 366,
+      "ratio_count_over_real": 0.4563
+    },
+    {
+      "case": "user:json-20000",
+      "chars": 20000,
+      "count_tokens": 3041,
+      "count_status": 200,
+      "deepseek_v41_tokens": 7193,
+      "ratio_count_over_real": 0.4228
+    },
+    {
+      "case": "user:json-60000",
+      "chars": 60000,
+      "count_tokens": 9089,
+      "count_status": 200,
+      "deepseek_v41_tokens": 21562,
+      "ratio_count_over_real": 0.4215
+    },
+    {
+      "case": "disc:random-prose-20000",
+      "chars": 20000,
+      "count_tokens": 1739,
+      "deepseek_v41_tokens": 4099,
+      "ratio_count_over_real": 0.4242
+    },
+    {
+      "case": "disc:hex-20000",
+      "chars": 20000,
+      "count_tokens": 4818,
+      "deepseek_v41_tokens": 11416,
+      "ratio_count_over_real": 0.422
+    },
+    {
+      "case": "disc:japanese-4000",
+      "chars": 2240,
+      "count_tokens": 552,
+      "deepseek_v41_tokens": 1280,
+      "ratio_count_over_real": 0.4313
+    },
+    {
+      "case": "disc:emoji-4000",
+      "chars": 2069,
+      "count_tokens": 1581,
+      "deepseek_v41_tokens": 3724,
+      "ratio_count_over_real": 0.4245
+    },
+    {
+      "case": "disc:mixed-20000",
+      "chars": 18240,
+      "count_tokens": 2833,
+      "deepseek_v41_tokens": 6699,
+      "ratio_count_over_real": 0.4229
+    },
+    {
+      "case": "system:pi-system",
+      "chars": 66520,
+      "count_tokens": 6260,
+      "deepseek_v41_tokens": 14840,
+      "ratio_count_over_real": 0.4218,
+      "note": "the captured Pi system prompt alone, sent as system"
+    },
+    {
+      "case": "system:pi-system-json-message",
+      "chars": 86520,
+      "count_tokens": 9288,
+      "deepseek_v41_tokens": 22033,
+      "ratio_count_over_real": 0.4215,
+      "note": "Pi system prompt + a 20 000-char JSON user message"
+    },
+    {
+      "case": "pi-request-1-verbatim",
+      "chars": 72923,
+      "count_tokens": 6273,
+      "deepseek_v41_tokens": 16235,
+      "ratio_count_over_real": 0.3863,
+      "note": "captured Pi request 1: system + 7 tools + one user message; count_tokens ignores the tools (6273 with and without)"
+    },
+    {
+      "case": "pi-request-1-no-tools",
+      "chars": 0,
+      "count_tokens": 6273,
+      "deepseek_v41_tokens": 14908,
+      "ratio_count_over_real": 0.4208,
+      "note": "same payload without the tools array"
+    }
+  ]
+}

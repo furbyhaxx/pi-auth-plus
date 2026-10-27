@@ -1,0 +1,190 @@
+{
+  "at": "2026-10-27T18:25:35.476Z",
+  "rows": [
+    {
+      "model": "infinite:small:vision",
+      "context_length": 524288,
+      "short": {
+        "status": 200,
+        "body": "{\"input_tokens\":16}"
+      },
+      "prose-20k": {
+        "status": 200,
+        "body": "{\"input_tokens\":2517}"
+      }
+    },
+    {
+      "model": "syn:large:text",
+      "context_length": 524288,
+      "short": {
+        "status": 200,
+        "body": "{\"input_tokens\":16}"
+      },
+      "prose-20k": {
+        "status": 200,
+        "body": "{\"input_tokens\":2517}"
+      }
+    },
+    {
+      "model": "syn:small:text",
+      "context_length": 196608,
+      "short": {
+        "status": 200,
+        "body": "{\"input_tokens\":17}"
+      },
+      "prose-20k": {
+        "status": 200,
+        "body": "{\"input_tokens\":7871}"
+      }
+    },
+    {
+      "model": "syn:large:vision",
+      "context_length": 524288,
+      "short": {
+        "status": 500,
+        "body": ""
+      },
+      "prose-20k": {
+        "status": 500,
+        "body": ""
+      }
+    },
+    {
+      "model": "syn:small:vision",
+      "context_length": 524288,
+      "short": {
+        "status": 200,
+        "body": "{\"input_tokens\":16}"
+      },
+      "prose-20k": {
+        "status": 200,
+        "body": "{\"input_tokens\":2517}"
+      }
+    },
+    {
+      "model": "hf:openai/gpt-oss-120b",
+      "context_length": 131072,
+      "short": {
+        "status": 200,
+        "body": "{\"input_tokens\":181}"
+      },
+      "prose-20k": {
+        "status": 200,
+        "body": "{\"input_tokens\":14231}"
+      },
+      "real_tokenizer": {
+        "prose_20k": 5762,
+        "hex_20k": 11271
+      }
+    },
+    {
+      "model": "hf:zai-org/GLM-5.3",
+      "context_length": 524288,
+      "short": {
+        "status": 500,
+        "body": ""
+      },
+      "prose-20k": {
+        "status": 500,
+        "body": ""
+      }
+    },
+    {
+      "model": "hf:zai-org/GLM-5.3-Flash",
+      "context_length": 524288,
+      "short": {
+        "status": 500,
+        "body": ""
+      },
+      "prose-20k": {
+        "status": 500,
+        "body": ""
+      }
+    },
+    {
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "context_length": 524288,
+      "short": {
+        "status": 200,
+        "body": "{\"input_tokens\":16}"
+      },
+      "prose-20k": {
+        "status": 200,
+        "body": "{\"input_tokens\":2517}"
+      },
+      "real_tokenizer": {
+        "prose_20k": 5949,
+        "hex_20k": 11416
+      }
+    },
+    {
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash",
+      "context_length": 524288,
+      "short": {
+        "status": 200,
+        "body": "{\"input_tokens\":16}"
+      },
+      "prose-20k": {
+        "status": 200,
+        "body": "{\"input_tokens\":2517}"
+      },
+      "real_tokenizer": {
+        "prose_20k": 5949,
+        "hex_20k": 11416
+      }
+    },
+    {
+      "model": "hf:moonshotai/Kimi-K3",
+      "context_length": 524288,
+      "short": {
+        "status": 500,
+        "body": ""
+      },
+      "prose-20k": {
+        "status": 500,
+        "body": ""
+      }
+    },
+    {
+      "model": "hf:Qwen/Qwen3.8-27B",
+      "context_length": 262144,
+      "short": {
+        "status": 500,
+        "body": ""
+      },
+      "prose-20k": {
+        "status": 500,
+        "body": ""
+      }
+    },
+    {
+      "model": "hf:zai-org/GLM-4.7-Flash",
+      "context_length": 196608,
+      "short": {
+        "status": 200,
+        "body": "{\"input_tokens\":17}"
+      },
+      "prose-20k": {
+        "status": 200,
+        "body": "{\"input_tokens\":7871}"
+      },
+      "real_tokenizer": {
+        "prose_20k": 5798,
+        "hex_20k": 13289
+      }
+    },
+    {
+      "model": "hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4",
+      "context_length": 262144,
+      "short": {
+        "status": 200,
+        "body": "{\"input_tokens\":22}"
+      },
+      "prose-20k": {
+        "status": 200,
+        "body": "{\"input_tokens\":5852}"
+      }
+    }
+  ],
+  "note": "every always-on model from https://api.synthetic.new/v1/models, short sentence and a 20 000-char prose block"
+}

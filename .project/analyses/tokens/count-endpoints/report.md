@@ -5,15 +5,18 @@ document:
   title: "Native token-count endpoints on the configured subscription logins"
   description: "Live probe of Anthropic count_tokens, Google v1internal:countTokens, xAI tokenize, OpenAI input_tokens and the Synthetic/Zen equivalents, with accuracy against the same payload's streamed usage, request recipes and a source precedence per family"
   status: "published"
-  revision: 1
+  revision: 2
   created_at: "2026-10-27T18:53:01+01:00"
-  updated_at: "2026-10-27T18:53:01+01:00"
+  updated_at: "2026-10-27T19:28:50+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       reason: "document creation"
       changes: ["live probes for anthropic, google, xai, openai, synthetic, opencode; verdicts and precedence"]
+    - revision: 2
+      reason: "synthetic row corrected after a live re-probe"
+      changes: ["synthetic count_tokens works; the earlier 500 was model-gated (5 of 14 always-on models), not shape or auth; the endpoint ignores tools and returns a per-model scaled count, not real tokens; precedence table updated"]
 ---
 
 # Native token-count endpoints on subscription logins
@@ -30,12 +33,23 @@ touched. Captures with secrets removed: [`captures/`](captures/).
 | Google `POST /v1internal:countTokens` | `antigravity` OAuth | **works, incomplete** | counts `contents` only: `systemInstruction` and `tools` are ignored, and only the base catalog model id gets the full count. Gemini −14…−103, Claude-on-Google −3341…−3780, gpt-oss +528…+603 | 439 ms |
 | xAI tokenize | `xai` OAuth | **rejected (absent)** | `/v1/tokenize-text` → 404 (resolved as a model lookup), `/v1/tokenize` → 404 | – |
 | OpenAI `POST /v1/responses/input_tokens` | `openai` OAuth (ChatGPT) | **rejected** | 401 `rejected_by_hardened_oauth_boundary`, code `hardened_oauth_rule_missing` | – |
-| Synthetic `POST /anthropic/v1/messages/count_tokens` | `synthetic` API key | **rejected** | 500 with both `x-api-key` and `Bearer` | – |
+| Synthetic `POST /anthropic/v1/messages/count_tokens` | `synthetic` API key | **works, but not a token count** | identical to the stream's `message_start.input_tokens` (0 delta on 6 payloads, once tools are excluded); both are 0.42× the model's real tokenizer for the DeepSeek family, 1.36× for GLM-4.7-Flash, 2.44× for gpt-oss-120b; 500 on 5 of 14 always-on models | 253 ms |
 | OpenCode Zen `POST /zen/v1/messages/count_tokens` | anonymous `public` | **rejected** | 404 | – |
 
 Only Anthropic's endpoint can be used as an authoritative pre-flight count. Google's is
 usable only for content delta accounting that excludes the system prompt and tools, which
 in a real Pi session dominate the payload.
+
+**Revision 2 correction (Synthetic).** Revision 1 recorded Synthetic's endpoint as absent after
+a 500. It is present and documented (`https://dev.synthetic.new/docs/anthropic/messages/count-tokens`)
+and answers 200 for every shape we send, including a verbatim claim from a real Pi session. The
+500 is **model-gated**: `syn:large:vision`, `hf:zai-org/GLM-5.3`, `hf:zai-org/GLM-5.3-Flash`,
+`hf:moonshotai/Kimi-K3` and `hf:Qwen/Qwen3.8-27B` answer 500 to any body, the other nine
+always-on models answer 200. The number it returns is not a token count: it equals the stream's
+`message_start.input_tokens` exactly, ignores tool declarations, and is the model's real
+tokenizer count multiplied by a per-model factor (0.4208 for the DeepSeek family, 1.357 for
+GLM-4.7-Flash, ~2.44 for gpt-oss-120b). The provider's context check uses the real count, not
+this one. Full evidence: [`../synthetic-counts/report.md`](../synthetic-counts/report.md).
 
 ## Anthropic `count_tokens`: what makes it exact
 
@@ -152,16 +166,17 @@ tokenizer. Concretely:
 | `antigravity` Gemini (`gemini-*`) | `usageMetadata.promptTokenCount` | `v1internal:countTokens` with the **base** catalog id, contents only, is *not* accurate enough for a full prompt; use only where system+tools are out of scope | – | label any endpoint number an estimate |
 | `antigravity` Claude (`claude-*`) | `usageMetadata.promptTokenCount` | none usable (−49…−52% on the tested payload) | – | do not reuse anthropic-family counts: the wire payload and the accounting differ |
 | `antigravity` gpt-oss (`gpt-oss-*`) | `usageMetadata.promptTokenCount` (present in both probes) | none usable (+18…+21%) | – | fix the plan's missing-usage assumption if U1 confirms usage is present |
-| `synthetic` | streamed `usage` | none (500) | – | anthropic-messages wire; count endpoint absent |
+| `synthetic` | streamed `usage` | `count_tokens` (same number as the stream, tool declarations excluded; 500 on 5 of 14 models) | **the model's own HF tokenizer** — the only count the provider's context check agrees with | With no tokenizer the provider number is 0.42× the real prompt for the DeepSeek family (2.37× under-report in Pi's context %) and 2.4× for gpt-oss; label it `provider-count`. Evidence: [`../synthetic-counts/report.md`](../synthetic-counts/report.md) |
 | `openai` / `codex` | streamed `usage` | `POST /v1/responses/input_tokens` only with an API key; 401 with the subscription login | – | treat as unavailable unless a key is configured |
 | `xai` | `usage.prompt_tokens` (incl. `cached_tokens`) | none (404) | – | estimate before the request, labelled |
 | `opencode` (Zen, Go) | streamed `usage` | none (404) | – | free tier; usage only |
 
 Implications for slice 3: only `claude` gets a real pre-flight count (tool results before the
-next request, `/tokens` tab). Every other family must present its numbers as estimates until
-the next assistant message delivers usage, and the store should key the anthropic counts by
-the shaped payload (post-shaping, pre-billing) so a re-shape with a new version does not
-reuse a stale count.
+next request, `/tokens` tab). `synthetic` gets a cheap pre-flight number, but it is the
+provider's own scaled count and must be labelled `provider-count`, not exact. Every other
+family must present its numbers as estimates until the next assistant message delivers usage,
+and the store should key the anthropic counts by the shaped payload (post-shaping, pre-billing)
+so a re-shape with a new version does not reuse a stale count.
 
 ## Reproduction
 

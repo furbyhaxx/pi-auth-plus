@@ -1,0 +1,97 @@
+{
+  "at": "2026-10-27T18:21:22.863Z",
+  "note": "names keep the probe prefix; 500-prefixed rows were 500 candidates and answer 200/400",
+  "cases": [
+    {
+      "name": "500beta-header",
+      "bytes": 95,
+      "status": 200,
+      "body": "{\"input_tokens\":14}",
+      "ms": 130
+    },
+    {
+      "name": "500beta-query",
+      "bytes": 95,
+      "status": 200,
+      "body": "{\"input_tokens\":14}",
+      "ms": 111
+    },
+    {
+      "name": "500non-always-on-model",
+      "bytes": 87,
+      "status": 400,
+      "body": "{\"error\":\"Only always-on models can be counted\"}",
+      "ms": 112
+    },
+    {
+      "name": "500unknown-model",
+      "bytes": 70,
+      "status": 400,
+      "body": "{\"error\":\"Only always-on models can be counted\"}",
+      "ms": 177
+    },
+    {
+      "name": "500missing-model",
+      "bytes": 45,
+      "status": 400,
+      "body": "{\"error\":\".model is missing\"}",
+      "ms": 114
+    },
+    {
+      "name": "500system-blocks-cache-control",
+      "bytes": 245,
+      "status": 200,
+      "body": "{\"input_tokens\":16}",
+      "ms": 942
+    },
+    {
+      "name": "500empty-messages",
+      "bytes": 65,
+      "status": 200,
+      "body": "{\"input_tokens\":1}",
+      "ms": 451
+    },
+    {
+      "name": "500tool-result-string",
+      "bytes": 158,
+      "status": 200,
+      "body": "{\"input_tokens\":17}",
+      "ms": 121
+    },
+    {
+      "name": "500c:image-in-tool-result",
+      "chars": 320,
+      "status": 200,
+      "body": "{\"input_tokens\":94}",
+      "ms": 127
+    },
+    {
+      "name": "500c:unknown-block-type",
+      "chars": 118,
+      "status": 400,
+      "body": "{\"error\":\".messages[0] did not match any option in the schema. There were 3 options, and all options had errors. The errors for each option were:\\n1. .messages[0].content did not match any option in the schema. There were 2 options, and all options had errors. The errors for each option were:\\n   1. .messages[0].content is not a string\\n   2. .messages[0].content[0] did not match any option in the",
+      "ms": 113
+    },
+    {
+      "name": "500c:system-in-messages",
+      "chars": 139,
+      "status": 200,
+      "body": "{\"input_tokens\":15}",
+      "ms": 118
+    },
+    {
+      "name": "500c:200k-text",
+      "chars": 204543,
+      "status": 200,
+      "body": "{\"input_tokens\":25054}",
+      "ms": 523
+    },
+    {
+      "name": "500c:thinking-signature-long",
+      "chars": 1207,
+      "status": 200,
+      "body": "{\"input_tokens\":15}",
+      "ms": 114
+    }
+  ]
+}

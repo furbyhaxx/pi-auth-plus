@@ -1,0 +1,230 @@
+{
+  "deepseek": {
+    "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "at": "2026-10-27T18:22:35.972Z",
+    "rows": [
+      {
+        "name": "short-text",
+        "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "count_tokens": 16,
+        "status": 200,
+        "ms": 1032,
+        "usage": [
+          {
+            "frame": "message_start",
+            "usage": {
+              "input_tokens": 16,
+              "output_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            }
+          },
+          {
+            "frame": "message_delta",
+            "usage": {
+              "input_tokens": 16,
+              "output_tokens": 7,
+              "cache_creation_input_tokens": 16,
+              "cache_read_input_tokens": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "prose-20k",
+        "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "count_tokens": 2517,
+        "status": 200,
+        "ms": 1342,
+        "usage": [
+          {
+            "frame": "message_start",
+            "usage": {
+              "input_tokens": 2517,
+              "output_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            }
+          },
+          {
+            "frame": "message_delta",
+            "usage": {
+              "input_tokens": 2517,
+              "output_tokens": 7,
+              "cache_creation_input_tokens": 2517,
+              "cache_read_input_tokens": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "json-20k",
+        "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "count_tokens": 3041,
+        "status": 200,
+        "ms": 813,
+        "usage": [
+          {
+            "frame": "message_start",
+            "usage": {
+              "input_tokens": 3041,
+              "output_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            }
+          },
+          {
+            "frame": "message_delta",
+            "usage": {
+              "input_tokens": 3041,
+              "output_tokens": 7,
+              "cache_creation_input_tokens": 3041,
+              "cache_read_input_tokens": 0
+            }
+          }
+        ]
+      },
+      {
+        "name": "pi-request-1",
+        "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "count_tokens": 6273,
+        "status": 200,
+        "ms": 1428,
+        "usage": [
+          {
+            "frame": "message_start",
+            "usage": {
+              "input_tokens": 6881,
+              "output_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            }
+          },
+          {
+            "frame": "message_delta",
+            "usage": {
+              "input_tokens": 6881,
+              "output_tokens": 7,
+              "cache_creation_input_tokens": 6881,
+              "cache_read_input_tokens": 0
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "gpt_oss": {
+    "model": "hf:openai/gpt-oss-120b",
+    "at": "2026-10-27T18:26:21.578Z",
+    "rows": [
+      {
+        "name": "short-text",
+        "model": "hf:openai/gpt-oss-120b",
+        "count_tokens": 181,
+        "status": 200,
+        "ms": 1179,
+        "usage": [
+          {
+            "frame": "message_start",
+            "usage": {
+              "input_tokens": 181,
+              "output_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            }
+          },
+          {
+            "frame": "message_delta",
+            "usage": {
+              "input_tokens": 25,
+              "output_tokens": 40,
+              "cache_creation_input_tokens": 25,
+              "cache_read_input_tokens": 157
+            }
+          }
+        ]
+      },
+      {
+        "name": "prose-20k",
+        "model": "hf:openai/gpt-oss-120b",
+        "count_tokens": 14231,
+        "status": 200,
+        "ms": 1421,
+        "usage": [
+          {
+            "frame": "message_start",
+            "usage": {
+              "input_tokens": 14231,
+              "output_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            }
+          },
+          {
+            "frame": "message_delta",
+            "usage": {
+              "input_tokens": 14075,
+              "output_tokens": 40,
+              "cache_creation_input_tokens": 14075,
+              "cache_read_input_tokens": 157
+            }
+          }
+        ]
+      },
+      {
+        "name": "json-20k",
+        "model": "hf:openai/gpt-oss-120b",
+        "count_tokens": 17398,
+        "status": 200,
+        "ms": 1866,
+        "usage": [
+          {
+            "frame": "message_start",
+            "usage": {
+              "input_tokens": 17398,
+              "output_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            }
+          },
+          {
+            "frame": "message_delta",
+            "usage": {
+              "input_tokens": 17242,
+              "output_tokens": 40,
+              "cache_creation_input_tokens": 17242,
+              "cache_read_input_tokens": 157
+            }
+          }
+        ]
+      },
+      {
+        "name": "pi-request-1",
+        "model": "hf:openai/gpt-oss-120b",
+        "count_tokens": 6273,
+        "status": 200,
+        "ms": 952,
+        "usage": [
+          {
+            "frame": "message_start",
+            "usage": {
+              "input_tokens": 6881,
+              "output_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0
+            }
+          },
+          {
+            "frame": "message_delta",
+            "usage": {
+              "input_tokens": 38,
+              "output_tokens": 7,
+              "cache_creation_input_tokens": 38,
+              "cache_read_input_tokens": 6843
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

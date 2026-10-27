@@ -1,0 +1,39 @@
+{
+  "endpoint": "POST https://api.synthetic.new/anthropic/v1/messages (stream)",
+  "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+  "catalog_context_length": 524288,
+  "real_tokenizer": "deepseek-ai/DeepSeek-V4.1-Flash-1017 tokenizer.json (HF), tokenizers 0.23.3",
+  "note": "Three payloads in one direction each. Synthetic's own count_tokens stays far below 524288 in all of them; the decision is taken on the real tokenizer count.",
+  "rows": [
+    {
+      "payload": "1 720 000 chars of English prose, max_tokens 1",
+      "bytes": 1761173,
+      "count_tokens": 215042,
+      "stream_message_start_input_tokens": 215031,
+      "real_tokens": 510840,
+      "messages_status": 200,
+      "latency_ms": 12226,
+      "verdict": "accepted: real count 510 840 < 524 288"
+    },
+    {
+      "payload": "1 050 000 chars of hex, max_tokens 1",
+      "bytes": 1050108,
+      "count_tokens": 252294,
+      "real_tokens": 599339,
+      "messages_status": 400,
+      "latency_ms": 8625,
+      "verdict": "rejected although the body is smaller in bytes than the accepted one: the limit is on real tokens",
+      "response": "{\"error\":\"Error from inference backend: 400 This model's maximum context length is 524288 tokens. However, your prompt contains at least 524289 input tokens, which exceeds this limit even without any output tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=524289)\"}"
+    },
+    {
+      "payload": "2 100 000 chars of English prose, max_tokens 1",
+      "bytes": 2150213,
+      "count_tokens": 262552,
+      "real_tokens": 623709,
+      "messages_status": 400,
+      "latency_ms": 8016,
+      "verdict": "rejected: real count 623 709 > 524 288, Synthetic's own count 262 552 < 524 288"
+    }
+  ],
+  "conclusion": "The provider enforces catalog context_length (524 288) on the model's real tokenizer count, not on the input_tokens it reports on the same payload."
+}

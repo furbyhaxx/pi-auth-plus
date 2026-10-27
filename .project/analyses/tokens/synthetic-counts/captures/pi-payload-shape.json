@@ -1,0 +1,146 @@
+{
+  "at": "2026-10-27T19:20:00+01:00",
+  "how": "pi-bolt -ne -e probe.ts -e src/index.ts --model synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017 --thinking off -p 'read /tmp/fixture.json \u2026'",
+  "payloads": [
+    {
+      "n": 1,
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "keys": [
+        "model",
+        "messages",
+        "max_tokens",
+        "stream",
+        "system",
+        "tools",
+        "thinking"
+      ],
+      "other": {
+        "max_tokens": 65536,
+        "stream": true,
+        "thinking": {
+          "type": "disabled"
+        }
+      },
+      "system_chars": 66520,
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "grep",
+        "find",
+        "ls"
+      ],
+      "tools_json_chars": 5232,
+      "messages": [
+        {
+          "role": "user",
+          "blocks": [
+            "text"
+          ],
+          "chars": 192
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "keys": [
+        "model",
+        "messages",
+        "max_tokens",
+        "stream",
+        "system",
+        "tools",
+        "thinking"
+      ],
+      "other": {
+        "max_tokens": 65536,
+        "stream": true,
+        "thinking": {
+          "type": "disabled"
+        }
+      },
+      "system_chars": 66520,
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "grep",
+        "find",
+        "ls"
+      ],
+      "tools_json_chars": 5232,
+      "messages": [
+        {
+          "role": "user",
+          "blocks": [
+            "text"
+          ],
+          "chars": 152
+        },
+        {
+          "role": "assistant",
+          "blocks": [
+            "text",
+            "tool_use"
+          ],
+          "chars": 224
+        },
+        {
+          "role": "user",
+          "blocks": [
+            "tool_result"
+          ],
+          "chars": 7401
+        }
+      ]
+    }
+  ],
+  "persisted_usage": [
+    {
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "usage": {
+        "input": 6871,
+        "output": 22,
+        "cacheRead": 0,
+        "cacheWrite": 6871,
+        "totalTokens": 13764,
+        "cost": {
+          "input": 0.0041226,
+          "output": 2.6399999999999998e-05,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.004149,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0
+      }
+    },
+    {
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "usage": {
+        "input": 977,
+        "output": 8,
+        "cacheRead": 6843,
+        "cacheWrite": 977,
+        "totalTokens": 8805,
+        "cost": {
+          "input": 0.0005861999999999999,
+          "output": 9.6e-06,
+          "cacheRead": 0.00020528999999999998,
+          "cacheWrite": 0,
+          "total": 0.00080109,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0
+      }
+    }
+  ],
+  "count_tokens_on_captured_payloads": {
+    "request1": 6273,
+    "request2": 7222,
+    "request1_minus_tools": 6273
+  }
+}

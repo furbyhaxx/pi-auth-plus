@@ -1,0 +1,10 @@
+{
+  "at": "2026-10-27T18:26:11.220Z",
+  "chars": 1050000,
+  "bytes": 1050108,
+  "count_status": 200,
+  "count_body": "{\"input_tokens\":252294}",
+  "messages_status": 400,
+  "ms": 8625,
+  "body": "{\"error\":\"Error from inference backend: 400 This model's maximum context length is 524288 tokens. However, your prompt contains at least 524289 input tokens, which exceeds this limit even without any output tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=524289)\"}"
+}

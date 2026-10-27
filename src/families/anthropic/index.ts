@@ -1,6 +1,8 @@
 /** Anthropic registers `claude`: Claude Pro/Max OAuth or an API key, shaped like Claude Code. */
 import type { PathEnv } from "../../core/paths/index.ts";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
+import type { TokenCounter } from "../../tokens/types.ts";
+import { claudeTokenCounter } from "./count.ts";
 import { claudeAuth } from "./oauth.ts";
 import { claudeProvider, PROVIDER } from "./provider.ts";
 import { claudeQuota } from "./quota.ts";
@@ -12,6 +14,7 @@ export function createAnthropicFamily(
 ): FamilyAdapter {
 	// Constructing the version does not probe; the first OAuth request does.
 	const version = new ReportedVersion(env, probe);
+	const counters = new Map<string, TokenCounter>();
 	return {
 		id: "anthropic",
 		label: "Anthropic",
@@ -35,6 +38,15 @@ export function createAnthropicFamily(
 				}),
 			},
 		],
+		tokens: (model, deps) => {
+			if (model.provider !== PROVIDER) return undefined;
+			let counter = counters.get(model.id);
+			if (!counter) {
+				counter = claudeTokenCounter(model, deps, { version: () => version.get(), env });
+				counters.set(model.id, counter);
+			}
+			return counter;
+		},
 		register: (pi) => {
 			const override = version.override;
 			if (override.kind !== "outdated" && override.kind !== "invalid") return;

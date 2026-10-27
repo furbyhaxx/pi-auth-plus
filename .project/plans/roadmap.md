@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 17
+  revision: 18
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T17:54:05+01:00"
+  updated_at: "2026-10-27T17:55:28+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -62,6 +62,9 @@ document:
     - revision: 17
       reason: "M2 released as v0.3.0"
       changes: ["Setup swap is the last M2 step"]
+    - revision: 18
+      reason: "M2 done"
+      changes: ["pi-quotas removed from the user setup; M3 tokens is next"]
 ---
 
 # Roadmap
@@ -90,7 +93,7 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] fork login migration   locked fill-only auth.json write (Pi has no store seam)
     [x] swap review   analyses/absorbed-packages-review/report.md; fixes landed
     [x] user setup swapped   4 packages -> pi-auth-plus; pi-quotas kept until M2
-[>] M2 Quotas       pi-quotas engine on core/ + families/; reset-consume needs approval each
+[x] M2 Quotas       pi-quotas engine on core/ + families/; reset-consume needs approval each
                     time; codex = openai-codex login or pi-quotas' file (D33)
     plan: plans/0003-m2-quotas/plan.md; full parity first, then one setup swap
     [x] 1 engine core   contract, registry quota part, cache gaps, drainage, engine
@@ -100,8 +103,8 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 5 line          templates, placements, widget, footer
     [x] 6 panels        /auth quotas + settings tabs, /quotas
     [x] 7 resets + CLI  codex reset from the tab (confirm); --quotas-json/--quotas-list
-    [>] 8 cutover       [x] carry-over, /quota, docs, parity run, bus client,
-                        [x] codex id + /quota codex login, [x] v0.3.0; [ ] swap pi-quotas
+    [x] 8 cutover       [x] carry-over, /quota, docs, parity run, bus client,
+                        [x] codex id + /quota codex login, [x] v0.3.0, [x] swap
 [.] M3 Tokens       per-family counting sources, content-hash store, footer reuses it
 [.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream
 ```

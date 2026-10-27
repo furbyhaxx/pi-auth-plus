@@ -4,10 +4,10 @@ document:
   id: "0003-m2-quotas"
   title: "M2 quotas"
   description: "Port the pi-quotas engine, seven providers, line, panels, bus and CLI onto core/ and families/"
-  status: "published"
-  revision: 10
+  status: "completed"
+  revision: 11
   created_at: "2026-10-27T14:28:39+01:00"
-  updated_at: "2026-10-27T17:54:05+01:00"
+  updated_at: "2026-10-27T17:55:28+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -38,6 +38,9 @@ document:
     - revision: 10
       reason: "M2 released"
       changes: ["Live tmux pass at 36/57/80/140 done; released as v0.3.0; setup swap next"]
+    - revision: 11
+      reason: "M2 done"
+      changes: ["pi-quotas swapped out of the user setup; live check on Pi-Bolt and stock Pi"]
 ---
 
 # M2 quotas
@@ -92,7 +95,7 @@ Agent decisions (not user-facing choices):
 [x] 5 Line              template parser/renderer, line placements, widget, footer
 [x] 6 Panels            /auth quotas panel with refresh, settings panel from the catalog
 [x] 7 Resets + CLI      panel resets with confirm dialog; --quotas-json / --quotas-list
-[>] 8 Cutover           carry-over, docs, parity run, bus client, codex (D33); swap + release left
+[x] 8 Cutover           carry-over, docs, parity, bus client, codex (D33), v0.3.0, swap
 ```
 
 ## Slices 1-3: done
@@ -155,7 +158,7 @@ spending (a fake credit reached the dialog at 36/57/80/140 columns, Keep spent n
 found live and fixed: staleness ignored provider polling floors, so claude (5 min floor)
 read `stale` between polls and the CLI exited 1.
 
-## Slice 8: cutover (now)
+## Slice 8: cutover: done
 
 Outcome: pi-auth-plus owns `/quota`, carries the user's pi-quotas settings over, is documented,
 and matches pi-quotas side by side; then pi-quotas leaves the setup and M2 is released.
@@ -178,7 +181,8 @@ Units (all landed on dev unless marked):
 - [x] Cache fix: same-millisecond writes from another session win over stale memory.
 - [x] Live tmux pass at 36/57/80/140 (line, `/auth` Providers + Quotas,
       `/quota codex login --device` first leg); released as v0.3.0.
-- [ ] Swap `pi-quotas` out of `~/.pi/agent/settings.json` (D29), live check.
+- [x] Swapped `pi-quotas` out of `~/.pi/agent/settings.json` (D29); live check: `/quota`,
+      line and `--quotas-json`/`--quotas-list` on Pi-Bolt and stock Pi.
 
 ## Later
 

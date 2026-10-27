@@ -110,8 +110,8 @@ detailed plan; later ones hold the ideas that must not get lost.
                         [x] codex id + /quota codex login, [x] v0.3.0, [x] swap
 [>] M3 Tokens       correct usage on every turn, count sources, store, /tokens surface
     plan: plans/0004-m3-tokens/plan.md
-    [>] 1 evidence      live usage audit per provider + count endpoint probes
-    [ ] 2 usage fix     our streams + message_end correction for builtins
+    [x] 1 evidence      usage correct on 7/8 routes; claude count_tokens exact
+    [x] 2 usage fix     synthetic double count fixed (message_end)
     [.] 3 counts        sources per family + content-hash store
     [.] 4 surface       /tokens tab, bus, footer reuses the store
 [.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream

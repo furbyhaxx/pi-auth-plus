@@ -5,15 +5,18 @@ document:
   title: "M3 tokens"
   description: "Accurate token counts per family: correct usage on every assistant turn, count sources, store, /tokens surface"
   status: "published"
-  revision: 1
+  revision: 2
   created_at: "2026-10-27T18:43:41+01:00"
-  updated_at: "2026-10-27T18:43:41+01:00"
+  updated_at: "2026-10-27T18:58:01+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       reason: "document creation"
       changes: ["Seams and sources scouted; slice 1 (evidence) in detail, later slices sparse"]
+    - revision: 2
+      reason: "slices 1-2 done"
+      changes: ["Live usage audit and count probes recorded; synthetic double count fixed; slice 3+ scope awaits user"]
 ---
 
 # M3 tokens
@@ -40,13 +43,33 @@ Goal: the token numbers Pi and our surfaces show are right, and say where they c
 ## Slices
 
 ```
-[>] 1 Evidence     live usage audit per provider + count endpoint probes
-[ ] 2 Usage fix    every assistant turn carries complete usage (our streams + message_end)
+[x] 1 Evidence     analyses/tokens/{usage-audit,count-endpoints}/report.md
+[x] 2 Usage fix    synthetic duplicate cache write dropped (message_end); antigravity clamp
 [.] 3 Counts       count sources per family + content-hash store (shape set by slice 1)
 [.] 4 Surface      /tokens tab, bus pi-auth-plus:v1:tokens:*, footer reuses the store
 ```
 
-## Slice 1: evidence (now)
+## Slices 1-2 results (2026-10-27)
+
+- Usage is complete and correctly mapped on claude, antigravity (Gemini, Claude, gpt-oss),
+  opencode, openai and xai: persisted prompt = real prompt, 0.0 % error. The gpt-oss
+  missing-usage gap did not reproduce (4 of 4 streams carried `usageMetadata`).
+- Synthetic repeated the uncached input as `cache_creation_input_tokens` (+100 % first turn).
+  Fixed by a `message_end` replacement that drops the duplicate `cacheWrite` (Pi copies the
+  replacement in place and does not recompute cost, so `input` keeps the input price).
+  Live: 6869-token prompt persists as `totalTokens 6871` (was 13758).
+- Pi's remaining error is the tail estimate after the last usage anchor: JSON tool results
+  run at 2.1-3.5 chars/token, so 4 chars/token is 12-55 % low (claude 33 %, antigravity
+  Claude 48 %). Whole-context estimates without an anchor are -26 % to +16 %.
+- Count endpoints: Anthropic `count_tokens` works on the claude OAuth login and is exact
+  (0 delta, 6 payloads, p50 166 ms; drop `metadata` and the billing system block, keep
+  identity). Google `countTokens` ignores system and tools (-50 % on Claude), unusable.
+  xAI tokenize 404, OpenAI `input_tokens` 401, Synthetic/Zen 500/404.
+- Open: Synthetic reports ~10 chars/token uniformly; either its counts are not real token
+  counts or the endpoint counts differently. Its context % may be 2-3x too low.
+- `ctx.compact()` exists, so an extension can trigger compaction from its own count.
+
+## Slice 1: evidence (done)
 
 Two read-only analyst units, in parallel, outputs under `.project/analyses/tokens/`.
 

@@ -133,12 +133,16 @@ function jsonStream(body: ReadableStream<Uint8Array>, restore: (wire: string) =>
 							output[written++] = byte;
 							continue;
 						}
-						if (length === MAX_JSON_TOOL_NAME_BYTES) {
-							throw new ResponseRestoreLimitError("JSON tool name", MAX_JSON_TOOL_NAME_BYTES);
+						if (length < MAX_JSON_TOOL_NAME_BYTES) {
+							held[length++] = byte;
+							escaped = !escaped && byte === 92;
+							continue;
 						}
-						held[length++] = byte;
-						escaped = !escaped && byte === 92;
-						continue;
+						// Longer than any tool name: an ordinary string value, passed through unchanged.
+						append(held.subarray(0, length));
+						length = 0;
+						state = "string";
+						keyIndex = -1;
 					}
 					output[written++] = byte;
 					if (state === "string") {

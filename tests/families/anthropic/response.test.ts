@@ -97,7 +97,7 @@ describe("families/anthropic/response", () => {
 		}
 	});
 
-	test("bounds JSON candidates and SSE lines in bytes", async () => {
+	test("bounds SSE lines and passes over-long JSON name values through", async () => {
 		for (const ending of ["", "\n"]) {
 			const bytes = encoder.encode("x".repeat(MAX_SSE_LINE_BYTES + 1) + ending);
 			await expect(
@@ -115,9 +115,16 @@ describe("families/anthropic/response", () => {
 		expect(
 			await restoreToolNames(response([encoder.encode(`{"name":"${longName}"}`)]), restore).text(),
 		).toBe(`{"name":"${longName}"}`);
-		await expect(
-			restoreToolNames(response([encoder.encode(`{"name":"${longName}a"}`)]), restore).text(),
-		).rejects.toThrow(`claude: JSON tool name exceeds ${MAX_JSON_TOOL_NAME_BYTES}`);
+		const longValue = `{"name":"${longName}\\"Bash","next":{"name":"Bash"}}`;
+		for (let split = 0; split <= longValue.length; split += 97) {
+			const bytes = encoder.encode(longValue);
+			expect(
+				await restoreToolNames(
+					response([bytes.slice(0, split), bytes.slice(split)]),
+					restore,
+				).text(),
+			).toBe(longValue.replace('{"name":"Bash"}', '{"name":"bash"}'));
+		}
 	});
 
 	test("preserves metadata and removes all stale representation headers", async () => {

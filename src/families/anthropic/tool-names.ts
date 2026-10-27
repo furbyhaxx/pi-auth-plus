@@ -1,6 +1,6 @@
 /** Claude Code's bare PascalCase tool names and the request-local exact way back. */
 
-const PI_PLACEHOLDER = "__pi_deferred_placeholder__";
+export const PI_PLACEHOLDER = "__pi_deferred_placeholder__";
 
 /** Two Pi tools that map to one wire name, which would make tool calls ambiguous. */
 export class ToolNameCollisionError extends Error {

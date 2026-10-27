@@ -3,7 +3,7 @@ import type { TextRule } from "../../core/config/fields.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
 import { billingBlock } from "./billing.ts";
 import { withClaudeCodeIdentity } from "./sanitize.ts";
-import { wireToolName } from "./tool-names.ts";
+import { PI_PLACEHOLDER, wireToolName } from "./tool-names.ts";
 import { userAgent } from "./version.ts";
 
 const REQUIRED_BETAS = ["oauth-2025-04-20", "interleaved-thinking-2025-05-14"];
@@ -14,7 +14,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function shapeToolDefinition(tool: Record<string, unknown>): void {
 	if (typeof tool["name"] !== "string" || !tool["name"]) return;
-	if (tool["name"] === "__pi_deferred_placeholder__") {
+	if (tool["name"] === PI_PLACEHOLDER) {
 		const cacheControl = tool["cache_control"];
 		for (const key of Object.keys(tool)) delete tool[key];
 		tool["name"] = "DeferredToolPlaceholder";

@@ -38,6 +38,13 @@ All notable changes to this project are documented here. The format follows
   as in a session; only user-scope settings apply. Exit 0 all ok, 1 a provider not ok,
   2 usage error. There is no CLI reset.
 - Quota aliases from pi-quotas: `cl` and `cc` for claude, `ag` for antigravity.
+- **pi-quotas carry-over.** On the first start without pi-quotas, its settings fill unset
+  `quotas.*` keys and its drainage history merges into the host cache, once per source;
+  nothing already set is overwritten, and a malformed source is retried on the next start.
+- **`@furbyhaxx/pi-auth-plus/bus`.** A typed client for the quotas bus: `queryQuotas`,
+  `refreshQuotas`, `listQuotaResets`, `requestQuotaReset` and `subscribeQuota*`, with
+  validated replies and request timeouts.
+- Quota reports and `--quotas-list` show available on-demand reset credits.
 - **Antigravity login carry-over.** On the first session start, a pi-antigravity-auth login
   stored under Pi's `google` slot is copied into an empty `antigravity` slot, under the same
   file lock Pi's `/login` takes. The `google` slot is left untouched. On failure a warning
@@ -53,6 +60,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Two sessions writing the quota cache in the same millisecond no longer lose one write.
 - **Antigravity turns never hang.** A turn fails with `RESPONSE_TIMEOUT` when no response
   headers arrive, and with `STREAM_STALLED` when the stream sends nothing, each after 180 s or
   Pi's `timeoutMs`.

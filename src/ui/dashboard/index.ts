@@ -78,11 +78,13 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 		const wanted = Math.max(...TABS.map((spec) => this.#views[spec.id].wantedRows()), 1);
 		const bodyRows = bodyRowsFor(this.host.terminal.rows, 1, wanted);
 		const body = this.#views[this.#tab].render(width, bodyRows);
-		const hints: HintItem[] = [
-			{ key: this.binding("tui.input.tab"), action: "switch", priority: 1 },
-			...body.hints,
-			{ key: this.binding("tui.select.cancel"), action: "close", priority: 0 },
-		];
+		const hints: HintItem[] = body.modal
+			? [...body.hints]
+			: [
+					{ key: this.binding("tui.input.tab"), action: "switch", priority: 1 },
+					...body.hints,
+					{ key: this.binding("tui.select.cancel"), action: "close", priority: 0 },
+				];
 		const spec = TABS.find((tab) => tab.id === this.#tab);
 		const count = this.#providerCount;
 		return drawFrame(this.theme, width, {

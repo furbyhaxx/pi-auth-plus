@@ -1,5 +1,5 @@
 /** Owns the live quota dashboard body, provider selection and quota actions. */
-import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
+import { matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { SETTINGS } from "../../core/config/catalog.ts";
 import type { DrainageMetrics } from "../../quotas/drainage.ts";
 import { type LineTheme, renderGradientBar, styleByStress } from "../../quotas/line/format.ts";
@@ -88,6 +88,15 @@ function drainageText(metrics: DrainageMetrics, currency: string | undefined, no
 }
 
 /** A live, scrollable quotas tab. Selection is keyed by provider id. */
+/** Clips a label but keeps a trailing "(5h)"-style qualifier, which tells sibling windows apart. */
+export function fitLabel(label: string, width: number): string {
+	if (visibleWidth(label) <= width) return label;
+	const suffix = / \([^()]{1,12}\)$/.exec(label)?.[0];
+	if (!suffix || visibleWidth(suffix) + 2 > width) return truncateToWidth(label, width, "…");
+	const head = label.slice(0, -suffix.length);
+	return `${truncateToWidth(head, width - visibleWidth(suffix), "…")}${suffix}`;
+}
+
 export class QuotasView implements TabView {
 	readonly #host: TabViewHost;
 	readonly #theme: LineTheme;
@@ -175,7 +184,10 @@ export class QuotasView implements TabView {
 				addDrainage(credits.drainage, credits.currency);
 			}
 			for (const window of provider.windows) {
-				const label = padTo(theme.fg("muted", text(window.label)), labelWidth);
+				const label = padTo(
+					theme.fg("muted", fitLabel(text(window.label), labelWidth)),
+					labelWidth,
+				);
 				const percent = formatPercent(window.usedFraction, config);
 				const styledPercent =
 					window.usedFraction === undefined

@@ -248,31 +248,37 @@ export class SettingsView implements TabView {
 			above: this.#offset,
 			below: Math.max(0, rows.length - this.#offset - available),
 			description: truncateToWidth(theme.fg("muted", field?.description ?? ""), width),
+			modal: this.#mode !== "list",
 			hints:
 				this.#mode === "edit"
 					? [
-							{ key: binding("tui.select.confirm"), action: "stage", priority: 3 },
-							{ key: binding("tui.select.cancel"), action: "cancel edit", priority: 3 },
+							{ key: binding("tui.select.confirm"), action: "stage", priority: 0 },
+							{ key: binding("tui.select.cancel"), action: "cancel edit", priority: 0 },
 						]
 					: this.#mode === "save"
-						? [{ key: binding("tui.select.cancel"), action: "cancel save", priority: 3 }]
+						? [
+								{ key: "u", action: "user", priority: 0 },
+								{ key: "p", action: "project", priority: 0 },
+								{ key: "r", action: "session", priority: 0 },
+								{ key: binding("tui.select.cancel"), action: "cancel", priority: 1 },
+							]
 						: [
 								{
 									key: binding("tui.select.confirm"),
 									action: blocked ? "save/discard edits first" : "edit",
-									priority: 3,
+									priority: 1,
 								},
-								{ key: "ctrl+s", action: "save", priority: 2 },
-								{ key: "Backspace", action: "default", priority: 1 },
+								{ key: "ctrl+s", action: "save", priority: 1 },
+								{ key: "Backspace", action: "default", priority: 3 },
 								{
 									key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
 									action: "move",
-									priority: 1,
+									priority: 2,
 								},
 								{
 									key: `${binding("tui.editor.cursorLeft")}/${binding("tui.editor.cursorRight")}`,
 									action: "change",
-									priority: 1,
+									priority: 2,
 								},
 							],
 		};

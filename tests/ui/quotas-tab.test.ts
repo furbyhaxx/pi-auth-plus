@@ -9,7 +9,7 @@ import {
 import type { LineTheme } from "../../src/quotas/line/format.ts";
 import type { LineConfig } from "../../src/quotas/line/values.ts";
 import type { QuotaReport, ReportProvider } from "../../src/quotas/report.ts";
-import { type LinePlacement, QuotasView } from "../../src/ui/dashboard/quotas.ts";
+import { fitLabel, type LinePlacement, QuotasView } from "../../src/ui/dashboard/quotas.ts";
 import type { TabViewHost } from "../../src/ui/dashboard/view.ts";
 
 const theme = {
@@ -292,4 +292,12 @@ describe("quotas tab", () => {
 		for (let i = 0; i < 8; i++) expect([...seen].join("\n")).toContain(`Window ${i}`);
 		f.view.dispose();
 	});
+});
+
+test("clipped window labels keep the qualifier that tells sibling windows apart", () => {
+	expect(stripVTControlCharacters(fitLabel("Claude and GPT models (5h)", 19))).toBe(
+		"Claude and GP… (5h)",
+	);
+	expect(fitLabel("Claude and GPT models (7d)", 19)).toEndWith(" (7d)");
+	expect(fitLabel("Short (7d)", 19)).toBe("Short (7d)");
 });

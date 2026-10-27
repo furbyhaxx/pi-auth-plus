@@ -21,8 +21,10 @@ export interface TabBody {
 	/** Hidden rows above and below the visible ones. */
 	readonly above: number;
 	readonly below: number;
-	/** Tab-specific key hints; the dashboard adds switch and close. */
+	/** Tab-specific key hints; the dashboard adds switch and close unless `modal`. */
 	readonly hints: readonly HintItem[];
+	/** An inline input or prompt owns every key, so switch and close are not offered. */
+	readonly modal?: boolean;
 	/** Right end of the top rule, already themed; the provider count otherwise. */
 	readonly state?: string;
 	/** Replaces the tab description, e.g. with the selected setting's help, already themed. */

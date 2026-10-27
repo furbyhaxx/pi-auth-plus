@@ -23,6 +23,21 @@ export interface AntigravityStreamOptions {
 	readonly secrets?: KnownSecrets;
 	readonly now?: () => number;
 	readonly toolCallId?: () => string;
+	/** A response that sends nothing for this long fails as `STREAM_STALLED`. */
+	readonly idleTimeoutMs?: number;
+}
+
+function readWithin<T>(
+	read: Promise<T>,
+	timeoutMs: number | undefined,
+	stalled: () => Error,
+): Promise<T> {
+	if (!timeoutMs) return read;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const deadline = new Promise<never>((_, reject) => {
+		timer = setTimeout(() => reject(stalled()), timeoutMs);
+	});
+	return Promise.race([read, deadline]).finally(() => clearTimeout(timer));
 }
 
 type Chunk = Record<string, unknown>;
@@ -120,7 +135,14 @@ export async function* parseAntigravitySse(
 		while (true) {
 			if (options.signal?.aborted)
 				throw new AntigravityError("ABORTED", "Request was aborted", { secrets: options.secrets });
-			const next = await reader.read();
+			const next = await readWithin(
+				reader.read(),
+				options.idleTimeoutMs,
+				() =>
+					new AntigravityError("STREAM_STALLED", `No data for ${options.idleTimeoutMs} ms`, {
+						secrets: options.secrets,
+					}),
+			);
 			if (options.signal?.aborted)
 				throw new AntigravityError("ABORTED", "Request was aborted", { secrets: options.secrets });
 			buffer += decoder.decode(next.value, { stream: !next.done });

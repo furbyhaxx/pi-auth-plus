@@ -8,6 +8,8 @@ const RECOVERY: Readonly<Record<string, string>> = {
 	INSUFFICIENT_G1_CREDITS_BALANCE: "Check your AI credits balance in Antigravity before retrying.",
 	VALIDATION_REQUIRED: "Open Antigravity and complete the account verification before retrying.",
 	MODEL_CAPACITY_EXHAUSTED: "Retry later or select another model while capacity is unavailable.",
+	RESPONSE_TIMEOUT: "Retry the request; the backend did not answer in time.",
+	STREAM_STALLED: "Retry the request; the backend stopped sending mid-response.",
 };
 
 /** Safe context for HTTP or in-band RPC failures; include the project id in secrets. */

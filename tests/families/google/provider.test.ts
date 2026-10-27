@@ -20,14 +20,14 @@ interface Sent {
 	body: unknown;
 }
 
-function setup(stream: () => Response) {
+function setup(stream: (init?: RequestInit) => Response | Promise<Response>) {
 	const sent: Sent[] = [];
 	const fetch = async (input: string | URL | Request, init?: RequestInit) => {
 		const url = String(input);
 		sent.push({ url, headers: new Headers(init?.headers), body: JSON.parse(String(init?.body)) });
 		if (url.endsWith(":loadCodeAssist"))
 			return Response.json({ cloudaicompanionProject: "test-project" });
-		return stream();
+		return stream(init);
 	};
 	const project = antigravityProject({ fetch, headers: () => ({}) });
 	const provider = antigravityProvider({ auth: antigravityAuth({ fetch }), project, fetch });
@@ -118,5 +118,61 @@ describe("families/google/provider", () => {
 		const anonymous = await provider.streamSimple(model, context, {}).result();
 		expect(anonymous.stopReason).toBe("error");
 		expect(anonymous.errorMessage).toContain("/login antigravity");
+	});
+
+	test("Pi's request hooks see the turn, and a replaced payload is what goes out", async () => {
+		const { sent, provider, context } = setup(
+			() =>
+				new Response(
+					frame({ candidates: [{ content: { parts: [{ text: "ok" }] }, finishReason: "STOP" }] }),
+					{ headers: { "x-test": "1" } },
+				),
+		);
+		const statuses: [number, string | undefined][] = [];
+		const message = await provider
+			.streamSimple(family("gemini-4-argon"), context, {
+				headers: { Authorization: `Bearer ${TOKEN}` },
+				onPayload: (payload) => ({ ...(payload as object), patched: true }),
+				onResponse: (response) => {
+					statuses.push([response.status, response.headers["x-test"]]);
+				},
+			})
+			.result();
+
+		expect(message.stopReason).toBe("stop");
+		expect(sent.at(-1)?.body).toMatchObject({ project: "test-project", patched: true });
+		expect(statuses).toEqual([[200, "1"]]);
+	});
+
+	test("a backend that stops answering fails the turn after timeoutMs instead of hanging", async () => {
+		const options = { headers: { Authorization: `Bearer ${TOKEN}` }, timeoutMs: 50 };
+		const silent = setup(
+			(init) =>
+				new Promise<Response>((_, reject) =>
+					init?.signal?.addEventListener("abort", () => reject(init.signal?.reason)),
+				),
+		);
+		const noHeaders = await silent.provider
+			.streamSimple(family("gemini-4-argon"), silent.context, options)
+			.result();
+		expect(noHeaders.stopReason).toBe("error");
+		expect(noHeaders.errorMessage).toContain("RESPONSE_TIMEOUT");
+
+		const stalled = setup(
+			() =>
+				new Response(
+					new ReadableStream({
+						start(controller) {
+							const first = frame({ candidates: [{ content: { parts: [{ text: "par" }] } }] });
+							controller.enqueue(new TextEncoder().encode(first));
+						},
+					}),
+				),
+		);
+		const midStream = await stalled.provider
+			.streamSimple(family("gemini-4-argon"), stalled.context, options)
+			.result();
+		expect(midStream.stopReason).toBe("error");
+		expect(midStream.errorMessage).toContain("STREAM_STALLED");
 	});
 });

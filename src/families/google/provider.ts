@@ -13,7 +13,7 @@ import {
 } from "@earendil-works/pi-ai";
 import { type FetchFn, parseRetryAfter } from "../../core/http/index.ts";
 import { bundledModels, PROVIDER, refreshCatalog } from "./catalog.ts";
-import { parseAntigravityError } from "./errors.ts";
+import { AntigravityError, parseAntigravityError } from "./errors.ts";
 import { decodeLevel, type WireLevel } from "./levels.ts";
 import { buildRequest, RequestSessions } from "./request.ts";
 import { streamAntigravityResponse } from "./stream.ts";
@@ -22,6 +22,8 @@ import { BASE_URL, cliHeaders } from "./transport.ts";
 type AntigravityModel = Model<"google-generative-ai">;
 
 const STREAM_URL = `${BASE_URL}/v1internal:streamGenerateContent?alt=sse`;
+// The fork's agy transport waited this long for headers and between body bytes.
+const STALL_TIMEOUT_MS = 180_000;
 const LEVELS: readonly ModelThinkingLevel[] = [
 	"off",
 	"minimal",
@@ -102,13 +104,32 @@ export function antigravityProvider(
 			project,
 			sessions,
 		});
-		const response = await (options?.fetch ?? fetchFn)(STREAM_URL, {
-			method: "POST",
-			headers: cliHeaders(token),
-			body: JSON.stringify(body),
-			signal,
-		});
+		const payload = (await options?.onPayload?.(body, model)) ?? body;
 		const secrets = [token, project];
+		const timeoutMs = options?.timeoutMs ?? STALL_TIMEOUT_MS;
+		// Bounds the wait for headers only; aborting later would cut a long, live stream.
+		const deadline = new AbortController();
+		const timer = setTimeout(() => deadline.abort(), timeoutMs);
+		let response: Response;
+		try {
+			response = await (options?.fetch ?? fetchFn)(STREAM_URL, {
+				method: "POST",
+				headers: cliHeaders(token),
+				body: JSON.stringify(payload),
+				signal: AbortSignal.any([signal, deadline.signal]),
+			});
+		} catch (error) {
+			if (!deadline.signal.aborted || signal.aborted) throw error;
+			throw new AntigravityError("RESPONSE_TIMEOUT", `No response within ${timeoutMs} ms`, {
+				secrets,
+			});
+		} finally {
+			clearTimeout(timer);
+		}
+		await options?.onResponse?.(
+			{ status: response.status, headers: Object.fromEntries(response.headers) },
+			model,
+		);
 		if (!response.ok) {
 			throw parseAntigravityError(await response.text(), {
 				status: response.status,
@@ -116,7 +137,12 @@ export function antigravityProvider(
 				secrets,
 			});
 		}
-		return streamAntigravityResponse(model, response, { signal, secrets, now });
+		return streamAntigravityResponse(model, response, {
+			signal,
+			secrets,
+			now,
+			idleTimeoutMs: timeoutMs,
+		});
 	}
 
 	const provider = createProvider<"google-generative-ai">({

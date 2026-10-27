@@ -5,9 +5,9 @@ document:
   title: "M1 providers"
   description: "Absorb the opencode, synthetic, claude and antigravity providers as vendor families"
   status: "published"
-  revision: 10
+  revision: 11
   created_at: "2026-10-27T10:20:46+01:00"
-  updated_at: "2026-10-27T13:10:00+01:00"
+  updated_at: "2026-10-27T13:16:22+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -43,6 +43,9 @@ document:
     - revision: 10
       reason: "M1 released"
       changes: ["Released as v0.2.0"]
+    - revision: 11
+      reason: "fork login migration wired"
+      changes: ["Locked fill-only auth.json write (core/auth/store.ts) runs the migration on session start"]
 ---
 
 # M1 providers
@@ -194,8 +197,10 @@ Outcome: units 1-7 landed (catalog `c08ae17`, login `7a122b3`, request `294666e`
 and `7399ccf`). Deviations: Pi's `google-shared` converter was replaced by a local port, because
 `pi-ai/api/google-shared` is not a loader-aliased specifier (`tests/imports.test.ts`); `last_execution_id` is not sent, per the
 capture. Live on Pi-Bolt and stock Pi: tool loops on all five families, level and model
-switches mid-session, request heads captured (`antigravity-cli/tracking.md`). The fill-only
-migration is tested but unwired, because Pi 1.4 exposes no credential-store write to extensions.
+switches mid-session, request heads captured (`antigravity-cli/tracking.md`). Pi 1.4
+exposes no credential-store write to extensions, so the fill-only migration landed unwired in
+v0.2.0 and was wired afterwards through a locked `auth.json` write (`core/auth/store.ts`, Pi's
+proper-lockfile convention), live-verified on both runtimes against a copy of a real fork slot.
 
 ## Later slices (sparse)
 

@@ -41,7 +41,8 @@ In priority order:
 - Runs on Pi-Bolt (Bun) and stock Pi (Node `>=22.19`): `node:*` APIs by default; a `Bun.*` API
   only behind a runtime check with a `node:*` fallback, and only where a measurement shows the
   gain.
-- Runtime dependencies: none. Each new one needs user approval.
+- Runtime dependencies: `proper-lockfile` only (the lock Pi itself uses on `auth.json`). Each
+  new one needs user approval.
 - `Justfile` is the command surface.
 
 ## Commands and completion criteria
@@ -50,7 +51,7 @@ In priority order:
 `just lint`, `just test`, `just format`.
 
 - `just rpc-verify`: loads the extension in a real Pi RPC session (`PI_BIN`, default
-  `pi-bolt`). Required after changing provider, command, flag or event registration, the
+  `pi-bolt`) with a throwaway agent dir, so session-start work never touches your `auth.json`. Required after changing provider, command, flag or event registration, the
   factory, or settings persistence.
 - `just parity-verify`: runs `--list-models` and `--model <id>` resolution against an isolated
   agent dir with dummy credentials and asserts every provider of ours is listed. Required after
@@ -124,9 +125,12 @@ This file describes the target state.
 
 - `families/index.ts` registers `opencode`, `synthetic`, `claude` and `antigravity`.
   `FamilyAdapter` has no `quota`/`tokens` parts until those engines land.
-- `google/migration.ts` (fork `google` OAuth slot to `antigravity`, fill-only) is tested but not
-  wired: Pi 1.4 gives extensions no credential-store write. Users log in again with
-  `/login antigravity` until Pi grows that seam or a locked `auth.json` write is approved.
+- Pi 1.4 gives extensions no credential-store write. `core/auth/store.ts` is the one exception
+  to "`/login` owns writes": a fill-only slot write to `auth.json` under Pi's own proper-lockfile
+  lock (stale 30 s, file 0600), used by `google/migration.ts` once per process on the first
+  `session_start`. It copies the fork's `google` OAuth slot into an empty `antigravity` slot and
+  never changes `google`; a lock-free precheck skips the lock when nothing is pending. Replace it
+  with Pi's seam once one exists.
 - No legacy migration exists yet: pi-synthetic-auth's `websearch.synthetic` in Pi's
   `settings.json` and its `SYNTHETIC_WEB_SEARCH` variable, and pi-claude-auth's replace
   patterns in Pi's `settings.json`, are not read.

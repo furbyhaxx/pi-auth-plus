@@ -18,7 +18,7 @@ format:
 	bunx biome check --write .
 
 rpc-verify:
-	{ echo '{"type":"get_commands","id":"1"}'; sleep 2; } | timeout 30 ${PI_BIN:-pi-bolt} --mode rpc --no-session -ne --offline -e ./src/index.ts
+	dir=$(mktemp -d); trap 'rm -rf "$dir"' EXIT; { echo '{"type":"get_commands","id":"1"}'; sleep 2; } | PI_CODING_AGENT_DIR="$dir" timeout 30 ${PI_BIN:-pi-bolt} --mode rpc --no-session -ne --offline -e ./src/index.ts
 
 parity-verify:
 	bun scripts/parity-verify.ts

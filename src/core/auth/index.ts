@@ -1,4 +1,4 @@
-/** Read-only access to our provider slots in Pi's `auth.json`; Pi's `/login` owns every write. */
+/** Reads our provider slots in Pi's `auth.json`; Pi's `/login` owns writes, except `store.ts` migrations. */
 import { readFileSync } from "node:fs";
 import { authPath } from "../paths/index.ts";
 

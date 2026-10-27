@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Antigravity login carry-over.** On the first session start, a pi-antigravity-auth login
+  stored under Pi's `google` slot is copied into an empty `antigravity` slot, under the same
+  file lock Pi's `/login` takes. The `google` slot is left untouched. On failure a warning
+  points to `/login antigravity`.
+
+### Changed
+
+- `just rpc-verify` runs against a throwaway agent dir.
+
 ## [0.2.0] - 2026-10-27
 
 ### Added

@@ -1,0 +1,10 @@
+{
+  "count_tokens_ms": [
+    381,
+    433,
+    439,
+    523,
+    622
+  ],
+  "note": "p50 439 ms, 5 sequential calls, gemini-3.8-flash-medium payload"
+}

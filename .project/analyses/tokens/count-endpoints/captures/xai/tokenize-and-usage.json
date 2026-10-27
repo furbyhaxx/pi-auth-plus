@@ -1,0 +1,35 @@
+{
+  "tokenize_text_404": {
+    "status": 404,
+    "ms": 190,
+    "body": "{\"code\":\"not-found\",\"error\":\"The model latest does not exist or your team <uuid> does not have access to it. If you believe this is a mistake, please contact support and quote your team ID and the model name.\"}"
+  },
+  "tokenize_404": {
+    "status": 404,
+    "ms": 162,
+    "body": "{\"error\":{\"code\":404,\"message\":\"The requested resource was not found. Please check the URL and try again. Documentation is available at https://docs.x.ai/\"}}"
+  },
+  "chat_usage": {
+    "status": 200,
+    "usage": {
+      "prompt_tokens": 4058,
+      "completion_tokens": 1,
+      "total_tokens": 4203,
+      "prompt_tokens_details": {
+        "text_tokens": 4058,
+        "audio_tokens": 0,
+        "image_tokens": 0,
+        "cached_tokens": 1152
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 144,
+        "audio_tokens": 0,
+        "accepted_prediction_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "num_sources_used": 0,
+      "cost_in_usd_ticks": 24677200
+    }
+  },
+  "note": "api.x.ai/v1 has no tokenize route; /v1/tokenize-text resolves as a model-scoped 404. The chat call with grok-4.7 reports usage.prompt_tokens including prompt_tokens_details.cached_tokens."
+}

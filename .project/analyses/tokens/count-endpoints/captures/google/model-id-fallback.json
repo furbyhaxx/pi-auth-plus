@@ -1,0 +1,89 @@
+{
+  "same_body": "text + tool call + tool result",
+  "rows": [
+    {
+      "model": "gemini-3.8-flash-medium",
+      "keys": [],
+      "status": 200,
+      "ms": 486,
+      "body": "{ \"totalTokens\": 25 } "
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "keys": [],
+      "status": 200,
+      "ms": 264,
+      "body": "{ \"totalTokens\": 1230 } "
+    },
+    {
+      "model": "MODEL_PLACEHOLDER_M319",
+      "keys": [],
+      "status": 200,
+      "ms": 226,
+      "body": "{ \"totalTokens\": 25 } "
+    },
+    {
+      "model": "gemini-3.8-flash-medium",
+      "keys": [
+        "labels"
+      ],
+      "status": 400,
+      "ms": 40,
+      "body": "{ \"error\": { \"code\": 400, \"message\": \"Invalid JSON payload received. Unknown name \\\"labels\\\" at 'request': Cannot find field.\", \"status\": \"INVALID_ARGUMENT\", \"details\": [ { \"@type\": \"type.googleapis.com/google.rpc.BadRequest\", \"fieldViolations\": [ { \"field\": \"request\", \"description\": \"Invalid JSON payload received. Unknown name \\\"labels\\\" at 'request': Cannot find field.\" } ] } ] } } "
+    },
+    {
+      "model": "gemini-4-argon",
+      "keys": [],
+      "status": 200,
+      "ms": 384,
+      "body": "{ \"totalTokens\": 1230 } "
+    },
+    {
+      "model": "gpt-oss-120b",
+      "keys": [],
+      "status": 200,
+      "ms": 473,
+      "body": "{ \"totalTokens\": 25 } "
+    },
+    {
+      "model": "gpt-oss-120b-medium",
+      "keys": [],
+      "status": 200,
+      "ms": 490,
+      "body": "{ \"totalTokens\": 25 } "
+    }
+  ],
+  "claude_payload_rows": [
+    {
+      "model": "claude-sonnet-5-5",
+      "status": 200,
+      "ms": 456,
+      "body": "{ \"totalTokens\": 3490 } "
+    },
+    {
+      "model": "claude-sonnet-5-5-medium",
+      "status": 200,
+      "ms": 410,
+      "body": "{ \"totalTokens\": 3490 } "
+    },
+    {
+      "model": "claude-haiku-4-5",
+      "status": 200,
+      "ms": 472,
+      "body": "{ \"totalTokens\": 3490 } "
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "status": 200,
+      "ms": 559,
+      "body": "{ \"totalTokens\": 3490 } "
+    },
+    {
+      "model": "gemini-3.8-flash-high",
+      "status": 200,
+      "ms": 636,
+      "body": "{ \"totalTokens\": 3490 } "
+    }
+  ],
+  "note": "a catalog base id (gemini-3.8-flash, gemini-4-argon) gets the full count; level ids (\u2026-medium), model enums (MODEL_PLACEHOLDER_\u2026) and gpt-oss ids fall back to a text-parts-only count"
+}

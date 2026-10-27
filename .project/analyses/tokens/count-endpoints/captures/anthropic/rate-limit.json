@@ -1,0 +1,6 @@
+{
+  "observed": "a burst of 9 Messages calls (max_tokens 1) produced one 429",
+  "status": 429,
+  "body_head": "{\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"Error\"},\"request_id\":\"req_011CgTACvrnSfC4cfqiewn6M\"}\n",
+  "count_tokens_under_same_burst": "never rate limited, 20+ calls"
+}

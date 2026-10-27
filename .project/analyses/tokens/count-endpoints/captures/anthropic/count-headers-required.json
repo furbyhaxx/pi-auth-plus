@@ -1,0 +1,36 @@
+{
+  "missing_anthropic_version": {
+    "status": 400,
+    "body": {
+      "type": "error",
+      "error": {
+        "type": "invalid_request_error",
+        "message": "anthropic-version: header is required"
+      }
+    }
+  },
+  "metadata_field": {
+    "status": 400,
+    "error": {
+      "type": "invalid_request_error",
+      "message": "metadata: Extra inputs are not permitted"
+    },
+    "why": "shapeBody always sets metadata.user_id; the count endpoint rejects it"
+  },
+  "beta_header_optional": {
+    "url": "https://api.anthropic.com/v1/messages/count_tokens",
+    "beta": "",
+    "status": 200,
+    "body": "{\"input_tokens\":46}"
+  },
+  "beta_query_optional": {
+    "url": "https://api.anthropic.com/v1/messages/count_tokens",
+    "beta": "token-counting-2024-11-01",
+    "status": 200,
+    "body": "{\"input_tokens\":46}"
+  },
+  "fabricated_thinking_signature": {
+    "status": 400,
+    "body": "messages.1.content.0: Invalid `signature` in `thinking` block"
+  }
+}

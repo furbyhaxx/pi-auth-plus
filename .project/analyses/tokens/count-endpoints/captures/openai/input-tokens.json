@@ -1,0 +1,6 @@
+{
+  "endpoint": "POST https://api.openai.com/v1/responses/input_tokens",
+  "credential": "Pi auth.json slot openai (OAuth/ChatGPT)",
+  "status": 401,
+  "body": "{\n  \"error\": {\n    \"message\": \"This ChatPass credential is not authorized for the requested operation.\",\n    \"type\": \"rejected_by_hardened_oauth_boundary\",\n    \"code\": \"hardened_oauth_rule_missing\",\n    \"param\": null\n  },\n  \"status\": 401\n}"
+}

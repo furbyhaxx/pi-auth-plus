@@ -1,0 +1,293 @@
+{
+  "note": "accepted request for the 11-tool payload; count 1882 equals the Messages usage exactly",
+  "method": "POST",
+  "url": "https://api.anthropic.com/v1/messages/count_tokens?beta=true",
+  "headers": {
+    "authorization": "Bearer <redacted claude oauth token>",
+    "anthropic-version": "2023-06-01",
+    "anthropic-beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,inline-tools-2026-09-15,advisor-tool-2026-03-01,thinking-token-count-2026-05-13,advanced-tool-use-2025-11-20,effort-2025-11-24,extended-cache-ttl-2025-04-11,token-counting-2024-11-01",
+    "user-agent": "claude-cli/2.1.311 (external, cli)",
+    "x-app": "cli",
+    "x-claude-code-session-id": "<uuid>",
+    "content-type": "application/json"
+  },
+  "body": {
+    "model": "claude-sonnet-5-5",
+    "system": [
+      {
+        "type": "text",
+        "text": "You are Claude Code, Anthropic's official CLI for Claude."
+      },
+      {
+        "type": "text",
+        "text": "You are a helpful coding assistant working in /mnt/Projects."
+      }
+    ],
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Tool number 0: reads or modifies files, 0 arguments, returns text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string",
+              "description": "Replacement content, verbatim"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "Bash",
+        "description": "Tool number 1: reads or modifies files, 7 arguments, returns text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string",
+              "description": "Replacement content, verbatim"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "Edit",
+        "description": "Tool number 2: reads or modifies files, 14 arguments, returns text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string",
+              "description": "Replacement content, verbatim"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "Tool3",
+        "description": "Tool number 3: reads or modifies files, 21 arguments, returns text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string",
+              "description": "Replacement content, verbatim"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "Tool4",
+        "description": "Tool number 4: reads or modifies files, 28 arguments, returns text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string",
+              "description": "Replacement content, verbatim"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "Tool5",
+        "description": "Tool number 5: reads or modifies files, 35 arguments, returns text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string",
+              "description": "Replacement content, verbatim"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "Tool6",
+        "description": "Tool number 6: reads or modifies files, 42 arguments, returns text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string",
+              "description": "Replacement content, verbatim"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "Tool7",
+        "description": "Tool number 7: reads or modifies files, 49 arguments, returns text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string",
+              "description": "Replacement content, verbatim"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "Tool8",
+        "description": "Tool number 8: reads or modifies files, 56 arguments, returns text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string",
+              "description": "Replacement content, verbatim"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "Tool9",
+        "description": "Tool number 9: reads or modifies files, 63 arguments, returns text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string",
+              "description": "Replacement content, verbatim"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "Tool10",
+        "description": "Tool number 10: reads or modifies files, 70 arguments, returns text.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "content": {
+              "type": "string",
+              "description": "Replacement content, verbatim"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Count the words in this sentence: the quick brown fox jumps over the lazy dog."
+          }
+        ]
+      }
+    ]
+  }
+}

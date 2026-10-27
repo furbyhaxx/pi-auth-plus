@@ -1,0 +1,27 @@
+{
+  "endpoint": "POST https://daily-cloudcode-pa.googleapis.com/v1internal:countTokens",
+  "accepted_body": {
+    "request": {
+      "model": "<catalog base id>",
+      "contents": "<Content[]>",
+      "systemInstruction": "<Content>",
+      "tools": "<Tool[]>",
+      "generationConfig": {
+        "maxOutputTokens": "<int>"
+      }
+    }
+  },
+  "rejected_fields": {
+    "toolConfig at request": "Unknown name \"toolConfig\" at 'request': Cannot find field.",
+    "labels at request": "Unknown name \"labels\" at 'request': Cannot find field.",
+    "sessionId at request": "Unknown name \"sessionId\" at 'request': Cannot find field.",
+    "project at request": "Unknown name \"project\" at 'request': Cannot find field.",
+    "top-level project": "Unknown name \"project\": Cannot find field.",
+    "top-level contents/model": "Unknown name \"model\"/\"contents\": Cannot find field.",
+    "envelope inside request": "Unknown name \"project\"/\"requestId\"/\"request\"/\"userAgent\"/\"requestType\" at 'request'"
+  },
+  "response_shape": {
+    "totalTokens": 3490
+  },
+  "headers": "no rate-limit headers; only date/server/server-timing/alt-svc/vary"
+}

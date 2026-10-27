@@ -1,0 +1,70 @@
+{
+  "measured": "2026-10-27, antigravity OAuth slot, daily-cloudcode-pa",
+  "rows": [
+    {
+      "payload": "plain text (400 lines, no tools, system prompt)",
+      "model": "gemini-3.8-flash-medium",
+      "count_tokens": 3490,
+      "stream_promptTokenCount": 3504,
+      "delta": -14
+    },
+    {
+      "payload": "plain text + 2 tools",
+      "model": "gemini-3.8-flash-medium",
+      "count_tokens": 3490,
+      "stream_promptTokenCount": 3593,
+      "delta": -103
+    },
+    {
+      "payload": "plain text",
+      "model": "claude-sonnet-5-5-medium",
+      "count_tokens": 3490,
+      "stream_promptTokenCount": 6831,
+      "delta": -3341
+    },
+    {
+      "payload": "plain text + 2 tools",
+      "model": "claude-sonnet-5-5-medium",
+      "count_tokens": 3490,
+      "stream_promptTokenCount": 7270,
+      "delta": -3780
+    },
+    {
+      "payload": "plain text",
+      "model": "gpt-oss-120b-medium",
+      "count_tokens": 3490,
+      "stream_promptTokenCount": 2887,
+      "delta": 603
+    },
+    {
+      "payload": "plain text + 2 tools",
+      "model": "gpt-oss-120b-medium",
+      "count_tokens": 3490,
+      "stream_promptTokenCount": 2962,
+      "delta": 528
+    },
+    {
+      "payload": "text + tool call + 60-line tool result",
+      "model": "gemini-3.8-flash (base id)",
+      "count_tokens": 1230,
+      "stream_promptTokenCount": null,
+      "delta": null,
+      "note": "same payload counted 25 with the level id gemini-3.8-flash-medium"
+    },
+    {
+      "payload": "text + tool call + 60-line tool result",
+      "model": "claude-sonnet-5-5-medium",
+      "count_tokens": 25,
+      "stream_promptTokenCount": 2382,
+      "delta": -2357
+    },
+    {
+      "payload": "text + tool call + 60-line tool result",
+      "model": "gpt-oss-120b-medium",
+      "count_tokens": 25,
+      "stream_promptTokenCount": 1423,
+      "delta": -1398
+    }
+  ],
+  "ignored_fields": "systemInstruction and tools are never counted (count stays 3490 when tools are added; a systemInstruction-only request returns {})"
+}

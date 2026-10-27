@@ -1,0 +1,24 @@
+{
+  "count_tokens_ms": [
+    170,
+    166,
+    175,
+    162,
+    157
+  ],
+  "count_tokens_ms_earlier_run": [
+    138,
+    143,
+    144,
+    145,
+    149
+  ],
+  "messages_ms_same_payload": [
+    767,
+    1240,
+    6237,
+    576,
+    833
+  ],
+  "note": "5 sequential count calls per run, same worker, 2026-10-27; messages calls include generation"
+}

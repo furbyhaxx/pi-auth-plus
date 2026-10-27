@@ -1,0 +1,331 @@
+{
+  "endpoint": "POST https://api.anthropic.com/v1/messages/count_tokens",
+  "model": "claude-sonnet-5-5",
+  "captured": "2026-10-27, claude OAuth slot, claude CLI version 2.1.311",
+  "rows": [
+    {
+      "payload": "tools",
+      "count_tokens": 1882,
+      "count_status": 200,
+      "count_ms": 170,
+      "messages_input_plus_cache": 1882,
+      "messages_status": 200,
+      "delta": 0,
+      "usage": {
+        "input_tokens": 1882,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "iterations": [
+          {
+            "input_tokens": 1882,
+            "output_tokens": 1,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "type": "message"
+          }
+        ]
+      }
+    },
+    {
+      "payload": "toolresult",
+      "count_tokens": 7848,
+      "count_status": 200,
+      "count_ms": 166,
+      "messages_input_plus_cache": 7848,
+      "messages_status": 200,
+      "delta": 0,
+      "usage": {
+        "input_tokens": 7848,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "iterations": [
+          {
+            "input_tokens": 7848,
+            "output_tokens": 1,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "type": "message"
+          }
+        ]
+      }
+    },
+    {
+      "payload": "cached",
+      "count_tokens": 3569,
+      "count_status": 200,
+      "count_ms": 175,
+      "messages_input_plus_cache": 3569,
+      "messages_status": 200,
+      "delta": 0,
+      "usage": {
+        "input_tokens": 34,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 3535,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "iterations": [
+          {
+            "input_tokens": 34,
+            "output_tokens": 1,
+            "cache_read_input_tokens": 3535,
+            "cache_creation_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "type": "message"
+          }
+        ]
+      }
+    },
+    {
+      "payload": "unicode",
+      "count_tokens": 110,
+      "count_status": 200,
+      "count_ms": 162,
+      "messages_input_plus_cache": 110,
+      "messages_status": 200,
+      "delta": 0,
+      "usage": {
+        "input_tokens": 110,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "iterations": [
+          {
+            "input_tokens": 110,
+            "output_tokens": 1,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "type": "message"
+          }
+        ]
+      }
+    },
+    {
+      "payload": "image",
+      "count_tokens": 75,
+      "count_status": 200,
+      "count_ms": 157,
+      "messages_input_plus_cache": 75,
+      "messages_status": 200,
+      "delta": 0,
+      "usage": {
+        "input_tokens": 75,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "iterations": [
+          {
+            "input_tokens": 75,
+            "output_tokens": 1,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "type": "message"
+          }
+        ]
+      }
+    },
+    {
+      "payload": "identity+billing",
+      "count_tokens": 99,
+      "count_status": 200,
+      "count_ms": 980,
+      "messages_input_plus_cache": 60,
+      "messages_status": 200,
+      "delta": 39,
+      "usage": {
+        "input_tokens": 60,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "iterations": [
+          {
+            "input_tokens": 60,
+            "output_tokens": 1,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "type": "message"
+          }
+        ]
+      }
+    },
+    {
+      "payload": "identity",
+      "count_tokens": 60,
+      "count_status": 200,
+      "count_ms": 4643,
+      "messages_input_plus_cache": 60,
+      "messages_status": 200,
+      "delta": 0,
+      "usage": {
+        "input_tokens": 60,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "iterations": [
+          {
+            "input_tokens": 60,
+            "output_tokens": 1,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "type": "message"
+          }
+        ]
+      }
+    },
+    {
+      "payload": "billing",
+      "count_tokens": 76,
+      "count_status": 200,
+      "count_ms": 768,
+      "messages_input_plus_cache": 36,
+      "messages_status": 200,
+      "delta": 40,
+      "usage": {
+        "input_tokens": 36,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens": 1,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard",
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "iterations": [
+          {
+            "input_tokens": 36,
+            "output_tokens": 1,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "type": "message"
+          }
+        ]
+      }
+    },
+    {
+      "payload": "user-text-only (no system)",
+      "count_tokens": 36,
+      "count_status": 200,
+      "count_ms": 325,
+      "messages_input_plus_cache": null,
+      "messages_status": 429,
+      "delta": null,
+      "note": "the comparison Messages call was rate limited (429); count_tokens still answered"
+    },
+    {
+      "payload": "history with signed thinking block",
+      "count_tokens": 168,
+      "count_status": 200,
+      "count_ms": null,
+      "messages_input_plus_cache": 168,
+      "messages_status": 200,
+      "delta": 0,
+      "note": "the account's model returned text only for thinking:enabled, so the history carried no thinking block"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "contents_only": 25,
+  "system_only": {},
+  "tools_only": {},
+  "generation_config_only": {},
+  "long_text_only": 3490,
+  "long_text_plus_tools": 3490,
+  "long_text_plus_system": 3490,
+  "note": "canonical payload from the tool-loop case; systemInstruction/tools/generationConfig contribute nothing"
+}

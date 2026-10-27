@@ -20,6 +20,9 @@ format:
 rpc-verify:
 	{ echo '{"type":"get_commands","id":"1"}'; sleep 2; } | timeout 30 ${PI_BIN:-pi-bolt} --mode rpc --no-session -ne --offline -e ./src/index.ts
 
+parity-verify:
+	bun scripts/parity-verify.ts
+
 aot-verify:
 	bun scripts/aot-verify.ts
 

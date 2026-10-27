@@ -8,14 +8,14 @@ import {
 	type ThinkingContent,
 	type ToolCall,
 } from "@earendil-works/pi-ai";
+import type { KnownSecrets } from "../../core/redact/index.ts";
+import { AntigravityError, parseAntigravityError } from "./errors.ts";
 import {
 	isThinkingPart,
 	mapStopReasonString,
 	requiresToolCallId,
 	retainThoughtSignature,
-} from "@earendil-works/pi-ai/api/google-shared";
-import type { KnownSecrets } from "../../core/redact/index.ts";
-import { AntigravityError, parseAntigravityError } from "./errors.ts";
+} from "./parts.ts";
 
 /** Per-request cancellation, redaction and deterministic identity hooks. */
 export interface AntigravityStreamOptions {

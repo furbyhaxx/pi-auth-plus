@@ -131,7 +131,8 @@ describe("families/google/request", () => {
 			required: ["path"],
 		});
 		expect(body.request.labels.request_id).toBe(requestId);
-		expect(body.request.labels.last_step_index).toBe("4");
+		expect(body.request.labels.last_step_index).toBe("2");
+		expect(requestId).toEndWith("/3");
 	});
 
 	test("Claude removes earlier thinking but keeps the signed open tool-loop turn", () => {
@@ -208,12 +209,13 @@ describe("families/google/request", () => {
 			sessions: store,
 		};
 		const first = buildRequest({ ...args, model: { ...model, id: "claude-opus-5-5" } });
-		store.completeExecution("session");
 		const second = buildRequest(args);
 		expect(second.requestId).not.toBe(first.requestId);
 		expect(second.body.request.labels.trajectory_id).toBe(first.body.request.labels.trajectory_id);
 		expect(second.body.request.labels.used_claude).toBe("true");
-		expect(second.body.request.labels.last_execution_id).toBeDefined();
+		expect(second.body.request.labels).not.toHaveProperty("last_execution_id");
+		expect(second.body.request.labels.last_step_index).toBe("2");
+		expect(second.requestId).toEndWith("/3");
 		expect(second.body.request.generationConfig.maxOutputTokens).toBe(42);
 		const separate = buildRequest({ ...args, options: { sessionId: "another" } });
 		expect(separate.body.request.labels.trajectory_id).not.toBe(
@@ -228,6 +230,9 @@ describe("families/google/request", () => {
 		const first = buildRequest(args);
 		const second = buildRequest(args);
 		expect(first.body.request.labels.trajectory_id).toBe(second.body.request.labels.trajectory_id);
+		expect(first.body.request.labels.last_step_index).toBe("0");
+		expect(first.requestId).toEndWith("/1");
+		expect(first.body.request.labels).not.toHaveProperty("last_execution_id");
 		expect(Object.keys(first.body.request)).toEqual([
 			"contents",
 			"labels",

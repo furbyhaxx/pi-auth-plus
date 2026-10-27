@@ -168,6 +168,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			return ambient ? { state: "ambient", ...ambient } : stored;
 		},
 		now: Date.now,
+		tokens: () => tokens,
 		quotas: () =>
 			quotasEnabled
 				? {

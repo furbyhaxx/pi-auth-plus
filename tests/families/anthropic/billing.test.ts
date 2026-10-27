@@ -3,9 +3,8 @@ import { createHash } from "node:crypto";
 import { billingBlock } from "../../../src/families/anthropic/billing.ts";
 
 describe("families/anthropic/billing", () => {
-	test("reproduces the known cch and version suffix vector", () => {
-		const expected =
-			"x-anthropic-billing-header: cc_version=2.1.87.6ff; cc_entrypoint=sdk-cli; cch=4ffc3;";
+	test("reproduces the known version suffix without gated cch", () => {
+		const expected = "x-anthropic-billing-header: cc_version=2.1.87.6ff; cc_entrypoint=cli;";
 		for (const content of [
 			"hello world test message",
 			[
@@ -44,7 +43,7 @@ describe("families/anthropic/billing", () => {
 			expect(billingBlock([{ role: "user", content }], "2.1.87")).toBe(
 				billingBlock([{ role: "user", content: "" }], "2.1.87"),
 			);
-			expect(billingBlock([{ role: "user", content }], "2.1.87")).toContain("cch=e3b0c;");
+			expect(billingBlock([{ role: "user", content }], "2.1.87")).toEndWith("cc_entrypoint=cli;");
 		}
 	});
 

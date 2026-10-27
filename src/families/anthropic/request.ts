@@ -6,7 +6,20 @@ import { withClaudeCodeIdentity } from "./sanitize.ts";
 import { PI_PLACEHOLDER, wireToolName } from "./tool-names.ts";
 import { userAgent } from "./version.ts";
 
-const REQUIRED_BETAS = ["oauth-2025-04-20", "interleaved-thinking-2025-05-14"];
+const REQUIRED_BETAS = [
+	"claude-code-20250219",
+	"oauth-2025-04-20",
+	"interleaved-thinking-2025-05-14",
+	"context-management-2025-06-27",
+	"per-turn-control-2026-07-01",
+	"mid-conversation-tool-changes-2026-07-01",
+	"inline-tools-2026-09-15",
+	"advisor-tool-2026-03-01",
+	"thinking-token-count-2026-05-13",
+	"advanced-tool-use-2025-11-20",
+	"effort-2025-11-24",
+	"extended-cache-ttl-2025-04-11",
+];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -54,7 +67,12 @@ function prefixContent(value: unknown): void {
 }
 
 /** Adds billing and identity blocks and rewrites tool names; invalid JSON passes through. */
-export function shapeBody(body: string, version: string, rules: readonly TextRule[]): string {
+export function shapeBody(
+	body: string,
+	version: string,
+	rules: readonly TextRule[],
+	userId?: string,
+): string {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(body);
@@ -62,6 +80,7 @@ export function shapeBody(body: string, version: string, rules: readonly TextRul
 		return body;
 	}
 	if (!isRecord(parsed)) return body;
+	if (userId !== undefined) parsed["metadata"] = { user_id: userId };
 	const system = withClaudeCodeIdentity(parsed["system"], rules);
 	const billing = billingBlock(parsed["messages"], version);
 	if (billing !== undefined) system.unshift({ type: "text", text: billing });
@@ -101,6 +120,7 @@ export function shapeHeaders(headers: Headers, token: string, version: string): 
 	shaped.set("user-agent", userAgent(version));
 	shaped.set("x-app", "cli");
 	shaped.delete("x-api-key");
+	shaped.delete("x-auth-plus-account-uuid");
 	return shaped;
 }
 

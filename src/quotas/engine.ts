@@ -211,14 +211,14 @@ export class QuotaEngine {
 				now: this.options.now,
 			});
 			if (signal.aborted) return;
-			await this.cache.put(id, {
+			// Headers observed while this fetch was in flight are newer than its snapshot; keep them.
+			await this.cache.putWith(id, (current) => ({
 				snapshot,
-				drainage: recordDrainageHistory(
-					this.cache.get(id)?.value.drainage ?? [],
-					snapshot,
-					this.options.now(),
-				),
-			});
+				...(current?.headers && current.headers.observedAt > snapshot.fetchedAt
+					? { headers: current.headers }
+					: {}),
+				drainage: recordDrainageHistory(current?.drainage ?? [], snapshot, this.options.now()),
+			}));
 		} catch (error) {
 			if (signal.aborted) return;
 			await this.cache.fail(id, {

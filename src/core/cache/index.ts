@@ -116,17 +116,23 @@ export class HostCache<T> {
 
 	/** Store a fresh value; releases the lease and clears backoff. */
 	async put(key: string, value: T): Promise<void> {
-		const now = this.now();
-		const entry: CacheEntry<T> = {
-			value,
-			fetchedAt: now,
-			updatedAt: now,
-			parserVersion: this.options.parserVersion(key),
-		};
-		await this.mutate(() => {
-			this.entries.set(key, entry);
+		await this.putWith(key, () => value);
+	}
+
+	/** Like `put`, but derives the value from the entry current under the file lock. */
+	async putWith(key: string, change: (current: T | undefined) => T): Promise<void> {
+		const entry = await this.mutate(() => {
+			const now = this.now();
+			const next: CacheEntry<T> = {
+				value: change(this.entries.get(key)?.value),
+				fetchedAt: now,
+				updatedAt: now,
+				parserVersion: this.options.parserVersion(key),
+			};
+			this.entries.set(key, next);
 			this.leases.delete(key);
 			this.backoffs.delete(key);
+			return next;
 		});
 		this.notify(key, entry);
 	}

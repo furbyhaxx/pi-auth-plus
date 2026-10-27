@@ -272,6 +272,29 @@ describe("quota engine", () => {
 		expect(engine.cache.get("fake")?.value.drainage[0]?.samples).toHaveLength(2);
 	});
 
+	test("headers observed while an endpoint fetch is in flight survive its write", async () => {
+		const { engine } = setup();
+		const deferred = Promise.withResolvers<ProviderQuotaSnapshot>();
+		const started = Promise.withResolvers<void>();
+		fetchQuota = async () => {
+			const taken = snapshot();
+			started.resolve();
+			return deferred.promise.then(() => taken);
+		};
+		const pending = engine.refresh("fake");
+		await started.promise;
+		clock += 1_000;
+		const observed = { ...snapshot(), source: "headers" as const };
+		await engine.cache.patch("fake", (current) => ({
+			drainage: current?.drainage ?? [],
+			headers: { snapshot: observed, observedAt: clock },
+		}));
+		deferred.resolve(snapshot());
+		await pending;
+		expect(engine.cache.get("fake")?.value.headers?.observedAt).toBe(clock);
+		expect(engine.cache.get("fake")?.value.snapshot?.source).toBe("endpoint");
+	});
+
 	test("deduplicates in flight and discards a late result after stop", async () => {
 		const { engine } = setup();
 		const deferred = Promise.withResolvers<ProviderQuotaSnapshot>();

@@ -9,6 +9,7 @@ import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts
 import { cacheDir, projectSettingsPath, userSettingsPath } from "./core/paths/index.ts";
 import { Registry } from "./core/registry/index.ts";
 import { FAMILIES } from "./families/index.ts";
+import { registerQuotaBus } from "./quotas/bus.ts";
 import { QuotaEngine } from "./quotas/engine.ts";
 import type { QuotaAuth } from "./quotas/types.ts";
 import { registerAuthCommands } from "./ui/commands/index.ts";
@@ -61,7 +62,10 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		fetch,
 		authFor: (id) => quotaAuthFor(id, quotaContext?.modelRegistry),
 	});
+	let stopQuotaBus: (() => void) | undefined;
 	pi.on("session_start", async (_event, ctx) => {
+		stopQuotaBus?.();
+		stopQuotaBus = undefined;
 		quotas.stop();
 		quotaContext = ctx;
 		const configured = NO_EXTENSIONS ? {} : pi.getSettings();
@@ -72,12 +76,19 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			configured.extensions ?? [],
 			commandPaths,
 		);
-		if (quotasEnabled) await quotas.start(ctx);
+		if (!quotasEnabled) return;
+		await quotas.start(ctx);
+		stopQuotaBus = registerQuotaBus(pi.events, quotas, registry, () => settings, Date.now);
 	});
 	pi.on("session_shutdown", () => {
 		quotasEnabled = false;
 		quotaContext = undefined;
+		stopQuotaBus?.();
+		stopQuotaBus = undefined;
 		quotas.stop();
+	});
+	pi.on("after_provider_response", (event, ctx) => {
+		if (quotasEnabled) void quotas.ingestHeaders(event.headers, ctx.model?.provider);
 	});
 	pi.on("agent_end", (_event, ctx) => {
 		if (!quotasEnabled || !settings.get("quotas.refreshOnRequest")) return;

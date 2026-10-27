@@ -1,0 +1,70 @@
+{
+	"name": "@furbyhaxx/pi-auth-plus",
+	"version": "0.0.0",
+	"description": "Subscription and API-key providers that behave like Pi builtins, quota monitoring and accurate token counting.",
+	"license": "MIT",
+	"type": "module",
+	"packageManager": "bun@1.4.3",
+	"engines": {
+		"bun": ">=1.4.0",
+		"node": ">=22.19.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/furbyhaxx/pi-auth-plus.git"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"keywords": [
+		"pi",
+		"pi-package",
+		"pi-extension",
+		"auth",
+		"oauth",
+		"quota",
+		"tokens",
+		"claude",
+		"antigravity",
+		"synthetic",
+		"opencode"
+	],
+	"files": [
+		"src",
+		"assets",
+		"docs",
+		"README.md",
+		"CHANGELOG.md",
+		"LICENSE",
+		"NOTICE"
+	],
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	},
+	"scripts": {
+		"test": "bun test --isolate",
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check .",
+		"format": "biome check --write .",
+		"check": "bun run typecheck && bun run lint && bun test --isolate"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.15",
+		"@earendil-works/pi-agent-core": "1.4.0",
+		"@earendil-works/pi-ai": "1.4.0",
+		"@earendil-works/pi-coding-agent": "1.4.0",
+		"@earendil-works/pi-tui": "1.4.0",
+		"@types/bun": "1.4.3",
+		"typebox": "1.4.3",
+		"typescript": "7.0.2"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-agent-core": "*",
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*",
+		"typebox": "*"
+	}
+}

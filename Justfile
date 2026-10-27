@@ -1,0 +1,23 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+default: check
+
+install:
+	bun install
+
+test:
+	bun test --isolate
+
+typecheck:
+	bunx tsc --noEmit
+
+lint:
+	bunx biome check .
+
+format:
+	bunx biome check --write .
+
+rpc-verify:
+	{ echo '{"type":"get_commands","id":"1"}'; sleep 2; } | timeout 30 ${PI_BIN:-pi-bolt} --mode rpc --no-session -ne --offline -e ./src/index.ts
+
+check: typecheck lint test

@@ -121,8 +121,11 @@ README.md, CHANGELOG.md, LICENSE, NOTICE, AGENTS.md
 
 This file describes the target state.
 
-- The repository holds only this file and `.project/`. Absorption follows
+- Scaffold only: `src/index.ts` registers nothing; `core/`, `ui/`, `families/`, engines,
+  `docs/` and `just parity-verify`/`aot-verify` do not exist yet. Absorption follows
   `.project/plans/roadmap.md`; delete each line here when its part lands.
+- Bun's `os.homedir()` ignores a runtime `HOME` change; `core/paths` resolves from env and
+  Pi's agent-dir helper, so tests stay isolated.
 
 ## Provider integration
 

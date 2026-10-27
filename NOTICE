@@ -1,0 +1,12 @@
+pi-auth-plus consolidates and re-implements these packages by the same author:
+pi-claude-auth, pi-opencode-auth, pi-synthetic-auth, pi-antigravity-auth and pi-quotas
+(https://github.com/furbyhaxx).
+
+Two of them derive from MIT-licensed upstream projects whose notices are reproduced in LICENSE:
+
+- pi-claude-auth ports ex-machina-co/opencode-anthropic-auth,
+  commit 66deb5c7fad5257b50cd4c0192bdfa6daf517a2b.
+  https://github.com/ex-machina-co/opencode-anthropic-auth
+- pi-antigravity-auth forks cortexkit/antigravity-auth,
+  commit 8fdccf414cd2abb9d11f3d3a3f7f683da70686bc (v3.0.12).
+  https://github.com/cortexkit/antigravity-auth

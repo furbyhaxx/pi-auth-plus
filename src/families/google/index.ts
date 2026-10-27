@@ -7,13 +7,16 @@ import { forkLoginPending, migrateForkLogin } from "./migration.ts";
 import { antigravityAuth } from "./oauth.ts";
 import { antigravityProject } from "./project.ts";
 import { antigravityProvider } from "./provider.ts";
+import { antigravityQuota } from "./quota.ts";
 import { cliHeaders } from "./transport.ts";
 
 export function createGoogleFamily(fetchFn: FetchFn = fetch): FamilyAdapter {
 	return {
 		id: "google",
 		label: "Google",
-		providers: [{ id: PROVIDER, label: "Antigravity", aliases: ["agy"] }],
+		providers: [
+			{ id: PROVIDER, label: "Antigravity", aliases: ["agy"], quota: antigravityQuota() },
+		],
 		register: (pi) => {
 			const project = antigravityProject({ fetch: fetchFn, headers: () => cliHeaders() });
 			pi.registerProvider(

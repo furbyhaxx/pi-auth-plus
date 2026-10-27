@@ -77,7 +77,10 @@ function namedWindow(snapshot: ProviderQuotaSnapshot, key: string): QuotaWindow 
 			(!window.scope || scope(window.scope) === requestedScope)
 		);
 	});
-	return matches.length === 1 ? matches[0] : undefined;
+	if (matches.length === 1) return matches[0];
+	// Sessions on older parsers share the cache and may add an unscoped sibling (claude `7d_oi`).
+	const exact = matches.filter((window) => normalize(window.id) === key);
+	return exact.length === 1 ? exact[0] : undefined;
 }
 function concreteStyle(theme: LineTheme, style: TokenStyle | undefined): ThemeStyle {
 	if (!style) return {};

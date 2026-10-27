@@ -245,6 +245,10 @@ describe("quota templates", () => {
 		expect(render("{codex:window-7d-used-percent}", snapshot([win("7d"), win("7d")]))).toEqual([
 			"?",
 		]);
+		const sibling = { ...win("7d", undefined, 0.9), id: "7d_oi" };
+		expect(
+			render("{codex:window-7d-used-percent}", snapshot([sibling, { ...win("7d"), id: "7d" }])),
+		).toEqual(["25%"]);
 		expect(render("{codex:window-5h-used-percent}", snapshot([win("7d")]))).toEqual(["?"]);
 	});
 	test("named percentages ignore the display mode and unscoped fields require plan windows", () => {

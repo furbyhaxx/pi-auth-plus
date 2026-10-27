@@ -5,9 +5,9 @@ document:
   title: "Antigravity CLI — upstream client tracking"
   description: "Pinned agy version, the client surface we imitate, and the live-verification log"
   status: "published"
-  revision: 3
+  revision: 4
   created_at: "2026-10-27T09:59:34+01:00"
-  updated_at: "2026-10-27T10:28:00+01:00"
+  updated_at: "2026-10-27T13:08:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -20,6 +20,9 @@ document:
     - revision: 3
       at: "2026-10-27T10:28:00+01:00"
       note: "Added the observed inference and telemetry request heads, including the Bearer scheme and the finding that the x-goog-* header set is not sent. Narrowed the static-only note to request bodies."
+    - revision: 4
+      at: "2026-10-27T13:08:00+01:00"
+      note: "families/google landed: pinned-in row filled, pi-auth-plus request heads captured on both runtimes, deliberate deltas listed, live-verification row added."
 ---
 
 # Antigravity CLI — upstream client tracking
@@ -39,12 +42,8 @@ Full reverse-engineering dossier: [`1.4.8/`](1.4.8/README.md).
 | binary sha256 | `70b1d27f1812f5ebccc8f13daf2209112447413437dd1ab6d87c58b8a04fe35b` |
 | binary size | 228,897,168 bytes |
 | observed via | `agy --version`, `sha256sum` |
-| pinned in `src/` | **not yet** — scaffold only; the family has not landed |
+| pinned in `src/` | `src/families/google/transport.ts` (`AGY_VERSION`, `AGY_CHANGE_LIST`, `BASE_URL`, `cliHeaders`); OAuth client and redirect in `src/families/google/oauth.ts` |
 | analysis baseline | [`1.4.8/`](1.4.8/README.md) |
-
-Because the version is not yet pinned in code, the "where it is pinned" column above is
-empty by fact, not by omission. Fill it in when `families/google/` lands, and reference
-`1.4.8/08-integration-notes.md` from the pinning constant's comment.
 
 ## Surface we imitate
 
@@ -67,6 +66,49 @@ empty by fact, not by omission. Fill it in when `families/google/` lands, and re
 | 2026-10-27 | binary identity, `agy --version` 1.4.8, `agy models` catalogue (13 of 26 advertised ids), updater manifest for `linux_amd64`, `install.sh` contents, on-disk state layout, 107 klog call sites | [`1.4.8/evidence/`](1.4.8/evidence/) |
 | 2026-10-27 | **wire data**: exact `User-Agent`, response header set, and full bodies of `loadCodeAssist`, `fetchUserInfo`, `fetchAvailableModels`, `retrieveUserQuotaSummary` from `agy -v=5`; real context windows, output caps and thinking budgets; five quota buckets across three groups with their reset times | [`1.4.8/evidence/live-2026-10-27/`](1.4.8/evidence/live-2026-10-27/) |
 | 2026-10-27 | **inference and telemetry request heads**, captured behind a local TLS-terminating proxy during one `agy -p` turn: the seven-header inference request with `Authorization: Bearer`, the Clearcut batch to `play.googleapis.com/log`, `aicode.googleapis.com/v1alpha:fetchConfig`, `www.googleapis.com/oauth2/v2/userinfo` | [`inference-request-headers.txt`](1.4.8/evidence/live-2026-10-27/inference-request-headers.txt), [`all-request-heads-masked.txt`](1.4.8/evidence/live-2026-10-27/all-request-heads-masked.txt) |
+
+## pi-auth-plus as sent (2026-10-27)
+
+Captured with a raw-head logging proxy: a preloaded extension rewrote
+`https://daily-cloudcode-pa.googleapis.com` to `http://127.0.0.1:18472`, and the proxy forwarded
+to the real host. Host and Connection are the proxy hop's; the token is redacted at capture.
+
+Pi-Bolt (Bun `fetch`), inference:
+
+```text
+POST /v1internal:streamGenerateContent?alt=sse HTTP/1.1
+Accept-Encoding: gzip
+Authorization: Bearer <redacted>
+Content-Type: application/json
+User-Agent: antigravity/cli/1.4.8 (aidev_client; os_type=linux; arch=amd64; cl=1007749967; auth_method=consumer)
+Connection: keep-alive
+Accept: */*
+Host: 127.0.0.1:18472
+Content-Length: 9251
+[body keys: project,requestId,request,model,userAgent,requestType]
+```
+
+Stock Pi (Node `fetch`) sends the same four headers we set, plus `accept: */*`,
+`accept-language: *` and `sec-fetch-mode: cors`, lower-cased by undici.
+`loadCodeAssist` and `fetchAvailableModels` carry the same header set.
+
+Deliberate deltas against the CLI, all accepted by the server:
+
+- The runtimes' `fetch` adds `Accept: */*` (both) and `accept-language`, `sec-fetch-mode` (Node).
+  The fork's raw TLS client stays unported, per the review decision "fetch first".
+- Bodies go out with `Content-Length`; the CLI streams them chunked.
+- No `writeTrajectoryAcls` before inference, no Clearcut `play.googleapis.com/log`, no
+  `aicode:fetchConfig`, no `userinfo` call.
+- One `loadCodeAssist` per Pi session and token, cached in memory; the project id is never stored.
+
+| date | what was verified | evidence |
+|---|---|---|
+| 2026-10-27 | Pi 1.4.0 on Pi-Bolt and stock Pi, stored `/login antigravity` OAuth: startup catalog refresh (5 families, levels in `thinkingLevelMap`, stored in `models-store.json`, footer `$0.000 (sub)`); print-mode `bash` tool loops on `gemini-4-argon:high`, `claude-sonnet-5-5:low`, `gemini-3.8-flash:medium`, `gpt-oss-120b`; RPC sessions switching level high → low → medium and model argon → opus → argon, sonnet → flash → opus, each recalling earlier tool output; HTTP 200 on every request | the heads above; runs in this session, not kept |
+
+Test-harness trap: a fresh `PI_CODING_AGENT_DIR` has no `trust.json`, so in a repository with
+`.pi/` interactive Pi waits on the "Trust project folder?" dialog before `session_start` and
+the catalog refresh. Answer it (tmux `send-keys`) instead of sending Ctrl+C, which races exit
+against the refresh.
 
 Still static: the request *bodies* (converter output, streaming encode) and everything about how
 the loopback language-server hop is framed. Request and response **heads** are observed. See

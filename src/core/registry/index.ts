@@ -2,7 +2,7 @@
 import type { Provider } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ProviderConfig } from "@earendil-works/pi-coding-agent";
 import type { QuotaSource } from "../../quotas/types.ts";
-import type { AmbientCredential } from "../auth/index.ts";
+import type { AmbientCredential, CredentialStatus } from "../auth/index.ts";
 import type { AppSettings } from "../config/catalog.ts";
 
 /** One Pi provider id a family owns, with the extra names users may type for it. */
@@ -14,6 +14,16 @@ export interface ProviderEntry {
 	readonly ambient?: () => AmbientCredential | undefined;
 	/** How this provider reports usage limits and balances. */
 	readonly quota?: QuotaSource;
+	/** Where to sign in when it is not `/login <id>`, e.g. a quota fed by another provider's login. */
+	readonly login?: ProviderLogin;
+}
+
+/** A sign-in path other than Pi's `/login <id>`. */
+export interface ProviderLogin {
+	/** Shown instead of `/login <id>`, e.g. "/quota codex login or /login openai-codex". */
+	readonly hint: string;
+	/** Credential state from wherever this provider's credential lives. */
+	readonly status?: (nowMs: number) => CredentialStatus;
 }
 
 /** A native provider or a named override of a Pi provider. */

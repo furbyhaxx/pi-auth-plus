@@ -124,6 +124,7 @@ function dashboardModel(deps: AuthCommandDeps): DashboardModel {
 			id: provider.id,
 			label: provider.label,
 			status: deps.status(provider.id),
+			loginHint: provider.login?.hint,
 		})),
 	};
 }

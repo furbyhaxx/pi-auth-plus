@@ -224,6 +224,12 @@ describe("quotas tab", () => {
 				],
 			},
 			{ ...provider("auth"), state: "needs-auth", needsAuth: true },
+			{
+				...provider("codex"),
+				state: "needs-auth",
+				needsAuth: true,
+				loginHint: "/quota codex login or /login openai-codex",
+			},
 			{ ...provider("error"), state: "error", error: "HTTP 500; retry" },
 			{ ...provider("loading"), state: "unknown", windows: [] },
 		]);
@@ -234,6 +240,7 @@ describe("quotas tab", () => {
 				expect(line).not.toContain("evil");
 			}
 		const text = lines(f.view).join("\n");
+		expect(text).not.toContain("/login codex");
 		for (const part of [
 			"12.00 USD",
 			"25% used",
@@ -244,6 +251,7 @@ describe("quotas tab", () => {
 			"10.0%/h",
 			"resets first",
 			"/login auth",
+			"⚠ /quota codex login or /login openai-codex",
 			"✗",
 			"Loading quota…",
 			"1m ago",

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { codexCredentialStatus } from "../../../src/families/openai/auth.ts";
 import { createOpenaiFamily } from "../../../src/families/openai/index.ts";
 import type { QuotaAuth, QuotaFetchContext, QuotaSource } from "../../../src/quotas/types.ts";
 import usage from "../../fixtures/quotas/openai-usage.json";
@@ -9,12 +10,18 @@ import usage from "../../fixtures/quotas/openai-usage.json";
 const NOW = Date.now();
 let dir: string;
 let path: string;
+const previousAgentDir = process.env["PI_CODING_AGENT_DIR"];
 
 beforeEach(() => {
 	dir = mkdtempSync(join(tmpdir(), "codex-quota-auth-"));
 	path = join(dir, "quotas-codex-auth.json");
+	process.env["PI_CODING_AGENT_DIR"] = dir;
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => {
+	if (previousAgentDir === undefined) delete process.env["PI_CODING_AGENT_DIR"];
+	else process.env["PI_CODING_AGENT_DIR"] = previousAgentDir;
+	rmSync(dir, { recursive: true, force: true });
+});
 
 function source(): QuotaSource {
 	const quota = createOpenaiFamily({ codexAuth: { path } }).providers[0]?.quota;
@@ -92,5 +99,31 @@ describe("codex quota credentials", () => {
 		expect(snapshot).toMatchObject({ provider: "codex", needsAuth: true });
 		expect(snapshot.error).toContain("/quota codex login");
 		expect(snapshot.error).toContain("/login openai-codex");
+	});
+
+	test("status reads Pi's openai-codex slot first, then the Codex file", () => {
+		expect(codexCredentialStatus(NOW, path)).toEqual({ state: "missing" });
+		writeFileSync(path, "{ not json");
+		expect(codexCredentialStatus(NOW, path)).toEqual({ state: "missing" });
+		writeFileSync(
+			path,
+			JSON.stringify({ type: "oauth", access: "a", refresh: "r", expires: NOW - 1 }),
+		);
+		expect(codexCredentialStatus(NOW, path)).toEqual({
+			state: "oauth",
+			expiresAt: NOW - 1,
+			expired: true,
+		});
+		writeFileSync(
+			join(dir, "auth.json"),
+			JSON.stringify({
+				"openai-codex": { type: "oauth", access: "p", refresh: "q", expires: NOW + 60_000 },
+			}),
+		);
+		expect(codexCredentialStatus(NOW, path)).toEqual({
+			state: "oauth",
+			expiresAt: NOW + 60_000,
+			expired: false,
+		});
 	});
 });

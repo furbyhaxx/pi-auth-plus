@@ -165,7 +165,9 @@ export class QuotasView implements TabView {
 				` ${selected ? theme.fg("accent", "❯") : " "} ${title} ${theme.fg("dim", `(${text(provider.short)})`)}${tier}${theme.fg("dim", age(provider, now))}`,
 			);
 			if (provider.needsAuth || provider.state === "needs-auth") {
-				append(`     ${theme.fg("warning", "⚠")} /login ${text(provider.id)}`);
+				append(
+					`     ${theme.fg("warning", "⚠")} ${text(provider.loginHint ?? `/login ${provider.id}`)}`,
+				);
 			}
 			if (provider.error) append(`     ${theme.fg("error", "✗")} ${text(provider.error)}`);
 			if (provider.state === "unknown" && !provider.credits && provider.windows.length === 0) {

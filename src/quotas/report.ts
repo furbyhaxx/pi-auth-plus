@@ -33,6 +33,8 @@ export interface ReportProvider {
 	readonly credits?: ReportCredits | undefined;
 	readonly tier?: string | undefined;
 	readonly needsAuth?: boolean | undefined;
+	/** Where to sign in; `/login <id>` unless the provider names another path. */
+	readonly loginHint?: string | undefined;
 	readonly fetchedAt?: number | undefined;
 	readonly ageSec?: number | undefined;
 	readonly source?: "endpoint" | "headers" | undefined;
@@ -84,6 +86,7 @@ export function buildQuotaReport(
 			state,
 			tier: snapshot?.tier,
 			needsAuth: snapshot?.needsAuth,
+			loginHint: provider.login?.hint,
 			credits: snapshot?.credits
 				? {
 						...snapshot.credits,

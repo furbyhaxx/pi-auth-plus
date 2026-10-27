@@ -31,6 +31,12 @@ const model: DashboardModel = {
 			status: { state: "oauth", expiresAt: 0, expired: true },
 		},
 		{ id: "synthetic", label: "Synthetic", status: { state: "missing" } },
+		{
+			id: "codex",
+			label: "OpenAI Codex",
+			status: { state: "missing" },
+			loginHint: "/quota codex login or /login openai-codex",
+		},
 	],
 };
 
@@ -71,6 +77,8 @@ describe("ui/dashboard", () => {
 		expect(text).toContain("signed in · expires in 3h 1m");
 		expect(text).toContain("token expired, refreshes on next request");
 		expect(text).toContain("not signed in · /login synthetic");
+		expect(text).toContain("not signed in · /quota codex login or /login openai-codex");
+		expect(text).not.toContain("/login codex");
 		expect(text).not.toContain("evil");
 		expect(dashboardText("quotas", model)).toBe(
 			"Auth › Quotas\n  Quota monitoring is not available yet.",

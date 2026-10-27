@@ -52,6 +52,8 @@ export interface ProviderStatus {
 	readonly id: string;
 	readonly label: string;
 	readonly status: CredentialStatus;
+	/** Replaces `/login <id>` in hints. */
+	readonly loginHint?: string | undefined;
 }
 
 export interface DashboardModel {
@@ -88,8 +90,9 @@ export function formatDuration(ms: number): string {
 function providerRow(provider: ProviderStatus, nowMs: number): Row {
 	const label = sanitize(provider.label);
 	const { status } = provider;
+	const login = sanitize(provider.loginHint ?? `/login ${provider.id}`);
 	if (status.state === "missing") {
-		return { label, value: `not signed in · /login ${provider.id}`, tone: "warning" };
+		return { label, value: `not signed in · ${login}`, tone: "warning" };
 	}
 	if (status.state === "api_key") return { label, value: "API key", tone: "success" };
 	if (status.state === "ambient") {
@@ -97,7 +100,7 @@ function providerRow(provider: ProviderStatus, nowMs: number): Row {
 		return status.limited
 			? {
 					label,
-					value: `${source} · limited · /login ${provider.id} for full access`,
+					value: `${source} · limited · ${login} for full access`,
 					tone: "warning",
 				}
 			: { label, value: `API key from ${source}`, tone: "success" };

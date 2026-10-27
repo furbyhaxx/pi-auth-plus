@@ -1,4 +1,5 @@
 /** Owns the shared pi-quotas Codex credential file; never seeds from other auth files. */
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { withFileLock } from "../../../core/cache/lock.ts";
 import { atomicWriteFile, type JsonRead, readJsonFile } from "../../../core/fs/index.ts";
@@ -27,7 +28,22 @@ export async function loadCodexCredential(
 		return undefined;
 	}
 	if (result.kind === "missing") return undefined;
-	const value = record(result.kind === "ok" ? result.value : undefined);
+	const credential = parseCredential(result.kind === "ok" ? result.value : undefined);
+	if (!credential) onError(new CodexAuthError("invalid credential file", path));
+	return credential;
+}
+
+/** Synchronous load for status displays; absent, unreadable or invalid files read as none. */
+export function readCodexCredentialSync(path = getCodexAuthPath()): CodexCredential | undefined {
+	try {
+		return parseCredential(JSON.parse(readFileSync(path, "utf8")));
+	} catch {
+		return undefined;
+	}
+}
+
+function parseCredential(raw: unknown): CodexCredential | undefined {
+	const value = record(raw);
 	const access = text(value["access"]);
 	const refresh = text(value["refresh"]);
 	const expires = value["expires"];
@@ -40,10 +56,8 @@ export async function loadCodexCredential(
 		["accountId", "email", "planType"].some(
 			(key) => value[key] !== undefined && typeof value[key] !== "string",
 		)
-	) {
-		onError(new CodexAuthError("invalid credential file", path));
+	)
 		return undefined;
-	}
 	return {
 		type: "oauth",
 		access,

@@ -77,7 +77,7 @@ function provider(raw: unknown): raw is ReportProvider {
 		Array.isArray(raw["windows"]) &&
 		raw["windows"].every(window) &&
 		optionalFields(raw, ["credits"], credits) &&
-		optionalFields(raw, ["tier", "error"], string) &&
+		optionalFields(raw, ["tier", "error", "loginHint"], string) &&
 		optionalFields(raw, ["needsAuth"], boolean) &&
 		optionalFields(raw, ["fetchedAt", "ageSec"], finite) &&
 		optionalFields(raw, ["resets"], (resets) => record(resets) && finite(resets["available"])) &&

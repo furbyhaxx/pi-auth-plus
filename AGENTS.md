@@ -87,6 +87,7 @@ src/
     bus/                versioned pi.events channels, nonce replies, consumer helpers
     redact/             secret redaction for errors, captures and bus payloads
     registry/           family registry: provider ids, aliases, capabilities
+    conflicts/          detection of absorbed packages loaded alongside, one warning
   ui/                   frame, menus, settings panel, render kit, /auth command router
   families/<vendor>/    everything one vendor needs, exposed as one FamilyAdapter
     anthropic/          claude provider, anthropic/claude quota and token counting
@@ -121,9 +122,14 @@ README.md, CHANGELOG.md, LICENSE, NOTICE, AGENTS.md
 
 This file describes the target state.
 
-- Scaffold only: `src/index.ts` registers nothing; `core/`, `ui/`, `families/`, engines,
-  `docs/` and `just parity-verify`/`aot-verify` do not exist yet. Absorption follows
-  `.project/plans/roadmap.md`; delete each line here when its part lands.
+- No family is registered yet: `families/index.ts` lists none, so `/auth` tabs are empty and
+  `just parity-verify` checks zero providers. `FamilyAdapter` has no `quota`/`tokens` parts
+  until those engines land.
+- `quotas/`, `tokens/` and `docs/` do not exist yet; the dashboard's Settings tab has no
+  settings panel yet (`core/config` exists).
+- `core/auth` reads slots only; PKCE, the callback server and code paste arrive with the first
+  OAuth provider.
+- Absorption follows `.project/plans/roadmap.md`; delete each line here when its part lands.
 
 ## Provider integration
 

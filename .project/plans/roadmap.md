@@ -5,15 +5,18 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 1
+  revision: 2
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T09:43:00+01:00"
+  updated_at: "2026-10-27T10:12:29+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       reason: "document creation"
       changes: ["M0-M4 tree after AGENTS.md approval"]
+    - revision: 2
+      reason: "M0 progress"
+      changes: ["core seams, ui frame + /auth, verify recipes and conflict detection done"]
 ---
 
 # Roadmap
@@ -27,10 +30,10 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] tooling scaffold, just check + rpc-verify green
     [ ] research and analyses imported with provenance
     [ ] pi-provider-seams report
-    [ ] core/ seams (paths, config, http, redact, registry, bus, cache, auth)
-    [ ] ui/ frame + /auth router (empty tabs)
-    [ ] verify recipes: rpc-verify, parity-verify, aot-verify
-    [ ] conflict detection for the absorbed packages
+    [x] core/ seams (paths, config, http, redact, registry, bus, cache, auth)
+    [x] ui/ frame + /auth router (empty tabs)
+    [x] verify recipes: rpc-verify, parity-verify, aot-verify
+    [x] conflict detection for the absorbed packages
 [ ] M1 Providers
     [ ] opencode     patch builtin; fix late registration (registers in session_start today)
     [ ] synthetic    catalog via refreshModels, no network in factory, web search

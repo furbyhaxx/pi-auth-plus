@@ -42,7 +42,7 @@ describe("families/google/provider", () => {
 	test("picks the requested level, clamps upward, then falls back to the highest", () => {
 		const argon = family("gemini-4-argon");
 		expect(pickLevel(argon, "medium")?.id).toBe("gemini-4-argon-medium");
-		expect(pickLevel(argon, "off")?.id).toBe("gemini-4-argon-low");
+		expect(pickLevel(argon, "minimal")?.id).toBe("gemini-4-argon-low");
 		expect(pickLevel(argon, "xhigh")?.id).toBe("gemini-4-argon-high");
 		expect(pickLevel(argon, undefined)?.id).toBe("gemini-4-argon-low");
 		const gpt = family("gpt-oss-120b");

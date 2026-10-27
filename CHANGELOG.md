@@ -19,6 +19,17 @@ All notable changes to this project are documented here. The format follows
   `"synthetic": { "webSearch": true }` in `auth-plus.json` or `--synthetic-web-search` for one
   run. It returns each result's relevant passages and saves the full page text to a file, and
   it keeps results without a publication date, which pi-synthetic-auth dropped.
+- **Claude Pro/Max.** The `claude` provider logs in through `/login claude` (Claude Pro/Max
+  OAuth with a pasted code, or an API key typed in, created from the console, or taken from
+  `ANTHROPIC_API_KEY`). Subscription turns carry Claude Code's identity and billing block, the
+  `mcp_` tool names (restored in streamed and JSON responses), and zero cost; API-key turns use
+  Pi's Anthropic path unchanged. Logins stored by pi-claude-auth carry over.
+- **Claude version.** The reported Claude Code version is the newest of the pinned 2.1.306 and
+  the installed `claude`, overridable by `ANTHROPIC_CLAUDE_CODE_VERSION`. The `claude --version`
+  probe now runs on the first request instead of at startup.
+- **Claude replace patterns.** `"claude": { "replacePatterns": [{ "match": "...",
+  "replacement": "..." }] }` in `auth-plus.json` rewrites system-prompt text; without
+  `replacement` the paragraph is dropped.
 - **Settings file.** `<agentDir>/auth-plus.json` and, in trusted projects, `.pi/auth-plus.json`;
   invalid values warn and fall back to the inherited value.
 - **Providers tab.** Shows environment, models.json and anonymous credentials beside stored
@@ -26,6 +37,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Known limits
 
+- pi-claude-auth's replace patterns in Pi's `settings.json` are not read yet; move them to
+  `claude.replacePatterns` in `auth-plus.json`.
 - pi-synthetic-auth's `websearch.synthetic` setting and `SYNTHETIC_WEB_SEARCH` variable are
   not read yet; set `synthetic.webSearch` in `auth-plus.json` instead.
 - Anonymous OpenCode Zen works from Pi-Bolt only. Zen refuses stock Pi's Node HTTP client with

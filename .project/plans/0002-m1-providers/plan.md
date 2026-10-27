@@ -5,9 +5,9 @@ document:
   title: "M1 providers"
   description: "Absorb the opencode, synthetic, claude and antigravity providers as vendor families"
   status: "published"
-  revision: 4
+  revision: 5
   created_at: "2026-10-27T10:20:46+01:00"
-  updated_at: "2026-10-27T10:58:12+01:00"
+  updated_at: "2026-10-27T11:12:53+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -25,6 +25,9 @@ document:
     - revision: 4
       reason: "claude slice detailed"
       changes: ["Six units with write scope and the test that matters; antigravity stays sparse"]
+    - revision: 5
+      reason: "claude slice done"
+      changes: ["All six units landed and live-verified on Pi-Bolt and stock Pi; antigravity review is next"]
 ---
 
 # M1 providers
@@ -77,7 +80,7 @@ anthropic api, live catalog fetched in the factory today, opt-in web-search tool
 - Prices and limits from the live catalog; web search stays opt-in via `auth-plus.json`.
 - Verify: `--list-models` offline after one refresh, a turn on one model, the search tool.
 
-## Slice 3: claude (now)
+## Slice 3: claude (done)
 
 Source: `pi-claude-auth` 0.2.2 (1.1k LOC src). It registers a pi-ai `createProvider` provider
 `claude` whose stream delegates to Pi's `anthropicMessagesApi()` with header-owned auth
@@ -91,16 +94,22 @@ so existing logins carry over.
 | # | Unit | Write scope | Test that matters |
 | --- | --- | --- | --- |
 | 1 | seams (done `5456883`) | `anthropic/{tool-names,version}.ts`, `claude.replacePatterns` field | wire names round-trip exactly; collisions refused; version precedence, probe runs once and lazily |
-| 2 | login | `core/auth/{pkce,code-paste}.ts`, `anthropic/oauth.ts` | refresh retries 5xx and network errors, fails a 4xx at once, never leaks a token in errors; a pasted code with the wrong state is refused |
-| 3 | request shaping | `anthropic/{sanitize,billing,request}.ts` | body becomes `[billing, identity, sanitized prompt]`, tools and tool references are `mcp_`-prefixed, cch matches known vectors, headers carry betas, UA and `x-app` without `x-api-key` |
-| 4 | response restore | `anthropic/response.ts` | SSE and JSON bodies split at every byte boundary restore the exact Pi tool names |
-| 5 | provider wiring | `anthropic/{transport,provider,index}.ts`, `families/index.ts` | OAuth credential: zero cost, header-owned auth, wrapper applied; API key: Pi's path untouched; `parity-verify` lists `claude` |
-| 6 | live + tracking | `.project/analyses/claude-code-cli/tracking.md` | Pi-Bolt and stock Pi: a turn and a tool call on `claude-sonnet-5-5` with the stored login, request head captured redacted |
+| 2 | login (done `b0fb6e7`) | `core/auth/{pkce,code-paste}.ts`, `anthropic/oauth.ts` | refresh retries 5xx and network errors, fails a 4xx at once, never leaks a token in errors; a pasted code with the wrong state is refused |
+| 3 | request shaping (done `ca1aa16`) | `anthropic/{sanitize,billing,request}.ts` | body becomes `[billing, identity, sanitized prompt]`, tools and tool references are `mcp_`-prefixed, cch matches known vectors, headers carry betas, UA and `x-app` without `x-api-key` |
+| 4 | response restore (done `ca13a29`) | `anthropic/response.ts` | SSE and JSON bodies split at every byte boundary restore the exact Pi tool names |
+| 5 | provider wiring (done `629add4`) | `anthropic/{transport,provider,index}.ts`, `families/index.ts` | OAuth credential: zero cost, header-owned auth, wrapper applied; API key: Pi's path untouched; `parity-verify` lists `claude` |
+| 6 | live + tracking (done `7ec14e0`) | `.project/analyses/claude-code-cli/tracking.md` | Pi-Bolt and stock Pi: a turn and a tool call on `claude-sonnet-5-5` with the stored login, request head captured redacted |
 
 Changes vs pi-claude-auth: the `claude --version` probe runs on first request, not in the
 factory. The replace patterns move from Pi's `settings.json` to `auth-plus.json`; legacy
 migration waits for the migration engine. The PKCE verifier and state are 32 random bytes as in
 Claude Code 2.1.310.
+
+Result: `claude/claude-sonnet-5-5` answered a turn with a `bash` tool call on Pi-Bolt and stock
+Pi with the stored login (HTTP 200 throughout); `parity-verify` lists 17 `claude` models on both
+runtimes. A side-by-side capture against Claude Code 2.1.310 found wire differences that the
+absorbed package already had (tool names, `cch`, user agent, betas, the deferred placeholder
+name); they are listed in `.project/analyses/claude-code-cli/tracking.md` and await a decision.
 
 ## Later slices (sparse)
 

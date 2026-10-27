@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 3
+  revision: 4
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T10:19:20+01:00"
+  updated_at: "2026-10-27T11:12:53+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -20,6 +20,9 @@ document:
     - revision: 3
       reason: "M0 complete, released as v0.1.0"
       changes: ["imports and seams report done; M1 is now current"]
+    - revision: 4
+      reason: "claude slice done"
+      changes: ["claude live-verified; wire alignment with the real CLI noted as a decision"]
 ---
 
 # Roadmap
@@ -40,7 +43,8 @@ detailed plan; later ones hold the ideas that must not get lost.
 [>] M1 Providers                          plans/0002-m1-providers/plan.md
     [x] opencode     patch builtin in the factory; 2.1.2 fingerprint; anonymous = Pi-Bolt only
     [x] synthetic    catalog via refreshModels, no network in factory; opt-in web search
-    [ ] claude       CC version pin, mcp_ rename, cch billing header, replace patterns
+    [x] claude       OAuth + API key, CC shaping, lazy version probe, replace patterns;
+                     wire gaps vs real CC 2.1.310 recorded, alignment awaits a decision
     [ ] antigravity  review session with the user FIRST (features, UX, API, vault yes/no),
                      then port as provider id `antigravity` with migration from `google`
 [.] M2 Quotas       pi-quotas engine on core/ + families/; codex via Pi login, not its own

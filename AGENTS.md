@@ -122,14 +122,15 @@ README.md, CHANGELOG.md, LICENSE, NOTICE, AGENTS.md
 
 This file describes the target state.
 
-- `families/index.ts` registers `opencode` and `synthetic` only; `claude` and `antigravity`
-  follow M1. `FamilyAdapter` has no `quota`/`tokens` parts until those engines land.
+- `families/index.ts` registers `opencode`, `synthetic` and `claude`; `antigravity` follows M1.
+  `FamilyAdapter` has no `quota`/`tokens` parts until those engines land.
 - No legacy migration exists yet: pi-synthetic-auth's `websearch.synthetic` in Pi's
-  `settings.json` and its `SYNTHETIC_WEB_SEARCH` variable are not read.
+  `settings.json` and its `SYNTHETIC_WEB_SEARCH` variable, and pi-claude-auth's replace
+  patterns in Pi's `settings.json`, are not read.
 - `quotas/`, `tokens/` and `docs/` do not exist yet; the dashboard's Settings tab has no
   settings panel yet (`core/config` exists).
-- `core/auth` reads slots only; PKCE, the callback server and code paste arrive with the first
-  OAuth provider.
+- `core/auth` has slot reads, PKCE and code paste; the local callback server arrives with the
+  first provider that needs one.
 - Absorption follows `.project/plans/roadmap.md`; delete each line here when its part lands.
 
 ## Provider integration

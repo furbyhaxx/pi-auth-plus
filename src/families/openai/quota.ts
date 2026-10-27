@@ -8,6 +8,7 @@ import type {
 	QuotaSource,
 	QuotaWindow,
 } from "../../quotas/types.ts";
+import { consumeOpenaiResetCredit, listOpenaiResetCredits } from "./resets.ts";
 
 const USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
 
@@ -38,7 +39,8 @@ function accountId(auth: QuotaAuth): string | undefined {
 	}
 }
 
-function timestamp(raw: unknown): number | undefined {
+/** Parses provider epoch seconds, epoch milliseconds or ISO timestamps. */
+export function timestamp(raw: unknown): number | undefined {
 	const numeric = typeof raw === "string" && raw.trim() ? Number(raw) : finite(raw);
 	if (numeric !== undefined && Number.isFinite(numeric) && numeric > 0) {
 		return numeric > 1e12 ? numeric : numeric * 1000;
@@ -169,13 +171,11 @@ function needsLogin(now: number, reason: string): ProviderQuotaSnapshot {
 	};
 }
 
-async function fetchQuota(ctx: QuotaFetchContext): Promise<ProviderQuotaSnapshot> {
-	const auth = await ctx.auth();
-	const now = ctx.now();
-	if (!auth) return needsLogin(now, "no credential configured");
-	if (auth.token.startsWith("sk-") || auth.extra["type"] === "api_key") {
-		return needsLogin(now, "subscription usage needs a ChatGPT login, not an API key");
-	}
+/** Builds the ChatGPT subscription headers and the matching redaction secrets. */
+export function openaiQuotaHeaders(auth: QuotaAuth): {
+	headers: Record<string, string>;
+	secrets: string[];
+} {
 	const account = accountId(auth);
 	const headers: Record<string, string> = {
 		Authorization: `Bearer ${auth.token}`,
@@ -184,6 +184,17 @@ async function fetchQuota(ctx: QuotaFetchContext): Promise<ProviderQuotaSnapshot
 		Accept: "application/json",
 	};
 	if (account) headers["ChatGPT-Account-Id"] = account;
+	return { headers, secrets: account ? [auth.token, account] : [auth.token] };
+}
+
+async function fetchQuota(ctx: QuotaFetchContext): Promise<ProviderQuotaSnapshot> {
+	const auth = await ctx.auth();
+	const now = ctx.now();
+	if (!auth) return needsLogin(now, "no credential configured");
+	if (auth.token.startsWith("sk-") || auth.extra["type"] === "api_key") {
+		return needsLogin(now, "subscription usage needs a ChatGPT login, not an API key");
+	}
+	const { headers, secrets } = openaiQuotaHeaders(auth);
 	let response: Response;
 	try {
 		response = await request(USAGE_URL, {
@@ -194,7 +205,7 @@ async function fetchQuota(ctx: QuotaFetchContext): Promise<ProviderQuotaSnapshot
 			signal: ctx.signal,
 			timeoutMs: 10_000,
 			now: ctx.now,
-			secrets: account ? [auth.token, account] : [auth.token],
+			secrets,
 		});
 	} catch (error) {
 		if (error instanceof ProviderHttpError && (error.status === 401 || error.status === 403)) {
@@ -215,11 +226,12 @@ async function fetchQuota(ctx: QuotaFetchContext): Promise<ProviderQuotaSnapshot
 	return parseOpenaiQuota(body, now);
 }
 
-/** Read-only ChatGPT usage source; reset-credit consumption is deliberately separate. */
+/** ChatGPT usage source with on-demand reset-credit listing and consumption. */
 export const openaiQuota: QuotaSource = {
 	kind: "windows",
 	shortLabel: "oai",
 	parserVersion: 1,
 	fetch: fetchQuota,
 	headers: parseOpenaiHeaders,
+	resets: { list: listOpenaiResetCredits, consume: consumeOpenaiResetCredit },
 };

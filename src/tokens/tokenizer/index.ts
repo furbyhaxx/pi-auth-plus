@@ -16,6 +16,9 @@ export interface TokenizerStoreOptions {
 	readonly fetch?: FetchFn;
 	/** Maximum bytes for each file, default 64 MiB. */
 	readonly maxFileBytes?: number;
+	/** How long a failed load is remembered before a later call retries, default 10 minutes. */
+	readonly retryAfterMs?: number;
+	readonly now?: () => number;
 }
 
 type FileName = "tokenizer.json" | "tokenizer_config.json";
@@ -38,6 +41,8 @@ const FILES: readonly FileName[] = ["tokenizer.json", "tokenizer_config.json"];
 const PRIVATE = { mode: 0o600, dirMode: 0o700 };
 const SHA = /^[a-f0-9]{40}$/i;
 const SHA256 = /^[a-f0-9]{64}$/i;
+// Covers the body stream too: a 28 MB tokenizer must not fail on a slow link.
+const DOWNLOAD_TIMEOUT_MS = 5 * 60_000;
 const REPO = /^[a-zA-Z0-9][a-zA-Z0-9._-]*\/[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
 /** Creates a network-free store; each repo is loaded at most once in this process. */
@@ -47,7 +52,10 @@ export function createTokenizerStore(options: TokenizerStoreOptions): TokenizerS
 	const maxBytes = options.maxFileBytes ?? 64 * 1024 * 1024;
 	const loaded = new Map<string, TextTokenizer>();
 	const loads = new Map<string, Promise<TextTokenizer | undefined>>();
-	const get = (url: string, init: RequestInit = {}) =>
+	const failedAt = new Map<string, number>();
+	const now = options.now ?? Date.now;
+	const retryAfterMs = options.retryAfterMs ?? 10 * 60_000;
+	const get = (url: string, init: RequestInit & { timeoutMs?: number } = {}) =>
 		request(url, {
 			...init,
 			provider: "huggingface",
@@ -59,16 +67,9 @@ export function createTokenizerStore(options: TokenizerStoreOptions): TokenizerS
 		const index = await readIndex(indexPath);
 		const cached = index.get(repo);
 		if (cached) {
-			const contents: Partial<Record<FileName, string>> = {};
-			for (const name of FILES) {
-				const info = cached.files[name];
-				if (!info) continue;
-				if (info.size > maxBytes) return undefined;
-				const bytes = await readFile(join(root, encodeURIComponent(repo), cached.revision, name));
-				if (bytes.length !== info.size || digest(bytes) !== info.sha256) return undefined;
-				contents[name] = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
-			}
-			return instantiate(repo, cached.revision, contents);
+			const contents = await readCached(root, repo, cached, maxBytes);
+			// A missing or corrupted cache file falls through to a fresh, verified download.
+			if (contents) return instantiate(repo, cached.revision, contents);
 		}
 		const api = `https://huggingface.co/api/models/${repo}`;
 		const revisionData: unknown = await (await get(`${api}/revision/main`)).json();
@@ -94,7 +95,12 @@ export function createTokenizerStore(options: TokenizerStoreOptions): TokenizerS
 		const contents: Partial<Record<FileName, string>> = {};
 		const infos: Partial<Record<FileName, FileInfo>> = {};
 		for (const file of files) {
-			const response = await get(`https://huggingface.co/${repo}/resolve/${revision}/${file.name}`);
+			const response = await get(
+				`https://huggingface.co/${repo}/resolve/${revision}/${file.name}`,
+				{
+					timeoutMs: DOWNLOAD_TIMEOUT_MS,
+				},
+			);
 			const bytes = await boundedBytes(response, file.size);
 			if (!bytes) return undefined;
 			const sha256 = digest(bytes);
@@ -122,7 +128,7 @@ export function createTokenizerStore(options: TokenizerStoreOptions): TokenizerS
 			indexPath,
 			async () => {
 				const latest = await readIndex(indexPath);
-				latest.set(repo, { revision, files: infos, fetchedAt: Date.now() });
+				latest.set(repo, { revision, files: infos, fetchedAt: now() });
 				await atomicWriteFile(indexPath, JSON.stringify(Object.fromEntries(latest)), PRIVATE);
 			},
 			{ waitMs: Infinity, staleMs: 60_000, dirMode: 0o700 },
@@ -133,14 +139,17 @@ export function createTokenizerStore(options: TokenizerStoreOptions): TokenizerS
 		peek: (repo) => loaded.get(repo),
 		load(repo) {
 			const pending = loads.get(repo);
-			if (pending) return pending;
+			const failed = failedAt.get(repo);
+			if (pending && (failed === undefined || now() - failed < retryAfterMs)) return pending;
+			failedAt.delete(repo);
 			const promise = load(repo)
+				.catch(() => undefined)
 				.then((tokenizer) => {
 					if (tokenizer) loaded.set(repo, tokenizer);
+					// Failures are remembered for a while so an unavailable repo is not retried every turn.
+					else failedAt.set(repo, now());
 					return tokenizer;
-				})
-				.catch(() => undefined);
-			// Settled failures stay memoized so unavailable repos are not retried every turn.
+				});
 			loads.set(repo, promise);
 			return promise;
 		},
@@ -162,6 +171,25 @@ function digest(bytes: Uint8Array): string {
 }
 function size(value: unknown): value is number {
 	return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+async function readCached(
+	root: string,
+	repo: string,
+	entry: Entry,
+	maxBytes: number,
+): Promise<Partial<Record<FileName, string>> | undefined> {
+	const contents: Partial<Record<FileName, string>> = {};
+	for (const name of FILES) {
+		const info = entry.files[name];
+		if (!info) continue;
+		if (info.size > maxBytes) return undefined;
+		const bytes = await readFile(join(root, encodeURIComponent(repo), entry.revision, name)).catch(
+			() => undefined,
+		);
+		if (!bytes || bytes.length !== info.size || digest(bytes) !== info.sha256) return undefined;
+		contents[name] = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+	}
+	return contents;
 }
 async function readIndex(path: string): Promise<Map<string, Entry>> {
 	const read = await readJsonFile(path);

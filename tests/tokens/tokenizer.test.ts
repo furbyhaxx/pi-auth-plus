@@ -80,9 +80,10 @@ for (const lfs of [false, true]) {
 		expect((await stat(path)).mode & 0o777).toBe(0o600);
 		expect((await stat(join(dir, "tokenizers"))).mode & 0o777).toBe(0o700);
 		await writeFile(path, "corrupt");
-		const corrupt = createTokenizerStore({ dir, fetch });
-		expect(await corrupt.load(repo)).toBeUndefined();
-		expect(calls).toHaveLength(4);
+		expect(await createTokenizerStore({ dir, fetch: offline }).load(repo)).toBeUndefined();
+		const repaired = await createTokenizerStore({ dir, fetch }).load(repo);
+		expect(repaired?.count("hello world")).toBe(2);
+		expect(calls).toHaveLength(8);
 	});
 	test(`hash mismatch writes nothing (${lfs ? "LFS" : "git blob"})`, async () => {
 		const dir = await directory();
@@ -104,6 +105,24 @@ test("optional config, size cap, offline failure and unsafe repo", async () => {
 	expect(await createTokenizerStore({ dir, fetch }).load("../escape")).toBeUndefined();
 	const tok = await createTokenizerStore({ dir, fetch }).load(repo);
 	expect(tok?.count("hello world")).toBe(2);
+});
+
+test("a failed load is retried after the retry window", async () => {
+	const dir = await directory();
+	const { fetch } = transport(false);
+	let online = false;
+	let clock = 0;
+	const store = createTokenizerStore({
+		dir,
+		fetch: (url, init) => (online ? fetch(url, init) : offline(url, init)),
+		now: () => clock,
+		retryAfterMs: 1000,
+	});
+	expect(await store.load(repo)).toBeUndefined();
+	online = true;
+	expect(await store.load(repo)).toBeUndefined();
+	clock = 1000;
+	expect((await store.load(repo))?.count("hello world")).toBe(2);
 });
 
 test("concurrent stores merge their index entries", async () => {

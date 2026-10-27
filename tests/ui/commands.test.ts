@@ -45,6 +45,7 @@ describe("ui/commands", () => {
 		expect(parseAuthArgs("")).toEqual({ tab: "providers" });
 		expect(parseAuthArgs(" Quota ")).toEqual({ tab: "quotas" });
 		expect(parseAuthArgs("config")).toEqual({ tab: "settings" });
+		expect(parseAuthArgs("quotas  cc")).toEqual({ tab: "quotas", target: "cc" });
 		const unknown = parseAuthArgs("tokns");
 		expect("error" in unknown && unknown.error).toContain("Did you mean: tokens");
 		expect("error" in unknown && unknown.error).toContain(

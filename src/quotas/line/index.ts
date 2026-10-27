@@ -4,8 +4,10 @@ import type { TUI } from "@earendil-works/pi-tui";
 import type { AppSettings } from "../../core/config/catalog.ts";
 import type { Registry } from "../../core/registry/index.ts";
 import type { QuotaEngine } from "../engine.ts";
+import type { LineTheme } from "./format.ts";
 import { createQuotaLineRenderer, limitQuotaRows, quotaLineConfig } from "./line.ts";
 import { createFooterPlacement, type FooterPlacementContext } from "./placement.ts";
+import { compileLineTemplate } from "./template.ts";
 import { QuotaLineWidget } from "./widget.ts";
 import type { FooterRows } from "./workbench.ts";
 
@@ -21,6 +23,14 @@ export type QuotaLineContext = FooterPlacementContext & {
 export interface QuotaLine {
 	start(ctx: QuotaLineContext): void;
 	stop(): void;
+	/** Re-applies placement and redraws after a settings change. */
+	settingsChanged(): void;
+	/** Rows for an unsaved template at `width`, plus tokens it ignores. */
+	preview(
+		source: string,
+		width: number,
+		theme: LineTheme,
+	): { rows: readonly string[]; unknown: readonly string[] };
 }
 
 /** Creates the line once per extension load; `start` binds it to a session. */
@@ -33,7 +43,8 @@ export function createQuotaLine(
 		readonly now: () => number;
 	},
 ): QuotaLine {
-	const render = createQuotaLineRenderer((token) => deps.registry.resolve(token)?.provider.id);
+	const resolve = (token: string) => deps.registry.resolve(token)?.provider.id;
+	const render = createQuotaLineRenderer(resolve);
 	let ctx: QuotaLineContext | undefined;
 	let placement: string | undefined;
 	let tui: TUI | undefined;
@@ -92,5 +103,13 @@ export function createQuotaLine(
 			offChange = deps.engine.onChange(sync);
 		},
 		stop,
+		settingsChanged: sync,
+		preview(source, width, theme) {
+			const config = { ...quotaLineConfig(deps.settings()), lineTemplate: source };
+			return {
+				rows: render(width, theme, deps.engine.view(), config, deps.now()),
+				unknown: compileLineTemplate(source, resolve).unknown,
+			};
+		},
 	};
 }

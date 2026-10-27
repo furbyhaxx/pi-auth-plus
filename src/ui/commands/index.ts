@@ -48,13 +48,16 @@ export function closestNames(input: string, names: readonly string[]): string[] 
 	);
 }
 
-export type AuthArgs = { readonly tab: TabId } | { readonly error: string };
+/** `target` is the word after the section, e.g. the provider in `/auth quotas cc`. */
+export type AuthArgs =
+	| { readonly tab: TabId; readonly target?: string }
+	| { readonly error: string };
 
 export function parseAuthArgs(args: string): AuthArgs {
-	const word = args.trim().split(/\s+/)[0] ?? "";
+	const [word = "", target] = args.trim().split(/\s+/);
 	if (word === "") return { tab: "providers" };
 	const tab = resolveTab(word);
-	if (tab) return { tab };
+	if (tab) return target ? { tab, target } : { tab };
 	const near = TABS.filter((spec) => closestNames(word, [spec.id, ...spec.aliases]).length > 0).map(
 		(spec) => spec.id,
 	);

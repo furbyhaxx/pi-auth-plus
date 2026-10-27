@@ -152,13 +152,19 @@ Read it before touching registration, and correct it when Pi changes.
 - **Reuse Pi's wire implementations.** When the protocol matches a Pi `api`
   (`anthropic-messages`, `openai-completions`, …), set `api`, `baseUrl` and headers and let Pi
   stream. A custom `streamSimple` only where no Pi `api` fits (antigravity), and its `api` must
-  equal the models' `api` or Pi ignores it.
+  equal the models' `api` or Pi ignores it. It must forward the `onPayload`/`onResponse`
+  callback options, or Pi's request hooks never see its traffic.
 - **Re-registration merges.** `registerProvider` merges defined keys over the previous
   registration. To drop `oauth`, `streamSimple` or headers, register the full intended config
-  with those keys explicitly replaced; never rely on omission.
+  with those keys explicitly replaced; never rely on omission. Provider ids are global: another
+  extension registering the same id merges into ours (the conflict check exists for this). A
+  provider without explicit auth still gets Pi's generic API-key prompt in `/login`.
 - **One mechanism per concern.** Body and header shaping for our providers happens inside the
   provider (fetch wrapper or stream). Patches to a Pi builtin (`opencode`) use
-  `before_provider_headers` / `before_provider_request`, filtered on the provider id first.
+  `before_provider_headers` / `before_provider_request`. Those events and
+  `after_provider_response` carry no provider id: filter on `ctx.model.provider` first, which
+  is the session model and can differ for helper calls, so the patch must also check the
+  request itself (base URL or Pi's own headers) before touching it.
 - **Credentials live in Pi's `auth.json`**, under our provider ids, so `/login` and `/logout`
   work. A separate credential file needs a recorded reason in the provider's research report.
 - Every request honors the caller's `AbortSignal` with a bounded timeout. A turn never hangs.
@@ -167,7 +173,8 @@ Read it before touching registration, and correct it when Pi changes.
 
 API-key and subscription access get separate ids: `anthropic` → `claude`, `google` →
 `antigravity`, `openai` → `codex`, `xai` → `grok`. `synthetic` is one id, since both behave
-alike. Aliases come from `core/registry`; never hardcode an id outside its family.
+alike. Aliases come from `core/registry`; never hardcode an id outside its family. Provider
+and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the first slash.
 
 ### Family invariants
 
@@ -206,8 +213,9 @@ Endpoints, auth, schemas, units and reset semantics per provider are in
   provider payload.
 - Units are explicit; a missing field is `undefined`, never `0`. Keep "no limit", "0% used"
   and "unknown" distinguishable. Every window a provider exposes stays visible.
-- Quota state from response headers is ingested from `after_provider_response`; never poll
-  for what a response already said.
+- Quota state from response headers is ingested inside our own providers' fetch wrappers, and
+  for builtins from `after_provider_response` attributed via `ctx.model` plus the header shape
+  (the event has no provider id). Never poll for what a response already said.
 - One host cache (atomic writes, leases, backoff with Retry-After) so concurrent sessions do
   not fetch twice. A corrupt cache file is ignored, never fatal. No timers outlive the session.
 
@@ -219,8 +227,12 @@ Endpoints, auth, schemas, units and reset semantics per provider are in
 - Counts are keyed by tokenizer family and content hash and computed once: antigravity's
   Claude models reuse the anthropic family's counts.
 - Counting never blocks a request or a frame: async, batched, cached, rate-limited.
-- Pi has no hook to replace its estimator. Publish counts on the bus and use them in our own
-  surfaces and `session_before_compact`; patching Pi internals needs user approval.
+- Pi has no hook to replace its estimators (pi-ai context clamping at 3.5 chars/token,
+  compaction at 4). Both trust the latest assistant `usage` and estimate only what follows, so
+  set authoritative `usage` in our streams and correct builtin messages in `message_end` (the
+  returned same-role replacement persists). Publish counts on the bus for our own surfaces;
+  `session_before_compact` changes compaction, not estimation. Patching Pi internals needs
+  user approval.
 
 ## Pi-Bolt AOT and performance
 
@@ -258,7 +270,8 @@ compiler (`docs/PLUGINS.md` of Pi-Bolt):
 Channels are `pi-auth-plus:v1:<area>:<event>` (`quotas`, `tokens`, `auth`), with nonce
 replies; the contract is `docs/events.md` and the client helpers ship as
 `@furbyhaxx/pi-auth-plus/bus`. A payload change is a versioned contract change: new channel
-version or additive fields only.
+version or additive fields only. `pi.events` emits synchronously and never awaits listeners,
+so request/reply goes through nonce reply channels, never through emit ordering.
 
 ## Slash commands and panels
 

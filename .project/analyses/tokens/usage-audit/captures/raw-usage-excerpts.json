@@ -1,0 +1,997 @@
+{
+  "antigravity-claude-sonnet-5-5": [
+    {
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 24327,
+            "candidatesTokenCount": 16,
+            "totalTokenCount": 24343
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 24327,
+            "candidatesTokenCount": 16,
+            "totalTokenCount": 24343
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 24327,
+            "candidatesTokenCount": 60,
+            "totalTokenCount": 24387
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 26011,
+            "candidatesTokenCount": 14,
+            "totalTokenCount": 26025,
+            "cachedContentTokenCount": 24213
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 26011,
+            "candidatesTokenCount": 14,
+            "totalTokenCount": 26025,
+            "cachedContentTokenCount": 24213
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 26011,
+            "candidatesTokenCount": 14,
+            "totalTokenCount": 26025,
+            "cachedContentTokenCount": 24213
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 26011,
+            "candidatesTokenCount": 14,
+            "totalTokenCount": 26025,
+            "cachedContentTokenCount": 24213
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 26054,
+            "candidatesTokenCount": 3,
+            "totalTokenCount": 26057,
+            "cachedContentTokenCount": 24387
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 26054,
+            "candidatesTokenCount": 3,
+            "totalTokenCount": 26057,
+            "cachedContentTokenCount": 24387
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 26054,
+            "candidatesTokenCount": 3,
+            "totalTokenCount": 26057,
+            "cachedContentTokenCount": 24387
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 26054,
+            "candidatesTokenCount": 7,
+            "totalTokenCount": 26061,
+            "cachedContentTokenCount": 24387
+          }
+        }
+      ]
+    }
+  ],
+  "antigravity-gemini-3-8-flash": [
+    {
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 16407,
+            "candidatesTokenCount": 15,
+            "totalTokenCount": 16427,
+            "thoughtsTokenCount": 5
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 16407,
+            "candidatesTokenCount": 24,
+            "totalTokenCount": 16436,
+            "thoughtsTokenCount": 5
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 16407,
+            "candidatesTokenCount": 46,
+            "totalTokenCount": 16458,
+            "thoughtsTokenCount": 5
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 16407,
+            "candidatesTokenCount": 46,
+            "totalTokenCount": 16458,
+            "thoughtsTokenCount": 5
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 17625,
+            "candidatesTokenCount": 2,
+            "totalTokenCount": 17627
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 17625,
+            "candidatesTokenCount": 17,
+            "totalTokenCount": 17642
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 17630,
+            "candidatesTokenCount": 17,
+            "totalTokenCount": 17647,
+            "cachedContentTokenCount": 15585
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 17664,
+            "candidatesTokenCount": 2,
+            "totalTokenCount": 17666
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 17664,
+            "candidatesTokenCount": 5,
+            "totalTokenCount": 17669
+          }
+        },
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 17669,
+            "candidatesTokenCount": 5,
+            "totalTokenCount": 17674,
+            "cachedContentTokenCount": 15578
+          }
+        }
+      ]
+    }
+  ],
+  "antigravity-gpt-oss-120b": [
+    {
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 15367,
+            "candidatesTokenCount": 67,
+            "totalTokenCount": 15434,
+            "cachedContentTokenCount": 64
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 16576,
+            "candidatesTokenCount": 53,
+            "totalTokenCount": 16629,
+            "cachedContentTokenCount": 64
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 16617,
+            "candidatesTokenCount": 113,
+            "totalTokenCount": 16730,
+            "cachedContentTokenCount": 15360
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "usageMetadata",
+          "usage": {
+            "promptTokenCount": 18092,
+            "candidatesTokenCount": 101,
+            "totalTokenCount": 18193,
+            "cachedContentTokenCount": 16576
+          }
+        }
+      ]
+    }
+  ],
+  "claude-claude-sonnet-5-5": [
+    {
+      "url": "https://api.anthropic.com/v1/messages?beta=true",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "message_start",
+          "usage": {
+            "input_tokens": 4,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 20363,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 16,
+            "service_tier": "standard",
+            "inference_geo": "global",
+            "speed": "standard"
+          }
+        },
+        {
+          "type": "message_delta",
+          "usage": {
+            "input_tokens": 4,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 20363,
+            "output_tokens": 61,
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "iterations": [
+              {
+                "input_tokens": 4,
+                "output_tokens": 61,
+                "cache_read_input_tokens": 20363,
+                "cache_creation_input_tokens": 0,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 0
+                },
+                "type": "message"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://api.anthropic.com/v1/messages?beta=true",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "message_start",
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 21672,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 14,
+            "service_tier": "standard",
+            "inference_geo": "global",
+            "speed": "standard"
+          }
+        },
+        {
+          "type": "message_delta",
+          "usage": {
+            "input_tokens": 2,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 21672,
+            "output_tokens": 14,
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "iterations": [
+              {
+                "input_tokens": 2,
+                "output_tokens": 14,
+                "cache_read_input_tokens": 21672,
+                "cache_creation_input_tokens": 0,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 0
+                },
+                "type": "message"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://api.anthropic.com/v1/messages?beta=true",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "message_start",
+          "usage": {
+            "input_tokens": 4,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 21713,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 3,
+            "service_tier": "standard",
+            "inference_geo": "global",
+            "speed": "standard"
+          }
+        },
+        {
+          "type": "message_delta",
+          "usage": {
+            "input_tokens": 4,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 21713,
+            "output_tokens": 7,
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "iterations": [
+              {
+                "input_tokens": 4,
+                "output_tokens": 7,
+                "cache_read_input_tokens": 21713,
+                "cache_creation_input_tokens": 0,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 0,
+                  "ephemeral_1h_input_tokens": 0
+                },
+                "type": "message"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "openai-gpt-6-luna": [
+    {
+      "url": "https://api.openai.com/v1/responses",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "response.completed",
+          "usage": {
+            "attribution": {
+              "items": {
+                "at_06171b2c2a68415b016ae0e427568c87d2aa132ed601e63b2b": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "input_tokens": 936,
+                  "output_tokens": 0
+                },
+                "msg_06171b2c2a68415b016ae0e42756b487d2963f5635f8c31dda": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 14472,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 14472,
+                  "output_tokens": 0
+                },
+                "msg_06171b2c2a68415b016ae0e42756e487d2946e1d9b5eccd891": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 29,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 29,
+                  "output_tokens": 0
+                },
+                "fc_06171b2c2a68415b016ae0e42840c887d28e2162c30fb39108": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "input_tokens": 2,
+                  "output_tokens": 31
+                }
+              }
+            },
+            "input_tokens": 15439,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 31,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 15470
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://api.openai.com/v1/responses",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "response.completed",
+          "usage": {
+            "attribution": {
+              "items": {
+                "at_06171b2c2a68415b016ae0e429d8f487d2aa2d495fb4c4aa4e": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 936,
+                  "input_tokens": 936,
+                  "output_tokens": 0
+                },
+                "msg_06171b2c2a68415b016ae0e429d92087d29a4474b59cfae303": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 14424,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 14424,
+                      "input_tokens": 14472,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 14472,
+                  "output_tokens": 0
+                },
+                "msg_06171b2c2a68415b016ae0e429d98c87d2ae149dd00376c54c": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 29,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 29,
+                  "output_tokens": 0
+                },
+                "fc_06171b2c2a68415b016ae0e42840c887d28e2162c30fb39108": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "input_tokens": 33,
+                  "output_tokens": 0
+                },
+                "fc_06171b2c2a68415b016ae0e429d96c87d2ac9608e13be2f026": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 961,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 961,
+                  "output_tokens": 0
+                },
+                "msg_06171b2c2a68415b016ae0e42a9a8487d2b64d1b53610a0d1d": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 2,
+                      "output_tokens": 15
+                    }
+                  ],
+                  "input_tokens": 2,
+                  "output_tokens": 15
+                }
+              }
+            },
+            "input_tokens": 16433,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 15360
+            },
+            "output_tokens": 15,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 16448
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://api.openai.com/v1/responses",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "response.completed",
+          "usage": {
+            "attribution": {
+              "items": {
+                "at_06171b2c2a68415b016ae0e42c5a0c87d2bdee4d4a9eb33705": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 936,
+                  "input_tokens": 936,
+                  "output_tokens": 0
+                },
+                "msg_06171b2c2a68415b016ae0e42c5a5c87d2af1010347a16e5ba": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 14472,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 14472,
+                      "input_tokens": 14472,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 14472,
+                  "output_tokens": 0
+                },
+                "msg_06171b2c2a68415b016ae0e42c5b5087d2a6df4a7d92982181": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 29,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 29,
+                      "input_tokens": 29,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 29,
+                  "output_tokens": 0
+                },
+                "fc_06171b2c2a68415b016ae0e42840c887d28e2162c30fb39108": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 33,
+                  "input_tokens": 33,
+                  "output_tokens": 0
+                },
+                "fc_06171b2c2a68415b016ae0e42c5ae087d28f53d1518ef14e2e": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 786,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 786,
+                      "input_tokens": 961,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 961,
+                  "output_tokens": 0
+                },
+                "msg_06171b2c2a68415b016ae0e42a9a8487d2b64d1b53610a0d1d": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 17,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 17,
+                  "output_tokens": 0
+                },
+                "msg_06171b2c2a68415b016ae0e42c5b7087d2845dd4fcdd6d60dd": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 24,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 24,
+                  "output_tokens": 0
+                },
+                "msg_06171b2c2a68415b016ae0e42d462487d2a607ba168cd21657": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 2,
+                      "output_tokens": 8
+                    }
+                  ],
+                  "input_tokens": 2,
+                  "output_tokens": 8
+                }
+              }
+            },
+            "input_tokens": 16474,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 16256
+            },
+            "output_tokens": 8,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 16482
+          }
+        }
+      ]
+    }
+  ],
+  "opencode-deepseek-v4-1-flash-free": [
+    {
+      "url": "https://opencode.ai/inference/openai/v1/chat/completions",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "chunk.usage",
+          "usage": {
+            "prompt_tokens": 16426,
+            "completion_tokens": 83,
+            "total_tokens": 16509,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "cache_write_tokens": 0
+            },
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 0,
+              "rejected_prediction_tokens": 0
+            },
+            "cost": 0,
+            "opencode": {
+              "billing_source": "free",
+              "list_cost": 0,
+              "tokens": {
+                "input": 16426,
+                "output": 83,
+                "reasoning": 0,
+                "cache_read": 0,
+                "cache_write_5m": 0,
+                "cache_write_1h": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://opencode.ai/inference/openai/v1/chat/completions",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "chunk.usage",
+          "usage": {
+            "prompt_tokens": 17323,
+            "completion_tokens": 12,
+            "total_tokens": 17335,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 16384,
+              "cache_creation_input_tokens": 0,
+              "cache_write_tokens": 0
+            },
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 0,
+              "rejected_prediction_tokens": 0
+            },
+            "cost": 0,
+            "opencode": {
+              "billing_source": "free",
+              "list_cost": 0,
+              "tokens": {
+                "input": 939,
+                "output": 12,
+                "reasoning": 0,
+                "cache_read": 16384,
+                "cache_write_5m": 0,
+                "cache_write_1h": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "synthetic-hf-deepseek-ai-DeepSeek-V4-1-Flash-1017": [
+    {
+      "url": "https://api.synthetic.new/anthropic/v1/messages?beta=true",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "message_start",
+          "usage": {
+            "input_tokens": 6869,
+            "output_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0
+          }
+        },
+        {
+          "type": "message_delta",
+          "usage": {
+            "input_tokens": 6869,
+            "output_tokens": 20,
+            "cache_creation_input_tokens": 6869,
+            "cache_read_input_tokens": 0
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://api.synthetic.new/anthropic/v1/messages?beta=true",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "message_start",
+          "usage": {
+            "input_tokens": 7311,
+            "output_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0
+          }
+        },
+        {
+          "type": "message_delta",
+          "usage": {
+            "input_tokens": 468,
+            "output_tokens": 6,
+            "cache_creation_input_tokens": 468,
+            "cache_read_input_tokens": 6843
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://api.synthetic.new/anthropic/v1/messages?beta=true",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "message_start",
+          "usage": {
+            "input_tokens": 7326,
+            "output_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0
+          }
+        },
+        {
+          "type": "message_delta",
+          "usage": {
+            "input_tokens": 52,
+            "output_tokens": 2,
+            "cache_creation_input_tokens": 52,
+            "cache_read_input_tokens": 7274
+          }
+        }
+      ]
+    }
+  ],
+  "synthetic-prose": [
+    {
+      "url": "https://api.synthetic.new/anthropic/v1/messages?beta=true",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "message_start",
+          "usage": {
+            "input_tokens": 6860,
+            "output_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0
+          }
+        },
+        {
+          "type": "message_delta",
+          "usage": {
+            "input_tokens": 18,
+            "output_tokens": 1,
+            "cache_creation_input_tokens": 18,
+            "cache_read_input_tokens": 6843
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://api.synthetic.new/anthropic/v1/messages?beta=true",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "message_start",
+          "usage": {
+            "input_tokens": 8304,
+            "output_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0
+          }
+        },
+        {
+          "type": "message_delta",
+          "usage": {
+            "input_tokens": 8304,
+            "output_tokens": 1,
+            "cache_creation_input_tokens": 8304,
+            "cache_read_input_tokens": 0
+          }
+        }
+      ]
+    }
+  ],
+  "xai-grok-4-7": [
+    {
+      "url": "https://api.x.ai/v1/responses",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "response.completed",
+          "usage": {
+            "input_tokens": 17154,
+            "input_tokens_details": {
+              "cached_tokens": 1152
+            },
+            "output_tokens": 38,
+            "output_tokens_details": {
+              "reasoning_tokens": 22
+            },
+            "total_tokens": 17192,
+            "num_sources_used": 0,
+            "num_server_side_tools_used": 0,
+            "cost_in_usd_ticks": 111547200,
+            "context_details": {
+              "input_tokens": 17154,
+              "output_tokens": 41
+            }
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://api.x.ai/v1/responses",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "response.completed",
+          "usage": {
+            "input_tokens": 18212,
+            "input_tokens_details": {
+              "cached_tokens": 17152
+            },
+            "output_tokens": 29,
+            "output_tokens_details": {
+              "reasoning_tokens": 18
+            },
+            "total_tokens": 18241,
+            "num_sources_used": 0,
+            "num_server_side_tools_used": 0,
+            "cost_in_usd_ticks": 36958000,
+            "context_details": {
+              "input_tokens": 18212,
+              "output_tokens": 38
+            }
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://api.x.ai/v1/responses",
+      "status": 200,
+      "usageFrames": [
+        {
+          "type": "response.completed",
+          "usage": {
+            "input_tokens": 18272,
+            "input_tokens_details": {
+              "cached_tokens": 18176
+            },
+            "output_tokens": 80,
+            "output_tokens_details": {
+              "reasoning_tokens": 76
+            },
+            "total_tokens": 18352,
+            "num_sources_used": 0,
+            "num_server_side_tools_used": 0,
+            "cost_in_usd_ticks": 33184000,
+            "context_details": {
+              "input_tokens": 18272,
+              "output_tokens": 87
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

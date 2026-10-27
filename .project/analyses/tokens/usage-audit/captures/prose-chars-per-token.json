@@ -1,0 +1,351 @@
+{
+  "experiment": "same 14000-char markdown slice appended as one user message; delta of the provider prompt total against the previous anchor usage",
+  "routes": [
+    {
+      "route": "claude/claude-sonnet-5-5",
+      "previousAnchorTokens": 21724,
+      "promptTokens": 26846,
+      "note": "continued the audit session; anchor is the last assistant usage.totalTokens",
+      "proseChars": 14000,
+      "deltaTokens": 5122,
+      "charsPerToken": 2.73,
+      "rawFrames": [
+        {
+          "url": "https://api.anthropic.com/v1/messages?beta=true",
+          "status": 200,
+          "usageFrames": [
+            {
+              "type": "message_start",
+              "usage": {
+                "input_tokens": 4,
+                "cache_creation_input_tokens": 5129,
+                "cache_read_input_tokens": 21713,
+                "cache_creation": {
+                  "ephemeral_5m_input_tokens": 5129,
+                  "ephemeral_1h_input_tokens": 0
+                },
+                "output_tokens": 4,
+                "service_tier": "standard",
+                "inference_geo": "global",
+                "speed": "standard"
+              }
+            },
+            {
+              "type": "message_delta",
+              "usage": {
+                "input_tokens": 4,
+                "cache_creation_input_tokens": 5129,
+                "cache_read_input_tokens": 21713,
+                "output_tokens": 4,
+                "output_tokens_details": {
+                  "thinking_tokens": 0
+                },
+                "iterations": [
+                  {
+                    "input_tokens": 4,
+                    "output_tokens": 4,
+                    "cache_read_input_tokens": 21713,
+                    "cache_creation_input_tokens": 5129,
+                    "cache_creation": {
+                      "ephemeral_5m_input_tokens": 5129,
+                      "ephemeral_1h_input_tokens": 0
+                    },
+                    "type": "message"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "antigravity/gemini-3.8-flash",
+      "previousAnchorTokens": 17674,
+      "promptTokens": 21116,
+      "proseChars": 14000,
+      "deltaTokens": 3442,
+      "charsPerToken": 4.07,
+      "rawFrames": [
+        {
+          "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+          "status": 200,
+          "usageFrames": [
+            {
+              "type": "usageMetadata",
+              "usage": {
+                "promptTokenCount": 21111,
+                "candidatesTokenCount": 1,
+                "totalTokenCount": 21112
+              }
+            },
+            {
+              "type": "usageMetadata",
+              "usage": {
+                "promptTokenCount": 21116,
+                "candidatesTokenCount": 1,
+                "totalTokenCount": 21117,
+                "cachedContentTokenCount": 17673
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "openai/gpt-6-luna",
+      "previousAnchorTokens": 16482,
+      "promptTokens": 19827,
+      "proseChars": 14000,
+      "deltaTokens": 3345,
+      "charsPerToken": 4.19,
+      "rawFrames": [
+        {
+          "url": "https://api.openai.com/v1/responses",
+          "status": 200,
+          "usageFrames": [
+            {
+              "type": "response.completed",
+              "usage": {
+                "attribution": {
+                  "items": {
+                    "at_06171b2c2a68415b016ae0e4d396b887d2bc88572ce41c491e": {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 936,
+                      "input_tokens": 936,
+                      "output_tokens": 0
+                    },
+                    "msg_06171b2c2a68415b016ae0e4d396fc87d2be01c307b2660136": {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 14472,
+                      "content": [
+                        {
+                          "cache_write_tokens": 0,
+                          "cached_tokens": 14472,
+                          "input_tokens": 14472,
+                          "output_tokens": 0
+                        }
+                      ],
+                      "input_tokens": 14472,
+                      "output_tokens": 0
+                    },
+                    "msg_06171b2c2a68415b016ae0e4d3985087d2952719edf6f8048b": {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 29,
+                      "content": [
+                        {
+                          "cache_write_tokens": 0,
+                          "cached_tokens": 29,
+                          "input_tokens": 29,
+                          "output_tokens": 0
+                        }
+                      ],
+                      "input_tokens": 29,
+                      "output_tokens": 0
+                    },
+                    "fc_06171b2c2a68415b016ae0e42840c887d28e2162c30fb39108": {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 33,
+                      "input_tokens": 33,
+                      "output_tokens": 0
+                    },
+                    "fc_06171b2c2a68415b016ae0e4d3975887d28d722d282ffd908a": {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 914,
+                      "content": [
+                        {
+                          "cache_write_tokens": 0,
+                          "cached_tokens": 914,
+                          "input_tokens": 961,
+                          "output_tokens": 0
+                        }
+                      ],
+                      "input_tokens": 961,
+                      "output_tokens": 0
+                    },
+                    "msg_06171b2c2a68415b016ae0e42a9a8487d2b64d1b53610a0d1d": {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "content": [
+                        {
+                          "cache_write_tokens": 0,
+                          "cached_tokens": 0,
+                          "input_tokens": 17,
+                          "output_tokens": 0
+                        }
+                      ],
+                      "input_tokens": 17,
+                      "output_tokens": 0
+                    },
+                    "msg_06171b2c2a68415b016ae0e4d3986c87d2b5ac2aa921f2e315": {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "content": [
+                        {
+                          "cache_write_tokens": 0,
+                          "cached_tokens": 0,
+                          "input_tokens": 24,
+                          "output_tokens": 0
+                        }
+                      ],
+                      "input_tokens": 24,
+                      "output_tokens": 0
+                    },
+                    "msg_06171b2c2a68415b016ae0e42d462487d2a607ba168cd21657": {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "content": [
+                        {
+                          "cache_write_tokens": 0,
+                          "cached_tokens": 0,
+                          "input_tokens": 10,
+                          "output_tokens": 0
+                        }
+                      ],
+                      "input_tokens": 10,
+                      "output_tokens": 0
+                    },
+                    "msg_06171b2c2a68415b016ae0e4d3988887d2917dc1f9e655ee39": {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "content": [
+                        {
+                          "cache_write_tokens": 0,
+                          "cached_tokens": 0,
+                          "input_tokens": 3343,
+                          "output_tokens": 0
+                        }
+                      ],
+                      "input_tokens": 3343,
+                      "output_tokens": 0
+                    },
+                    "msg_06171b2c2a68415b016ae0e4d4cfa487d2841c6d8c27b289c6": {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "content": [
+                        {
+                          "cache_write_tokens": 0,
+                          "cached_tokens": 0,
+                          "input_tokens": 2,
+                          "output_tokens": 5
+                        }
+                      ],
+                      "input_tokens": 2,
+                      "output_tokens": 5
+                    }
+                  }
+                },
+                "input_tokens": 19827,
+                "input_tokens_details": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 16384
+                },
+                "output_tokens": 5,
+                "output_tokens_details": {
+                  "reasoning_tokens": 0
+                },
+                "total_tokens": 19832
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "xai/grok-4.7",
+      "previousAnchorTokens": 18352,
+      "promptTokens": 21713,
+      "proseChars": 14000,
+      "deltaTokens": 3361,
+      "charsPerToken": 4.17,
+      "rawFrames": [
+        {
+          "url": "https://api.x.ai/v1/responses",
+          "status": 200,
+          "usageFrames": [
+            {
+              "type": "response.completed",
+              "usage": {
+                "input_tokens": 21713,
+                "input_tokens_details": {
+                  "cached_tokens": 18176
+                },
+                "output_tokens": 47,
+                "output_tokens_details": {
+                  "reasoning_tokens": 46
+                },
+                "total_tokens": 21760,
+                "num_sources_used": 0,
+                "num_server_side_tools_used": 0,
+                "cost_in_usd_ticks": 55909600,
+                "context_details": {
+                  "input_tokens": 21713,
+                  "output_tokens": 56
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "route": "synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "previousAnchorTokens": 6889,
+      "promptTokens": 8304,
+      "note": "dedicated two-request session: baseline prompt 6869 + its 20 output tokens = 6889, then the same prompt plus the prose message",
+      "proseChars": 14000,
+      "deltaTokens": 1415,
+      "charsPerToken": 9.89,
+      "rawFrames": [
+        {
+          "url": "https://api.synthetic.new/anthropic/v1/messages?beta=true",
+          "status": 200,
+          "usageFrames": [
+            {
+              "type": "message_start",
+              "usage": {
+                "input_tokens": 6860,
+                "output_tokens": 0,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0
+              }
+            },
+            {
+              "type": "message_delta",
+              "usage": {
+                "input_tokens": 18,
+                "output_tokens": 1,
+                "cache_creation_input_tokens": 18,
+                "cache_read_input_tokens": 6843
+              }
+            }
+          ]
+        },
+        {
+          "url": "https://api.synthetic.new/anthropic/v1/messages?beta=true",
+          "status": 200,
+          "usageFrames": [
+            {
+              "type": "message_start",
+              "usage": {
+                "input_tokens": 8304,
+                "output_tokens": 0,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0
+              }
+            },
+            {
+              "type": "message_delta",
+              "usage": {
+                "input_tokens": 8304,
+                "output_tokens": 1,
+                "cache_creation_input_tokens": 8304,
+                "cache_read_input_tokens": 0
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,353 @@
+{
+  "session": "sessions-xai-grok-4-7/2026-10-27T17-49-33-755Z_01a17e7b-52bb-769a-9e59-ae048fa003f9.jsonl",
+  "messageCount": 9,
+  "persistedAssistant": [
+    {
+      "provider": "xai",
+      "api": "openai-responses",
+      "model": "grok-4.7",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 16002,
+        "output": 38,
+        "cacheRead": 1152,
+        "cacheWrite": 0,
+        "reasoning": 22,
+        "totalTokens": 17192,
+        "cost": {
+          "input": 0.032004,
+          "output": 0.000228,
+          "cacheRead": 0.000576,
+          "cacheWrite": 0,
+          "total": 0.032808,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "xai",
+      "api": "openai-responses",
+      "model": "grok-4.7",
+      "stopReason": "stop",
+      "usage": {
+        "input": 1060,
+        "output": 29,
+        "cacheRead": 17152,
+        "cacheWrite": 0,
+        "reasoning": 18,
+        "totalTokens": 18241,
+        "cost": {
+          "input": 0.00212,
+          "output": 0.000174,
+          "cacheRead": 0.008576,
+          "cacheWrite": 0,
+          "total": 0.010870000000000001,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "xai",
+      "api": "openai-responses",
+      "model": "grok-4.7",
+      "stopReason": "stop",
+      "usage": {
+        "input": 96,
+        "output": 80,
+        "cacheRead": 18176,
+        "cacheWrite": 0,
+        "reasoning": 76,
+        "totalTokens": 18352,
+        "cost": {
+          "input": 0.000192,
+          "output": 0.00048,
+          "cacheRead": 0.009087999999999999,
+          "cacheWrite": 0,
+          "total": 0.00976,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "xai",
+      "api": "openai-responses",
+      "model": "grok-4.7",
+      "stopReason": "stop",
+      "usage": {
+        "input": 3537,
+        "output": 47,
+        "cacheRead": 18176,
+        "cacheWrite": 0,
+        "reasoning": 46,
+        "totalTokens": 21760,
+        "cost": {
+          "input": 0.0070739999999999996,
+          "output": 0.000282,
+          "cacheRead": 0.009087999999999999,
+          "cacheWrite": 0,
+          "total": 0.016444,
+          "totalFromProvider": false
+        }
+      }
+    }
+  ],
+  "messageEnd": [
+    {
+      "provider": "xai",
+      "api": "openai-responses",
+      "model": "grok-4.7",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 16002,
+        "output": 38,
+        "cacheRead": 1152,
+        "cacheWrite": 0,
+        "reasoning": 22,
+        "totalTokens": 17192,
+        "cost": {
+          "input": 0.032004,
+          "output": 0.000228,
+          "cacheRead": 0.000576,
+          "cacheWrite": 0,
+          "total": 0.032808,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "xai",
+      "api": "openai-responses",
+      "model": "grok-4.7",
+      "stopReason": "stop",
+      "usage": {
+        "input": 1060,
+        "output": 29,
+        "cacheRead": 17152,
+        "cacheWrite": 0,
+        "reasoning": 18,
+        "totalTokens": 18241,
+        "cost": {
+          "input": 0.00212,
+          "output": 0.000174,
+          "cacheRead": 0.008576,
+          "cacheWrite": 0,
+          "total": 0.010870000000000001,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "xai",
+      "api": "openai-responses",
+      "model": "grok-4.7",
+      "stopReason": "stop",
+      "usage": {
+        "input": 96,
+        "output": 80,
+        "cacheRead": 18176,
+        "cacheWrite": 0,
+        "reasoning": 76,
+        "totalTokens": 18352,
+        "cost": {
+          "input": 0.000192,
+          "output": 0.00048,
+          "cacheRead": 0.009087999999999999,
+          "cacheWrite": 0,
+          "total": 0.00976,
+          "totalFromProvider": false
+        }
+      }
+    }
+  ],
+  "turns": [
+    {
+      "position": 0,
+      "mapping": {
+        "expected": {
+          "input": 16002,
+          "output": 38,
+          "cacheRead": 1152,
+          "cacheWrite": 0,
+          "totalTokens": 17192
+        },
+        "persisted": {
+          "input": 16002,
+          "output": 38,
+          "cacheRead": 1152,
+          "cacheWrite": 0,
+          "totalTokens": 17192
+        },
+        "matches": true
+      },
+      "url": "https://api.x.ai/v1/responses",
+      "status": 200,
+      "model": "grok-4.7",
+      "maxTokens": 475436,
+      "chars": 72460,
+      "raw": {
+        "input": 17154,
+        "output": 38,
+        "cacheRead": 1152,
+        "cacheWrite": 0,
+        "total": 17192,
+        "reasoning": 22,
+        "source": "openai responses response.completed.usage",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 16002,
+        "output": 38,
+        "cacheRead": 1152,
+        "cacheWrite": 0,
+        "reasoning": 22,
+        "totalTokens": 17192,
+        "cost": {
+          "input": 0.032004,
+          "output": 0.000228,
+          "cacheRead": 0.000576,
+          "cacheWrite": 0,
+          "total": 0.032808,
+          "totalFromProvider": false
+        }
+      },
+      "persistedTotal": 17192,
+      "estimate": {
+        "live": 17905,
+        "whole": 17905,
+        "anchor": null,
+        "tail": 17905
+      },
+      "realPrompt": 17154,
+      "tailReal": null,
+      "liveErrorPct": 4.4,
+      "wholeErrorPct": 4.4,
+      "tailErrorPct": null
+    },
+    {
+      "position": 1,
+      "mapping": {
+        "expected": {
+          "input": 1060,
+          "output": 29,
+          "cacheRead": 17152,
+          "cacheWrite": 0,
+          "totalTokens": 18241
+        },
+        "persisted": {
+          "input": 1060,
+          "output": 29,
+          "cacheRead": 17152,
+          "cacheWrite": 0,
+          "totalTokens": 18241
+        },
+        "matches": true
+      },
+      "url": "https://api.x.ai/v1/responses",
+      "status": 200,
+      "model": "grok-4.7",
+      "maxTokens": 477884,
+      "chars": 76305,
+      "raw": {
+        "input": 18212,
+        "output": 29,
+        "cacheRead": 17152,
+        "cacheWrite": 0,
+        "total": 18241,
+        "reasoning": 18,
+        "source": "openai responses response.completed.usage",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 1060,
+        "output": 29,
+        "cacheRead": 17152,
+        "cacheWrite": 0,
+        "reasoning": 18,
+        "totalTokens": 18241,
+        "cost": {
+          "input": 0.00212,
+          "output": 0.000174,
+          "cacheRead": 0.008576,
+          "cacheWrite": 0,
+          "total": 0.010870000000000001,
+          "totalFromProvider": false
+        }
+      },
+      "persistedTotal": 18241,
+      "estimate": {
+        "live": 17917,
+        "whole": 18641,
+        "anchor": 17192,
+        "tail": 725
+      },
+      "realPrompt": 18212,
+      "tailReal": 1020,
+      "liveErrorPct": -1.6,
+      "wholeErrorPct": 2.4,
+      "tailErrorPct": -28.9
+    },
+    {
+      "position": 2,
+      "mapping": {
+        "expected": {
+          "input": 96,
+          "output": 80,
+          "cacheRead": 18176,
+          "cacheWrite": 0,
+          "totalTokens": 18352
+        },
+        "persisted": {
+          "input": 96,
+          "output": 80,
+          "cacheRead": 18176,
+          "cacheWrite": 0,
+          "totalTokens": 18352
+        },
+        "matches": true
+      },
+      "url": "https://api.x.ai/v1/responses",
+      "status": 200,
+      "model": "grok-4.7",
+      "maxTokens": 477635,
+      "chars": 76905,
+      "raw": {
+        "input": 18272,
+        "output": 80,
+        "cacheRead": 18176,
+        "cacheWrite": 0,
+        "total": 18352,
+        "reasoning": 76,
+        "source": "openai responses response.completed.usage",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 96,
+        "output": 80,
+        "cacheRead": 18176,
+        "cacheWrite": 0,
+        "reasoning": 76,
+        "totalTokens": 18352,
+        "cost": {
+          "input": 0.000192,
+          "output": 0.00048,
+          "cacheRead": 0.009087999999999999,
+          "cacheWrite": 0,
+          "total": 0.00976,
+          "totalFromProvider": false
+        }
+      },
+      "persistedTotal": 18352,
+      "estimate": {
+        "live": 18266,
+        "whole": 18671,
+        "anchor": 18241,
+        "tail": 25
+      },
+      "realPrompt": 18272,
+      "tailReal": 31,
+      "liveErrorPct": 0,
+      "wholeErrorPct": 2.2,
+      "tailErrorPct": -19.4
+    }
+  ]
+}

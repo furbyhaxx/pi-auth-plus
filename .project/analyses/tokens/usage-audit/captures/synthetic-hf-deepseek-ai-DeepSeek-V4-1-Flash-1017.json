@@ -1,0 +1,337 @@
+{
+  "session": "sessions-synthetic-hf-deepseek-ai-DeepSeek-V4-1-Flash-1017/2026-10-27T17-49-15-062Z_01a17e7b-09b6-7472-9c1e-76b619aeaacc.jsonl",
+  "messageCount": 7,
+  "persistedAssistant": [
+    {
+      "provider": "synthetic",
+      "api": "anthropic-messages",
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 6869,
+        "output": 20,
+        "cacheRead": 0,
+        "cacheWrite": 6869,
+        "totalTokens": 13758,
+        "cost": {
+          "input": 0.0041214,
+          "output": 0.000024,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.0041454,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0
+      }
+    },
+    {
+      "provider": "synthetic",
+      "api": "anthropic-messages",
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "stopReason": "stop",
+      "usage": {
+        "input": 468,
+        "output": 6,
+        "cacheRead": 6843,
+        "cacheWrite": 468,
+        "totalTokens": 7785,
+        "cost": {
+          "input": 0.0002808,
+          "output": 0.0000072,
+          "cacheRead": 0.00020528999999999998,
+          "cacheWrite": 0,
+          "total": 0.00049329,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0
+      }
+    },
+    {
+      "provider": "synthetic",
+      "api": "anthropic-messages",
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "stopReason": "stop",
+      "usage": {
+        "input": 52,
+        "output": 2,
+        "cacheRead": 7274,
+        "cacheWrite": 52,
+        "totalTokens": 7380,
+        "cost": {
+          "input": 0.0000312,
+          "output": 0.0000024,
+          "cacheRead": 0.00021821999999999998,
+          "cacheWrite": 0,
+          "total": 0.00025182,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0
+      }
+    }
+  ],
+  "messageEnd": [
+    {
+      "provider": "synthetic",
+      "api": "anthropic-messages",
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 6869,
+        "output": 20,
+        "cacheRead": 0,
+        "cacheWrite": 6869,
+        "totalTokens": 13758,
+        "cost": {
+          "input": 0.0041214,
+          "output": 0.000024,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.0041454,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0
+      }
+    },
+    {
+      "provider": "synthetic",
+      "api": "anthropic-messages",
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "stopReason": "stop",
+      "usage": {
+        "input": 468,
+        "output": 6,
+        "cacheRead": 6843,
+        "cacheWrite": 468,
+        "totalTokens": 7785,
+        "cost": {
+          "input": 0.0002808,
+          "output": 0.0000072,
+          "cacheRead": 0.00020528999999999998,
+          "cacheWrite": 0,
+          "total": 0.00049329,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0
+      }
+    },
+    {
+      "provider": "synthetic",
+      "api": "anthropic-messages",
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "stopReason": "stop",
+      "usage": {
+        "input": 52,
+        "output": 2,
+        "cacheRead": 7274,
+        "cacheWrite": 52,
+        "totalTokens": 7380,
+        "cost": {
+          "input": 0.0000312,
+          "output": 0.0000024,
+          "cacheRead": 0.00021821999999999998,
+          "cacheWrite": 0,
+          "total": 0.00025182,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0
+      }
+    }
+  ],
+  "turns": [
+    {
+      "position": 0,
+      "mapping": {
+        "expected": {
+          "input": 6869,
+          "output": 20,
+          "cacheRead": 0,
+          "cacheWrite": 6869,
+          "totalTokens": 13758
+        },
+        "persisted": {
+          "input": 6869,
+          "output": 20,
+          "cacheRead": 0,
+          "cacheWrite": 6869,
+          "totalTokens": 13758
+        },
+        "matches": true
+      },
+      "url": "https://api.synthetic.new/anthropic/v1/messages?beta=true",
+      "status": 200,
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "maxTokens": 65536,
+      "chars": 71737,
+      "raw": {
+        "input": 6869,
+        "output": 20,
+        "cacheRead": 0,
+        "cacheWrite": 6869,
+        "total": null,
+        "reasoning": 0,
+        "startInput": 6869,
+        "deltaInput": 6869,
+        "cacheWriteDuplicatesInput": true,
+        "source": "anthropic message_start + message_delta usage"
+      },
+      "persisted": {
+        "input": 6869,
+        "output": 20,
+        "cacheRead": 0,
+        "cacheWrite": 6869,
+        "totalTokens": 13758,
+        "cost": {
+          "input": 0.0041214,
+          "output": 0.000024,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.0041454,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0
+      },
+      "persistedTotal": 13758,
+      "estimate": {
+        "live": 17905,
+        "whole": 17905,
+        "anchor": null,
+        "tail": 17905
+      },
+      "realPrompt": 6869,
+      "tailReal": null,
+      "liveErrorPct": 160.7,
+      "wholeErrorPct": 160.7,
+      "tailErrorPct": null
+    },
+    {
+      "position": 1,
+      "mapping": {
+        "expected": {
+          "input": 468,
+          "output": 6,
+          "cacheRead": 6843,
+          "cacheWrite": 468,
+          "totalTokens": 7785
+        },
+        "persisted": {
+          "input": 468,
+          "output": 6,
+          "cacheRead": 6843,
+          "cacheWrite": 468,
+          "totalTokens": 7785
+        },
+        "matches": true
+      },
+      "url": "https://api.synthetic.new/anthropic/v1/messages?beta=true",
+      "status": 200,
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "maxTokens": 65536,
+      "chars": 75357,
+      "raw": {
+        "input": 468,
+        "output": 6,
+        "cacheRead": 6843,
+        "cacheWrite": 468,
+        "total": null,
+        "reasoning": 0,
+        "startInput": 7311,
+        "deltaInput": 468,
+        "cacheWriteDuplicatesInput": true,
+        "source": "anthropic message_start + message_delta usage"
+      },
+      "persisted": {
+        "input": 468,
+        "output": 6,
+        "cacheRead": 6843,
+        "cacheWrite": 468,
+        "totalTokens": 7785,
+        "cost": {
+          "input": 0.0002808,
+          "output": 0.0000072,
+          "cacheRead": 0.00020528999999999998,
+          "cacheWrite": 0,
+          "total": 0.00049329,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0
+      },
+      "persistedTotal": 7785,
+      "estimate": {
+        "live": 14483,
+        "whole": 18641,
+        "anchor": 13758,
+        "tail": 725
+      },
+      "realPrompt": 7311,
+      "tailReal": -6447,
+      "liveErrorPct": 98.1,
+      "wholeErrorPct": 155,
+      "tailErrorPct": null
+    },
+    {
+      "position": 2,
+      "mapping": {
+        "expected": {
+          "input": 52,
+          "output": 2,
+          "cacheRead": 7274,
+          "cacheWrite": 52,
+          "totalTokens": 7380
+        },
+        "persisted": {
+          "input": 52,
+          "output": 2,
+          "cacheRead": 7274,
+          "cacheWrite": 52,
+          "totalTokens": 7380
+        },
+        "matches": true
+      },
+      "url": "https://api.synthetic.new/anthropic/v1/messages?beta=true",
+      "status": 200,
+      "model": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "maxTokens": 65536,
+      "chars": 75585,
+      "raw": {
+        "input": 52,
+        "output": 2,
+        "cacheRead": 7274,
+        "cacheWrite": 52,
+        "total": null,
+        "reasoning": 0,
+        "startInput": 7326,
+        "deltaInput": 52,
+        "cacheWriteDuplicatesInput": true,
+        "source": "anthropic message_start + message_delta usage"
+      },
+      "persisted": {
+        "input": 52,
+        "output": 2,
+        "cacheRead": 7274,
+        "cacheWrite": 52,
+        "totalTokens": 7380,
+        "cost": {
+          "input": 0.0000312,
+          "output": 0.0000024,
+          "cacheRead": 0.00021821999999999998,
+          "cacheWrite": 0,
+          "total": 0.00025182,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0
+      },
+      "persistedTotal": 7380,
+      "estimate": {
+        "live": 7810,
+        "whole": 18671,
+        "anchor": 7785,
+        "tail": 25
+      },
+      "realPrompt": 7326,
+      "tailReal": -459,
+      "liveErrorPct": 6.6,
+      "wholeErrorPct": 154.9,
+      "tailErrorPct": null
+    }
+  ]
+}

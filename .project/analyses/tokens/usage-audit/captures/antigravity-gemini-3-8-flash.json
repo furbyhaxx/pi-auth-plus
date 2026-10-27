@@ -1,0 +1,343 @@
+{
+  "session": "sessions-antigravity-gemini-3-8-flash/2026-10-27T17-48-21-517Z_01a17e7a-388d-7784-97be-6c17a41fa45b.jsonl",
+  "messageCount": 9,
+  "persistedAssistant": [
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gemini-3.8-flash",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 16407,
+        "output": 51,
+        "reasoning": 5,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 16458,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gemini-3.8-flash",
+      "stopReason": "stop",
+      "usage": {
+        "input": 2045,
+        "output": 17,
+        "reasoning": 0,
+        "cacheRead": 15585,
+        "cacheWrite": 0,
+        "totalTokens": 17647,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gemini-3.8-flash",
+      "stopReason": "stop",
+      "usage": {
+        "input": 2091,
+        "output": 5,
+        "reasoning": 0,
+        "cacheRead": 15578,
+        "cacheWrite": 0,
+        "totalTokens": 17674,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gemini-3.8-flash",
+      "stopReason": "stop",
+      "usage": {
+        "input": 3443,
+        "output": 1,
+        "reasoning": 0,
+        "cacheRead": 17673,
+        "cacheWrite": 0,
+        "totalTokens": 21117,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "messageEnd": [
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gemini-3.8-flash",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 16407,
+        "output": 51,
+        "reasoning": 5,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 16458,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gemini-3.8-flash",
+      "stopReason": "stop",
+      "usage": {
+        "input": 2045,
+        "output": 17,
+        "reasoning": 0,
+        "cacheRead": 15585,
+        "cacheWrite": 0,
+        "totalTokens": 17647,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gemini-3.8-flash",
+      "stopReason": "stop",
+      "usage": {
+        "input": 2091,
+        "output": 5,
+        "reasoning": 0,
+        "cacheRead": 15578,
+        "cacheWrite": 0,
+        "totalTokens": 17674,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "turns": [
+    {
+      "position": 0,
+      "mapping": {
+        "expected": {
+          "input": 16407,
+          "output": 51,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 16458
+        },
+        "persisted": {
+          "input": 16407,
+          "output": 51,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 16458
+        },
+        "matches": true
+      },
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "model": "gemini-3.8-flash-low",
+      "chars": 72329,
+      "raw": {
+        "input": 16407,
+        "output": 51,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "total": 16458,
+        "reasoning": 5,
+        "source": "google usageMetadata (last of 4 chunks)",
+        "note": "promptTokenCount includes cachedContentTokenCount",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 16407,
+        "output": 51,
+        "reasoning": 5,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 16458,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 16458,
+      "estimate": {
+        "live": 17905,
+        "whole": 17905,
+        "anchor": null,
+        "tail": 17905
+      },
+      "realPrompt": 16407,
+      "tailReal": null,
+      "liveErrorPct": 9.1,
+      "wholeErrorPct": 9.1,
+      "tailErrorPct": null
+    },
+    {
+      "position": 1,
+      "mapping": {
+        "expected": {
+          "input": 2045,
+          "output": 17,
+          "cacheRead": 15585,
+          "cacheWrite": 0,
+          "totalTokens": 17647
+        },
+        "persisted": {
+          "input": 2045,
+          "output": 17,
+          "cacheRead": 15585,
+          "cacheWrite": 0,
+          "totalTokens": 17647
+        },
+        "matches": true
+      },
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "model": "gemini-3.8-flash-low",
+      "chars": 76143,
+      "raw": {
+        "input": 17630,
+        "output": 17,
+        "cacheRead": 15585,
+        "cacheWrite": 0,
+        "total": 17647,
+        "reasoning": 0,
+        "source": "google usageMetadata (last of 3 chunks)",
+        "note": "promptTokenCount includes cachedContentTokenCount",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 2045,
+        "output": 17,
+        "reasoning": 0,
+        "cacheRead": 15585,
+        "cacheWrite": 0,
+        "totalTokens": 17647,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 17647,
+      "estimate": {
+        "live": 17183,
+        "whole": 18660,
+        "anchor": 16458,
+        "tail": 725
+      },
+      "realPrompt": 17630,
+      "tailReal": 1172,
+      "liveErrorPct": -2.5,
+      "wholeErrorPct": 5.8,
+      "tailErrorPct": -38.1
+    },
+    {
+      "position": 2,
+      "mapping": {
+        "expected": {
+          "input": 2091,
+          "output": 5,
+          "cacheRead": 15578,
+          "cacheWrite": 0,
+          "totalTokens": 17674
+        },
+        "persisted": {
+          "input": 2091,
+          "output": 5,
+          "cacheRead": 15578,
+          "cacheWrite": 0,
+          "totalTokens": 17674
+        },
+        "matches": true
+      },
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "model": "gemini-3.8-flash-low",
+      "chars": 76501,
+      "raw": {
+        "input": 17669,
+        "output": 5,
+        "cacheRead": 15578,
+        "cacheWrite": 0,
+        "total": 17674,
+        "reasoning": 0,
+        "source": "google usageMetadata (last of 3 chunks)",
+        "note": "promptTokenCount includes cachedContentTokenCount",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 2091,
+        "output": 5,
+        "reasoning": 0,
+        "cacheRead": 15578,
+        "cacheWrite": 0,
+        "totalTokens": 17674,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 17674,
+      "estimate": {
+        "live": 17672,
+        "whole": 18690,
+        "anchor": 17647,
+        "tail": 25
+      },
+      "realPrompt": 17669,
+      "tailReal": 22,
+      "liveErrorPct": 0,
+      "wholeErrorPct": 5.8,
+      "tailErrorPct": 13.6
+    }
+  ]
+}

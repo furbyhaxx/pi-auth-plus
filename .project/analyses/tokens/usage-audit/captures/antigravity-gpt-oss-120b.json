@@ -1,0 +1,500 @@
+{
+  "session": "sessions-antigravity-gpt-oss-120b/2026-10-27T17-49-03-012Z_01a17e7a-daa4-74d2-8ec1-67b34e3ccca7.jsonl",
+  "messageCount": 10,
+  "persistedAssistant": [
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gpt-oss-120b",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 15303,
+        "output": 67,
+        "reasoning": 0,
+        "cacheRead": 64,
+        "cacheWrite": 0,
+        "totalTokens": 15434,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gpt-oss-120b",
+      "stopReason": "error",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gpt-oss-120b",
+      "stopReason": "stop",
+      "usage": {
+        "input": 16512,
+        "output": 53,
+        "reasoning": 0,
+        "cacheRead": 64,
+        "cacheWrite": 0,
+        "totalTokens": 16629,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gpt-oss-120b",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 1257,
+        "output": 113,
+        "reasoning": 0,
+        "cacheRead": 15360,
+        "cacheWrite": 0,
+        "totalTokens": 16730,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gpt-oss-120b",
+      "stopReason": "stop",
+      "usage": {
+        "input": 1516,
+        "output": 101,
+        "reasoning": 0,
+        "cacheRead": 16576,
+        "cacheWrite": 0,
+        "totalTokens": 18193,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "messageEnd": [
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gpt-oss-120b",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 15303,
+        "output": 67,
+        "reasoning": 0,
+        "cacheRead": 64,
+        "cacheWrite": 0,
+        "totalTokens": 15434,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gpt-oss-120b",
+      "stopReason": "error",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gpt-oss-120b",
+      "stopReason": "stop",
+      "usage": {
+        "input": 16512,
+        "output": 53,
+        "reasoning": 0,
+        "cacheRead": 64,
+        "cacheWrite": 0,
+        "totalTokens": 16629,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gpt-oss-120b",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 1257,
+        "output": 113,
+        "reasoning": 0,
+        "cacheRead": 15360,
+        "cacheWrite": 0,
+        "totalTokens": 16730,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "gpt-oss-120b",
+      "stopReason": "stop",
+      "usage": {
+        "input": 1516,
+        "output": 101,
+        "reasoning": 0,
+        "cacheRead": 16576,
+        "cacheWrite": 0,
+        "totalTokens": 18193,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "turns": [
+    {
+      "position": 0,
+      "mapping": {
+        "expected": {
+          "input": 15303,
+          "output": 67,
+          "cacheRead": 64,
+          "cacheWrite": 0,
+          "totalTokens": 15434
+        },
+        "persisted": {
+          "input": 15303,
+          "output": 67,
+          "cacheRead": 64,
+          "cacheWrite": 0,
+          "totalTokens": 15434
+        },
+        "matches": true
+      },
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "model": "gpt-oss-120b-medium",
+      "chars": 72329,
+      "raw": {
+        "input": 15367,
+        "output": 67,
+        "cacheRead": 64,
+        "cacheWrite": 0,
+        "total": 15434,
+        "reasoning": 0,
+        "source": "google usageMetadata (last of 1 chunks)",
+        "note": "promptTokenCount includes cachedContentTokenCount",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 15303,
+        "output": 67,
+        "reasoning": 0,
+        "cacheRead": 64,
+        "cacheWrite": 0,
+        "totalTokens": 15434,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 15434,
+      "estimate": {
+        "live": 17905,
+        "whole": 17905,
+        "anchor": null,
+        "tail": 17905
+      },
+      "realPrompt": 15367,
+      "tailReal": null,
+      "liveErrorPct": 16.5,
+      "wholeErrorPct": 16.5,
+      "tailErrorPct": null
+    },
+    {
+      "position": 1,
+      "mapping": null,
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 503,
+      "model": "gpt-oss-120b-medium",
+      "chars": 75393,
+      "persisted": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 0,
+      "estimate": {
+        "live": 16020,
+        "whole": 18533,
+        "anchor": 15434,
+        "tail": 586
+      },
+      "realPrompt": null,
+      "tailReal": null,
+      "liveErrorPct": null,
+      "wholeErrorPct": null,
+      "tailErrorPct": null
+    },
+    {
+      "position": 2,
+      "mapping": {
+        "expected": {
+          "input": 16512,
+          "output": 53,
+          "cacheRead": 64,
+          "cacheWrite": 0,
+          "totalTokens": 16629
+        },
+        "persisted": {
+          "input": 16512,
+          "output": 53,
+          "cacheRead": 64,
+          "cacheWrite": 0,
+          "totalTokens": 16629
+        },
+        "matches": true
+      },
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "model": "gpt-oss-120b-medium",
+      "chars": 75393,
+      "raw": {
+        "input": 16576,
+        "output": 53,
+        "cacheRead": 64,
+        "cacheWrite": 0,
+        "total": 16629,
+        "reasoning": 0,
+        "source": "google usageMetadata (last of 1 chunks)",
+        "note": "promptTokenCount includes cachedContentTokenCount",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 16512,
+        "output": 53,
+        "reasoning": 0,
+        "cacheRead": 64,
+        "cacheWrite": 0,
+        "totalTokens": 16629,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 16629,
+      "estimate": {
+        "live": 16020,
+        "whole": 18533,
+        "anchor": 15434,
+        "tail": 586
+      },
+      "realPrompt": 16576,
+      "tailReal": 1142,
+      "liveErrorPct": -3.4,
+      "wholeErrorPct": 11.8,
+      "tailErrorPct": -48.7
+    },
+    {
+      "position": 3,
+      "mapping": {
+        "expected": {
+          "input": 1257,
+          "output": 113,
+          "cacheRead": 15360,
+          "cacheWrite": 0,
+          "totalTokens": 16730
+        },
+        "persisted": {
+          "input": 1257,
+          "output": 113,
+          "cacheRead": 15360,
+          "cacheWrite": 0,
+          "totalTokens": 16730
+        },
+        "matches": true
+      },
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "model": "gpt-oss-120b-medium",
+      "chars": 75719,
+      "raw": {
+        "input": 16617,
+        "output": 113,
+        "cacheRead": 15360,
+        "cacheWrite": 0,
+        "total": 16730,
+        "reasoning": 0,
+        "source": "google usageMetadata (last of 1 chunks)",
+        "note": "promptTokenCount includes cachedContentTokenCount",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 1257,
+        "output": 113,
+        "reasoning": 0,
+        "cacheRead": 15360,
+        "cacheWrite": 0,
+        "totalTokens": 16730,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 16730,
+      "estimate": {
+        "live": 16654,
+        "whole": 18589,
+        "anchor": 16629,
+        "tail": 25
+      },
+      "realPrompt": 16617,
+      "tailReal": -12,
+      "liveErrorPct": 0.2,
+      "wholeErrorPct": 11.9,
+      "tailErrorPct": null
+    },
+    {
+      "position": 4,
+      "mapping": {
+        "expected": {
+          "input": 1516,
+          "output": 101,
+          "cacheRead": 16576,
+          "cacheWrite": 0,
+          "totalTokens": 18193
+        },
+        "persisted": {
+          "input": 1516,
+          "output": 101,
+          "cacheRead": 16576,
+          "cacheWrite": 0,
+          "totalTokens": 18193
+        },
+        "matches": true
+      },
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "model": "gpt-oss-120b-medium",
+      "chars": 79641,
+      "raw": {
+        "input": 18092,
+        "output": 101,
+        "cacheRead": 16576,
+        "cacheWrite": 0,
+        "total": 18193,
+        "reasoning": 0,
+        "source": "google usageMetadata (last of 1 chunks)",
+        "note": "promptTokenCount includes cachedContentTokenCount",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 1516,
+        "output": 101,
+        "reasoning": 0,
+        "cacheRead": 16576,
+        "cacheWrite": 0,
+        "totalTokens": 18193,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 18193,
+      "estimate": {
+        "live": 17455,
+        "whole": 19414,
+        "anchor": 16730,
+        "tail": 725
+      },
+      "realPrompt": 18092,
+      "tailReal": 1362,
+      "liveErrorPct": -3.5,
+      "wholeErrorPct": 7.3,
+      "tailErrorPct": -46.8
+    }
+  ]
+}

@@ -1,0 +1,322 @@
+{
+  "session": "sessions-antigravity-claude-sonnet-5-5/2026-10-27T17-48-57-274Z_01a17e7a-c43a-710d-9e7c-6263498c5668.jsonl",
+  "messageCount": 7,
+  "persistedAssistant": [
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 24327,
+        "output": 60,
+        "reasoning": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 24387,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "stop",
+      "usage": {
+        "input": 1798,
+        "output": 14,
+        "reasoning": 0,
+        "cacheRead": 24213,
+        "cacheWrite": 0,
+        "totalTokens": 26025,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "stop",
+      "usage": {
+        "input": 1667,
+        "output": 7,
+        "reasoning": 0,
+        "cacheRead": 24387,
+        "cacheWrite": 0,
+        "totalTokens": 26061,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "messageEnd": [
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 24327,
+        "output": 60,
+        "reasoning": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 24387,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "stop",
+      "usage": {
+        "input": 1798,
+        "output": 14,
+        "reasoning": 0,
+        "cacheRead": 24213,
+        "cacheWrite": 0,
+        "totalTokens": 26025,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "provider": "antigravity",
+      "api": "google-generative-ai",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "stop",
+      "usage": {
+        "input": 1667,
+        "output": 7,
+        "reasoning": 0,
+        "cacheRead": 24387,
+        "cacheWrite": 0,
+        "totalTokens": 26061,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "turns": [
+    {
+      "position": 0,
+      "mapping": {
+        "expected": {
+          "input": 24327,
+          "output": 60,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 24387
+        },
+        "persisted": {
+          "input": 24327,
+          "output": 60,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 24387
+        },
+        "matches": true
+      },
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "model": "claude-sonnet-5-5-low",
+      "chars": 72329,
+      "raw": {
+        "input": 24327,
+        "output": 60,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "total": 24387,
+        "reasoning": 0,
+        "source": "google usageMetadata (last of 3 chunks)",
+        "note": "promptTokenCount includes cachedContentTokenCount",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 24327,
+        "output": 60,
+        "reasoning": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 24387,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 24387,
+      "estimate": {
+        "live": 17905,
+        "whole": 17905,
+        "anchor": null,
+        "tail": 17905
+      },
+      "realPrompt": 24327,
+      "tailReal": null,
+      "liveErrorPct": -26.4,
+      "wholeErrorPct": -26.4,
+      "tailErrorPct": null
+    },
+    {
+      "position": 1,
+      "mapping": {
+        "expected": {
+          "input": 1798,
+          "output": 14,
+          "cacheRead": 24213,
+          "cacheWrite": 0,
+          "totalTokens": 26025
+        },
+        "persisted": {
+          "input": 1798,
+          "output": 14,
+          "cacheRead": 24213,
+          "cacheWrite": 0,
+          "totalTokens": 26025
+        },
+        "matches": true
+      },
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "model": "claude-sonnet-5-5-low",
+      "chars": 75875,
+      "raw": {
+        "input": 26011,
+        "output": 14,
+        "cacheRead": 24213,
+        "cacheWrite": 0,
+        "total": 26025,
+        "reasoning": 0,
+        "source": "google usageMetadata (last of 4 chunks)",
+        "note": "promptTokenCount includes cachedContentTokenCount",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 1798,
+        "output": 14,
+        "reasoning": 0,
+        "cacheRead": 24213,
+        "cacheWrite": 0,
+        "totalTokens": 26025,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 26025,
+      "estimate": {
+        "live": 25112,
+        "whole": 18641,
+        "anchor": 24387,
+        "tail": 725
+      },
+      "realPrompt": 26011,
+      "tailReal": 1624,
+      "liveErrorPct": -3.5,
+      "wholeErrorPct": -28.3,
+      "tailErrorPct": -55.4
+    },
+    {
+      "position": 2,
+      "mapping": {
+        "expected": {
+          "input": 1667,
+          "output": 7,
+          "cacheRead": 24387,
+          "cacheWrite": 0,
+          "totalTokens": 26061
+        },
+        "persisted": {
+          "input": 1667,
+          "output": 7,
+          "cacheRead": 24387,
+          "cacheWrite": 0,
+          "totalTokens": 26061
+        },
+        "matches": true
+      },
+      "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      "status": 200,
+      "model": "claude-sonnet-5-5-low",
+      "chars": 76067,
+      "raw": {
+        "input": 26054,
+        "output": 7,
+        "cacheRead": 24387,
+        "cacheWrite": 0,
+        "total": 26061,
+        "reasoning": 0,
+        "source": "google usageMetadata (last of 4 chunks)",
+        "note": "promptTokenCount includes cachedContentTokenCount",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 1667,
+        "output": 7,
+        "reasoning": 0,
+        "cacheRead": 24387,
+        "cacheWrite": 0,
+        "totalTokens": 26061,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 26061,
+      "estimate": {
+        "live": 26050,
+        "whole": 18671,
+        "anchor": 26025,
+        "tail": 25
+      },
+      "realPrompt": 26054,
+      "tailReal": 29,
+      "liveErrorPct": 0,
+      "wholeErrorPct": -28.3,
+      "tailErrorPct": -13.8
+    }
+  ]
+}

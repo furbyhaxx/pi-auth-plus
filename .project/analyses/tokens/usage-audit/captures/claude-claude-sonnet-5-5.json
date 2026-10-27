@@ -1,0 +1,369 @@
+{
+  "session": "sessions-claude-claude-sonnet-5-5/2026-10-27T17-51-18-118Z_01a17e7c-ea66-7369-a2f7-a7d1d8b92270.jsonl",
+  "messageCount": 9,
+  "persistedAssistant": [
+    {
+      "provider": "claude",
+      "api": "anthropic-messages",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 4,
+        "output": 61,
+        "cacheRead": 20363,
+        "cacheWrite": 0,
+        "totalTokens": 20428,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0,
+        "reasoning": 0
+      }
+    },
+    {
+      "provider": "claude",
+      "api": "anthropic-messages",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "stop",
+      "usage": {
+        "input": 2,
+        "output": 14,
+        "cacheRead": 21672,
+        "cacheWrite": 0,
+        "totalTokens": 21688,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0,
+        "reasoning": 0
+      }
+    },
+    {
+      "provider": "claude",
+      "api": "anthropic-messages",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "stop",
+      "usage": {
+        "input": 4,
+        "output": 7,
+        "cacheRead": 21713,
+        "cacheWrite": 0,
+        "totalTokens": 21724,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0,
+        "reasoning": 0
+      }
+    },
+    {
+      "provider": "claude",
+      "api": "anthropic-messages",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "stop",
+      "usage": {
+        "input": 4,
+        "output": 4,
+        "cacheRead": 21713,
+        "cacheWrite": 5129,
+        "totalTokens": 26850,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0,
+        "reasoning": 0
+      }
+    }
+  ],
+  "messageEnd": [
+    {
+      "provider": "claude",
+      "api": "anthropic-messages",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 4,
+        "output": 61,
+        "cacheRead": 20363,
+        "cacheWrite": 0,
+        "totalTokens": 20428,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0,
+        "reasoning": 0
+      }
+    },
+    {
+      "provider": "claude",
+      "api": "anthropic-messages",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "stop",
+      "usage": {
+        "input": 2,
+        "output": 14,
+        "cacheRead": 21672,
+        "cacheWrite": 0,
+        "totalTokens": 21688,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0,
+        "reasoning": 0
+      }
+    },
+    {
+      "provider": "claude",
+      "api": "anthropic-messages",
+      "model": "claude-sonnet-5-5",
+      "stopReason": "stop",
+      "usage": {
+        "input": 4,
+        "output": 7,
+        "cacheRead": 21713,
+        "cacheWrite": 0,
+        "totalTokens": 21724,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0,
+        "reasoning": 0
+      }
+    }
+  ],
+  "turns": [
+    {
+      "position": 0,
+      "mapping": {
+        "expected": {
+          "input": 4,
+          "output": 61,
+          "cacheRead": 20363,
+          "cacheWrite": 0,
+          "totalTokens": 20428
+        },
+        "persisted": {
+          "input": 4,
+          "output": 61,
+          "cacheRead": 20363,
+          "cacheWrite": 0,
+          "totalTokens": 20428
+        },
+        "matches": true
+      },
+      "url": "https://api.anthropic.com/v1/messages?beta=true",
+      "status": 200,
+      "model": "claude-sonnet-5-5",
+      "maxTokens": 128000,
+      "chars": 61364,
+      "raw": {
+        "input": 4,
+        "output": 61,
+        "cacheRead": 20363,
+        "cacheWrite": 0,
+        "total": null,
+        "reasoning": 0,
+        "startInput": 4,
+        "deltaInput": 4,
+        "cacheWriteDuplicatesInput": false,
+        "source": "anthropic message_start + message_delta usage"
+      },
+      "persisted": {
+        "input": 4,
+        "output": 61,
+        "cacheRead": 20363,
+        "cacheWrite": 0,
+        "totalTokens": 20428,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0,
+        "reasoning": 0
+      },
+      "persistedTotal": 20428,
+      "estimate": {
+        "live": 17905,
+        "whole": 17905,
+        "anchor": null,
+        "tail": 17905
+      },
+      "realPrompt": 20367,
+      "tailReal": null,
+      "liveErrorPct": -12.1,
+      "wholeErrorPct": -12.1,
+      "tailErrorPct": null
+    },
+    {
+      "position": 1,
+      "mapping": {
+        "expected": {
+          "input": 2,
+          "output": 14,
+          "cacheRead": 21672,
+          "cacheWrite": 0,
+          "totalTokens": 21688
+        },
+        "persisted": {
+          "input": 2,
+          "output": 14,
+          "cacheRead": 21672,
+          "cacheWrite": 0,
+          "totalTokens": 21688
+        },
+        "matches": true
+      },
+      "url": "https://api.anthropic.com/v1/messages?beta=true",
+      "status": 200,
+      "model": "claude-sonnet-5-5",
+      "maxTokens": 128000,
+      "chars": 64973,
+      "raw": {
+        "input": 2,
+        "output": 14,
+        "cacheRead": 21672,
+        "cacheWrite": 0,
+        "total": null,
+        "reasoning": 0,
+        "startInput": 2,
+        "deltaInput": 2,
+        "cacheWriteDuplicatesInput": false,
+        "source": "anthropic message_start + message_delta usage"
+      },
+      "persisted": {
+        "input": 2,
+        "output": 14,
+        "cacheRead": 21672,
+        "cacheWrite": 0,
+        "totalTokens": 21688,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0,
+        "reasoning": 0
+      },
+      "persistedTotal": 21688,
+      "estimate": {
+        "live": 21153,
+        "whole": 18641,
+        "anchor": 20428,
+        "tail": 725
+      },
+      "realPrompt": 21674,
+      "tailReal": 1246,
+      "liveErrorPct": -2.4,
+      "wholeErrorPct": -14,
+      "tailErrorPct": -41.8
+    },
+    {
+      "position": 2,
+      "mapping": {
+        "expected": {
+          "input": 4,
+          "output": 7,
+          "cacheRead": 21713,
+          "cacheWrite": 0,
+          "totalTokens": 21724
+        },
+        "persisted": {
+          "input": 4,
+          "output": 7,
+          "cacheRead": 21713,
+          "cacheWrite": 0,
+          "totalTokens": 21724
+        },
+        "matches": true
+      },
+      "url": "https://api.anthropic.com/v1/messages?beta=true",
+      "status": 200,
+      "model": "claude-sonnet-5-5",
+      "maxTokens": 128000,
+      "chars": 65264,
+      "raw": {
+        "input": 4,
+        "output": 7,
+        "cacheRead": 21713,
+        "cacheWrite": 0,
+        "total": null,
+        "reasoning": 0,
+        "startInput": 4,
+        "deltaInput": 4,
+        "cacheWriteDuplicatesInput": false,
+        "source": "anthropic message_start + message_delta usage"
+      },
+      "persisted": {
+        "input": 4,
+        "output": 7,
+        "cacheRead": 21713,
+        "cacheWrite": 0,
+        "totalTokens": 21724,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        },
+        "cacheWrite1h": 0,
+        "reasoning": 0
+      },
+      "persistedTotal": 21724,
+      "estimate": {
+        "live": 21713,
+        "whole": 18671,
+        "anchor": 21688,
+        "tail": 25
+      },
+      "realPrompt": 21717,
+      "tailReal": 29,
+      "liveErrorPct": 0,
+      "wholeErrorPct": -14,
+      "tailErrorPct": -13.8
+    }
+  ]
+}

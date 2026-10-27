@@ -1,0 +1,299 @@
+{
+  "session": "sessions-opencode-deepseek-v4-1-flash-free/2026-10-27T17-49-21-323Z_01a17e7b-222b-70a1-bcab-be452d2ae751.jsonl",
+  "messageCount": 7,
+  "persistedAssistant": [
+    {
+      "provider": "opencode",
+      "api": "openai-completions",
+      "model": "deepseek-v4.1-flash-free",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 16426,
+        "output": 83,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 16509,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "opencode",
+      "api": "openai-completions",
+      "model": "deepseek-v4.1-flash-free",
+      "stopReason": "stop",
+      "usage": {
+        "input": 939,
+        "output": 12,
+        "cacheRead": 16384,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 17335,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "opencode",
+      "api": "openai-completions",
+      "model": "deepseek-v4.1-flash-free",
+      "stopReason": "error",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "messageEnd": [
+    {
+      "provider": "opencode",
+      "api": "openai-completions",
+      "model": "deepseek-v4.1-flash-free",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 16426,
+        "output": 83,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 16509,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "opencode",
+      "api": "openai-completions",
+      "model": "deepseek-v4.1-flash-free",
+      "stopReason": "stop",
+      "usage": {
+        "input": 939,
+        "output": 12,
+        "cacheRead": 16384,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 17335,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "opencode",
+      "api": "openai-completions",
+      "model": "deepseek-v4.1-flash-free",
+      "stopReason": "error",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "turns": [
+    {
+      "position": 0,
+      "mapping": {
+        "expected": {
+          "input": 16426,
+          "output": 83,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 16509
+        },
+        "persisted": {
+          "input": 16426,
+          "output": 83,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 16509
+        },
+        "matches": true
+      },
+      "url": "https://opencode.ai/inference/openai/v1/chat/completions",
+      "status": 200,
+      "model": "deepseek-v4.1-flash-free",
+      "maxTokens": 32000,
+      "chars": 72972,
+      "raw": {
+        "input": 16426,
+        "output": 83,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "total": 16509,
+        "reasoning": 0,
+        "source": "openai chat.completions final usage chunk",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 16426,
+        "output": 83,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 16509,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        }
+      },
+      "persistedTotal": 16509,
+      "estimate": {
+        "live": 17905,
+        "whole": 17905,
+        "anchor": null,
+        "tail": 17905
+      },
+      "realPrompt": 16426,
+      "tailReal": null,
+      "liveErrorPct": 9,
+      "wholeErrorPct": 9,
+      "tailErrorPct": null
+    },
+    {
+      "position": 1,
+      "mapping": {
+        "expected": {
+          "input": 939,
+          "output": 12,
+          "cacheRead": 16384,
+          "cacheWrite": 0,
+          "totalTokens": 17335
+        },
+        "persisted": {
+          "input": 939,
+          "output": 12,
+          "cacheRead": 16384,
+          "cacheWrite": 0,
+          "totalTokens": 17335
+        },
+        "matches": true
+      },
+      "url": "https://opencode.ai/inference/openai/v1/chat/completions",
+      "status": 200,
+      "model": "deepseek-v4.1-flash-free",
+      "maxTokens": 32000,
+      "chars": 75957,
+      "raw": {
+        "input": 17323,
+        "output": 12,
+        "cacheRead": 16384,
+        "cacheWrite": 0,
+        "total": 17335,
+        "reasoning": 0,
+        "source": "openai chat.completions final usage chunk",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 939,
+        "output": 12,
+        "cacheRead": 16384,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 17335,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        }
+      },
+      "persistedTotal": 17335,
+      "estimate": {
+        "live": 17095,
+        "whole": 18512,
+        "anchor": 16509,
+        "tail": 586
+      },
+      "realPrompt": 17323,
+      "tailReal": 814,
+      "liveErrorPct": -1.3,
+      "wholeErrorPct": 6.9,
+      "tailErrorPct": -28
+    },
+    {
+      "position": 2,
+      "mapping": null,
+      "url": "https://opencode.ai/inference/openai/v1/chat/completions",
+      "status": 429,
+      "model": "deepseek-v4.1-flash-free",
+      "maxTokens": 32000,
+      "chars": 76183,
+      "persisted": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "persistedTotal": 0,
+      "estimate": {
+        "live": 17360,
+        "whole": 18542,
+        "anchor": 17335,
+        "tail": 25
+      },
+      "realPrompt": null,
+      "tailReal": null,
+      "liveErrorPct": null,
+      "wholeErrorPct": null,
+      "tailErrorPct": null
+    }
+  ]
+}

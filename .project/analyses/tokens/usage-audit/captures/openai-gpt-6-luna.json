@@ -1,0 +1,350 @@
+{
+  "session": "sessions-openai-gpt-6-luna/2026-10-27T17-49-26-054Z_01a17e7b-34a6-75b3-aa7c-9f87783d3d9c.jsonl",
+  "messageCount": 9,
+  "persistedAssistant": [
+    {
+      "provider": "openai",
+      "api": "openai-responses",
+      "model": "gpt-6-luna",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 15439,
+        "output": 31,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 15470,
+        "cost": {
+          "input": 0.0015439000000000002,
+          "output": 0.0000155,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.0015594000000000003,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "openai",
+      "api": "openai-responses",
+      "model": "gpt-6-luna",
+      "stopReason": "stop",
+      "usage": {
+        "input": 1073,
+        "output": 15,
+        "cacheRead": 15360,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 16448,
+        "cost": {
+          "input": 0.0001073,
+          "output": 0.000007499999999999999,
+          "cacheRead": 0.0001536,
+          "cacheWrite": 0,
+          "total": 0.0002684,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "openai",
+      "api": "openai-responses",
+      "model": "gpt-6-luna",
+      "stopReason": "stop",
+      "usage": {
+        "input": 218,
+        "output": 8,
+        "cacheRead": 16256,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 16482,
+        "cost": {
+          "input": 0.0000218,
+          "output": 0.000004,
+          "cacheRead": 0.00016256000000000002,
+          "cacheWrite": 0,
+          "total": 0.00018836000000000002,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "openai",
+      "api": "openai-responses",
+      "model": "gpt-6-luna",
+      "stopReason": "stop",
+      "usage": {
+        "input": 3443,
+        "output": 5,
+        "cacheRead": 16384,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 19832,
+        "cost": {
+          "input": 0.0003443,
+          "output": 0.0000024999999999999998,
+          "cacheRead": 0.00016384,
+          "cacheWrite": 0,
+          "total": 0.00051064,
+          "totalFromProvider": false
+        }
+      }
+    }
+  ],
+  "messageEnd": [
+    {
+      "provider": "openai",
+      "api": "openai-responses",
+      "model": "gpt-6-luna",
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 15439,
+        "output": 31,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 15470,
+        "cost": {
+          "input": 0.0015439000000000002,
+          "output": 0.0000155,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.0015594000000000003,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "openai",
+      "api": "openai-responses",
+      "model": "gpt-6-luna",
+      "stopReason": "stop",
+      "usage": {
+        "input": 1073,
+        "output": 15,
+        "cacheRead": 15360,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 16448,
+        "cost": {
+          "input": 0.0001073,
+          "output": 0.000007499999999999999,
+          "cacheRead": 0.0001536,
+          "cacheWrite": 0,
+          "total": 0.0002684,
+          "totalFromProvider": false
+        }
+      }
+    },
+    {
+      "provider": "openai",
+      "api": "openai-responses",
+      "model": "gpt-6-luna",
+      "stopReason": "stop",
+      "usage": {
+        "input": 218,
+        "output": 8,
+        "cacheRead": 16256,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 16482,
+        "cost": {
+          "input": 0.0000218,
+          "output": 0.000004,
+          "cacheRead": 0.00016256000000000002,
+          "cacheWrite": 0,
+          "total": 0.00018836000000000002,
+          "totalFromProvider": false
+        }
+      }
+    }
+  ],
+  "turns": [
+    {
+      "position": 0,
+      "mapping": {
+        "expected": {
+          "input": 15439,
+          "output": 31,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 15470
+        },
+        "persisted": {
+          "input": 15439,
+          "output": 31,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 15470
+        },
+        "matches": true
+      },
+      "url": "https://api.openai.com/v1/responses",
+      "status": 200,
+      "model": "gpt-6-luna",
+      "chars": 72872,
+      "raw": {
+        "input": 15439,
+        "output": 31,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "total": 15470,
+        "reasoning": 0,
+        "source": "openai responses response.completed.usage",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 15439,
+        "output": 31,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 15470,
+        "cost": {
+          "input": 0.0015439000000000002,
+          "output": 0.0000155,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.0015594000000000003,
+          "totalFromProvider": false
+        }
+      },
+      "persistedTotal": 15470,
+      "estimate": {
+        "live": 17905,
+        "whole": 17905,
+        "anchor": null,
+        "tail": 17905
+      },
+      "realPrompt": 15439,
+      "tailReal": null,
+      "liveErrorPct": 16,
+      "wholeErrorPct": 16,
+      "tailErrorPct": null
+    },
+    {
+      "position": 1,
+      "mapping": {
+        "expected": {
+          "input": 1073,
+          "output": 15,
+          "cacheRead": 15360,
+          "cacheWrite": 0,
+          "totalTokens": 16448
+        },
+        "persisted": {
+          "input": 1073,
+          "output": 15,
+          "cacheRead": 15360,
+          "cacheWrite": 0,
+          "totalTokens": 16448
+        },
+        "matches": true
+      },
+      "url": "https://api.openai.com/v1/responses",
+      "status": 200,
+      "model": "gpt-6-luna",
+      "chars": 76454,
+      "raw": {
+        "input": 16433,
+        "output": 15,
+        "cacheRead": 15360,
+        "cacheWrite": 0,
+        "total": 16448,
+        "reasoning": 0,
+        "source": "openai responses response.completed.usage",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 1073,
+        "output": 15,
+        "cacheRead": 15360,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 16448,
+        "cost": {
+          "input": 0.0001073,
+          "output": 0.000007499999999999999,
+          "cacheRead": 0.0001536,
+          "cacheWrite": 0,
+          "total": 0.0002684,
+          "totalFromProvider": false
+        }
+      },
+      "persistedTotal": 16448,
+      "estimate": {
+        "live": 16195,
+        "whole": 18648,
+        "anchor": 15470,
+        "tail": 725
+      },
+      "realPrompt": 16433,
+      "tailReal": 963,
+      "liveErrorPct": -1.4,
+      "wholeErrorPct": 13.5,
+      "tailErrorPct": -24.7
+    },
+    {
+      "position": 2,
+      "mapping": {
+        "expected": {
+          "input": 218,
+          "output": 8,
+          "cacheRead": 16256,
+          "cacheWrite": 0,
+          "totalTokens": 16482
+        },
+        "persisted": {
+          "input": 218,
+          "output": 8,
+          "cacheRead": 16256,
+          "cacheWrite": 0,
+          "totalTokens": 16482
+        },
+        "matches": true
+      },
+      "url": "https://api.openai.com/v1/responses",
+      "status": 200,
+      "model": "gpt-6-luna",
+      "chars": 76835,
+      "raw": {
+        "input": 16474,
+        "output": 8,
+        "cacheRead": 16256,
+        "cacheWrite": 0,
+        "total": 16482,
+        "reasoning": 0,
+        "source": "openai responses response.completed.usage",
+        "inputIncludesCache": true
+      },
+      "persisted": {
+        "input": 218,
+        "output": 8,
+        "cacheRead": 16256,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 16482,
+        "cost": {
+          "input": 0.0000218,
+          "output": 0.000004,
+          "cacheRead": 0.00016256000000000002,
+          "cacheWrite": 0,
+          "total": 0.00018836000000000002,
+          "totalFromProvider": false
+        }
+      },
+      "persistedTotal": 16482,
+      "estimate": {
+        "live": 16473,
+        "whole": 18678,
+        "anchor": 16448,
+        "tail": 25
+      },
+      "realPrompt": 16474,
+      "tailReal": 26,
+      "liveErrorPct": 0,
+      "wholeErrorPct": 13.4,
+      "tailErrorPct": -3.8
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import type {
 	QuotaSource,
 	QuotaWindow,
 } from "../../quotas/types.ts";
+import { CODEX_LOGIN_HINT } from "./auth.ts";
 import { CODEX_PROVIDER_ID } from "./identity.ts";
 import { consumeOpenaiResetCredit, listOpenaiResetCredits } from "./resets.ts";
 
@@ -168,7 +169,7 @@ function needsLogin(now: number, reason: string): ProviderQuotaSnapshot {
 		source: "endpoint",
 		windows: [],
 		needsAuth: true,
-		error: `${CODEX_PROVIDER_ID}: ${reason}; run /login openai with a ChatGPT login`,
+		error: `${CODEX_PROVIDER_ID}: ${reason}; ${CODEX_LOGIN_HINT}`,
 	};
 }
 

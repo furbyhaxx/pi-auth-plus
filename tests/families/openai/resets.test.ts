@@ -164,9 +164,11 @@ describe("OpenAI reset credits", () => {
 			calls++;
 			return Response.json(liveList);
 		}, auth);
-		await expect(listOpenaiResetCredits(ctx)).rejects.toThrow("/login openai with a ChatGPT login");
+		await expect(listOpenaiResetCredits(ctx)).rejects.toThrow(
+			"/quota codex login or /login openai-codex",
+		);
 		await expect(consumeOpenaiResetCredit(ctx, "c")).rejects.toThrow(
-			"/login openai with a ChatGPT login",
+			"/quota codex login or /login openai-codex",
 		);
 		expect(calls).toBe(0);
 	});

@@ -9,6 +9,7 @@ import type {
 	ResetOutcome,
 	ResetOutcomeCode,
 } from "../../quotas/types.ts";
+import { CODEX_LOGIN_HINT } from "./auth.ts";
 import { CODEX_PROVIDER_ID } from "./identity.ts";
 import { openaiQuotaHeaders, timestamp } from "./quota.ts";
 
@@ -88,7 +89,7 @@ async function credential(ctx: QuotaFetchContext) {
 	const auth = await ctx.auth();
 	if (!auth || auth.token.startsWith("sk-") || auth.extra["type"] === "api_key") {
 		throw new Error(
-			`${CODEX_PROVIDER_ID}: reset credits require a ChatGPT login; run /login openai with a ChatGPT login`,
+			`${CODEX_PROVIDER_ID}: reset credits require a ChatGPT login; ${CODEX_LOGIN_HINT}`,
 		);
 	}
 	return openaiQuotaHeaders(auth);

@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 8
+  revision: 9
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T13:16:22+01:00"
+  updated_at: "2026-10-27T13:42:34+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -35,6 +35,9 @@ document:
     - revision: 8
       reason: "fork login migration wired"
       changes: ["Locked auth.json write; review of the absorbed packages and setup swap next"]
+    - revision: 9
+      reason: "swap review passed, user setup swapped"
+      changes: ["Review fixes landed (pi-quotas coexistence, antigravity timeouts and hooks); 4 packages replaced by pi-auth-plus"]
 ---
 
 # Roadmap
@@ -61,7 +64,8 @@ detailed plan; later ones hold the ideas that must not get lost.
                      thinkingLevelMap; agy 1.4.8 identity over fetch; live on both runtimes
     [x] M1 release   v0.2.0
     [x] fork login migration   locked fill-only auth.json write (Pi has no store seam)
-    [ ] review absorbed packages vs pi-auth-plus, then swap the user's setup
+    [x] swap review   analyses/absorbed-packages-review/report.md; fixes landed
+    [x] user setup swapped   4 packages -> pi-auth-plus; pi-quotas kept until M2
 [>] M2 Quotas       pi-quotas engine on core/ + families/; codex via Pi login, not its own
                     OAuth file; reset-consume needs approval each time
 [.] M3 Tokens       per-family counting sources, content-hash store, footer reuses it

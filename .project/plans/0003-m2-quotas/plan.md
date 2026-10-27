@@ -5,9 +5,9 @@ document:
   title: "M2 quotas"
   description: "Port the pi-quotas engine, seven providers, line, panels, bus and CLI onto core/ and families/"
   status: "published"
-  revision: 7
+  revision: 8
   created_at: "2026-10-27T14:28:39+01:00"
-  updated_at: "2026-10-27T16:00:29+01:00"
+  updated_at: "2026-10-27T16:32:21+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -29,6 +29,9 @@ document:
     - revision: 6
       reason: "slice 6 done"
       changes: ["Quotas and settings tabs live on both runtimes; /quota moved to cutover; slice 7 in detail"]
+    - revision: 8
+      reason: "slice 7 done"
+      changes: ["Resets with confirm and read-only CLI live on both runtimes; slice 8 (cutover) in detail"]
 ---
 
 # M2 quotas
@@ -74,8 +77,8 @@ Agent decisions (not user-facing choices):
 [x] 4 Headers + bus     header ingestion from after_provider_response; pi-auth-plus:v1:quotas:* + report
 [x] 5 Line              template parser/renderer, line placements, widget, footer
 [x] 6 Panels            /auth quotas panel with refresh, settings panel from the catalog
-[>] 7 Resets + CLI      panel resets with confirm dialog; --quotas-json / --quotas-list
-[.] 8 Cutover           fill-only quotas.json migration, docs, live parity run, setup swap, release
+[x] 7 Resets + CLI      panel resets with confirm dialog; --quotas-json / --quotas-list
+[>] 8 Cutover           fill-only quotas.json migration, docs, live parity run, setup swap, release
 ```
 
 ## Slices 1-3: done
@@ -120,45 +123,53 @@ open Pi's editor as JSON after the panel closes, then the panel reopens on that 
 renames duplicate commands to `quota:1`/`quota:2`. With pi-quotas loaded the tab says so.
 Live: Pi-Bolt and stock Pi at 36/57/80/140 columns, editor round trip, RPC text output.
 
-## Slice 7: resets + CLI (now)
+## Slice 7: resets + CLI: done
 
-Outcome: an openai reset credit can be spent from the Quotas tab (or `/quotas reset`, or a bus
-request) only after an explicit in-session confirmation; `--quotas-json [provider]` and
-`--quotas-list [provider]` print and exit before Pi starts a terminal or session.
+openai reset credits (`src/families/openai/resets.ts`: list, consume sent once, never retried)
+behind `engine.listResets`/`consumeReset` (consume, then forced refresh) and
+`src/quotas/resets.ts`. Spending needs an in-session `ctx.ui.select` with "Keep the credit"
+first: Quotas tab `x` (only where supported), `/quotas reset [provider]`, and bus `reset`
+(`confirm: true` plus the same dialog, prefixed "Another extension requests this reset.");
+without UI nothing is spent. Families now declare Pi providers through
+`providerRegistrations(host)`, so `registerFamilyProviders` serves both the extension and a
+standalone `ModelRegistry`. `src/cli/`: `--quotas-json`/`--quotas-list [provider]` run at the
+top of the factory with a lazily imported `ModelRuntime` (user settings only), exit 0/1/2.
 
-Source: pi-quotas `providers/codex-resets.ts`, `resets/service.ts`, `cli/*`, bus `resets`/`reset`.
+Live on Pi-Bolt and stock Pi: `--quotas-json cc` answers `claude`, `nope` exits 2 with the
+known ids, auth.json untouched; `/quotas reset` and `x` stop at openai's HTTP 401 without
+spending (a fake credit reached the dialog at 36/57/80/140 columns, Keep spent nothing). Bug
+found live and fixed: staleness ignored provider polling floors, so claude (5 min floor)
+read `stale` between polls and the CLI exited 1.
 
-The CLI runs in the factory: interactive mode starts the TUI before `session_start`. Auth must
-refresh and persist rotating OAuth tokens exactly as Pi does, so the CLI lazily imports
-`ModelRuntime`/`ModelRegistry` (dynamic import passes aot-verify) and registers our providers
-into it through a family seam instead of reading auth.json itself.
+## Slice 8: cutover (now)
 
-Units. Wave 1 runs in parallel; U17 needs U16, U19 needs U18.
+Outcome: pi-auth-plus owns `/quota`, carries the user's pi-quotas settings over, is documented,
+and matches pi-quotas side by side; then pi-quotas leaves the setup and M2 is released.
 
-15. **U15 openai resets**. `src/families/openai/resets.ts`: list
-    `GET /wham/rate-limit-reset-credits`, consume `POST .../consume` sent exactly once
-    (no retry; an interrupted or 5xx consume says the credit may be spent). Attach as
-    `openaiQuota.resets`. Test: parse fixtures; consume never retries.
-16. **U16 reset service**. `src/quotas/resets.ts` (credit choice, wording), engine
-    `listResets`/`consumeReset` (consume then forced refresh), bus `resets` (read-only) and
-    `reset` (needs `confirm: true` plus the injected in-session confirm). Test: a bus reset
-    without UI approval spends nothing.
-17. **U17 reset UI**. Quotas tab `x` (only where supported) finishes with a reset request;
-    the command lists credits, confirms via `ctx.ui.select` with "Keep the credit" first,
-    consumes, notifies; `/quotas reset [provider]`; index wiring of the bus confirm.
-18. **U18 provider seam**. `FamilyAdapter.providers(host)` returns the Pi provider
-    registrations; `src/index.ts` registers them; families keep only the rest in `register`.
-    Test: parity-verify unchanged.
-19. **U19 CLI**. `src/cli/*`: argv parsing (`--quotas-json`, `--quotas-list`, optional
-    provider), standalone runtime + registry, engine refresh honoring the interval, JSON
-    (`engineReport`) or table output to fd 1, diagnostics to fd 2, exit 0/1/2.
+Inputs: pi-quotas config `<agentDir>/quotas.json` (user) and `<cwd>/.pi/quotas.json` (project),
+cache `<agentDir>/cache/quotas-cache.json` (inventory lines 424, 504).
 
-Verification: unit tests per unit; live `pi --quotas-json`/`--quotas-list` on both runtimes;
-the reset flow up to the confirm dialog in tmux, choosing "Keep the credit". A real consume only
-with the user's explicit approval for that call.
+Units. U20-U22 run in parallel; U23 after them; swap and release last.
 
-## Slice 8+: sparse
+20. **U20 settings carry-over**. Fill-only, per scope: pi-quotas `quotas.json` keys become
+    `quotas.*` in `auth-plus.json` where that key is unset; `enabledProviders` maps to Pi ids,
+    `lineTemplate` is kept verbatim (aliases resolve), `lineTemplateNarrow` dropped. Runs once
+    at session start, under the settings lock. Test: a set key is never overwritten.
+21. **U21 history carry-over**. pi-quotas drainage history and last snapshots seed an empty
+    `cache/auth-plus/quotas.json`, ids mapped (`codex`->`openai`, `grok`->`xai`). Test: a
+    non-empty cache is left alone.
+22. **U22 `/quota` + conflict**. Register `/quota [provider]` (same handler as `/quotas`);
+    pi-quotas joins the conflict list with a removal hint. The engine-off coexistence path
+    stays for anyone who keeps both. Test: rpc `get_commands` lists `quota` once without
+    pi-quotas.
+23. **U23 docs**. README section plus `docs/quotas.md` (line grammar, placements, settings,
+    panel keys, resets, CLI) and `docs/events.md` (`pi-auth-plus:v1:quotas:*` contract).
+24. **U24 parity run** (analyst). Same host, same moment: pi-quotas `--json` vs
+    `--quotas-json`, line text at 80/140 columns, panel per provider. Every difference is
+    either fixed or listed as intended (Pi ids, unknown-not-zero).
 
-- Register `/quota` (pi-quotas removed from the setup at the same time).
-- Cutover: fill-only migration of pi-quotas' cache/config, live parity run, setup swap, release.
+Then: swap `pi-quotas` out of `~/.pi/agent/settings.json` (D29), live check, release v0.3.0.
+
+## Later
+
 - The footer token math stays until M3.

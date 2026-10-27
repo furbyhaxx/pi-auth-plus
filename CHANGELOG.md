@@ -28,6 +28,15 @@ All notable changes to this project are documented here. The format follows
   from its response headers, without an extra request.
 - **Quotas bus.** Extensions can query and refresh quotas and watch snapshots and
   auth/rate-limit events on `pi-auth-plus:v1:quotas:*`; provider names accept aliases.
+- **Quota resets.** An openai (ChatGPT) reset credit can be spent with `x` in the Quotas tab or
+  `/quotas reset [provider]`, always behind a dialog whose first choice keeps the credit. The
+  consume request is sent once and never retried. Other extensions can list credits on the bus
+  (`resets`) and request one (`reset`); the user still confirms in the session, and without a
+  UI nothing is spent.
+- **`--quotas-json [provider]` and `--quotas-list [provider]`.** Print the quota report as JSON
+  or a table and exit before Pi starts. Credentials resolve through Pi, so OAuth refresh works
+  as in a session; only user-scope settings apply. Exit 0 all ok, 1 a provider not ok,
+  2 usage error. There is no CLI reset.
 - Quota aliases from pi-quotas: `cl` and `cc` for claude, `ag` for antigravity.
 - **Antigravity login carry-over.** On the first session start, a pi-antigravity-auth login
   stored under Pi's `google` slot is copied into an empty `antigravity` slot, under the same

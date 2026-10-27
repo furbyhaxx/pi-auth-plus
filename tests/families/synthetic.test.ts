@@ -83,18 +83,20 @@ describe("families/synthetic", () => {
 				{ ...row, id: "" },
 				{ ...row, id: "bad-context", context_length: 0 },
 				{ ...row, id: "bad-output", max_output_length: 1.5 },
+				{ ...row, id: "bad-price", pricing: { ...row.pricing, completion: "n/a" } },
+				{ ...row, id: "no-cache-price", pricing: { prompt: "$1", completion: "$2" } },
 				{ ...row, id: "fallback", hugging_face_id: "lab/model" },
 			],
 		});
-		expect(models.map((model) => model.id)).toEqual(["valid", "fallback"]);
+		expect(models.map((model) => model.id)).toEqual(["valid", "no-cache-price", "fallback"]);
+		expect(models[1]?.cost).toEqual({ input: 1, output: 2, cacheRead: 0, cacheWrite: 0 });
 		expect(models[0]).toMatchObject({
 			name: "valid",
 			reasoning: false,
 			cost: { input: 1.5, output: 2 },
 		});
-		expect(models[1]?.name).toBe("lab/model");
+		expect(models[2]?.name).toBe("lab/model");
 		expect(() => parseCatalog({ models: [] })).toThrow("synthetic");
-		expect(() => parseCatalog({ data: [{ ...row, pricing: {} }] })).toThrow("pricing");
 	});
 
 	test("registration and offline restore never fetch or publish, and filter stored entries", async () => {

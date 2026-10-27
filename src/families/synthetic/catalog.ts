@@ -11,7 +11,7 @@ export const CATALOG_TTL_MS = 4 * 60 * 60 * 1000;
 type SyntheticModel = Model<"anthropic-messages">;
 let snapshot: SyntheticModel[] | undefined;
 
-/** Maps the public API response; rejects an unexpected envelope or unusable prices. */
+/** Maps the public API response; rejects an unexpected envelope and skips unusable rows. */
 export function parseCatalog(payload: unknown): SyntheticModel[] {
 	const rows = record(payload)?.["data"];
 	if (!Array.isArray(rows)) throw catalogError("expected a data array");
@@ -27,6 +27,9 @@ export function parseCatalog(payload: unknown): SyntheticModel[] {
 		if (features !== undefined && (!Array.isArray(features) || !features.includes("tools")))
 			continue;
 		const pricing = record(row["pricing"]);
+		const input = price(pricing?.["prompt"]);
+		const output = price(pricing?.["completion"]);
+		if (input === undefined || output === undefined) continue;
 		const modalities = row["input_modalities"];
 		models.push({
 			id,
@@ -40,10 +43,10 @@ export function parseCatalog(payload: unknown): SyntheticModel[] {
 			contextWindow,
 			maxTokens,
 			cost: {
-				input: price(pricing?.["prompt"]),
-				output: price(pricing?.["completion"]),
-				cacheRead: price(pricing?.["input_cache_reads"]),
-				cacheWrite: price(pricing?.["input_cache_writes"]),
+				input,
+				output,
+				cacheRead: price(pricing?.["input_cache_reads"]) ?? 0,
+				cacheWrite: price(pricing?.["input_cache_writes"]) ?? 0,
 			},
 		});
 	}
@@ -103,10 +106,11 @@ function positiveInteger(value: unknown): number | undefined {
 	return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
-function price(value: unknown): number {
+/** Dollars per million tokens; the API mixes per-token and per-million strings. */
+function price(value: unknown): number | undefined {
 	const match = typeof value === "string" ? /-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/i.exec(value) : null;
 	const amount = match ? Number(match[0]) : Number.NaN;
-	if (!Number.isFinite(amount) || amount < 0) throw catalogError("invalid pricing string");
+	if (!Number.isFinite(amount) || amount < 0) return undefined;
 	return amount < 0.001 ? amount * 1_000_000 : amount;
 }
 

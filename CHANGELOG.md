@@ -8,13 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- **Quota engine (preview).** Quotas for `claude`, `antigravity`, `synthetic`, `openai`
+- **Quota engine (preview).** Quotas for `claude`, `antigravity`, `synthetic`, `codex`
   (ChatGPT), `xai`, `openrouter` and `deepseek` refresh in the background into a cache shared
   by all Pi sessions on the host, with per-provider backoff on 403/429 and a drainage history.
   Windows a provider reports without numbers show as unknown, never as 0%. The engine stays off
   while pi-quotas is loaded; `/quota` takes over when pi-quotas is removed, in a later release.
 - **Quota line.** The pi-quotas status line, with the same template grammar, keyed by Pi ids
-  (`{openai:pct}`; `{codex:pct}`, `{cl:pct}` and other aliases still resolve). Placements
+  (`{codex:pct}`; `{openai:pct}`, `{cl:pct}` and other aliases still resolve). Placements
   `above-editor`, `below-editor-first`, `below-editor-last` (pi-workbench's footer when it runs,
   else a footer of its own) and `off`; short ids below `quotas.compactWidthCols`. Settings:
   `quotas.linePlacement`, `percentDisplay`, `compactWidthCols`, `alwaysShortIds`,
@@ -28,7 +28,7 @@ All notable changes to this project are documented here. The format follows
   from its response headers, without an extra request.
 - **Quotas bus.** Extensions can query and refresh quotas and watch snapshots and
   auth/rate-limit events on `pi-auth-plus:v1:quotas:*`; provider names accept aliases.
-- **Quota resets.** An openai (ChatGPT) reset credit can be spent with `x` in the Quotas tab or
+- **Quota resets.** A codex (ChatGPT) reset credit can be spent with `x` in the Quotas tab or
   `/quotas reset [provider]`, always behind a dialog whose first choice keeps the credit. The
   consume request is sent once and never retried. Other extensions can list credits on the bus
   (`resets`) and request one (`reset`); the user still confirms in the session, and without a
@@ -38,6 +38,12 @@ All notable changes to this project are documented here. The format follows
   as in a session; only user-scope settings apply. Exit 0 all ok, 1 a provider not ok,
   2 usage error. There is no CLI reset.
 - Quota aliases from pi-quotas: `cl` and `cc` for claude, `ag` for antigravity.
+- **ChatGPT quota as `codex`, with `/quota codex login [--device|--browser]`.** Pi's `openai`
+  login ("Sign in with ChatGPT") is rejected by ChatGPT's usage endpoints, so the `codex`
+  quota reads Pi's `openai-codex` login, else pi-quotas' `quotas-codex-auth.json`. The
+  command writes that file without adding models to the picker; refreshes run under a file
+  lock. `openai`, `openai-codex`, `chatgpt`, `cx`, `cox` and `oai` are aliases. The Providers
+  tab and the Quotas tab show the codex login commands instead of `/login codex`.
 - **pi-quotas carry-over.** On the first start without pi-quotas, its settings fill unset
   `quotas.*` keys and its drainage history merges into the host cache, once per source;
   nothing already set is overwritten, and a malformed source is retried on the next start.

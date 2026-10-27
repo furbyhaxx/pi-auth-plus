@@ -1,0 +1,8 @@
+{
+	"model": "gemini-4-argon-disabled (key)",
+	"displayName": "Gemini 4 Argon",
+	"disabled": true,
+	"tagTitle": "Unavailable",
+	"tagDescription": "Gemini 4 Argon is currently available to Ultra and paid Pro plan subscribers.",
+	"quotaInfo": null
+}

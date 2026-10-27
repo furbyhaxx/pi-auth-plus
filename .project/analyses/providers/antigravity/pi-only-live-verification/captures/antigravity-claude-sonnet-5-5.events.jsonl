@@ -1,0 +1,3 @@
+{"role":"system","model":null,"provider":null,"api":null,"stop":null,"err":null,"kinds":[],"tool":"","text":"","usage":null}
+{"role":"user","model":null,"provider":null,"api":null,"stop":null,"err":null,"kinds":["text"],"tool":"","text":"Reply with exactly the word: pong","usage":null}
+{"role":"assistant","model":"antigravity-claude-sonnet-5-5","provider":"google","api":"google-generative-ai","stop":"stop","err":null,"kinds":["text"],"tool":"","text":"pong","usage":{"input":29443,"output":4,"cacheRead":0,"cacheWrite":0,"totalTokens":29447,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}}}

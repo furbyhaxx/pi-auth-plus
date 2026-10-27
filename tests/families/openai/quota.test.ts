@@ -21,6 +21,109 @@ function jwt(account: string): string {
 	return `header.${Buffer.from(JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: account } })).toString("base64url")}.signature`;
 }
 
+describe("OpenAI quota headers", () => {
+	test("matches endpoint identities and skips the captured absent secondary window", async () => {
+		const snapshot = openaiQuota.headers?.(
+			{
+				"x-codex-primary-used-percent": "28",
+				"x-codex-primary-window-minutes": "10080",
+				"x-codex-primary-reset-at": "1793084764",
+				"x-codex-secondary-used-percent": "0",
+				"x-codex-secondary-window-minutes": "0",
+				"x-codex-secondary-reset-at": "",
+				"x-codex-plan-type": "pro",
+			},
+			NOW,
+		);
+		expect(snapshot).toMatchObject({
+			provider: "openai",
+			fetchedAt: NOW,
+			source: "headers",
+			tier: "pro",
+		});
+		expect(snapshot?.windows).toEqual(
+			(await openaiQuota.fetch(context())).windows.map((w) => ({
+				...w,
+				usedFraction: 0.28,
+				resetAtMs: 1793084764000,
+			})),
+		);
+	});
+
+	test.each([undefined, "", "invalid", "Infinity"])(
+		"unknown utilization %s stays visible",
+		(raw) => {
+			expect(
+				openaiQuota.headers?.(
+					{
+						"x-codex-secondary-reset-at": "1793084764",
+						...(raw === undefined ? {} : { "x-codex-secondary-used-percent": raw }),
+					},
+					NOW,
+				)?.windows,
+			).toMatchObject([
+				{
+					id: "secondary",
+					shortLabel: "secondary",
+					label: "Plan (secondary)",
+					usedFraction: undefined,
+					resetAtMs: 1793084764000,
+					important: true,
+				},
+			]);
+		},
+	);
+
+	test("missing and invalid durations do not invent a period or hide unknown usage", () => {
+		for (const minutes of ["", "invalid", "Infinity"]) {
+			expect(
+				openaiQuota.headers?.(
+					{
+						"x-codex-primary-window-minutes": minutes,
+						"x-codex-primary-reset-at": "",
+					},
+					NOW,
+				)?.windows,
+			).toMatchObject([
+				{
+					id: "primary",
+					period: undefined,
+					usedFraction: undefined,
+					resetAtMs: undefined,
+				},
+			]);
+		}
+	});
+
+	test("keeps a real zero-used window and clamps percentages", () => {
+		expect(
+			openaiQuota.headers?.(
+				{
+					"x-codex-primary-used-percent": "0",
+					"x-codex-primary-window-minutes": "300",
+					"x-codex-secondary-used-percent": "120",
+					"x-codex-secondary-window-minutes": "1440",
+				},
+				NOW,
+			)?.windows,
+		).toMatchObject([
+			{ id: "primary", period: "5h", usedFraction: 0, resetAtMs: undefined, important: true },
+			{ id: "secondary", period: "1d", usedFraction: 1, important: false },
+		]);
+		expect(
+			openaiQuota.headers?.({ "x-codex-primary-used-percent": "-2" }, NOW)?.windows,
+		).toMatchObject([{ id: "primary", usedFraction: 0 }]);
+	});
+
+	test.each([
+		{ "content-type": "application/json" },
+		{ "anthropic-ratelimit-unified-5h-utilization": "0.2" },
+		{ "x-codex-plan-type": "pro" },
+	])("does not claim unrelated headers", (headers) => {
+		expect(openaiQuota.headers?.(headers, NOW)).toBeUndefined();
+	});
+});
+
 describe("OpenAI quota", () => {
 	test("contributes Pi ids and aliases without provider registration", () => {
 		const family = createOpenaiFamily();

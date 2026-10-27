@@ -21,6 +21,67 @@ function respond(body: unknown, status = 200, headers?: Record<string, string>) 
 }
 const fetchQuota = () => fetchClaudeQuota(ctx);
 
+describe("Claude quota headers", () => {
+	test("uses endpoint window identities and preserves separate overage limits", async () => {
+		const snapshot = claudeQuota.headers?.(
+			{
+				"anthropic-ratelimit-unified-5h-utilization": "0.21",
+				"anthropic-ratelimit-unified-5h-reset": "1792598400",
+				"anthropic-ratelimit-unified-7d-utilization": "0.24",
+				"anthropic-ratelimit-unified-7d-reset": "1792864800",
+				"anthropic-ratelimit-unified-7d_oi-utilization": "0.6",
+				"anthropic-ratelimit-unified-overage-utilization": "1.2",
+			},
+			now,
+		);
+		expect(snapshot).toMatchObject({ provider: "claude", fetchedAt: now, source: "headers" });
+		const endpointWindows = (await fetchQuota()).windows.filter((w) => ["5h", "7d"].includes(w.id));
+		expect(snapshot?.windows.slice(0, 2)).toEqual(
+			endpointWindows.map((w, index) => ({
+				...w,
+				usedFraction: index === 0 ? 0.21 : 0.24,
+				resetAtMs: index === 0 ? 1792598400000 : 1792864800000,
+			})),
+		);
+		expect(snapshot?.windows.slice(2)).toMatchObject([
+			{ id: "7d_oi", period: "7d", usedFraction: 0.6 },
+			{ id: "overage", scope: "spend cap", usedFraction: 1 },
+		]);
+	});
+
+	test.each([undefined, "", "invalid", "Infinity"])(
+		"unknown utilization %s stays visible",
+		(raw) => {
+			expect(
+				claudeQuota.headers?.(
+					{
+						"anthropic-ratelimit-unified-5h-reset": "1792598400",
+						...(raw === undefined ? {} : { "anthropic-ratelimit-unified-5h-utilization": raw }),
+					},
+					now,
+				)?.windows,
+			).toMatchObject([{ id: "5h", usedFraction: undefined, resetAtMs: 1792598400000 }]);
+		},
+	);
+
+	test("clamps negative fractions and leaves empty resets unknown", () => {
+		expect(
+			claudeQuota.headers?.(
+				{
+					"anthropic-ratelimit-unified-5h-utilization": "-0.2",
+					"anthropic-ratelimit-unified-5h-reset": "",
+				},
+				now,
+			)?.windows,
+		).toMatchObject([{ id: "5h", usedFraction: 0, resetAtMs: undefined }]);
+	});
+
+	test.each([{ "content-type": "application/json" }, { "x-codex-primary-used-percent": "28" }])(
+		"does not claim unrelated headers",
+		(headers) => expect(claudeQuota.headers?.(headers, now)).toBeUndefined(),
+	);
+});
+
 test("quota metadata and missing auth", async () => {
 	expect(claudeQuota).toMatchObject({
 		kind: "windows",

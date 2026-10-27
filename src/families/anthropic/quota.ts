@@ -137,6 +137,46 @@ const LEGACY_WINDOWS = [
 	},
 ];
 
+const HEADER_WINDOWS: readonly QuotaWindow[] = [
+	...LEGACY_WINDOWS.slice(0, 2).map(({ key: _key, ...metadata }) => metadata),
+	{
+		id: "7d_oi",
+		shortLabel: "7d_oi",
+		label: "7d overage included",
+		period: "7d",
+		important: false,
+	},
+	{
+		id: "overage",
+		shortLabel: "cap",
+		label: "Spend cap",
+		scope: "spend cap",
+		important: false,
+	},
+];
+
+function parseClaudeHeaders(
+	headers: Readonly<Record<string, string>>,
+	now: number,
+): ProviderQuotaSnapshot | undefined {
+	const windows: QuotaWindow[] = [];
+	for (const metadata of HEADER_WINDOWS) {
+		const prefix = `anthropic-ratelimit-unified-${metadata.id}`;
+		const raw = headers[`${prefix}-utilization`];
+		const reset = headers[`${prefix}-reset`];
+		if (raw === undefined && reset === undefined) continue;
+		const used = raw?.trim() ? finiteNumber(Number(raw)) : undefined;
+		windows.push({
+			...metadata,
+			usedFraction: fraction(used),
+			resetAtMs: resetAt(reset),
+		});
+	}
+	return windows.length > 0
+		? { provider: PROVIDER, fetchedAt: now, source: "headers", windows }
+		: undefined;
+}
+
 /** Parses usage without retaining profile, account or share-breakdown data. */
 export function parseClaudeQuota(body: unknown, now: number): ProviderQuotaSnapshot {
 	if (!isRecord(body)) {
@@ -300,4 +340,5 @@ export const claudeQuota: QuotaSource = {
 	parserVersion: 1,
 	minPollMs: 300_000,
 	fetch: fetchClaudeQuota,
+	headers: parseClaudeHeaders,
 };

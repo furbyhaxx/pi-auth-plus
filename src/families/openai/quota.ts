@@ -50,33 +50,86 @@ function timestamp(raw: unknown): number | undefined {
 	return undefined;
 }
 
+function quotaWindow(
+	id: string,
+	raw: Record<string, unknown>,
+	prefix: string,
+	important: boolean,
+	now: number,
+): QuotaWindow {
+	const seconds = finite(raw["limit_window_seconds"]);
+	const period =
+		seconds !== undefined && seconds > 0
+			? seconds >= 86400
+				? `${Math.round(seconds / 86400)}d`
+				: `${Math.max(1, Math.round(seconds / 3600))}h`
+			: undefined;
+	const used = finite(raw["used_percent"]);
+	const after = finite(raw["reset_after_seconds"]);
+	return {
+		id,
+		shortLabel: period ?? id,
+		label: `${prefix} (${period ? `${period} window` : id})`,
+		period,
+		scope: id.startsWith("extra:") ? prefix.toLowerCase() : undefined,
+		usedFraction: used === undefined ? undefined : Math.min(1, Math.max(0, used / 100)),
+		resetAtMs: timestamp(raw["reset_at"]) ?? (after === undefined ? undefined : now + after * 1000),
+		important,
+	};
+}
+
+function headerNumber(raw: string | undefined): number | undefined {
+	return raw?.trim() ? finite(Number(raw)) : undefined;
+}
+
+function parseOpenaiHeaders(
+	headers: Readonly<Record<string, string>>,
+	now: number,
+): ProviderQuotaSnapshot | undefined {
+	const windows: QuotaWindow[] = [];
+	for (const id of ["primary", "secondary"]) {
+		const prefix = `x-codex-${id}`;
+		const rawUsed = headers[`${prefix}-used-percent`];
+		const rawMinutes = headers[`${prefix}-window-minutes`];
+		const rawReset = headers[`${prefix}-reset-at`];
+		if (rawUsed === undefined && rawMinutes === undefined && rawReset === undefined) continue;
+		const used = headerNumber(rawUsed);
+		const minutes = headerNumber(rawMinutes);
+		const resetAtMs = timestamp(rawReset);
+		// Codex emits zeroed placeholders for absent windows, including an empty reset-at.
+		if (used === 0 && (minutes === undefined || minutes === 0) && resetAtMs === undefined) continue;
+		windows.push(
+			quotaWindow(
+				id,
+				{
+					used_percent: used,
+					limit_window_seconds: minutes === undefined ? undefined : minutes * 60,
+					reset_at: rawReset,
+				},
+				"Plan",
+				windows.length === 0,
+				now,
+			),
+		);
+	}
+	return windows.length > 0
+		? {
+				provider: "openai",
+				fetchedAt: now,
+				source: "headers",
+				tier: text(headers["x-codex-plan-type"]),
+				windows,
+			}
+		: undefined;
+}
+
 /** Parses usage without copying account identifiers from the response into the snapshot. */
 export function parseOpenaiQuota(payload: unknown, now: number): ProviderQuotaSnapshot {
 	const body = record(payload);
 	const windows: QuotaWindow[] = [];
 	const addWindow = (id: string, value: unknown, prefix: string, important: boolean) => {
 		if (typeof value !== "object" || value === null || Array.isArray(value)) return;
-		const raw = record(value);
-		const seconds = finite(raw["limit_window_seconds"]);
-		const period =
-			seconds !== undefined && seconds > 0
-				? seconds >= 86400
-					? `${Math.round(seconds / 86400)}d`
-					: `${Math.max(1, Math.round(seconds / 3600))}h`
-				: undefined;
-		const used = finite(raw["used_percent"]);
-		const after = finite(raw["reset_after_seconds"]);
-		windows.push({
-			id,
-			shortLabel: period ?? id,
-			label: `${prefix} (${period ? `${period} window` : id})`,
-			period,
-			scope: id.startsWith("extra:") ? prefix.toLowerCase() : undefined,
-			usedFraction: used === undefined ? undefined : Math.min(1, Math.max(0, used / 100)),
-			resetAtMs:
-				timestamp(raw["reset_at"]) ?? (after === undefined ? undefined : now + after * 1000),
-			important,
-		});
+		windows.push(quotaWindow(id, record(value), prefix, important, now));
 	};
 	const limits = record(body["rate_limit"]);
 	addWindow("primary", limits["primary_window"], "Plan", true);
@@ -168,4 +221,5 @@ export const openaiQuota: QuotaSource = {
 	shortLabel: "oai",
 	parserVersion: 1,
 	fetch: fetchQuota,
+	headers: parseOpenaiHeaders,
 };

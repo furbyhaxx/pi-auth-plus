@@ -36,19 +36,23 @@ export function estimateCounter(name: string, ratios: CharRatios = DEFAULT_RATIO
 /**
  * Counts with a Hugging Face tokenizer once loaded and with `fallback` until then; the first
  * count starts the load in the background, so counting never waits for a download.
+ * `usageFromTokenizer` marks models whose stored usage is rescaled to this tokenizer's count
+ * whenever it is loaded (Synthetic).
  */
 export function tokenizerCounter(
 	repo: string,
 	store: TokenizerStore,
 	fallback: TokenCounter,
-	anchorSource: TokenCounter["anchorSource"] = "provider",
+	usageFromTokenizer = false,
 ): TokenCounter {
 	let loading = false;
 	return {
 		get id() {
 			return store.peek(repo)?.id ?? fallback.id;
 		},
-		anchorSource,
+		get anchorSource() {
+			return usageFromTokenizer && store.peek(repo) ? "tokenizer" : "provider";
+		},
 		async count(text, kind, signal): Promise<TokenCount> {
 			const tokenizer = store.peek(repo);
 			if (tokenizer) return { tokens: tokenizer.count(text), source: "tokenizer" };

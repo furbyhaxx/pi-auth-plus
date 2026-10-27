@@ -34,7 +34,8 @@ describe("token estimates", () => {
 				return loaded;
 			},
 		};
-		const counter = tokenizerCounter("org/model", store, estimateCounter("fallback"), "tokenizer");
+		const counter = tokenizerCounter("org/model", store, estimateCounter("fallback"), true);
+		expect(counter.anchorSource).toBe("provider");
 		expect(await counter.count("one two three", "prose")).toEqual({
 			tokens: 4,
 			source: "estimate",
@@ -42,6 +43,7 @@ describe("token estimates", () => {
 		await Promise.resolve();
 		expect(loads).toEqual(["org/model"]);
 		expect(counter.id).toBe("org/model@abc1234");
+		expect(counter.anchorSource).toBe("tokenizer");
 		expect(await counter.count("one two three", "prose")).toEqual({
 			tokens: 3,
 			source: "tokenizer",

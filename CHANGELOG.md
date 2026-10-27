@@ -10,6 +10,10 @@ All notable changes to this project are documented here. The format follows
 
 - **pi-quotas template carry-over uses Pi ids.** Provider names in a carried-over
   `lineTemplate` become Pi ids, so `{grok:id}` shows `xai` instead of `grok`.
+- **Claude 7d line value.** The `7d_oi` ("7d overage included") rate-limit header now
+  carries the scope `overage included`, so `{claude:window-7d-used-percent}` no longer
+  turns into `?` once Anthropic sends that header; the variant is
+  `window-7d-overage-included-used-percent`.
 
 ## [0.3.0] - 2026-10-27
 

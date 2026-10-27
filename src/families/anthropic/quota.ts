@@ -144,6 +144,8 @@ const HEADER_WINDOWS: readonly QuotaWindow[] = [
 		shortLabel: "7d_oi",
 		label: "7d overage included",
 		period: "7d",
+		// A scope keeps `window-7d` unambiguous in line templates.
+		scope: "overage included",
 		important: false,
 	},
 	{

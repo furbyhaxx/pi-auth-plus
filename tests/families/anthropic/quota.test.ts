@@ -44,9 +44,11 @@ describe("Claude quota headers", () => {
 			})),
 		);
 		expect(snapshot?.windows.slice(2)).toMatchObject([
-			{ id: "7d_oi", period: "7d", usedFraction: 0.6 },
+			{ id: "7d_oi", period: "7d", scope: "overage included", usedFraction: 0.6 },
 			{ id: "overage", scope: "spend cap", usedFraction: 1 },
 		]);
+		// Line templates address `window-7d` by period alone; a second unscoped 7d window renders `?`.
+		expect(snapshot?.windows.filter((w) => w.period === "7d" && !w.scope)).toHaveLength(1);
 	});
 
 	test.each([undefined, "", "invalid", "Infinity"])(

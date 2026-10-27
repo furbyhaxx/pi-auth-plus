@@ -1,12 +1,10 @@
 /** Bounded response-stream restoration of Claude's wire tool names. */
-import { TOOL_PREFIX } from "./tool-names.ts";
 
 export const MAX_SSE_LINE_BYTES = 5 * 1024 * 1024;
 export const MAX_JSON_TOOL_NAME_BYTES = 1024;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const fatalDecoder = new TextDecoder("utf-8", { fatal: true });
-const prefixBytes = encoder.encode(TOOL_PREFIX);
 const nameKey = encoder.encode('name"');
 const sseName = /("name"[^\S\r\n]*:[^\S\r\n]*")((?:[^"\\\r\n]|\\.)*)(")/g;
 const staleHeaders = [
@@ -35,9 +33,9 @@ function restoreValue(raw: string, restore: (wire: string) => string): string {
 	} catch {
 		return raw;
 	}
-	return typeof wire === "string" && wire.startsWith(TOOL_PREFIX)
-		? JSON.stringify(restore(wire)).slice(1, -1)
-		: raw;
+	if (typeof wire !== "string") return raw;
+	const restored = restore(wire);
+	return restored === wire ? raw : JSON.stringify(restored).slice(1, -1);
 }
 
 function sseStream(body: ReadableStream<Uint8Array>, restore: (wire: string) => string) {
@@ -48,7 +46,7 @@ function sseStream(body: ReadableStream<Uint8Array>, restore: (wire: string) => 
 			text.replace(
 				sseName,
 				(_match, before: string, raw: string, after: string) =>
-					`${before}${raw.startsWith(TOOL_PREFIX) ? restoreValue(raw, restore) : raw}${after}`,
+					`${before}${restoreValue(raw, restore)}${after}`,
 			),
 		);
 	return body.pipeThrough(
@@ -135,18 +133,16 @@ function jsonStream(body: ReadableStream<Uint8Array>, restore: (wire: string) =>
 							output[written++] = byte;
 							continue;
 						}
-						if (length === MAX_JSON_TOOL_NAME_BYTES) {
-							throw new ResponseRestoreLimitError("JSON tool name", MAX_JSON_TOOL_NAME_BYTES);
+						if (length < MAX_JSON_TOOL_NAME_BYTES) {
+							held[length++] = byte;
+							escaped = !escaped && byte === 92;
+							continue;
 						}
-						held[length++] = byte;
-						if (length <= prefixBytes.length && byte !== prefixBytes[length - 1]) {
-							append(held.subarray(0, length));
-							length = 0;
-							state = byte === 34 ? "outside" : "string";
-							keyIndex = -1;
-						}
-						escaped = !escaped && byte === 92;
-						continue;
+						// Longer than any tool name: an ordinary string value, passed through unchanged.
+						append(held.subarray(0, length));
+						length = 0;
+						state = "string";
+						keyIndex = -1;
 					}
 					output[written++] = byte;
 					if (state === "string") {
@@ -187,7 +183,7 @@ function jsonStream(body: ReadableStream<Uint8Array>, restore: (wire: string) =>
 	);
 }
 
-/** Restores only prefixed tool names, leaving unrelated response media types untouched. */
+/** Restores mapped name values, leaving unrelated response media types untouched. */
 export function restoreToolNames(response: Response, restore: (wire: string) => string): Response {
 	const type = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
 	if (!response.body) return response;

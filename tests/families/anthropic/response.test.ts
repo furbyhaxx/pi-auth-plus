@@ -9,7 +9,7 @@ import {
 import { toolNameRestorer } from "../../../src/families/anthropic/tool-names.ts";
 
 const encoder = new TextEncoder();
-const restore = toolNameRestorer(["bash", "MyCustomTool", "web_search"]);
+const restore = toolNameRestorer(["bash", "MyCustomTool", "web_search", "ask_user", "é🦊"]);
 
 function response(chunks: Uint8Array[], type = "application/json", headers = {}) {
 	return new Response(
@@ -24,21 +24,28 @@ function response(chunks: Uint8Array[], type = "application/json", headers = {})
 }
 
 const input =
-	'{"text":"é🦊 escaped \\"name\\":\\"mcp_Bash\\"",' +
-	'"tools":[{"name" : "mcp_Bash"},{"name":"mcp_MyCustomTool"},' +
-	'{"name":"mcp_Web_search"},{"name":"mcp_É🦊"},{"name":"other"},' +
-	'{"name":"x_mcp_Bash"}]}';
+	'{"text":"é🦊 escaped \\"name\\":\\"Bash\\"",' +
+	'"tools":[{"name" : "Bash"},{"name":"MyCustomTool"},' +
+	'{"name":"WebSearch"},{"name":"É🦊"},{"name":"other"},' +
+	'{"type":"tool_use","name":"AskUser"},{"type":"tool_use","name":"Bash"},' +
+	'{"name":"x_Bash"},{"other":"Bash"},{"tool_name":"AskUser"}]}';
 const expected = input
-	.replace('"mcp_Bash"}', '"bash"}')
-	.replace('"mcp_MyCustomTool"', '"MyCustomTool"')
-	.replace('"mcp_Web_search"', '"web_search"')
-	.replace('"mcp_É🦊"', '"é🦊"');
+	.replace('"name" : "Bash"', '"name" : "bash"')
+	.replace('"name":"Bash"', '"name":"bash"')
+	.replace('"AskUser"', '"ask_user"')
+	.replace('"WebSearch"', '"web_search"')
+	.replace('"É🦊"', '"é🦊"');
 
 describe("families/anthropic/response", () => {
 	for (const type of ["application/json", "application/problem+json", "text/event-stream"]) {
 		test(`${type}: every byte split and single-byte chunks`, async () => {
-			const source = type === "text/event-stream" ? `data: ${input}\r\n\rdata: é🦊\n` : input;
-			const target = type === "text/event-stream" ? `data: ${expected}\r\n\rdata: é🦊\n` : expected;
+			const delta = JSON.stringify({
+				type: "content_block_delta",
+				delta: { type: "text_delta", text: '"name":"Bash"' },
+			});
+			const source = type === "text/event-stream" ? `data: ${input}\r\n\rdata: ${delta}\n` : input;
+			const target =
+				type === "text/event-stream" ? `data: ${expected}\r\n\rdata: ${delta}\n` : expected;
 			const bytes = encoder.encode(source);
 			for (let split = 0; split <= bytes.length; split++) {
 				const result = restoreToolNames(
@@ -52,30 +59,30 @@ describe("families/anthropic/response", () => {
 		});
 	}
 
-	test("callbacks receive only complete prefixed names and may expand them", async () => {
+	test("callbacks receive complete name values and may expand them", async () => {
 		const seen: string[] = [];
 		const expanded = "a".repeat(4096);
 		for (const type of ["application/json", "text/event-stream"]) {
-			const source = '{"name":"ordinary","name":"mcp_A","name":"mcp_"}';
+			const source = '{"name":"ordinary","name":"A","name":"B"}';
 			const result = restoreToolNames(response([encoder.encode(source)], type), (wire) => {
 				seen.push(wire);
-				return expanded;
+				return wire === "ordinary" ? wire : expanded;
 			});
 			expect(await result.text()).toBe(
 				`{"name":"ordinary","name":"${expanded}","name":"${expanded}"}`,
 			);
 		}
-		expect(seen).toEqual(["mcp_A", "mcp_", "mcp_A", "mcp_"]);
+		expect(seen).toEqual(["ordinary", "A", "B", "ordinary", "A", "B"]);
 	});
 
 	test("JSON escapes are decoded and restored names are safely escaped", async () => {
-		const source = '{"name":"mcp_A\\"B","text":"\\"name\\":\\"mcp_Bash\\""}';
+		const source = '{"name":"mcp_A\\"B","text":"\\"name\\":\\"Bash\\""}';
 		const seen: string[] = [];
 		const result = restoreToolNames(response([encoder.encode(source)]), (wire) => {
 			seen.push(wire);
 			return 'a"b';
 		});
-		expect(await result.text()).toBe('{"name":"a\\"b","text":"\\"name\\":\\"mcp_Bash\\""}');
+		expect(await result.text()).toBe('{"name":"a\\"b","text":"\\"name\\":\\"Bash\\""}');
 		expect(seen).toEqual(['mcp_A"B']);
 	});
 
@@ -90,7 +97,7 @@ describe("families/anthropic/response", () => {
 		}
 	});
 
-	test("bounds JSON candidates and SSE lines in bytes", async () => {
+	test("bounds SSE lines and passes over-long JSON name values through", async () => {
 		for (const ending of ["", "\n"]) {
 			const bytes = encoder.encode("x".repeat(MAX_SSE_LINE_BYTES + 1) + ending);
 			await expect(
@@ -104,13 +111,20 @@ describe("families/anthropic/response", () => {
 				restore,
 			).text(),
 		).toBe(exact);
-		const longName = `mcp_${"a".repeat(MAX_JSON_TOOL_NAME_BYTES - 4)}`;
+		const longName = "a".repeat(MAX_JSON_TOOL_NAME_BYTES);
 		expect(
 			await restoreToolNames(response([encoder.encode(`{"name":"${longName}"}`)]), restore).text(),
-		).toBe(`{"name":"${longName.slice(4)}"}`);
-		await expect(
-			restoreToolNames(response([encoder.encode(`{"name":"${longName}a"}`)]), restore).text(),
-		).rejects.toThrow(`claude: JSON tool name exceeds ${MAX_JSON_TOOL_NAME_BYTES}`);
+		).toBe(`{"name":"${longName}"}`);
+		const longValue = `{"name":"${longName}\\"Bash","next":{"name":"Bash"}}`;
+		for (let split = 0; split <= longValue.length; split += 97) {
+			const bytes = encoder.encode(longValue);
+			expect(
+				await restoreToolNames(
+					response([bytes.slice(0, split), bytes.slice(split)]),
+					restore,
+				).text(),
+			).toBe(longValue.replace('{"name":"Bash"}', '{"name":"bash"}'));
+		}
 	});
 
 	test("preserves metadata and removes all stale representation headers", async () => {
@@ -125,7 +139,7 @@ describe("families/anthropic/response", () => {
 		];
 		for (const type of ["Text/Event-Stream; charset=utf-8", "application/json"]) {
 			const result = restoreToolNames(
-				response([encoder.encode('{"name":"mcp_Bash"}')], type, {
+				response([encoder.encode('{"name":"Bash"}')], type, {
 					...Object.fromEntries(stale.map((name) => [name, "1"])),
 					"x-request-id": "retained",
 				}),
@@ -151,7 +165,7 @@ describe("families/anthropic/response", () => {
 			const source = new Response(
 				new ReadableStream<Uint8Array>({
 					start(controller) {
-						controller.enqueue(encoder.encode('{"name":"mcp_Bash"}\n'));
+						controller.enqueue(encoder.encode('{"name":"Bash"}\n'));
 						close = () => controller.close();
 					},
 				}),

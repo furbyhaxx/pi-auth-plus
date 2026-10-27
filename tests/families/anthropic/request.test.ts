@@ -21,6 +21,21 @@ describe("families/anthropic/request", () => {
 			"Project instructions: preserve widgets and use local tests.",
 			"Private workspace note: remove this paragraph.",
 		].join("\n\n");
+		const placeholder = {
+			name: "__pi_deferred_placeholder__",
+			description: "Reserved placeholder. Never available. Never call this.",
+			input_schema: { type: "object", properties: {}, required: [] },
+			defer_loading: true,
+			cache_control: { type: "ephemeral" },
+		};
+		const wirePlaceholder = {
+			name: "DeferredToolPlaceholder",
+			description:
+				"Reserved placeholder that keeps deferred tool loading active; never call this tool.",
+			input_schema: { type: "object", properties: {} },
+			defer_loading: true,
+			cache_control: { type: "ephemeral" },
+		};
 		const messages = [
 			{
 				role: "user",
@@ -40,13 +55,29 @@ describe("families/anthropic/request", () => {
 					{ type: "text", text: "bash", name: "untouched" },
 				],
 			},
+			{
+				role: "system",
+				content: [
+					{
+						type: "tool_addition",
+						tool: { type: "tool_definition", definition: { name: "ask_user", input_schema: {} } },
+					},
+					{ type: "tool_removal", tool: { type: "tool_reference", name: "web_search" } },
+					{ type: "tool_addition", tool: { type: "tool_definition", definition: placeholder } },
+				],
+			},
 		];
 		const shaped = JSON.parse(
 			shapeBody(
 				JSON.stringify({
 					system,
 					messages,
-					tools: [{ name: "bash", input_schema: {} }, { name: "web_search" }],
+					tools: [
+						{ name: "bash", input_schema: {} },
+						{ name: "web_search" },
+						{ name: "MyCustomTool" },
+						placeholder,
+					],
 					tool_choice: { type: "tool", name: "bash" },
 				}),
 				"2.1.87",
@@ -62,13 +93,19 @@ describe("families/anthropic/request", () => {
 			},
 		]);
 		expect(shaped.tools.map((tool: { name: string }) => tool.name)).toEqual([
-			"mcp_Bash",
-			"mcp_Web_search",
+			"Bash",
+			"WebSearch",
+			"MyCustomTool",
+			"DeferredToolPlaceholder",
 		]);
-		expect(shaped.tool_choice.name).toBe("mcp_Bash");
-		expect(shaped.messages[0].content[1].content[0].tool_name).toBe("mcp_Web_search");
+		expect(shaped.tools[3]).toEqual(wirePlaceholder);
+		expect(shaped.messages[2].content[0].tool.definition.name).toBe("AskUser");
+		expect(shaped.messages[2].content[1].tool.name).toBe("WebSearch");
+		expect(shaped.messages[2].content[2].tool.definition).toEqual(wirePlaceholder);
+		expect(shaped.tool_choice.name).toBe("Bash");
+		expect(shaped.messages[0].content[1].content[0].tool_name).toBe("WebSearch");
 		expect(shaped.messages[0].content[1].tool_use_id).toBe("t1");
-		expect(shaped.messages[1].content[0].name).toBe("mcp_Bash");
+		expect(shaped.messages[1].content[0].name).toBe("Bash");
 		expect(shaped.messages[1].content[0].input.name).toBe("untouched");
 		expect(shaped.messages[1].content[1].name).toBe("untouched");
 	});

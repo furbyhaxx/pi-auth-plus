@@ -1,6 +1,6 @@
-/** Claude Code's wire tool names (`mcp_` plus an upper-case first letter) and the exact way back. */
+/** Claude Code's bare PascalCase tool names and the request-local exact way back. */
 
-export const TOOL_PREFIX = "mcp_";
+export const PI_PLACEHOLDER = "__pi_deferred_placeholder__";
 
 /** Two Pi tools that map to one wire name, which would make tool calls ambiguous. */
 export class ToolNameCollisionError extends Error {
@@ -11,31 +11,25 @@ export class ToolNameCollisionError extends Error {
 	}
 }
 
-/** The name Claude Code would send for a Pi tool; lower-case `mcp_bash` marks a foreign client. */
+/** Preserves native MCP names and maps Pi tools to Claude Code names. */
 export function wireToolName(name: string): string {
-	return `${TOOL_PREFIX}${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+	if (name === PI_PLACEHOLDER) return "DeferredToolPlaceholder";
+	if (name.startsWith("mcp__")) return name;
+	return name
+		.split(/[_-]/)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join("");
 }
 
-/**
- * Maps wire names back to the request's Pi tool names, so custom PascalCase names survive.
- * Names without the prefix pass through; unknown prefixed names lose the prefix and their
- * first letter is lower-cased, except `StructuredOutput`, which Claude Code keeps as is.
- */
+/** Restores exact request names plus the reserved placeholder; unknown names pass through. */
 export function toolNameRestorer(names: Iterable<string>): (wire: string) => string {
 	const byWire = new Map<string, string>();
-	for (const name of names) {
+	for (const name of [PI_PLACEHOLDER, ...names]) {
 		const wire = wireToolName(name);
 		const previous = byWire.get(wire);
 		if (previous !== undefined && previous !== name)
 			throw new ToolNameCollisionError(previous, name);
 		byWire.set(wire, name);
 	}
-	return (wire) => {
-		const known = byWire.get(wire);
-		if (known !== undefined) return known;
-		if (!wire.startsWith(TOOL_PREFIX)) return wire;
-		const bare = wire.slice(TOOL_PREFIX.length);
-		if (bare === "StructuredOutput") return bare;
-		return `${bare.charAt(0).toLowerCase()}${bare.slice(1)}`;
-	};
+	return (wire) => byWire.get(wire) ?? wire;
 }

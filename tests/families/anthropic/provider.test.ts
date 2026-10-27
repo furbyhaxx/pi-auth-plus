@@ -26,7 +26,7 @@ const SSE = [
 	{
 		type: "content_block_start",
 		index: 0,
-		content_block: { type: "tool_use", id: "toolu_1", name: "mcp_Bash", input: {} },
+		content_block: { type: "tool_use", id: "toolu_1", name: "Bash", input: {} },
 	},
 	{
 		type: "content_block_delta",
@@ -101,7 +101,7 @@ describe("families/anthropic/provider", () => {
 		expect(request?.headers.get("user-agent")).toBe(`claude-cli/${VERSION} (external, cli)`);
 		expect(request?.body.system?.[0]?.text).toContain(`cc_version=${VERSION}.`);
 		expect(request?.body.system?.[1]?.text).toBe(CLAUDE_CODE_IDENTITY);
-		expect(request?.body.tools?.[0]?.name).toBe("mcp_Bash");
+		expect(request?.body.tools?.[0]?.name).toBe("Bash");
 		expect(request?.headers.get("x-app")).toBe("cli");
 		expect(message.stopReason).toBe("toolUse");
 		expect(message.content.find((block) => block.type === "toolCall")).toMatchObject({

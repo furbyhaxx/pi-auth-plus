@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 13
+  revision: 14
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T15:34:04+01:00"
+  updated_at: "2026-10-27T15:56:33+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -50,6 +50,9 @@ document:
     - revision: 13
       reason: "M2 slice 5 done"
       changes: ["Quota line live on both runtimes; panels are now"]
+    - revision: 14
+      reason: "M2 slice 6 done"
+      changes: ["/auth quotas + settings tabs live; resets + CLI are now"]
 ---
 
 # Roadmap
@@ -86,8 +89,8 @@ detailed plan; later ones hold the ideas that must not get lost.
                         (openai success path unverified live: credential gets HTTP 401)
     [x] 4 headers + bus after_provider_response ingestion; pi-auth-plus:v1:quotas:*
     [x] 5 line          templates, placements, widget, footer
-    [>] 6 panels        /auth quotas with refresh, settings tab
-    [.] 7               resets (panel only) + read-only CLI
+    [x] 6 panels        /auth quotas + settings tabs, /quotas
+    [>] 7 resets + CLI  openai reset from the tab (confirm); --quotas-json/--quotas-list
     [.] 8 cutover       migration, live parity, swap pi-quotas out, release
 [.] M3 Tokens       per-family counting sources, content-hash store, footer reuses it
 [.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream

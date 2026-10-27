@@ -12,13 +12,18 @@ All notable changes to this project are documented here. The format follows
   (ChatGPT), `xai`, `openrouter` and `deepseek` refresh in the background into a cache shared
   by all Pi sessions on the host, with per-provider backoff on 403/429 and a drainage history.
   Windows a provider reports without numbers show as unknown, never as 0%. The engine stays off
-  while pi-quotas is loaded; `/quota` arrives in a later release.
+  while pi-quotas is loaded; `/quota` takes over when pi-quotas is removed, in a later release.
 - **Quota line.** The pi-quotas status line, with the same template grammar, keyed by Pi ids
   (`{openai:pct}`; `{codex:pct}`, `{cl:pct}` and other aliases still resolve). Placements
   `above-editor`, `below-editor-first`, `below-editor-last` (pi-workbench's footer when it runs,
   else a footer of its own) and `off`; short ids below `quotas.compactWidthCols`. Settings:
   `quotas.linePlacement`, `percentDisplay`, `compactWidthCols`, `alwaysShortIds`,
   `creditHealthyUsd`, `creditCriticalUsd`, `lineTemplate` in `auth-plus.json`.
+- **`/auth quotas` and `/quotas [provider]`.** Live quota detail per provider: bars, reset
+  countdowns, drainage, sign-in hints; `r`/`R` refresh, `a` solo, `p` moves the line.
+- **`/auth settings`.** Edit every pi-auth-plus setting with staged changes, save to user,
+  project or this session (`ctrl+s`), a live line-template preview, and JSON editing for
+  list and rule settings.
 - **Quota updates from responses.** A claude or ChatGPT turn updates that provider's windows
   from its response headers, without an extra request.
 - **Quotas bus.** Extensions can query and refresh quotas and watch snapshots and

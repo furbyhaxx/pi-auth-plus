@@ -15,7 +15,7 @@ export function createGoogleFamily(fetchFn: FetchFn = fetch): FamilyAdapter {
 		id: "google",
 		label: "Google",
 		providers: [
-			{ id: PROVIDER, label: "Antigravity", aliases: ["agy"], quota: antigravityQuota() },
+			{ id: PROVIDER, label: "Antigravity", aliases: ["agy", "ag"], quota: antigravityQuota() },
 		],
 		register: (pi) => {
 			const project = antigravityProject({ fetch: fetchFn, headers: () => cliHeaders() });

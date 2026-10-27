@@ -56,21 +56,32 @@ export function serve<Req, Res>(
 	});
 }
 
-/** Ask whoever serves `area:event`; resolves undefined when nobody answers in time. */
+/** Requests a nonce reply; timeouts resolve undefined and cancellation rejects with AbortError. */
 export function request<Res>(
 	bus: EventBus,
 	area: BusArea,
 	event: string,
 	payload: unknown,
 	decode: Decode<Res>,
-	options: { readonly timeoutMs?: number } = {},
+	options: { readonly timeoutMs?: number; readonly signal?: AbortSignal | undefined } = {},
 ): Promise<Res | undefined> {
 	const channel = channelName(area, event);
 	const nonce = randomUUID();
-	return new Promise((resolve) => {
+	return new Promise((resolve, reject) => {
+		const { signal } = options;
+		if (signal?.aborted) {
+			reject(new DOMException("Bus request aborted", "AbortError"));
+			return;
+		}
+		const onAbort = () => {
+			clearTimeout(timer);
+			off();
+			reject(new DOMException("Bus request aborted", "AbortError"));
+		};
 		const finish = (value: Res | undefined) => {
 			clearTimeout(timer);
 			off();
+			signal?.removeEventListener("abort", onAbort);
 			resolve(value);
 		};
 		const off = bus.on(`${channel}:reply`, (raw) => {
@@ -83,6 +94,7 @@ export function request<Res>(
 			() => finish(undefined),
 			options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
 		);
+		signal?.addEventListener("abort", onAbort, { once: true });
 		bus.emit(channel, { nonce, payload: redactValue(payload) });
 	});
 }

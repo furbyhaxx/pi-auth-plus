@@ -14,7 +14,8 @@
 		"url": "git+https://github.com/furbyhaxx/pi-auth-plus.git"
 	},
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./bus": "./src/bus/index.ts"
 	},
 	"keywords": [
 		"pi",

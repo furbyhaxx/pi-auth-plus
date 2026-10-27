@@ -124,7 +124,8 @@ This file describes the target state.
 
 - `families/index.ts` registers `opencode` and `synthetic` only; `claude` and `antigravity`
   follow M1. `FamilyAdapter` has no `quota`/`tokens` parts until those engines land.
-- The synthetic web-search tool is not ported yet.
+- No legacy migration exists yet: pi-synthetic-auth's `websearch.synthetic` in Pi's
+  `settings.json` and its `SYNTHETIC_WEB_SEARCH` variable are not read.
 - `quotas/`, `tokens/` and `docs/` do not exist yet; the dashboard's Settings tab has no
   settings panel yet (`core/config` exists).
 - `core/auth` reads slots only; PKCE, the callback server and code paste arrive with the first
@@ -200,7 +201,9 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
   header or body level (`.project/analyses/opencode-cli/2.1.2/report.md`).
 - **synthetic:** native `anthropic-messages` with no stream of our own; the catalog comes from
   `refreshModels` with Pi's store and a 4 h TTL, and has real prices and limits. Rows without a usable
-  price or tool support are skipped. The web-search tool stays opt-in.
+  price or tool support are skipped. The `synthetic_web_search` tool registers at session start
+  only when `synthetic.webSearch` or `--synthetic-web-search` enables it. It returns each
+  result's highlights and saves the full page text to a 0600 temp file, since pages run to 100 KB.
 
 ### Upstream client tracking
 
@@ -263,8 +266,10 @@ compiler (`docs/PLUGINS.md` of Pi-Bolt):
 ## Settings and data
 
 - Layers: defaults < user (`<agentDir>/auth-plus.json`) < project (`<cwd>/.pi/auth-plus.json`,
-  trusted projects only) < runtime. One settings catalog in `core/config`; features never read
-  config files directly.
+  trusted projects only) < runtime. One settings catalog in `core/config/catalog.ts`; features
+  never read config files directly. The entrypoint loads it per session in a `session_start`
+  handler registered before the families' handlers, and families read it through
+  `FamilyHost.settings()`; the factory sees defaults only.
 - Host cache (quota snapshots, token counts) under `<agentDir>/cache/auth-plus/`; state and
   data follow XDG (dirs 0700, files 0600).
 - Legacy migration from the absorbed packages is one-time, fill-only and non-destructive:

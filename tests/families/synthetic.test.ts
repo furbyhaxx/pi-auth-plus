@@ -1,24 +1,56 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import type { Model, ModelsPublication, RefreshModelsContext } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { FetchFn } from "../../src/core/http/index.ts";
 import { CATALOG_TTL_MS, parseCatalog } from "../../src/families/synthetic/catalog.ts";
-import { createSyntheticFamily } from "../../src/families/synthetic/index.ts";
+import { createSyntheticFamily, WEB_SEARCH_FLAG } from "../../src/families/synthetic/index.ts";
+import { parseResults, TOOL_NAME } from "../../src/families/synthetic/web-search.ts";
 import fixture from "../fixtures/synthetic/models.json";
+import search from "../fixtures/synthetic/search.json";
+import { testHost } from "../host.ts";
 
 const now = 1_800_000_000_000;
 type Config = Parameters<ExtensionAPI["registerProvider"]>[1];
 
-async function registered(fetchFn: FetchFn = async () => Response.json(fixture)) {
+type Tool = Parameters<ExtensionAPI["registerTool"]>[0];
+
+async function registered(
+	fetchFn: FetchFn = async () => Response.json(fixture),
+	options: { setting?: boolean; flag?: boolean; outputDir?: string } = {},
+) {
 	let config: Config | undefined;
-	const family = createSyntheticFamily({ SYNTHETIC_API_KEY: "test" }, fetchFn, () => now);
-	await family.register?.({
-		registerProvider: (_id: string, value: Config) => {
-			config = value;
-		},
-	} as unknown as ExtensionAPI);
+	const tools: Tool[] = [];
+	const sessionStart: Array<() => void> = [];
+	const family = createSyntheticFamily(
+		{ SYNTHETIC_API_KEY: "test" },
+		fetchFn,
+		() => now,
+		() => options.outputDir ?? tmpdir(),
+	);
+	const host = await testHost(
+		options.setting === undefined ? {} : { "synthetic.webSearch": options.setting },
+	);
+	await family.register?.(
+		{
+			registerProvider: (_id: string, value: Config) => {
+				config = value;
+			},
+			registerFlag: () => {},
+			getFlag: (name: string) => (name === WEB_SEARCH_FLAG ? options.flag : undefined),
+			registerTool: (tool: Tool) => tools.push(tool),
+			on: (event: string, handler: () => void) => {
+				if (event === "session_start") sessionStart.push(handler);
+			},
+		} as unknown as ExtensionAPI,
+		host,
+	);
 	if (!config?.refreshModels) throw new Error("Synthetic was not registered");
-	return { family, config, refresh: config.refreshModels };
+	const startSession = () => {
+		for (const handler of sessionStart) handler();
+	};
+	return { family, config, refresh: config.refreshModels, tools, startSession };
 }
 
 function context(overrides: Partial<RefreshModelsContext> = {}) {
@@ -185,5 +217,67 @@ describe("families/synthetic", () => {
 		await expect(http.refresh(context({ allowNetwork: true }).ctx)).rejects.toThrow(
 			"synthetic: HTTP 503",
 		);
+	});
+
+	test("the web-search tool registers only when the setting or the flag enables it, once", async () => {
+		const off = await registered();
+		off.startSession();
+		expect(off.tools).toEqual([]);
+
+		const setting = await registered(undefined, { setting: true });
+		setting.startSession();
+		setting.startSession();
+		expect(setting.tools.map((tool) => tool.name)).toEqual([TOOL_NAME]);
+
+		const flag = await registered(undefined, { flag: true });
+		flag.startSession();
+		expect(flag.tools.map((tool) => tool.name)).toEqual([TOOL_NAME]);
+	});
+
+	test("keeps results without a publication date and returns passages with the full text saved", async () => {
+		expect(parseResults(search).map((result) => result.published ?? null)).toEqual([
+			"2025-10-10T20:00:00.000Z",
+			"2025-10-10T20:00:00.000Z",
+			null,
+			null,
+			"2025-10-13T15:17:28.000Z",
+		]);
+
+		const requests: Request[] = [];
+		const fetchFn: FetchFn = async (input, init) => {
+			requests.push(new Request(input as string, init));
+			return Response.json(search);
+		};
+		const { tools, startSession } = await registered(fetchFn, { setting: true });
+		startSession();
+		const tool = tools[0];
+		if (!tool) throw new Error("tool missing");
+		const ctx = {
+			modelRegistry: { getProviderAuth: async () => ({ auth: { apiKey: "sk-test" } }) },
+		};
+		const result = await tool.execute(
+			"call",
+			{ query: "Bun 1.3" },
+			undefined,
+			undefined,
+			ctx as never,
+		);
+
+		expect(requests[0]?.headers.get("authorization")).toBe("Bearer sk-test");
+		expect(await requests[0]?.json()).toEqual({ query: "Bun 1.3" });
+		const text = (result.content[0] as { text: string }).text;
+		expect(text).toContain("## 3. Bun v1.3");
+		expect(text).toContain("Published: unknown");
+		const details = result.details as { fullOutputPath: string; truncated: boolean };
+		expect(details.truncated).toBe(false);
+		expect(text.length).toBeLessThan(20_000);
+		const full = readFileSync(details.fullOutputPath, "utf8");
+		expect(full.length).toBeGreaterThan(200_000);
+		expect(statSync(details.fullOutputPath).mode & 0o777).toBe(0o600);
+
+		const anonymous = { modelRegistry: { getProviderAuth: async () => undefined } };
+		await expect(
+			tool.execute("call", { query: "x" }, undefined, undefined, anonymous as never),
+		).rejects.toThrow("/login synthetic");
 	});
 });

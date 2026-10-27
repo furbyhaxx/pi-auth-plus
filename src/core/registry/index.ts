@@ -1,6 +1,7 @@
 /** Family registry: the only place engines and the UI learn provider ids, aliases and families. */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { AmbientCredential } from "../auth/index.ts";
+import type { AppSettings } from "../config/catalog.ts";
 
 /** One Pi provider id a family owns, with the extra names users may type for it. */
 export interface ProviderEntry {
@@ -17,7 +18,13 @@ export interface FamilyAdapter {
 	readonly label: string;
 	readonly providers: readonly ProviderEntry[];
 	/** Registers the family's providers; runs inside the awaited extension factory. */
-	readonly register?: (pi: ExtensionAPI) => void | Promise<void>;
+	readonly register?: (pi: ExtensionAPI, host: FamilyHost) => void | Promise<void>;
+}
+
+/** What the entrypoint shares with families. */
+export interface FamilyHost {
+	/** The session's settings, loaded before any family's `session_start` handler runs. */
+	readonly settings: () => AppSettings;
 }
 
 export interface ResolvedProvider {

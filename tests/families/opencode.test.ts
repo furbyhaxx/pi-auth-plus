@@ -9,6 +9,7 @@ import {
 	IdSource,
 } from "../../src/families/opencode/identity.ts";
 import { createOpencodeFamily } from "../../src/families/opencode/index.ts";
+import { testHost } from "../host.ts";
 
 type Handler = (event: { headers: Record<string, string | null> }) => void;
 
@@ -31,7 +32,7 @@ async function registerWith(env: Record<string, string | undefined>, models?: un
 	}
 	const fake = fakePi();
 	const family = createOpencodeFamily(env, () => 1_700_000_000_000);
-	await family.register?.(fake.pi);
+	await family.register?.(fake.pi, await testHost());
 	const ambient = family.providers.map((provider) => provider.ambient?.()?.source);
 	return { ...fake, ambient };
 }

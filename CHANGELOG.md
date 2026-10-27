@@ -15,11 +15,19 @@ All notable changes to this project are documented here. The format follows
 - **Synthetic.** The `synthetic` provider logs in through `/login synthetic` or
   `SYNTHETIC_API_KEY`. Its catalog has real prices and limits, refreshes in the background,
   and is never fetched at startup.
+- **Synthetic web search.** The opt-in `synthetic_web_search` tool, enabled by
+  `"synthetic": { "webSearch": true }` in `auth-plus.json` or `--synthetic-web-search` for one
+  run. It returns each result's relevant passages and saves the full page text to a file, and
+  it keeps results without a publication date, which pi-synthetic-auth dropped.
+- **Settings file.** `<agentDir>/auth-plus.json` and, in trusted projects, `.pi/auth-plus.json`;
+  invalid values warn and fall back to the inherited value.
 - **Providers tab.** Shows environment, models.json and anonymous credentials beside stored
   logins.
 
 ### Known limits
 
+- pi-synthetic-auth's `websearch.synthetic` setting and `SYNTHETIC_WEB_SEARCH` variable are
+  not read yet; set `synthetic.webSearch` in `auth-plus.json` instead.
 - Anonymous OpenCode Zen works from Pi-Bolt only. Zen refuses stock Pi's Node HTTP client with
   `429 FreeUsageLimitError` regardless of headers. Keyed Zen requests are untested.
 

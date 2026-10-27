@@ -493,7 +493,7 @@ test("quota auth supports header-only bearers and prefers Pi's API key", async (
 	expect(await quotaAuthFor("fake", undefined)).toBeUndefined();
 });
 
-test("pi-quotas gates the engine without becoming an absorbed-package warning", () => {
+test("pi-quotas gates the engine and is an absorbed package", () => {
 	expect(loadsPackage("pi-quotas", ["npm:@furbyhaxx/pi-quotas@1.0.0"], [], [])).toBe(true);
 	expect(loadsPackage("pi-quotas", [{ source: "npm:pi-quotas", extensions: [] }], [], [])).toBe(
 		false,
@@ -501,5 +501,7 @@ test("pi-quotas gates the engine without becoming an absorbed-package warning", 
 	expect(loadsPackage("pi-quotas", [], ["-/tmp/pi-quotas/src/index.ts"], [])).toBe(false);
 	expect(loadsPackage("pi-quotas", [], [], ["/tmp/pi-quotas/src/commands/quota.ts"])).toBe(true);
 	expect(loadsPackage("pi-quotas", ["npm:pi-quotas-other"], [], [])).toBe(false);
-	expect(detectConflicts(["npm:pi-quotas"], [], [])).toEqual([]);
+	expect(detectConflicts(["npm:pi-quotas"], [], []).map((conflict) => conflict.name)).toEqual([
+		"pi-quotas",
+	]);
 });

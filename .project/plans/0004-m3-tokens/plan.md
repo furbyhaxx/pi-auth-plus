@@ -1,0 +1,70 @@
+---
+document:
+  type: "plan"
+  id: "0004-m3-tokens"
+  title: "M3 tokens"
+  description: "Accurate token counts per family: correct usage on every assistant turn, count sources, store, /tokens surface"
+  status: "published"
+  revision: 1
+  created_at: "2026-10-27T18:43:41+01:00"
+  updated_at: "2026-10-27T18:43:41+01:00"
+  created_by: "pi"
+  updated_by: "pi"
+  changelog:
+    - revision: 1
+      reason: "document creation"
+      changes: ["Seams and sources scouted; slice 1 (evidence) in detail, later slices sparse"]
+---
+
+# M3 tokens
+
+Goal: the token numbers Pi and our surfaces show are right, and say where they come from.
+
+## What the scouting established (2026-10-27)
+
+- Pi has two estimators and no hook to replace either: pi-ai clamps `maxTokens` at 3.5
+  chars/token, pi-coding-agent drives the footer, `getContextUsage` and auto-compaction at 4.
+  Both anchor on the latest valid assistant `usage` and estimate only the messages after it.
+- The one lever on Pi's own numbers: correct `usage` on every assistant message. Our streams
+  set it; for Pi builtins a `message_end` handler may return a same-role replacement, which Pi
+  copies in place before persisting (reaches session file, footer, compaction, clamp).
+- `context` edits are request-scoped; `turn_end` is after persistence; `session_before_compact`
+  changes compaction, not estimation.
+- Known gap: antigravity gpt-oss frames carry no `usageMetadata` (1 s trailing grace only).
+- No tokenizer data exists in this repo or the absorbed ones. Native count endpoints are only
+  documented: Anthropic `/v1/messages/count_tokens` (Claude Code treats it as nonessential,
+  OAuth acceptance unknown) and Google `v1internal:countTokens` (never observed; agy gates its
+  estimator by `supportsEstimateTokenCounter`, false for Claude and named Gemini models).
+- Our footer clone (`src/quotas/line/footer.ts`) re-sums Pi's usage; it estimates nothing.
+
+## Slices
+
+```
+[>] 1 Evidence     live usage audit per provider + count endpoint probes
+[ ] 2 Usage fix    every assistant turn carries complete usage (our streams + message_end)
+[.] 3 Counts       count sources per family + content-hash store (shape set by slice 1)
+[.] 4 Surface      /tokens tab, bus pi-auth-plus:v1:tokens:*, footer reuses the store
+```
+
+## Slice 1: evidence (now)
+
+Two read-only analyst units, in parallel, outputs under `.project/analyses/tokens/`.
+
+1. **U1 usage audit** (`usage-audit/`). One short tool-using turn per route: claude,
+   antigravity (Gemini, Claude, gpt-oss), synthetic, opencode free, openai (builtin), xai.
+   Per route: raw provider usage vs the persisted assistant `usage` (input, output, cacheRead,
+   cacheWrite, totalTokens), a second turn to see cache fields, and Pi's 4 chars/token
+   estimate of the same context. Verdict per route: complete, wrong mapping, or missing.
+2. **U2 count endpoints** (`count-endpoints/`). Live probes with the configured logins:
+   Anthropic `count_tokens` (claude OAuth with our Claude Code identity), Google
+   `v1internal:countTokens` (Gemini and Claude model ids), xAI tokenize, each compared with
+   the stream-reported input for the identical payload. Latency and rate limits noted.
+
+Exit: a table route x (usage verdict, native count source, accuracy of Pi's estimate), which
+decides slice 2's fix list and slice 3's source precedence.
+
+## Later
+
+- Offline tokenizers (assets, bytecode budget) only if slice 1 shows a route without usage
+  and without a count endpoint where the estimate error matters.
+- Pi estimator hook upstream stays an M4 candidate.

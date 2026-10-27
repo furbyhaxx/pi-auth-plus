@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 18
+  revision: 19
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T17:55:28+01:00"
+  updated_at: "2026-10-27T18:43:41+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -65,6 +65,9 @@ document:
     - revision: 18
       reason: "M2 done"
       changes: ["pi-quotas removed from the user setup; M3 tokens is next"]
+    - revision: 19
+      reason: "M3 started"
+      changes: ["v0.3.1/v0.3.2 line fixes; M3 plan with slice 1 (evidence) in detail"]
 ---
 
 # Roadmap
@@ -105,7 +108,12 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 7 resets + CLI  codex reset from the tab (confirm); --quotas-json/--quotas-list
     [x] 8 cutover       [x] carry-over, /quota, docs, parity run, bus client,
                         [x] codex id + /quota codex login, [x] v0.3.0, [x] swap
-[.] M3 Tokens       per-family counting sources, content-hash store, footer reuses it
+[>] M3 Tokens       correct usage on every turn, count sources, store, /tokens surface
+    plan: plans/0004-m3-tokens/plan.md
+    [>] 1 evidence      live usage audit per provider + count endpoint probes
+    [ ] 2 usage fix     our streams + message_end correction for builtins
+    [.] 3 counts        sources per family + content-hash store
+    [.] 4 surface       /tokens tab, bus, footer reuses the store
 [.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream
 ```
 

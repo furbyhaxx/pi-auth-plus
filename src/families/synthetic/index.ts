@@ -4,6 +4,7 @@ import type { FetchFn } from "../../core/http/index.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
 import { BASE_URL, bundledModels, PROVIDER, refreshCatalog } from "./catalog.ts";
+import { syntheticQuota } from "./quota.ts";
 import { registerWebSearch } from "./web-search.ts";
 
 /** Enables the web-search tool for one run, next to the `synthetic.webSearch` setting. */
@@ -24,6 +25,7 @@ export function createSyntheticFamily(
 				id: PROVIDER,
 				label: "Synthetic",
 				aliases: [],
+				quota: syntheticQuota,
 				ambient: () =>
 					env["SYNTHETIC_API_KEY"] ? { source: "SYNTHETIC_API_KEY", limited: false } : undefined,
 			},

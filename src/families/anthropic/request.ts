@@ -12,6 +12,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function shapeToolDefinition(tool: Record<string, unknown>): void {
+	if (typeof tool["name"] !== "string" || !tool["name"]) return;
+	if (tool["name"] === "__pi_deferred_placeholder__") {
+		const cacheControl = tool["cache_control"];
+		for (const key of Object.keys(tool)) delete tool[key];
+		tool["name"] = "DeferredToolPlaceholder";
+		tool["description"] =
+			"Reserved placeholder that keeps deferred tool loading active; never call this tool.";
+		tool["input_schema"] = { type: "object", properties: {} };
+		tool["defer_loading"] = true;
+		if (cacheControl !== undefined) tool["cache_control"] = cacheControl;
+		return;
+	}
+	tool["name"] = wireToolName(tool["name"]);
+}
+
 function prefixContent(value: unknown): void {
 	if (Array.isArray(value)) {
 		for (const item of value) prefixContent(item);
@@ -23,6 +39,16 @@ function prefixContent(value: unknown): void {
 	}
 	if (value["type"] === "tool_use" && typeof value["name"] === "string" && value["name"]) {
 		value["name"] = wireToolName(value["name"]);
+	}
+	if (value["type"] === "tool_addition" && isRecord(value["tool"])) {
+		const tool = value["tool"];
+		if (tool["type"] === "tool_definition" && isRecord(tool["definition"]))
+			shapeToolDefinition(tool["definition"]);
+	}
+	if (value["type"] === "tool_removal" && isRecord(value["tool"])) {
+		const tool = value["tool"];
+		if (tool["type"] === "tool_reference" && typeof tool["name"] === "string")
+			tool["name"] = wireToolName(tool["name"]);
 	}
 	if (value["content"] !== undefined) prefixContent(value["content"]);
 }
@@ -43,9 +69,7 @@ export function shapeBody(body: string, version: string, rules: readonly TextRul
 	const tools = parsed["tools"];
 	if (Array.isArray(tools)) {
 		for (const tool of tools) {
-			if (isRecord(tool) && typeof tool["name"] === "string" && tool["name"]) {
-				tool["name"] = wireToolName(tool["name"]);
-			}
+			if (isRecord(tool)) shapeToolDefinition(tool);
 		}
 	}
 	const choice = parsed["tool_choice"];

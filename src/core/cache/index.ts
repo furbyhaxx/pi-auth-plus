@@ -6,6 +6,7 @@ import { withFileLock } from "./lock.ts";
 export interface CacheEntry<T> {
 	readonly value: T;
 	readonly fetchedAt: number;
+	readonly updatedAt: number;
 	/** Bumped by a parser change; older entries from older sessions are ignored. */
 	readonly parserVersion: number;
 }
@@ -24,6 +25,7 @@ export interface HostCacheOptions<T> {
 	readonly now?: () => number;
 	/** How long a refresh lease blocks other sessions. */
 	readonly leaseMs?: number;
+	readonly rateLimitStatuses?: readonly number[];
 }
 
 export interface AcquireOptions {
@@ -36,7 +38,7 @@ export interface AcquireOptions {
 export type CacheListener<T> = (key: string, entry: CacheEntry<T>) => void;
 
 export const DEFAULT_LEASE_MS = 30_000;
-const RATE_LIMIT_STATUS = 429;
+const DEFAULT_RATE_LIMIT_STATUSES: readonly number[] = [429];
 
 interface DiskPayload {
 	readonly version: 1;
@@ -95,7 +97,13 @@ export class HostCache<T> {
 		return this.mutate(() => {
 			const now = this.now();
 			const backoff = this.backoff(key);
-			if (backoff && (!options.force || backoff.status === RATE_LIMIT_STATUS)) return false;
+			const rateLimitStatuses = this.options.rateLimitStatuses ?? DEFAULT_RATE_LIMIT_STATUSES;
+			if (
+				backoff &&
+				(!options.force ||
+					(backoff.status !== undefined && rateLimitStatuses.includes(backoff.status)))
+			)
+				return false;
 			if (!options.force) {
 				if ((this.leases.get(key) ?? 0) > now) return false;
 				const entry = this.entries.get(key);
@@ -108,9 +116,11 @@ export class HostCache<T> {
 
 	/** Store a fresh value; releases the lease and clears backoff. */
 	async put(key: string, value: T): Promise<void> {
+		const now = this.now();
 		const entry: CacheEntry<T> = {
 			value,
-			fetchedAt: this.now(),
+			fetchedAt: now,
+			updatedAt: now,
 			parserVersion: this.options.parserVersion(key),
 		};
 		await this.mutate(() => {
@@ -119,6 +129,26 @@ export class HostCache<T> {
 			this.backoffs.delete(key);
 		});
 		this.notify(key, entry);
+	}
+
+	/** Change a value without refreshing endpoint freshness, releasing a lease or clearing backoff. */
+	async patch(key: string, change: (current: T | undefined) => T | undefined): Promise<boolean> {
+		const entry = await this.mutate(() => {
+			const current = this.entries.get(key);
+			const value = change(current?.value);
+			if (value === undefined) return undefined;
+			const patched: CacheEntry<T> = {
+				value,
+				fetchedAt: current?.fetchedAt ?? 0,
+				updatedAt: this.now(),
+				parserVersion: current?.parserVersion ?? this.options.parserVersion(key),
+			};
+			this.entries.set(key, patched);
+			return patched;
+		});
+		if (entry === undefined) return false;
+		this.notify(key, entry);
+		return true;
 	}
 
 	/** Record a failed fetch; the stored value stays, the key backs off for `backoffMs`. */
@@ -167,7 +197,7 @@ export class HostCache<T> {
 			const incoming = this.parseEntry(key, value);
 			if (incoming === undefined) continue;
 			const existing = this.entries.get(key);
-			if (existing && existing.fetchedAt >= incoming.fetchedAt) continue;
+			if (existing && existing.updatedAt >= incoming.updatedAt) continue;
 			this.entries.set(key, incoming);
 			this.notify(key, incoming);
 			changed = true;
@@ -189,9 +219,11 @@ export class HostCache<T> {
 		if (!isRecord(raw)) return undefined;
 		const { fetchedAt, parserVersion } = raw;
 		if (typeof fetchedAt !== "number" || typeof parserVersion !== "number") return undefined;
+		const updatedAt = raw["updatedAt"] === undefined ? fetchedAt : raw["updatedAt"];
+		if (typeof updatedAt !== "number") return undefined;
 		if (parserVersion < this.options.parserVersion(key)) return undefined;
 		const value = this.options.parse(raw["value"]);
-		return value === undefined ? undefined : { value, fetchedAt, parserVersion };
+		return value === undefined ? undefined : { value, fetchedAt, updatedAt, parserVersion };
 	}
 
 	private payload(): DiskPayload {
@@ -209,12 +241,19 @@ export class HostCache<T> {
 	}
 }
 
-/** Backoff for a failed fetch: honors Retry-After on 429 up to `maxMs`, otherwise `defaultMs`. */
+/** Honors Retry-After for rate-limit statuses (default 429), capped at `maxMs`. */
 export function backoffFor(
 	failure: { readonly status?: number; readonly retryAfterMs?: number },
-	policy: { readonly defaultMs: number; readonly rateLimitMs: number; readonly maxMs: number },
+	policy: {
+		readonly defaultMs: number;
+		readonly rateLimitMs: number;
+		readonly maxMs: number;
+		readonly rateLimitStatuses?: readonly number[];
+	},
 ): number {
-	if (failure.status !== RATE_LIMIT_STATUS) return policy.defaultMs;
+	const rateLimitStatuses = policy.rateLimitStatuses ?? DEFAULT_RATE_LIMIT_STATUSES;
+	if (failure.status === undefined || !rateLimitStatuses.includes(failure.status))
+		return policy.defaultMs;
 	const hinted = failure.retryAfterMs;
 	return Math.min(hinted !== undefined && hinted > 0 ? hinted : policy.rateLimitMs, policy.maxMs);
 }

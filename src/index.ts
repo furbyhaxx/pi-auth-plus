@@ -7,7 +7,7 @@ import { type AppSettings, SETTINGS } from "./core/config/catalog.ts";
 import { SettingsStore } from "./core/config/index.ts";
 import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts/index.ts";
 import { cacheDir, projectSettingsPath, userSettingsPath } from "./core/paths/index.ts";
-import { Registry } from "./core/registry/index.ts";
+import { Registry, registerFamilyProviders } from "./core/registry/index.ts";
 import { FAMILIES } from "./families/index.ts";
 import { registerQuotaBus } from "./quotas/bus.ts";
 import { QuotaEngine } from "./quotas/engine.ts";
@@ -119,6 +119,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		if (id && registry.byId(id)?.provider.quota) void quotas.refresh(id, { minAgeMs: 2000 });
 	});
 	const host = { settings: () => settings };
+	await registerFamilyProviders(pi, registry, host);
 	for (const family of registry.families) await family.register?.(pi, host);
 	registerAuthCommands(pi, {
 		registry,

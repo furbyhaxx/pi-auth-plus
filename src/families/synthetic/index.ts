@@ -30,15 +30,20 @@ export function createSyntheticFamily(
 					env["SYNTHETIC_API_KEY"] ? { source: "SYNTHETIC_API_KEY", limited: false } : undefined,
 			},
 		],
+		providerRegistrations: () => [
+			{
+				name: PROVIDER,
+				config: {
+					name: "Synthetic",
+					baseUrl: BASE_URL,
+					api: "anthropic-messages",
+					apiKey: "$SYNTHETIC_API_KEY",
+					models: bundledModels(),
+					refreshModels: (ctx) => refreshCatalog(ctx, fetchFn, now),
+				},
+			},
+		],
 		register: (pi, host) => {
-			pi.registerProvider(PROVIDER, {
-				name: "Synthetic",
-				baseUrl: BASE_URL,
-				api: "anthropic-messages",
-				apiKey: "$SYNTHETIC_API_KEY",
-				models: bundledModels(),
-				refreshModels: (ctx) => refreshCatalog(ctx, fetchFn, now),
-			});
 			pi.registerFlag(WEB_SEARCH_FLAG, {
 				description: "Offer the Synthetic web search tool for this run",
 				type: "boolean",

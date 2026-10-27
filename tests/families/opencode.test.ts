@@ -3,6 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { modelsPath } from "../../src/core/paths/index.ts";
+import { Registry, registerFamilyProviders } from "../../src/core/registry/index.ts";
 import {
 	applyCliIdentity,
 	CLI_USER_AGENT,
@@ -32,7 +33,9 @@ async function registerWith(env: Record<string, string | undefined>, models?: un
 	}
 	const fake = fakePi();
 	const family = createOpencodeFamily(env, () => 1_700_000_000_000);
-	await family.register?.(fake.pi, await testHost());
+	const host = await testHost();
+	await registerFamilyProviders(fake.pi, new Registry([family]), host);
+	await family.register?.(fake.pi, host);
 	const ambient = family.providers.map((provider) => provider.ambient?.()?.source);
 	return { ...fake, ambient };
 }

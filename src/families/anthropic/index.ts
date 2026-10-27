@@ -17,7 +17,7 @@ export function createAnthropicFamily(
 			{
 				id: PROVIDER,
 				label: "Claude",
-				aliases: [],
+				aliases: ["cl", "cc"],
 				quota: claudeQuota,
 				ambient: () =>
 					env["ANTHROPIC_API_KEY"] ? { source: "ANTHROPIC_API_KEY", limited: false } : undefined,

@@ -8,7 +8,7 @@ import {
 	type SimpleStreamOptions,
 	type TranscriptContext,
 } from "@earendil-works/pi-ai";
-import { convertMessages, convertTools } from "@earendil-works/pi-ai/api/google-shared";
+import { convertMessages, convertTools } from "./convert.ts";
 import { thinkingConfig, type WireLevel } from "./levels.ts";
 import { toGeminiSchema } from "./schema.ts";
 
@@ -23,7 +23,6 @@ interface Session {
 	timestamp: number;
 	usedClaude: boolean;
 	usedNonGemini: boolean;
-	lastExecution?: string;
 }
 
 /** Injectable identity and time sources for request metadata. */
@@ -43,7 +42,6 @@ export interface RequestLabels {
 	used_claude: string;
 	used_claude_conservative: string;
 	used_non_gemini_model: string;
-	last_execution_id?: string;
 }
 
 /** Own one store per provider; keys are Pi session ids or first-message timestamps. */
@@ -57,14 +55,8 @@ export class RequestSessions {
 		this.uuid = options.uuid ?? randomUUID;
 	}
 
-	/** Record a completed logical stream, never a retry or failed physical send. */
-	completeExecution(key: string): void {
-		const session = this.entries.get(key);
-		if (session) session.lastExecution = this.uuid();
-	}
-
 	/** Begin one logical request before transport retries choose credentials. */
-	begin(key: string, model: string, modelEnum: string, steps: number) {
+	begin(key: string, model: string, modelEnum: string, step: number) {
 		const now = this.now();
 		for (const [entryKey, entry] of this.entries) {
 			if (entryKey !== key && now - entry.accessed > SESSION_TTL_MS) this.entries.delete(entryKey);
@@ -96,7 +88,6 @@ export class RequestSessions {
 		session.timestamp = Math.max(now, session.timestamp + 1);
 		session.usedClaude ||= model.startsWith("claude-");
 		session.usedNonGemini ||= model.startsWith("claude-") || model.startsWith("gpt-");
-		const step = steps + (session.lastExecution ? 1 : 0);
 		const requestId = `agent/${session.conversation}/${session.timestamp}/${session.trajectory}/${step + 1}`;
 		const labels: RequestLabels = {
 			cascade_id: session.conversation,
@@ -108,7 +99,6 @@ export class RequestSessions {
 			used_claude: String(session.usedClaude),
 			used_claude_conservative: String(session.usedClaude),
 			used_non_gemini_model: String(session.usedNonGemini),
-			...(session.lastExecution ? { last_execution_id: session.lastExecution } : {}),
 		};
 		// FNV-1a signed 64-bit hash of the fork's empty workspace URI.
 		return { requestId, labels, sessionId: "-3750763034362895579" };
@@ -211,16 +201,12 @@ export function buildRequest({
 		}),
 	}));
 	const toolConfig = validatedToolConfig(model.id, Boolean(tools?.length));
-	const responses = contents.reduce(
-		(count, content) =>
-			count + (content.parts?.filter((part) => part.functionResponse).length ?? 0),
-		0,
-	);
 	const metadata = sessions.begin(
 		requestSessionKey(context, options),
 		model.id,
 		level.modelEnum,
-		Math.max(1, contents.length + responses),
+		// Native agy CLI 1.3.5 native-argon-low capture: text = 0, tool continuation = 2.
+		contents.length - 1,
 	);
 	const request = {
 		contents,

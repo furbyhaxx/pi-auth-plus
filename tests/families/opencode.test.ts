@@ -3,7 +3,11 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { modelsPath } from "../../src/core/paths/index.ts";
-import { applyCliIdentity, CLI_VERSION, IdSource } from "../../src/families/opencode/identity.ts";
+import {
+	applyCliIdentity,
+	CLI_USER_AGENT,
+	IdSource,
+} from "../../src/families/opencode/identity.ts";
 import { createOpencodeFamily } from "../../src/families/opencode/index.ts";
 
 type Handler = (event: { headers: Record<string, string | null> }) => void;
@@ -33,16 +37,12 @@ async function registerWith(env: Record<string, string | undefined>, models?: un
 }
 
 describe("families/opencode", () => {
-	test("ids follow the CLI format: sessions sort newest first, requests oldest first", () => {
+	test("session ids follow the CLI format and sort newest first", () => {
 		const ids = new IdSource(() => new Uint8Array(14));
 		const older = ids.session(1_000);
 		const newer = ids.session(2_000);
 		expect(older).toMatch(/^ses_[0-9a-f]{12}0{14}$/);
 		expect(newer < older).toBe(true);
-		const first = ids.request(2_000);
-		const second = ids.request(2_000);
-		expect(first).toMatch(/^msg_[0-9a-f]{12}0{14}$/);
-		expect(first < second).toBe(true);
 	});
 
 	test("rewrites Pi's opencode stamp into the CLI identity and leaves other requests alone", () => {
@@ -52,18 +52,20 @@ describe("families/opencode", () => {
 			"X-OpenCode-Session": "0b6c-pi-uuid",
 			Authorization: "Bearer public",
 		};
-		expect(applyCliIdentity(opencode, "ses_a", "msg_b")).toBe(true);
+		expect(applyCliIdentity(opencode, "ses_a")).toBe(true);
 		expect(opencode).toEqual({
 			Authorization: "Bearer public",
-			"User-Agent": `opencode/${CLI_VERSION}`,
+			"User-Agent": CLI_USER_AGENT,
 			"x-opencode-client": "cli",
 			"x-opencode-project": "global",
 			"x-opencode-session": "ses_a",
-			"x-opencode-request": "msg_b",
+			"x-opencode-session-id": "ses_a",
+			"x-session-affinity": "ses_a",
+			"X-Session-Id": "ses_a",
 		});
 
 		const anthropic = { "user-agent": "pi-coding-agent/1.4.0", "x-api-key": "k" };
-		expect(applyCliIdentity(anthropic, "ses_a", "msg_b")).toBe(false);
+		expect(applyCliIdentity(anthropic, "ses_a")).toBe(false);
 		expect(anthropic).toEqual({ "user-agent": "pi-coding-agent/1.4.0", "x-api-key": "k" });
 	});
 
@@ -86,13 +88,50 @@ describe("families/opencode", () => {
 		expect(goOnly.ambient).toEqual(["anonymous", "models.json"]);
 	});
 
-	test("stamps each request with the session id and a fresh request id", async () => {
+	test("adds the env block only to chat payloads for the active opencode model", async () => {
+		const { handlers } = await registerWith({ ...process.env, OPENCODE_API_KEY: "k" });
+		const shape = handlers.get("before_provider_request") as unknown as (
+			event: { payload: unknown },
+			ctx: { model?: { provider: string; id: string }; cwd: string },
+		) => unknown;
+		const zen = { provider: "opencode", id: "big-pickle" };
+		const chat = () => ({
+			model: "big-pickle",
+			messages: [
+				{ role: "system", content: "You are Pi." },
+				{ role: "user", content: "hi" },
+			],
+		});
+
+		const shaped = shape({ payload: chat() }, { model: zen, cwd: "/work" }) as ReturnType<
+			typeof chat
+		>;
+		expect(shaped.messages[0]?.content).toBe(
+			`You are Pi.\n\n<env>\n  Working directory: /work\n  Platform: ${process.platform}\n</env>`,
+		);
+		expect(shape({ payload: shaped }, { model: zen, cwd: "/work" })).toBeUndefined();
+
+		expect(
+			shape({ payload: { ...chat(), model: "gpt-x" } }, { model: zen, cwd: "/work" }),
+		).toBeUndefined();
+		expect(
+			shape(
+				{ payload: chat() },
+				{ model: { provider: "openrouter", id: "big-pickle" }, cwd: "/work" },
+			),
+		).toBeUndefined();
+		expect(
+			shape({ payload: { model: "big-pickle", system: "x" } }, { model: zen, cwd: "/work" }),
+		).toBeUndefined();
+	});
+
+	test("stamps every request with the session affinity id", async () => {
 		const { handlers } = await registerWith({ ...process.env, OPENCODE_API_KEY: "k" });
 		const first = { headers: { "x-opencode-client": "pi" } as Record<string, string | null> };
 		const second = { headers: { "x-opencode-client": "pi" } as Record<string, string | null> };
 		handlers.get("before_provider_headers")?.(first);
 		handlers.get("before_provider_headers")?.(second);
-		expect(first.headers["x-opencode-session"]).toBe(second.headers["x-opencode-session"]);
-		expect(first.headers["x-opencode-request"]).not.toBe(second.headers["x-opencode-request"]);
+		expect(first.headers["x-session-affinity"]).toMatch(/^ses_/);
+		expect(second.headers["x-session-affinity"]).toBe(first.headers["x-session-affinity"]);
 	});
 });

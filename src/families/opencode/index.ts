@@ -4,7 +4,7 @@ import type { AmbientCredential } from "../../core/auth/index.ts";
 import { readJsonFile } from "../../core/fs/index.ts";
 import { modelsPath, type PathEnv } from "../../core/paths/index.ts";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
-import { applyCliIdentity, IdSource } from "./identity.ts";
+import { applyCliEnv, applyCliIdentity, envBlock, IdSource } from "./identity.ts";
 
 export const ZEN_PROVIDER = "opencode";
 export const GO_PROVIDER = "opencode-go";
@@ -76,7 +76,16 @@ export function createOpencodeFamily(
 				sessionId = ids.session(now());
 			});
 			pi.on("before_provider_headers", (event) => {
-				applyCliIdentity(event.headers, sessionId, ids.request(now()));
+				applyCliIdentity(event.headers, sessionId);
+			});
+			// The payload event carries no provider id and runs before the headers event, so the
+			// request must name the session model's id while that model is an opencode one.
+			pi.on("before_provider_request", (event, ctx) => {
+				const model = ctx.model;
+				if (!model || (model.provider !== ZEN_PROVIDER && model.provider !== GO_PROVIDER)) return;
+				const payload = event.payload as { model?: unknown } | null;
+				if (payload?.model !== model.id) return;
+				return applyCliEnv(payload, envBlock(ctx.cwd, process.platform)) ? payload : undefined;
 			});
 		},
 	};

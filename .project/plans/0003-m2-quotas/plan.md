@@ -5,9 +5,9 @@ document:
   title: "M2 quotas"
   description: "Port the pi-quotas engine, seven providers, line, panels, bus and CLI onto core/ and families/"
   status: "published"
-  revision: 3
+  revision: 4
   created_at: "2026-10-27T14:28:39+01:00"
-  updated_at: "2026-10-27T15:11:48+01:00"
+  updated_at: "2026-10-27T15:34:04+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -20,6 +20,9 @@ document:
     - revision: 3
       reason: "slice 4 done"
       changes: ["Header ingestion + bus live-verified on both runtimes; slice 5 (line) in detail"]
+    - revision: 4
+      reason: "slice 5 done"
+      changes: ["Quota line live-verified on both runtimes, all placements, 80/120/160 columns"]
 ---
 
 # M2 quotas
@@ -63,8 +66,8 @@ Agent decisions (not user-facing choices):
 [x] 2 Existing families claude, antigravity, synthetic fetchers (+ fixtures from pi-quotas)
 [x] 3 New families      openrouter, deepseek, openai (ChatGPT), xai as quota-only adapters
 [x] 4 Headers + bus     header ingestion from after_provider_response; pi-auth-plus:v1:quotas:* + report
-[>] 5 Line              template parser/renderer, line placements, widget, footer
-[ ] 6 Panels            /auth quotas panel with refresh, settings panel from the catalog
+[x] 5 Line              template parser/renderer, line placements, widget, footer
+[>] 6 Panels            /auth quotas panel with refresh, settings panel from the catalog
 [.] 7 Resets + CLI      panel resets with confirm dialog; --quotas-json / --quotas-list
 [.] 8 Cutover           fill-only quotas.json migration, docs, live parity run, setup swap, release
 ```
@@ -89,35 +92,20 @@ list. Two bugs found live and fixed: an endpoint write dropped headers observed 
 fetch (`putWith` under the lock), and print mode exited before the header write landed
 (shutdown waits up to 2 s).
 
-## Slice 5: line (now)
+## Slice 5: line: done
 
-Outcome: with pi-quotas absent, the quota line renders below or above the editor (or in the
-footer) from a template, at every width, with the same grammar pi-quotas users already have.
-
-Source: pi-quotas `src/render/*` (~950 LOC), inventory section "Line, footer, widget".
-Ported with Pi ids: `{claude:pct}` and `{cl:pct}` both resolve through the registry.
-
-Units. U12 and U14 run in parallel; U13 needs U12.
-
-12. **U12 template engine**. Write scope: `src/quotas/line/{template-parser,template,values,
-    format,summary}.ts` + tests. Input is the `QuotaReport` from `report.ts` (not raw snapshots).
-    Test: the pi-quotas template cases pass unchanged in meaning; a window with unknown usage
-    renders `?`, never `0%`; an alias token resolves to the Pi id.
-13. **U13 line + widget + settings**. Write scope: `src/quotas/line/{line,widget}.ts`,
-    `src/core/config/catalog.ts` (`quotas.linePlacement`, `percentDisplay`, `compactWidthCols`,
-    `alwaysShortIds`, `creditHealthyUsd`, `creditCriticalUsd`, `lineTemplate`), wiring in
-    `src/index.ts`. Test: rows pack and wrap at narrow widths and cap at `terminalRows - 8`.
-14. **U14 footer**. Write scope: `src/quotas/line/{footer,workbench}.ts` + tests.
-    `below-editor-last` hands rows to pi-workbench (`setFooterRows`) when it serves, else
-    replaces Pi's footer with the pi-quotas footer port. Test: the workbench path is chosen when
-    a `workbench:service` push arrives, the own footer otherwise.
-
-Verification: `bun test --isolate tests/quotas`, typecheck, lint; then tmux sessions on both
-runtimes at 80 and 160 columns, each placement, screenshots of the rendered line.
+`src/quotas/line/`: template engine (pi-quotas grammar, Pi ids, registry aliases, unknown
+renders `?`), row packing capped at `terminalRows - 8`, widget placements, footer placement
+(pi-workbench `setFooterRows("pi-auth-plus")` when it serves, else the ported pi-quotas footer),
+seven catalog settings. Live on Pi-Bolt and stock Pi: every placement at 80 and 160 columns,
+plus the pi-workbench handoff at 120; 80 columns switches to short ids and wraps to two rows.
+Known gap kept for parity: the own footer omits Pi's newer `(sub)` cost suffix (M3 removes the
+footer token math anyway).
 
 ## Slice 6+: sparse
 
-- Panels: `/auth quotas` with refresh; settings tab from the catalog.
+- Panels (next): `/auth quotas` tab with per-window detail, drainage and refresh; settings tab
+  edits the catalog (incl. the line template with preview).
 - Resets: openai only (`codex-resets.ts`), `ctx.ui.select` with "Keep the credit" first.
 - Cutover: fill-only migration of pi-quotas' cache/config, live parity run, setup swap, release.
 - The footer token math stays until M3.

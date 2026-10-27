@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 12
+  revision: 13
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T15:11:48+01:00"
+  updated_at: "2026-10-27T15:34:04+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -47,6 +47,9 @@ document:
     - revision: 12
       reason: "M2 slice 4 done"
       changes: ["Header ingestion + quotas bus live-verified; status line is now"]
+    - revision: 13
+      reason: "M2 slice 5 done"
+      changes: ["Quota line live on both runtimes; panels are now"]
 ---
 
 # Roadmap
@@ -82,8 +85,8 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 2-3 fetchers    claude, antigravity, synthetic, openrouter, deepseek, xai, openai
                         (openai success path unverified live: credential gets HTTP 401)
     [x] 4 headers + bus after_provider_response ingestion; pi-auth-plus:v1:quotas:*
-    [>] 5 line          templates, placements, widget, footer
-    [ ] 6 panels        /auth quotas with refresh, settings tab
+    [x] 5 line          templates, placements, widget, footer
+    [>] 6 panels        /auth quotas with refresh, settings tab
     [.] 7               resets (panel only) + read-only CLI
     [.] 8 cutover       migration, live parity, swap pi-quotas out, release
 [.] M3 Tokens       per-family counting sources, content-hash store, footer reuses it

@@ -80,6 +80,7 @@ function provider(raw: unknown): raw is ReportProvider {
 		optionalFields(raw, ["tier", "error"], string) &&
 		optionalFields(raw, ["needsAuth"], boolean) &&
 		optionalFields(raw, ["fetchedAt", "ageSec"], finite) &&
+		optionalFields(raw, ["resets"], (resets) => record(resets) && finite(resets["available"])) &&
 		(raw["source"] === undefined || raw["source"] === "endpoint" || raw["source"] === "headers")
 	);
 }

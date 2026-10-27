@@ -118,5 +118,13 @@ export interface QuotaSource {
 	readonly minPollMs?: number;
 	/** Throws `ProviderHttpError` for HTTP failures so the engine can back off. */
 	readonly fetch: (ctx: QuotaFetchContext) => Promise<ProviderQuotaSnapshot>;
+	/**
+	 * Parses inference response headers (keys lower-cased) into a `source: "headers"` snapshot;
+	 * returns `undefined` when the header set is not this provider's shape.
+	 */
+	readonly headers?: (
+		headers: Readonly<Record<string, string>>,
+		now: number,
+	) => ProviderQuotaSnapshot | undefined;
 	readonly resets?: QuotaResets;
 }

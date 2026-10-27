@@ -5,9 +5,9 @@ document:
   title: "M3 tokens"
   description: "Accurate token counts per family: correct usage on every assistant turn, count sources, store, /tokens surface"
   status: "published"
-  revision: 4
+  revision: 5
   created_at: "2026-10-27T18:43:41+01:00"
-  updated_at: "2026-10-27T20:03:51+01:00"
+  updated_at: "2026-10-27T20:14:50+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -23,6 +23,9 @@ document:
     - revision: 4
       reason: "slice 3 shaped"
       changes: ["Synthetic probe and tokenizer research results; asset delivery and usage-correction decisions; slice 3 units"]
+    - revision: 5
+      reason: "U3a-U3c landed"
+      changes: ["Tokenizer store, Synthetic usage rescale and wiring landed and live-verified on Pi-Bolt and stock Pi"]
 ---
 
 # M3 tokens
@@ -85,9 +88,10 @@ openai/xai/opencode/deepseek   usage; tail: estimate
 Units:
 
 ```
-[>] U3a tokenizer store   src/tokens/tokenizer/ (download, verify, cache, LRU count memo)
-[>] U3b synthetic usage   message_end rescale to tokenizer count (fake store in tests)
-[ ] U3c wiring + live     default store into the synthetic family; live DeepSeek turn
+[x] U3a tokenizer store   src/tokens/tokenizer/ (a3ec7b3, retry/repair 793ce21)
+[x] U3b synthetic usage   message_end rescale to tokenizer count (a972462)
+[x] U3c wiring + live     32ccdf1; live: DeepSeek prompt persists 15966 (provider ~6.8K),
+                          offline reuse ok, stock Pi on Node same
 [.] U3d count engine      context breakdown by source, claude count_tokens, tail per family
 ```
 

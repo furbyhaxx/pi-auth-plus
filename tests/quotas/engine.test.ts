@@ -1,17 +1,21 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, statSync, utimesSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, statSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SETTINGS } from "../../src/core/config/catalog.ts";
 import { SettingsStore } from "../../src/core/config/index.ts";
 import { detectConflicts, loadsPackage } from "../../src/core/conflicts/index.ts";
 import { ProviderHttpError } from "../../src/core/http/index.ts";
-import { Registry } from "../../src/core/registry/index.ts";
+import { type ProviderEntry, Registry } from "../../src/core/registry/index.ts";
 import { quotaAuthFor } from "../../src/index.ts";
 import { QuotaEngine } from "../../src/quotas/engine.ts";
 import { enabledQuotaProviders } from "../../src/quotas/settings.ts";
 import { parseQuotaState } from "../../src/quotas/state.ts";
-import type { ProviderQuotaSnapshot, QuotaFetchContext } from "../../src/quotas/types.ts";
+import type {
+	ProviderQuotaSnapshot,
+	QuotaFetchContext,
+	QuotaSource,
+} from "../../src/quotas/types.ts";
 
 let dir: string;
 let path: string;
@@ -30,7 +34,7 @@ function snapshot(): ProviderQuotaSnapshot {
 	};
 }
 
-function setup() {
+function setup(headers?: QuotaSource["headers"], others: ProviderEntry[] = []) {
 	const settings = new SettingsStore(SETTINGS, { user: join(dir, "settings.json") });
 	const registry = new Registry([
 		{
@@ -46,6 +50,7 @@ function setup() {
 						shortLabel: "f",
 						parserVersion: 1,
 						minPollMs,
+						...(headers ? { headers } : {}),
 						fetch: async (ctx) => {
 							calls++;
 							return fetchQuota(ctx);
@@ -53,6 +58,7 @@ function setup() {
 					},
 				},
 				{ id: "no-quota", label: "No quota", aliases: [] },
+				...others,
 			],
 		},
 	]);
@@ -85,6 +91,119 @@ afterEach(() => {
 });
 
 describe("quota engine", () => {
+	test("headers overlay shared endpoint state without refreshing endpoint freshness", async () => {
+		fetchQuota = async () => ({
+			...snapshot(),
+			windows: [
+				...snapshot().windows,
+				{ id: "7d", label: "Week", shortLabel: "7d", usedFraction: 0.4 },
+			],
+		});
+		const a = setup((headers, now) =>
+			headers["x-used"]
+				? {
+						...snapshot(),
+						source: "headers",
+						fetchedAt: now,
+						windows: [{ id: "5h", label: "Header", shortLabel: "h", usedFraction: 0.5 }],
+					}
+				: undefined,
+		).engine;
+		await a.tick();
+		const fetchedAt = clock;
+		clock += 1_000;
+		expect(await a.ingestHeaders({ "X-Used": "50" })).toBe("fake");
+		expect(a.view()[0]?.snapshot?.windows).toEqual([
+			{ id: "5h", label: "Five hours", shortLabel: "5h", usedFraction: 0.5 },
+			{ id: "7d", label: "Week", shortLabel: "7d", usedFraction: 0.4 },
+		]);
+		expect(a.cache.get("fake")?.fetchedAt).toBe(fetchedAt);
+		expect(a.cache.get("fake")?.value.drainage[0]?.samples).toHaveLength(2);
+		const b = setup().engine;
+		await b.cache.sync();
+		expect(b.view()[0]?.snapshot).toEqual(a.view()[0]?.snapshot);
+		expect(b.view()[0]?.fetchedAt).toBe(fetchedAt);
+		clock += 1_000;
+		await b.refresh("fake", { force: true });
+		expect(b.view()[0]?.snapshot?.windows[0]?.usedFraction).toBe(0.25);
+		await a.cache.sync();
+		expect(a.view()[0]?.snapshot?.windows[0]?.usedFraction).toBe(0.25);
+	});
+
+	test("hinted enabled claimant runs first and headers-only entries remain stale", async () => {
+		const order: string[] = [];
+		const claimant = (id: string): QuotaSource => ({
+			kind: "windows",
+			shortLabel: id,
+			parserVersion: 1,
+			fetch: async () => snapshot(),
+			headers: (_headers, now) => {
+				order.push(id);
+				return { ...snapshot(), provider: id, source: "headers", fetchedAt: now };
+			},
+		});
+		const { engine, settings } = setup(claimant("fake").headers, [
+			{ id: "other", label: "Other", aliases: ["other-alias"], quota: claimant("other") },
+		]);
+		expect(await engine.ingestHeaders({}, "other")).toBe("other");
+		expect(order).toEqual(["other"]);
+		expect(engine.cache.get("other")?.fetchedAt).toBe(0);
+		expect(engine.view()[1]?.snapshot?.source).toBe("headers");
+		const b = setup(undefined, [
+			{ id: "other", label: "Other", aliases: [], quota: claimant("other") },
+		]).engine;
+		await b.cache.sync();
+		expect(b.view()[1]?.snapshot?.source).toBe("headers");
+		expect(await b.cache.tryAcquire("other", { minAgeMs: 60_000 })).toBe(true);
+		await settings.save("runtime", { "quotas.providers": ["fake"] });
+		expect(await engine.ingestHeaders({}, "other")).toBe("fake");
+		expect(order).toEqual(["other", "fake"]);
+	});
+
+	test("a throwing hint falls through and aliases are not provider hints", async () => {
+		const order: string[] = [];
+		const { engine } = setup(() => {
+			order.push("fake");
+			return { ...snapshot(), source: "headers" };
+		}, [
+			{
+				id: "other",
+				label: "Other",
+				aliases: ["other-alias"],
+				quota: {
+					kind: "windows",
+					shortLabel: "o",
+					parserVersion: 1,
+					fetch: async () => snapshot(),
+					headers: () => {
+						order.push("other");
+						throw new Error("Malformed headers");
+					},
+				},
+			},
+		]);
+		expect(await engine.ingestHeaders({}, "other")).toBe("fake");
+		expect(order).toEqual(["other", "fake"]);
+		order.length = 0;
+		expect(await engine.ingestHeaders({}, "other-alias")).toBe("fake");
+		expect(order).toEqual(["fake"]);
+	});
+
+	test("unclaimed, malformed and stopped ingests do not write", async () => {
+		const engine = setup(() => {
+			throw new Error("Malformed headers");
+		}).engine;
+		expect(await engine.ingestHeaders({})).toBeUndefined();
+		expect(existsSync(path)).toBe(false);
+		const unclaimed = setup(() => undefined).engine;
+		expect(await unclaimed.ingestHeaders({})).toBeUndefined();
+		expect(existsSync(path)).toBe(false);
+		const stopped = setup(() => ({ ...snapshot(), source: "headers" })).engine;
+		stopped.stop();
+		expect(await stopped.ingestHeaders({})).toBeUndefined();
+		expect(existsSync(path)).toBe(false);
+	});
+
 	test("sessions share snapshots and fetch only once per interval", async () => {
 		const a = setup().engine;
 		const b = setup().engine;

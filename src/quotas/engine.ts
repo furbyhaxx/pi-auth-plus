@@ -5,6 +5,7 @@ import type { AppSettings } from "../core/config/catalog.ts";
 import { type FetchFn, ProviderHttpError } from "../core/http/index.ts";
 import type { ProviderEntry, Registry } from "../core/registry/index.ts";
 import { recordDrainageHistory } from "./drainage.ts";
+import { effectiveSnapshot } from "./merge.ts";
 import { enabledQuotaProviders } from "./settings.ts";
 import { parseQuotaState, type QuotaState } from "./state.ts";
 import type { ProviderQuotaSnapshot, QuotaAuth, QuotaSource } from "./types.ts";
@@ -58,13 +59,13 @@ export class QuotaEngine {
 		this.cache.onChange(() => this.notify());
 	}
 
-	/** Enabled providers and their current endpoint state; no disk or network work. */
+	/** Enabled providers and their effective quota state; no disk or network work. */
 	view(): QuotaView[] {
 		return this.providers().map((provider) => {
 			const entry = this.cache.get(provider.id);
 			return {
 				provider,
-				snapshot: entry?.value.snapshot,
+				snapshot: entry ? effectiveSnapshot(entry.value) : undefined,
 				backoff: this.cache.backoff(provider.id),
 				refreshing: this.refreshing.has(provider.id),
 				fetchedAt: entry?.fetchedAt,
@@ -76,6 +77,48 @@ export class QuotaEngine {
 	onChange(listener: () => void): () => void {
 		this.listeners.add(listener);
 		return () => this.listeners.delete(listener);
+	}
+
+	/** Stores the first enabled parser's claim without refreshing endpoint freshness. */
+	async ingestHeaders(headers: Record<string, string>, hint?: string): Promise<string | undefined> {
+		const signal = this.controller.signal;
+		if (signal.aborted) return undefined;
+		const normalized = Object.fromEntries(
+			Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]),
+		);
+		const providers = this.providers();
+		const hinted = providers.find((provider) => provider.id === hint);
+		const ordered = hinted
+			? [hinted, ...providers.filter((provider) => provider !== hinted)]
+			: providers;
+		const now = this.options.now();
+		for (const provider of ordered) {
+			const parser = provider.quota?.headers;
+			if (!parser) continue;
+			let snapshot: ProviderQuotaSnapshot | undefined;
+			try {
+				snapshot = parser(normalized, now);
+			} catch {
+				// Malformed responses must not interrupt Pi or prevent another parser's claim.
+				continue;
+			}
+			if (!snapshot) continue;
+			try {
+				const changed = await this.cache.patch(provider.id, (current) => {
+					if (signal.aborted) return undefined;
+					return {
+						...current,
+						headers: { snapshot, observedAt: now },
+						drainage: recordDrainageHistory(current?.drainage ?? [], snapshot, now),
+					};
+				});
+				return changed ? provider.id : undefined;
+			} catch {
+				// Cache failures on the response hook must not reject into Pi's event loop.
+				return undefined;
+			}
+		}
+		return undefined;
 	}
 
 	/** Refreshes an enabled provider, deduplicating calls within this engine. */

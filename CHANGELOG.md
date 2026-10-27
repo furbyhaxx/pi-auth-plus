@@ -12,6 +12,13 @@ All notable changes to this project are documented here. The format follows
   cache write, so Pi's footer, context percentage and auto-compaction counted every new
   prompt twice (+100 % on the first turn). A `message_end` correction drops the duplicate;
   cost is unchanged.
+- **Synthetic context size is real.** Synthetic reports input tokens in a scaled unit (0.42x
+  the real count for DeepSeek models, 2.4x for gpt-oss), while its context limit applies to
+  the real count, so Pi's footer and auto-compaction were far off. For `hf:` models the stored
+  prompt usage is now recounted with the model's own tokenizer; output and cost are unchanged.
+  The tokenizer is downloaded from Hugging Face on first use (pinned revision, hash-checked)
+  into `~/.cache/pi-auth-plus/tokenizers/` and used offline after that; without it the
+  provider's count stays.
 - Antigravity usage never reports a negative input when the cached count exceeds the prompt.
 
 ## [0.3.2] - 2026-10-27

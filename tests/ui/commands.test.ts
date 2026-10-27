@@ -14,6 +14,7 @@ function rig(
 	mode: "tui" | "rpc",
 	overrides: Partial<AuthCommandDeps> = {},
 	results: DashboardResult[] = [],
+	hasUI = true,
 ) {
 	let panels = 0;
 	const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
@@ -41,7 +42,7 @@ function rig(
 	});
 	const ctx = {
 		mode,
-		hasUI: true,
+		hasUI,
 		ui: {
 			notify: (text: string, tone?: string) => notices.push([text, tone]),
 			select: async () => "Spend 1 credit now (cannot be undone)",
@@ -120,6 +121,9 @@ describe("ui/commands", () => {
 		expect(singular?.getArgumentCompletions).toBe(plural?.getArgumentCompletions);
 		expect((await singular?.getArgumentCompletions?.("co"))?.map((item) => item.value)).toEqual([
 			"codex",
+			"codex login",
+			"codex login --device",
+			"codex login --browser",
 		]);
 		expect((await singular?.getArgumentCompletions?.("re"))?.map((item) => item.value)).toEqual([
 			"reset",
@@ -129,6 +133,141 @@ describe("ui/commands", () => {
 		expect(rpc.notices[0]).toEqual(rpc.notices[1]);
 		expect(rpc.notices[0]?.[0]).toStartWith("Auth › Quotas");
 	});
+	test("Codex login forwards device status, refreshes quota, and leaves provider routing intact", async () => {
+		const registry = new Registry([
+			{
+				id: "openai",
+				label: "OpenAI",
+				providers: [{ id: "codex", label: "Codex", aliases: ["cx", "openai"] }],
+			},
+		]);
+		const events: string[] = [];
+		const controller = new AbortController();
+		const quotas: ReturnType<NonNullable<AuthCommandDeps["quotas"]>> = {
+			report: () => ({ v: 1, generatedAt: 0, providers: [] }),
+			resetSupport: () => false,
+			listResets: async () => {
+				throw new Error("unexpected reset");
+			},
+			consumeReset: async () => {
+				throw new Error("unexpected reset");
+			},
+			refreshing: () => false,
+			refresh: async (id, force) => {
+				events.push(`refresh ${id} ${force}`);
+			},
+			onChange: () => () => {},
+			lineConfig: () => ({ percentDisplay: "used", creditHealthyUsd: 50, creditCriticalUsd: 5 }),
+			linePlacement: () => "off",
+			setLinePlacement: async () => {},
+			now: () => 0,
+			text: (id) => `Focused ${id}`,
+		};
+		const f = rig("rpc", {
+			registry,
+			quotas: () => quotas,
+			signal: controller.signal,
+			loginCodex: async ({ mode, onStatus, signal }) => {
+				events.push(`login ${mode}`);
+				expect(signal).toBe(controller.signal);
+				onStatus("Visit https://example.test/device and enter ABCD");
+				return {
+					type: "oauth",
+					access: "test-access",
+					refresh: "test-refresh",
+					expires: 0,
+					email: "person@example.test",
+					planType: "plus",
+				};
+			},
+		});
+		await f.run("quota", "codex login --device");
+		expect(events).toEqual(["login device", "refresh codex true"]);
+		expect(f.notices).toEqual([
+			["Visit https://example.test/device and enter ABCD", "info"],
+			["Codex quota authenticated (person@example.test) [plus]", "info"],
+		]);
+		await f.run("quotas", "cx login");
+		await f.run("quota", "login openai --browser");
+		expect(events.slice(2)).toEqual([
+			"login auto",
+			"refresh codex true",
+			"login browser",
+			"refresh codex true",
+		]);
+		await f.run("quota", "codex");
+		expect(f.notices.at(-1)).toEqual(["Auth › Quotas\nFocused codex", "info"]);
+		expect(events).toHaveLength(6);
+		controller.abort();
+		const noticesBeforeAbort = f.notices.length;
+		await f.run("quota", "cx login");
+		expect(events.at(-1)).toBe("login auto");
+		expect(events).toHaveLength(7);
+		expect(f.notices).toHaveLength(noticesBeforeAbort);
+	});
+
+	test("Codex login rejects malformed arguments and handles failure without throwing", async () => {
+		const registry = new Registry([
+			{
+				id: "openai",
+				label: "OpenAI",
+				providers: [{ id: "codex", label: "Codex", aliases: ["cx"] }],
+			},
+		]);
+		let calls = 0;
+		const deps: Partial<AuthCommandDeps> = {
+			registry,
+			loginCodex: async () => {
+				calls++;
+				throw new Error("device authorization rejected");
+			},
+		};
+		const f = rig("rpc", deps);
+		for (const args of [
+			"codex login --bad",
+			"codex login extra",
+			"codex login --device --browser",
+			"login cx --browser extra",
+			"login unknown",
+		]) {
+			await f.run("quota", args);
+			expect(f.notices.at(-1)?.[0]).toStartWith("Usage: /quota");
+			expect(f.notices.at(-1)?.[1]).toBe("error");
+		}
+		expect(calls).toBe(0);
+		await f.run("quota", "codex login");
+		expect(calls).toBe(1);
+		expect(f.notices.at(-1)).toEqual([
+			"Codex login failed: device authorization rejected",
+			"error",
+		]);
+		const headless = rig("rpc", deps, [], false);
+		await headless.run("quota", "cx login");
+		expect(calls).toBe(1);
+		expect(headless.notes).toEqual(["Codex login needs an interactive session"]);
+	});
+
+	test("Codex login succeeds without a quota engine or optional identity fields", async () => {
+		const f = rig("rpc", {
+			registry: new Registry([
+				{
+					id: "openai",
+					label: "OpenAI",
+					providers: [{ id: "codex", label: "Codex", aliases: [] }],
+				},
+			]),
+			quotas: () => "Quotas unavailable",
+			loginCodex: async () => ({
+				type: "oauth",
+				access: "test-access",
+				refresh: "test-refresh",
+				expires: 0,
+			}),
+		});
+		await f.run("quota", "codex login");
+		expect(f.notices).toEqual([["Codex quota authenticated", "info"]]);
+	});
+
 	test("sections resolve by id, alias and singular form; unknown input names the closest", () => {
 		expect(parseAuthArgs("")).toEqual({ tab: "providers" });
 		expect(parseAuthArgs(" Quota ")).toEqual({ tab: "quotas" });

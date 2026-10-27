@@ -3,9 +3,9 @@ import { hasApi, type Model, type RefreshModelsContext } from "@earendil-works/p
 import snapshotText from "../../../assets/antigravity/models.json" with { type: "text" };
 import { type FetchFn, ProviderHttpError, request } from "../../core/http/index.ts";
 import { encodeLevel, type ThinkingSpec, type WireEffort } from "./levels.ts";
+import { BASE_URL } from "./transport.ts";
 
 export const PROVIDER = "antigravity";
-export const BASE_URL = "https://daily-cloudcode-pa.googleapis.com";
 export const CATALOG_URL = `${BASE_URL}/v1internal:fetchAvailableModels`;
 // Match the CLI's model-config reload interval; entitlement changes can alter the offered list.
 export const CATALOG_TTL_MS = 5 * 60 * 1000;

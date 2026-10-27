@@ -1,8 +1,9 @@
 /** Owns session-local Antigravity project discovery without credential persistence. */
 import { createHash } from "node:crypto";
 import { type FetchFn, ProviderHttpError, request } from "../../core/http/index.ts";
+import { BASE_URL } from "./transport.ts";
 
-const LOAD_URL = "https://daily-cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
+const LOAD_URL = `${BASE_URL}/v1internal:loadCodeAssist`;
 
 /** A project discovery failure safe to surface to the user. */
 export class AntigravityProjectError extends Error {

@@ -1,6 +1,6 @@
 /** The agy CLI's identity on Cloud Code PA: pinned version, user agent and header set. */
 
-/** Verified against agy 1.4.8 (`.project/analyses/agy-cli/tracking.md`). */
+/** Verified against agy 1.4.8 (`.project/analyses/antigravity-cli/tracking.md`). */
 export const AGY_VERSION = "1.4.8";
 export const AGY_CHANGE_LIST = "1007749967";
 export const BASE_URL = "https://daily-cloudcode-pa.googleapis.com";

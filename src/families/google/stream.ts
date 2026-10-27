@@ -232,7 +232,7 @@ export function streamAntigravityResponse(
 					if (usage) {
 						const cacheRead = count(usage["cachedContentTokenCount"]);
 						output.usage = {
-							input: count(usage["promptTokenCount"]) - cacheRead,
+							input: Math.max(0, count(usage["promptTokenCount"]) - cacheRead),
 							output: count(usage["candidatesTokenCount"]) + count(usage["thoughtsTokenCount"]),
 							reasoning: count(usage["thoughtsTokenCount"]),
 							cacheRead,

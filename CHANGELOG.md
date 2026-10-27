@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Synthetic context size no longer doubles.** Synthetic repeats the uncached input as a
+  cache write, so Pi's footer, context percentage and auto-compaction counted every new
+  prompt twice (+100 % on the first turn). A `message_end` correction drops the duplicate;
+  cost is unchanged.
+- Antigravity usage never reports a negative input when the cached count exceeds the prompt.
+
 ## [0.3.2] - 2026-10-27
 
 ### Fixed

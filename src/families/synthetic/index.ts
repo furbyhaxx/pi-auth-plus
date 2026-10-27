@@ -5,6 +5,7 @@ import type { PathEnv } from "../../core/paths/index.ts";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
 import { BASE_URL, bundledModels, PROVIDER, refreshCatalog } from "./catalog.ts";
 import { syntheticQuota } from "./quota.ts";
+import { correctSyntheticUsage } from "./usage.ts";
 import { registerWebSearch } from "./web-search.ts";
 
 /** Enables the web-search tool for one run, next to the `synthetic.webSearch` setting. */
@@ -50,6 +51,11 @@ export function createSyntheticFamily(
 			});
 			// The project layer of the setting needs the session's cwd and trust, so the tool
 			// registers at session start rather than in the factory.
+			pi.on("message_end", ({ message }) => {
+				if (message.role !== "assistant") return;
+				const corrected = correctSyntheticUsage(message);
+				return corrected && { message: corrected };
+			});
 			let searchRegistered = false;
 			pi.on("session_start", () => {
 				if (searchRegistered) return;

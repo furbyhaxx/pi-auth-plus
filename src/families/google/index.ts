@@ -11,17 +11,23 @@ import { antigravityQuota } from "./quota.ts";
 import { cliHeaders } from "./transport.ts";
 
 export function createGoogleFamily(fetchFn: FetchFn = fetch): FamilyAdapter {
+	const project = antigravityProject({ fetch: fetchFn, headers: () => cliHeaders() });
 	return {
 		id: "google",
 		label: "Google",
 		providers: [
 			{ id: PROVIDER, label: "Antigravity", aliases: ["agy", "ag"], quota: antigravityQuota() },
 		],
+		providerRegistrations: () => [
+			{
+				provider: antigravityProvider({
+					auth: antigravityAuth({ fetch: fetchFn }),
+					project,
+					fetch: fetchFn,
+				}),
+			},
+		],
 		register: (pi) => {
-			const project = antigravityProject({ fetch: fetchFn, headers: () => cliHeaders() });
-			pi.registerProvider(
-				antigravityProvider({ auth: antigravityAuth({ fetch: fetchFn }), project, fetch: fetchFn }),
-			);
 			let migrationChecked = false;
 			pi.on("session_start", async (_event, ctx) => {
 				// The CLI re-derives its project per run; a new session does the same.

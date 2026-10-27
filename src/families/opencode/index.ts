@@ -63,13 +63,15 @@ export function createOpencodeFamily(
 				ambient: () => ambientFor(env, models, GO_PROVIDER),
 			},
 		],
-		register: async (pi: ExtensionAPI) => {
+		prepareProviders: async () => {
 			const read = await readJsonFile(modelsPath(env));
 			models = read.kind === "ok" ? read.value : undefined;
-			if (ambientFor(env, models, ZEN_PROVIDER) === ANONYMOUS) {
-				pi.registerProvider(ZEN_PROVIDER, { apiKey: ANONYMOUS_KEY });
-			}
-
+		},
+		providerRegistrations: () =>
+			ambientFor(env, models, ZEN_PROVIDER) === ANONYMOUS
+				? [{ name: ZEN_PROVIDER, config: { apiKey: ANONYMOUS_KEY } }]
+				: [],
+		register: (pi: ExtensionAPI) => {
 			const ids = new IdSource();
 			let sessionId = ids.session(now());
 			pi.on("session_start", () => {

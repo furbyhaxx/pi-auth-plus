@@ -10,6 +10,8 @@ export function createAnthropicFamily(
 	env: PathEnv = process.env,
 	probe: VersionProbe = probeInstalledClaude,
 ): FamilyAdapter {
+	// Constructing the version does not probe; the first OAuth request does.
+	const version = new ReportedVersion(env, probe);
 	return {
 		id: "anthropic",
 		label: "Anthropic",
@@ -23,17 +25,17 @@ export function createAnthropicFamily(
 					env["ANTHROPIC_API_KEY"] ? { source: "ANTHROPIC_API_KEY", limited: false } : undefined,
 			},
 		],
-		register: (pi, host) => {
-			// The probe spawns `claude --version`, so it waits for the first OAuth request.
-			const version = new ReportedVersion(env, probe);
-			pi.registerProvider(
-				claudeProvider({
+		providerRegistrations: (host) => [
+			{
+				provider: claudeProvider({
 					auth: claudeAuth(),
 					version: () => version.get(),
 					rules: () => host.settings().get("claude.replacePatterns"),
 					env,
 				}),
-			);
+			},
+		],
+		register: (pi) => {
 			const override = version.override;
 			if (override.kind !== "outdated" && override.kind !== "invalid") return;
 			let warned = false;

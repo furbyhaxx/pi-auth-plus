@@ -1,5 +1,6 @@
 /** Family registry: the only place engines and the UI learn provider ids, aliases and families. */
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { Provider } from "@earendil-works/pi-ai";
+import type { ExtensionAPI, ProviderConfig } from "@earendil-works/pi-coding-agent";
 import type { QuotaSource } from "../../quotas/types.ts";
 import type { AmbientCredential } from "../auth/index.ts";
 import type { AppSettings } from "../config/catalog.ts";
@@ -15,12 +16,27 @@ export interface ProviderEntry {
 	readonly quota?: QuotaSource;
 }
 
-/** Everything one vendor contributes. A family without `register` only adds quota or status to a Pi builtin. */
+/** A native provider or a named override of a Pi provider. */
+export type ProviderRegistration =
+	| { readonly provider: Provider }
+	| { readonly name: string; readonly config: ProviderConfig };
+
+/** The registration overloads shared by ExtensionAPI and ModelRegistry. */
+export interface ProviderSink {
+	registerProvider(provider: Provider): void;
+	registerProvider(name: string, config: ProviderConfig): void;
+}
+
+/** Everything one vendor contributes to Pi. */
 export interface FamilyAdapter {
 	readonly id: string;
 	readonly label: string;
 	readonly providers: readonly ProviderEntry[];
-	/** Registers the family's providers; runs inside the awaited extension factory. */
+	/** Loads local state needed to decide registrations, without network or process work. */
+	readonly prepareProviders?: () => void | Promise<void>;
+	/** Declares providers without I/O; called after prepareProviders by registerFamilyProviders. */
+	readonly providerRegistrations?: (host: FamilyHost) => readonly ProviderRegistration[];
+	/** Registers the family's remaining Pi hooks inside the awaited extension factory. */
 	readonly register?: (pi: ExtensionAPI, host: FamilyHost) => void | Promise<void>;
 }
 
@@ -28,6 +44,21 @@ export interface FamilyAdapter {
 export interface FamilyHost {
 	/** The session's settings, loaded before any family's `session_start` handler runs. */
 	readonly settings: () => AppSettings;
+}
+
+/** Prepares local registration state, then installs every family's providers in order. */
+export async function registerFamilyProviders(
+	sink: ProviderSink,
+	registry: Registry,
+	host: FamilyHost,
+): Promise<void> {
+	for (const family of registry.families) {
+		await family.prepareProviders?.();
+		for (const registration of family.providerRegistrations?.(host) ?? []) {
+			if ("provider" in registration) sink.registerProvider(registration.provider);
+			else sink.registerProvider(registration.name, registration.config);
+		}
+	}
 }
 
 export interface ResolvedProvider {

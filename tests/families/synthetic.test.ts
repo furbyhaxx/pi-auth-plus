@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import type { Model, ModelsPublication, RefreshModelsContext } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { FetchFn } from "../../src/core/http/index.ts";
+import { Registry, registerFamilyProviders } from "../../src/core/registry/index.ts";
 import { CATALOG_TTL_MS, parseCatalog } from "../../src/families/synthetic/catalog.ts";
 import { createSyntheticFamily, WEB_SEARCH_FLAG } from "../../src/families/synthetic/index.ts";
 import { parseResults, TOOL_NAME, truncateHead } from "../../src/families/synthetic/web-search.ts";
@@ -32,20 +33,19 @@ async function registered(
 	const host = await testHost(
 		options.setting === undefined ? {} : { "synthetic.webSearch": options.setting },
 	);
-	await family.register?.(
-		{
-			registerProvider: (_id: string, value: Config) => {
-				config = value;
-			},
-			registerFlag: () => {},
-			getFlag: (name: string) => (name === WEB_SEARCH_FLAG ? options.flag : undefined),
-			registerTool: (tool: Tool) => tools.push(tool),
-			on: (event: string, handler: () => void) => {
-				if (event === "session_start") sessionStart.push(handler);
-			},
-		} as unknown as ExtensionAPI,
-		host,
-	);
+	const pi = {
+		registerProvider: (_id: string, value: Config) => {
+			config = value;
+		},
+		registerFlag: () => {},
+		getFlag: (name: string) => (name === WEB_SEARCH_FLAG ? options.flag : undefined),
+		registerTool: (tool: Tool) => tools.push(tool),
+		on: (event: string, handler: () => void) => {
+			if (event === "session_start") sessionStart.push(handler);
+		},
+	} as unknown as ExtensionAPI;
+	await registerFamilyProviders(pi, new Registry([family]), host);
+	await family.register?.(pi, host);
 	if (!config?.refreshModels) throw new Error("Synthetic was not registered");
 	const startSession = () => {
 		for (const handler of sessionStart) handler();

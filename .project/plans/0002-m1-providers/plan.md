@@ -5,9 +5,9 @@ document:
   title: "M1 providers"
   description: "Absorb the opencode, synthetic, claude and antigravity providers as vendor families"
   status: "published"
-  revision: 3
+  revision: 4
   created_at: "2026-10-27T10:20:46+01:00"
-  updated_at: "2026-10-27T10:50:39+01:00"
+  updated_at: "2026-10-27T10:58:12+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -22,6 +22,9 @@ document:
     - revision: 3
       reason: "synthetic slice done"
       changes: ["Web-search tool landed and live-verified; claude is now"]
+    - revision: 4
+      reason: "claude slice detailed"
+      changes: ["Six units with write scope and the test that matters; antigravity stays sparse"]
 ---
 
 # M1 providers
@@ -74,9 +77,32 @@ anthropic api, live catalog fetched in the factory today, opt-in web-search tool
 - Prices and limits from the live catalog; web search stays opt-in via `auth-plus.json`.
 - Verify: `--list-models` offline after one refresh, a turn on one model, the search tool.
 
+## Slice 3: claude (now)
+
+Source: `pi-claude-auth` 0.2.2 (1.1k LOC src). It registers a pi-ai `createProvider` provider
+`claude` whose stream delegates to Pi's `anthropicMessagesApi()` with header-owned auth
+(`apiKey: undefined`, `Authorization: Bearer`) and a request-local fetch wrapper. That keeps Pi's
+own OAuth branch (its Claude Code identity and tool renaming) out, so the wrapper's shaping
+runs exactly once. Pi 1.4 accepts `registerProvider(provider)` and supports header-owned auth
+(`anthropic-messages.js:173-197`). Pi 1.4's catalog already carries the 5.5 models, so the
+mirrored 5.5 entries are dropped. The stored `claude` slot in `auth.json` has the same shape,
+so existing logins carry over.
+
+| # | Unit | Write scope | Test that matters |
+| --- | --- | --- | --- |
+| 1 | seams (done `5456883`) | `anthropic/{tool-names,version}.ts`, `claude.replacePatterns` field | wire names round-trip exactly; collisions refused; version precedence, probe runs once and lazily |
+| 2 | login | `core/auth/{pkce,code-paste}.ts`, `anthropic/oauth.ts` | refresh retries 5xx and network errors, fails a 4xx at once, never leaks a token in errors; a pasted code with the wrong state is refused |
+| 3 | request shaping | `anthropic/{sanitize,billing,request}.ts` | body becomes `[billing, identity, sanitized prompt]`, tools and tool references are `mcp_`-prefixed, cch matches known vectors, headers carry betas, UA and `x-app` without `x-api-key` |
+| 4 | response restore | `anthropic/response.ts` | SSE and JSON bodies split at every byte boundary restore the exact Pi tool names |
+| 5 | provider wiring | `anthropic/{transport,provider,index}.ts`, `families/index.ts` | OAuth credential: zero cost, header-owned auth, wrapper applied; API key: Pi's path untouched; `parity-verify` lists `claude` |
+| 6 | live + tracking | `.project/analyses/claude-code-cli/tracking.md` | Pi-Bolt and stock Pi: a turn and a tool call on `claude-sonnet-5-5` with the stored login, request head captured redacted |
+
+Changes vs pi-claude-auth: the `claude --version` probe runs on first request, not in the
+factory. The replace patterns move from Pi's `settings.json` to `auth-plus.json`; legacy
+migration waits for the migration engine. The PKCE verifier and state are 32 random bytes as in
+Claude Code 2.1.310.
+
 ## Later slices (sparse)
 
-- **claude** (1.7k LOC): CC version pin and precedence, identity/billing block, `mcp_` rename
-  both ways incl. streams, replace patterns setting, zero-cost subscription models.
 - **antigravity**: review session with the user first (features, UX, API, vault yes/no),
   then port as provider id `antigravity` with migration from `google`.

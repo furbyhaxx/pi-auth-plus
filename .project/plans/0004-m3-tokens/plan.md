@@ -96,21 +96,21 @@ Units:
 [x] U3c wiring + live     32ccdf1; live: DeepSeek prompt persists 15966 (provider ~6.8K),
                           offline reuse ok, stock Pi on Node same
 [x] U3d-0 contracts      TokenCounter, FamilyAdapter.tokens, ratio estimates (c58f881, 14120c0)
-[>] U3d-1 engine         src/tokens/engine: anchor (mirrors Pi) + tail, breakdown, memo
-[>] U3d-2 claude counter count_tokens minus baseline, backoff to measured ratios
-[>] U3d-3 family hooks   antigravity (claude/gemini ratios, gpt-oss tokenizer),
-                         synthetic tokenizer, openai/xai ratios; others default 4/3
+[x] U3d-1 engine         src/tokens/engine: anchor (mirrors Pi) + tail, breakdown, memo (da5152a)
+[x] U3d-2 claude counter count_tokens minus baseline, backoff to measured ratios (19ffeb3)
+[x] U3d-3 family hooks   antigravity (claude/gemini ratios, gpt-oss tokenizer),
+                         synthetic tokenizer, openai/xai ratios; others default 4/3 (65c63a2)
 ```
 
 ## Slice 4 (next)
 
 ```
-[ ] U4a tracker   src/tokens/tracker: latest ContextReport per session, recompute on
+[>] U4a tracker   src/tokens/tracker: latest ContextReport per session, recompute on
                   session_start, model_select, message_end, turn_end, session_compact,
                   session_tree; debounced, abortable; CounterDeps from quotaAuthFor + store
-[ ] U4b bus       pi-auth-plus:v1:tokens:{ready,context,query}, decoders + typed consumers
+[>] U4b bus       pi-auth-plus:v1:tokens:{ready,context,query}, decoders + typed consumers
                   in src/bus like the quota bus
-[ ] U4c tab       /auth tokens view + /tokens entry: total with source, ours vs Pi's,
+[>] U4c tab       /auth tokens view + /tokens entry: total with source, ours vs Pi's,
                   anchor/tail, breakdown (computed on open), tokenizer state; text fallback
 [ ] U4d footer    footer clone shows our context % when it matches the model, marked
                   when estimated; tmux pass 36/57/80/140

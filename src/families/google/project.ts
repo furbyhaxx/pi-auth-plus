@@ -17,12 +17,12 @@ export class AntigravityProjectError extends Error {
 	}
 }
 
-/** Creates a credential-scoped resolver; cacheKey must identify the current OAuth credential. */
+/** Creates a resolver that discovers the project once per credential key. */
 export function antigravityProject(deps: {
 	fetch?: FetchFn;
 	headers: () => Record<string, string>;
-	/** A refresh token or explicit stable credential key; only its SHA-256 hash is cached. */
-	cacheKey: () => string;
+	/** Stable credential key, the access token by default; only its SHA-256 hash is cached. */
+	cacheKey?: (accessToken: string) => string;
 }): {
 	/** Discovers once per credential, sharing concurrent requests until reset. */
 	resolve(accessToken: string, signal: AbortSignal): Promise<string>;
@@ -70,7 +70,9 @@ export function antigravityProject(deps: {
 	return {
 		async resolve(accessToken, signal) {
 			signal.throwIfAborted();
-			const key = createHash("sha256").update(deps.cacheKey()).digest("hex");
+			const key = createHash("sha256")
+				.update(deps.cacheKey?.(accessToken) ?? accessToken)
+				.digest("hex");
 			const cache = discoveries;
 			let pending = cache.get(key);
 			if (!pending) {

@@ -16,6 +16,7 @@ import { QuotaEngine } from "./quotas/engine.ts";
 import { createQuotaLine } from "./quotas/line/index.ts";
 import { quotaLineConfig } from "./quotas/line/line.ts";
 import { formatPlainTextSummary } from "./quotas/line/summary.ts";
+import { carryOverPiQuotas } from "./quotas/migrate/index.ts";
 import { engineReport } from "./quotas/report.ts";
 import { registerAuthCommands } from "./ui/commands/index.ts";
 import { confirmReset } from "./ui/commands/resets.ts";
@@ -72,6 +73,16 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			commandPaths,
 		);
 		if (!quotasEnabled) return;
+		const carried = await carryOverPiQuotas({
+			settings,
+			registry,
+			engine: quotas,
+			cwd: ctx.cwd,
+			projectTrusted: ctx.isProjectTrusted(),
+		});
+		if (carried.info.length > 0) ctx.ui.notify(carried.info.join("\n"), "info");
+		if (carried.warnings.length > 0)
+			ctx.ui.notify(`pi-auth-plus quota carry-over:\n${carried.warnings.join("\n")}`, "warning");
 		await quotas.start();
 		stopQuotaBus = registerQuotaBus(pi.events, quotas, registry, () => settings, Date.now, {
 			confirmReset: (id, credit, requester) =>

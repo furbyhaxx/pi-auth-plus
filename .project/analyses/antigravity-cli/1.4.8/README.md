@@ -5,15 +5,18 @@ document:
   title: "agy 1.4.8 reverse-engineering dossier"
   description: "Index, ten headline findings, reproduction instructions and method limits for the 1.4.8 analysis"
   status: "published"
-  revision: 1
+  revision: 2
   created_at: "2026-10-27T09:59:34+01:00"
-  updated_at: "2026-10-27T09:59:34+01:00"
+  updated_at: "2026-10-27T10:22:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       at: "2026-10-27T09:59:34+01:00"
       note: "Initial analysis of agy 1.4.8."
+    - revision: 2
+      at: "2026-10-27T10:22:00+01:00"
+      note: "Rewrote the quota, reset and credit findings around the live wire capture, and replaced the restraint note with what was actually issued."
 ---
 
 # agy 1.4.8 — reverse-engineering dossier
@@ -47,11 +50,17 @@ Upstream tracking (pinned version, imitated surface, verification log):
 2. **Two OAuth clients, keyed on auth method**, each with an embedded installed-app
    secret: `consumer` and `gcp`. A third client belongs to MCP only. (02 §3)
 3. **Quota limits and resets come from `v1internal:retrieveUserQuotaSummary`, not
-   `loadCodeAssist`.** `loadCodeAssist` carries tier, plan and credit balance. (05 §1–2)
-4. **Reset is server-authoritative.** Per-bucket `reset_time`; no client-side window, no
-   midnight assumption. `window` is a free-form display string. (05 §4.1)
-5. **Credit balance has no reset clock at all** — a second, independent concept from the
-   per-bucket reset. (05 §4.2)
+   `loadCodeAssist`.** Five real buckets across three groups: `gemini-weekly`/`gemini-5h`,
+   `3p-weekly`/`3p-5h`, `gemini-argon-wtu-weekly`. **Every group but Argon carries two limits,
+   a 5-hour and a weekly one.** (05 §3.2)
+4. **Reset is server-authoritative and rolling, not boundary-aligned.** Each bucket's window
+   is anchored to its own first use: the two 5-hour buckets reset 4 seconds apart, and nothing
+   lines up with midnight or a round hour. An untouched bucket returns `now + window` on every
+   read, so its countdown restarts each time you look. (05 §4.1, 03 "Observed live")
+5. **`availableCredits` can be a threshold, not a balance.** On the observed account it
+   carried only `minimumCreditAmountForUsage: "50"` and no `creditAmount`, so the credit
+   balance must render as **unknown**. `remainingFraction` is cost-weighted, never a request
+   count. (05 §2.3)
 6. **Nothing is called vendor-direct.** Claude goes to Vertex `publishers/anthropic/models/
    {model}:streamRawPredict` in Anthropic wire format with the Google token; GPT-OSS goes
    to Vertex MaaS as `gpt-oss-120b-maas`. (04 §7.3)
@@ -121,6 +130,16 @@ service/method pairs across 44 services).
 
 ## Deliberate restraint
 
-The account owner's only constraint was not to get the account blocked. So: no repeated
-auth attempts, no quota polling, no inference request issued, read-only with respect to
-`~/.gemini/antigravity-cli/` and `~/.config/antigravity/` (SQLite inspected from copies).
+The account owner's only constraint was not to get the account blocked. So: no repeated auth
+attempts, no inference turn, no polling loop. The only requests issued were the ones the CLI
+performs on every ordinary run (`loadCodeAssist`, `fetchUserInfo`, `fetchAvailableModels`,
+`fetchAdminControls`, `retrieveUserQuotaSummary`), plus a single repeat of
+`fetchAvailableModels` because the CLI's own log interleaved that 201 KB body and truncated
+it. Read-only towards `~/.gemini/antigravity-cli/` and `~/.config/antigravity/` (SQLite
+inspected from copies).
+
+A method finding worth keeping: `agy -v=5` logs the outbound `User-Agent`, the full response
+header set **and** the full response body (`http_helpers.go:369/375/381`), so no TLS proxy is
+needed to read this provider's wire format. The one caveat is that concurrent goroutines
+interleave those bodies mid-line, which truncates payloads above roughly 15 KB — re-read large
+ones through the endpoint rather than the log.

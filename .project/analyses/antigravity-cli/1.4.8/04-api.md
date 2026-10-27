@@ -5,9 +5,9 @@ document:
   title: "agy 1.4.8 network API surface and inference plumbing"
   description: "Endpoint taxonomy, transport, base-URL selection, request envelope, multi-vendor routing, telemetry and feature flags"
   status: "published"
-  revision: 2
+  revision: 3
   created_at: "2026-10-27T09:47:48+01:00"
-  updated_at: "2026-10-27T09:52:10+01:00"
+  updated_at: "2026-10-27T10:16:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -17,6 +17,9 @@ document:
     - revision: 2
       at: "2026-10-27T09:52:10+01:00"
       note: "Resolved the telemetry opt-out question: data_collection_optin exists at three layers plus two admin force fields (§9.4, open question 6)."
+    - revision: 3
+      at: "2026-10-27T10:16:00+01:00"
+      note: "Added the observed live header capture: exact User-Agent with its five parameters (including the release-side cl that differs from the build), the real response header set, the confirmation that the wire is protojson over an ESF front end, and the finding that no quota or rate-limit headers exist."
 ---
 
 # agy 1.4.8 — network API surface and model-inference plumbing
@@ -581,7 +584,53 @@ client mints per call and echoes into the `x-cloudaicompanion-trace-id` header (
 `computeRequestID` + `getSessionID` + `getStreamID`, which `getStreamingTextCompletion`
 populates alongside `X-Aicode-Request-Id` and `sessionID`). It is not a credential binding —
 the credential is a separate `Authorization: Bearer <oauth token>` from the token source.
-**Derived**; I did not capture the raw header block.
+
+#### Observed live (2026-10-27)
+
+Captured with `agy -v=5 models`; the CLI's own `http_helpers.go:369/375/381` log sites dump the
+request UA, the response headers and the response body. Verbatim block in
+[`evidence/live-2026-10-27/request-response-headers.txt`](evidence/live-2026-10-27/request-response-headers.txt).
+
+**The real User-Agent** — and it corrects the `%s/%s (%s)` shape above, because the parens
+technically hold a semicolon-joined parameter list, not just an OS:
+
+```
+antigravity/cli/1.4.8 (aidev_client; os_type=linux; arch=amd64; cl=1007749967; auth_method=consumer)
+```
+
+| parameter | observed | note |
+|---|---|---|
+| `aidev_client` | fixed | product token |
+| `os_type=linux` | `linux` | platform |
+| `arch=amd64` | `amd64` | GOARCH spelling |
+| `cl=1007749967` | **not** the build's changelist | the build reports `cl/1000353293`; this is a separate release-side constant, so do not derive it from the binary version |
+| `auth_method=consumer` | `consumer` / `gcp` | mirrors the OAuth client choice of [`02-auth.md`](02-auth.md) §3 |
+
+**Response headers** on every `v1internal` call:
+
+```
+Content-Type: application/json; charset=UTF-8     ← protojson, camelCase fields
+X-Cloudaicompanion-Trace-Id: <trace id>           ← echoes the `Trace:` value, no 0x prefix
+Server: ESF                                       ← Google's Extensible Service Proxy
+Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+Server-Timing: gfet5t7;dur=597, gfet4t7; dur=779
+Vary: Origin, X-Origin, Referer
+X-Xss-Protection: 0 / X-Frame-Options: SAMEORIGIN / X-Content-Type-Options: nosniff
+Date: <rfc1123>
+```
+
+Two things a reimplementation must not assume:
+
+1. **No quota or rate-limit headers.** There is no `X-RateLimit-*`, no `Retry-After` and no
+   quota field on the metadata responses. Header ingestion therefore contributes nothing for
+   this provider — every number comes from a body (see [`05-quota.md`](05-quota.md)).
+2. **The wire is JSON, not protobuf.** Bodies are `protojson`: camelCase keys
+   (`bucketId`, `resetTime`, `remainingFraction`), string-encoded int64. The proto field
+   numbers in 05-quota describe the schema, not the wire encoding.
+
+`Server: ESF` plus `Alt-Svc: h3` also settles transport: HTTP/1.1 or h2 over TLS to an ESF
+front end that offers h3. No gRPC, no Connect for this hop — the Connect/gRPC layer is the
+*loopback* boundary to the language server, not the Google boundary.
 
 OAuth scopes in play: `aicode`, `openid`, `cloud-platform`, `userinfo.email`,
 `userinfo.profile`, `experimentsandconfigs`, `cclog` (from `getScopesByAuthMethod`).
@@ -804,15 +853,23 @@ from nowhere and defaults apply.
 4. **Keepalive and retry constants.** `modelapiccpa.(*keepAlives)` intervals and
    `continuation.SleepForMidStreamRetry` backoff are immediates inside short BOLT fragments;
    not decoded.
-5. **Raw header capture.** No live inference request was captured, so the outbound header set
-   in §8.1 is assembled from code, not observed. A single `agy -p` with a TLS-visible proxy
-   would confirm `User-Agent`, `x-cloudaicompanion-trace-id` and whether `Authorization` is
-   `Bearer` or an `x-goog-*` credential header.
+5. **Raw header capture — mostly closed (§8.1 "Observed live").** `agy -v=5` dumps the
+   outbound UA, response headers and response body itself, so no TLS proxy was needed. What is
+   now observed: the exact `User-Agent` with its five parameters, the full response header set,
+   `X-Cloudaicompanion-Trace-Id` echoing the minted trace, `Server: ESF`, and the absence of any
+   quota/rate-limit header. What is still **not** observed: the header set of an *inference*
+   call (all captures are `v1internal` metadata calls), and `Authorization` specifically — the
+   `Bearer` scheme remains derived from the token source, since `http_helpers.go:369` logs the
+   UA only, never the auth header.
 6. **Telemetry kill switch.** `data_collection_optin` (§9.4) is a real opt-out, but whether it
    also stops the operational channels (`recordClientEvent`, `recordTrajectoryAnalytics`,
    Clearcut via `/clearcut_proxy`) is not established, and no user-reachable route to
    `DummyTelemetryClient` was found. What `/clearcut_proxy` forwards and with which auth is
-   also unknown. Given the privacy weight, this deserves its own pass.
+   also unknown. One new datum: a full `agy models` run (`-v=5`) contacted **only**
+   `daily-cloudcode-pa.googleapis.com` — no Clearcut, no Sentry, no Unleash, no
+   `play.googleapis.com`. That is a single non-interactive subcommand, so it establishes
+   "telemetry does not fire for a models listing" and nothing more; a `-p` turn is still
+   needed to say anything about an agent run. The open question survives.
 7. **`SENTRY_DSN`.** No DSN is embedded; the only activation is the env var. Whether the
    shipped `agy install` wrapper or the updater sets it was not checked.
 8. **`ApiService` (boq) and the mesh/proxy routes** (`connectInstanceV2`, `proxyCommand`,

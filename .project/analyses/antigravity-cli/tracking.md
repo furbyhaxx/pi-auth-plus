@@ -5,15 +5,18 @@ document:
   title: "Antigravity CLI — upstream client tracking"
   description: "Pinned agy version, the client surface we imitate, and the live-verification log"
   status: "published"
-  revision: 1
+  revision: 2
   created_at: "2026-10-27T09:59:34+01:00"
-  updated_at: "2026-10-27T09:59:34+01:00"
+  updated_at: "2026-10-27T10:20:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       at: "2026-10-27T09:59:34+01:00"
       note: "Initial analysis of agy 1.4.8."
+    - revision: 2
+      at: "2026-10-27T10:20:00+01:00"
+      note: "Filled in the observed user agent and header surface, added the wire-capture verification row, and narrowed the static-only note to the inference path."
 ---
 
 # Antigravity CLI — upstream client tracking
@@ -52,18 +55,18 @@ empty by fact, not by omission. Fill it in when `families/google/` lands, and re
 | body shape | `GetChatMessageRequest` → `GenerateContentRequest`; Anthropic Messages wire for Claude, OpenAI chat-completions wire for GPT-OSS; SSE decode | [`04-api.md`](1.4.8/04-api.md) §6–7 |
 | request metadata | `exa.codeium_common_pb.Metadata` (`ide_name`, `extension_version`, `session_id`, `device_fingerprint`, `user_tier_id`, `product_name`, `environment_type`, …) | [`04-api.md`](1.4.8/04-api.md) §6.2 |
 | quota caching | 300 s cache, 60 s floor, 5 s repaint; `reset_time` authoritative, `window` display-only | [`05-quota.md`](1.4.8/05-quota.md) §8 |
-| user agent / headers | **not yet captured** — assembled from code only | [`04-api.md`](1.4.8/04-api.md) §11.5 |
+| user agent / headers | `antigravity/cli/1.4.8 (aidev_client; os_type=linux; arch=amd64; cl=1007749967; auth_method=consumer)`; `Content-Type: application/json`; `X-Cloudaicompanion-Trace-Id` echoed on the response; no quota or rate-limit headers exist | [`04-api.md`](1.4.8/04-api.md) §8.1 |
 
 ## Last live verification
 
 | date | what was verified | evidence |
 |---|---|---|
-| 2026-10-27 | binary identity, `agy --version` 1.4.8, `agy models` catalogue (13 ids), updater manifest for `linux_amd64`, `install.sh` contents, on-disk state layout, 107 klog call sites | [`1.4.8/evidence/`](1.4.8/evidence/) |
+| 2026-10-27 | binary identity, `agy --version` 1.4.8, `agy models` catalogue (13 of 26 advertised ids), updater manifest for `linux_amd64`, `install.sh` contents, on-disk state layout, 107 klog call sites | [`1.4.8/evidence/`](1.4.8/evidence/) |
+| 2026-10-27 | **wire data**: exact `User-Agent`, response header set, and full bodies of `loadCodeAssist`, `fetchUserInfo`, `fetchAvailableModels`, `retrieveUserQuotaSummary` from `agy -v=5`; real context windows, output caps and thinking budgets; five quota buckets across three groups with their reset times | [`1.4.8/evidence/live-2026-10-27/`](1.4.8/evidence/live-2026-10-27/) |
 
-Static-only: no inference request was issued and no quota endpoint was polled, to keep the
-account clear of abuse detection. Everything about the inference envelope is therefore
-structurally verified rather than behaviourally confirmed — see
-[`08-integration-notes.md`](1.4.8/08-integration-notes.md) §4.
+Static-only: the outbound header set of an *inference* call, the request-body assembly and
+`Authorization` were not observed — every captured call is a `v1internal` metadata read. See
+[`08-integration-notes.md`](1.4.8/08-integration-notes.md) §4 for the exact split.
 
 ## Change discipline
 

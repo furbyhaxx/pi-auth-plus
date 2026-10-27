@@ -5,15 +5,18 @@ document:
   title: "agy 1.4.8 quota, entitlement, credits and reset mechanics"
   description: "Authoritative quota sources, protobuf field shapes, quota units, reset semantics, tier/billing decision tree, live vs dead seat-management surface, and the refresh/throttle policy"
   status: "published"
-  revision: 1
+  revision: 2
   created_at: "2026-10-27T09:57:00+01:00"
-  updated_at: "2026-10-27T09:57:00+01:00"
+  updated_at: "2026-10-27T10:12:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       at: "2026-10-27T09:57:00+01:00"
       note: "Initial extraction."
+    - revision: 2
+      at: "2026-10-27T10:12:00+01:00"
+      note: "Folded in observed live payloads: the five real buckets across three groups and two windows, proof that reset times are rolling rather than boundary-aligned, and the correction that availableCredits carries a threshold rather than a balance (2.3, 4.1)."
 ---
 
 # agy 1.4.8 — quota, entitlement, credits and reset mechanics
@@ -174,7 +177,7 @@ message Entitlement { string user_tier = 1; }
 | `current_tier.is_default`, `.upgrade_subscription_*`, `.upgrade_button_text`, `.client_experience_tag` | upsell copy | upgrade block: `"  Upgrade at: "`, `"  Upgrade to get 1,500 model requests per day with Gemini CLI and\n  Gemini Code Assist's agent mode with Google AI Pro."` |
 | `current_tier.available_credits[]` | legacy credit grant (only type `GOOGLE_ONE_AI`) | not the credit balance the panel shows |
 | **`paid_tier`** | the paid tier record | **`GetG1Credits` reads `paid_tier.available_credits`; `aicodeEntitlement` reads the paid tier id** |
-| **`paid_tier.available_credits[].credit_amount`** | G1/AI credit balance | `"  Available AI Credits: %s\n"` |
+| **`paid_tier.available_credits[].credit_amount`** | G1/AI credit balance — **but see 2.3: the live payload does not always carry it** | `"  Available AI Credits: %s\n"` |
 | `paid_tier.upgrade_subscription_type` | `GDP` / `GOOGLE_ONE` / `*_HELIUM` | upsell framing |
 | `g1_tier` | Google One tier marker | paired with the `useG1Credits` toggle |
 | `ineligible_tiers[]` | why a tier is unavailable | eligibility gate (`printmode.waitForEligibility`, `store.(*Manager).waitForEligibility`, 30 s) |
@@ -198,6 +201,43 @@ credits = loadCodeAssist().paid_tier.available_credits[].credit_amount   // Cred
 ```
 
 One call gives tier + plan + credit balance.
+
+### 2.3 Observed live (2026-10-27): the real `loadCodeAssist` payload
+
+Captured from `agy -v=5 models`; full body in
+[`evidence/live-2026-10-27/loadCodeAssist.json`](evidence/live-2026-10-27/loadCodeAssist.json)
+(email and project id redacted).
+
+```json
+{
+  "currentTier": { "id": "free-tier", "name": "Antigravity",
+                   "privacyNotice": { "showNotice": true, ... },
+                   "upgradeSubscriptionType": "GOOGLE_ONE" },
+  "paidTier":    { "id": "g1-pro-tier", "name": "Google AI Pro",
+                   "availableCredits": [ { "creditType": "GOOGLE_ONE_AI",
+                                           "minimumCreditAmountForUsage": "50" } ] },
+  "allowedTiers": 2, "ineligibleTiers": 0,
+  "cloudaicompanionProject": "<project-id>",
+  "keys": [ allowedTiers, cloudaicompanionProject, currentTier,
+            gcpManaged, paidTier, upgradeSubscriptionUri ]
+```
+
+Three corrections to the static reading:
+
+1. **`availableCredits` is a *threshold*, not a balance here.** The only member present is
+   `minimumCreditAmountForUsage: "50"` — meaning "≥50 credits required to use them". There is
+   **no `creditAmount`**, so `GetG1Credits` finds nothing to print and the panel falls back to
+   its `no credits info found` path. A reimplementation must render the balance as **unknown**,
+   never as `0`, and must not treat the threshold as an amount.
+2. **`currentTier` and `paidTier` are both populated and disagree by design.** Observed:
+   `currentTier.id = free-tier` while `paidTier.id = g1-pro-tier`. The plan label must come
+   from `paidTier` when present; `currentTier` alone under-reports the account.
+3. **`keys` is not a field** — it is an artefact of the capture. The actual response keys are
+   the six listed above. `gcp_managed` is present (boolean), `manage_subscription_uri` was not.
+
+`fetchUserInfo` returns `{ "userSettings": {}, "regionCode": "CH" }` — this is where a
+region comes from, and `userSettings` is where the data-collection opt-in lives (see 04-api
+§9.4), empty for this account.
 
 ---
 
@@ -262,6 +302,48 @@ message BeyondModelInfo { string model_id = 1; string quota_bucket_team = 2; str
 message ModelDetails   { … QuotaInfo quota_info = 10; … BeyondModelInfo beyond_model_info = 44; … }
 message QuotaInfo      { float remaining_fraction = 1; google.protobuf.Timestamp reset_time = 2; }
 ```
+
+#### Observed live: three groups, five buckets, two windows
+
+`retrieveUserQuotaSummary` returned `groups[]` in this shape (verbatim, from
+[`evidence/live-2026-10-27/retrieveUserQuotaSummary.json`](evidence/live-2026-10-27/retrieveUserQuotaSummary.json)):
+
+```
+Gemini Models              2 buckets   gemini-weekly     weekly
+                                        gemini-5h         5h
+  "Models within this group: Gemini Flash, Gemini Pro"
+
+Claude and GPT models      2 buckets   3p-weekly         weekly
+                                        3p-5h             5h
+  "Models within this group: Claude Opus, Claude Sonnet, GPT-OSS"
+
+Gemini 4 Argon             1 bucket    gemini-argon-wtu-weekly   weekly
+  "For paid Pro plans, Argon quota is separate. Higher Argon quota (included as
+   part of the larger Gemini quota bucket) is available on Ultra plans."
+```
+
+So **every group but Argon carries two limits**, and Argon carries one. This is the single
+most load-bearing structural fact for the UI: a group is not one bar, it is one bar per
+bucket, and the Argon group is a special case rather than a peer.
+
+The response's own top-level `description` states the consumption model, and it is the best
+documentation we will get:
+
+> Within each group, models share a weekly limit and a 5-hour limit. Quota is consumed
+> proportionally to the cost of the tokens. Thus, limits will last longer with shorter tasks
+> or using more cost-effective models. The 5-hour limit smooths out aggregate demand to
+> fairly distribute global capacity across all users, while your weekly limit is tied
+> directly to your individual tier.
+
+Consequence: `remainingFraction` is **cost-weighted, not request- or token-counted**. Never
+convert it to "requests left". It is a fraction of a cost budget, and the same fraction means
+different things for Argon and for Flash Lite.
+
+Each bucket also carries a server-written `description` (e.g. `"You have used some of your
+5-hour limit, it will fully refresh in 3 hours, 50 minutes."`). That sentence already
+contains the humanised countdown, so a client may render it instead of computing one — the
+one case where parsing prose is safer than doing the arithmetic. The Argon bucket has no
+`description`, so that path needs a fallback.
 
 and in the client-side model config (`exa.codeium_common_pb`, `ClientModelConfig`):
 
@@ -358,6 +440,27 @@ There is **no rolling window computed client-side and no fixed clock boundary in
 The only client-side time logic is `now < reset_time`. The window itself is opaque:
 `QuotaSummaryBucket.window` is a `string` (free-form server label, no enum anywhere), so a
 reimplementation must display it verbatim rather than parse it.
+
+Observed live, and this settles the question the static analysis could not: the reset times
+are **rolling, anchored to when each bucket's window started**, and mutually unrelated. One
+`retrieveUserQuotaSummary` at `2026-10-27T09:06:53Z` returned five buckets:
+
+| bucket | `window` | `resetTime` | minus window | remaining |
+|---|---|---|---|---|
+| `gemini-weekly` | `weekly` | `2026-10-28T13:38:11Z` | → `10-21T13:38:11Z` | 0.4195 |
+| `gemini-5h` | `5h` | `2026-10-27T12:57:10Z` | → `07:57:10Z` | 0.9863 |
+| `3p-weekly` | `weekly` | `2026-10-30T16:20:30Z` | → `10-23T16:20:30Z` | 0.9838 |
+| `3p-5h` | `5h` | `2026-10-27T12:57:14Z` | → `07:57:14Z` | 0.9675 |
+| `gemini-argon-wtu-weekly` | `weekly` | `2026-11-03T09:06:53Z` | → **exactly now** | 1.0 |
+
+Proof that this is not a clock boundary: nothing aligns to midnight or to a round hour. The
+two 5-hour buckets reset **4 seconds apart**, so they track independent window starts rather
+than a shared clock. And the Argon bucket's `resetTime` is precisely the request time plus
+seven days — an untouched bucket whose window was created by this very request. That is
+rolling-from-first-use, and a countdown rendered from it is only valid for that bucket.
+
+Two consequences for us: never compute `resetTime` ourselves, and never assume a group's two
+buckets share one clock even when their windows are the same length.
 
 ### 4.2 How the CLI renders it
 

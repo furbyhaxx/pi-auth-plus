@@ -5,15 +5,18 @@ document:
   title: "agy 1.4.8 model catalogue and selection"
   description: "Model ids, thinking-level grammar, dynamic versus static catalogue, capabilities and context-window mechanism"
   status: "published"
-  revision: 1
+  revision: 2
   created_at: "2026-10-27T09:59:34+01:00"
-  updated_at: "2026-10-27T09:59:34+01:00"
+  updated_at: "2026-10-27T10:14:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       at: "2026-10-27T09:59:34+01:00"
       note: "Initial analysis of agy 1.4.8."
+    - revision: 2
+      at: "2026-10-27T10:14:00+01:00"
+      note: "Added the observed live catalogue: real context windows, output caps and thinking budgets for all 13 agent-facing models, server-reported apiProvider values, the 26-returned-vs-13-offered split, and the finding that an untouched bucket's resetTime re-anchors on every read."
 ---
 
 # 03 — Model catalogue and selection
@@ -185,11 +188,79 @@ does the prompt caching — which is what rules out a direct Anthropic call.
 Model choice is stored as a setting (`REMEMBER_LAST_MODEL_SELECTION_DISABLED` is a
 recognised value) and surfaced in the statusline.
 
+## Observed live: the real catalogue (2026-10-27)
+
+Captured from `v1internal:fetchAvailableModels` — 26 models, 201,647 bytes, HTTP 200. Full
+body in [`evidence/live-2026-10-27/fetchAvailableModels.json`](evidence/live-2026-10-27/fetchAvailableModels.json).
+This replaces the "server-assigned, unknown" placeholders with real numbers.
+
+### The 13 agent-facing models
+
+| model id | displayName | ctx | maxOut | minThink | apiProvider |
+|---|---|---|---|---|---|
+| `gemini-4-argon-low` | Gemini 4 Argon (Low) | 1048576 | 65536 | 32 | `API_PROVIDER_GOOGLE_GEMINI` |
+| `gemini-4-argon-medium` | Gemini 4 Argon (Medium) | 1048576 | 65536 | 32 | `API_PROVIDER_GOOGLE_GEMINI` |
+| `gemini-4-argon-high` | Gemini 4 Argon (High) | 1048576 | 65536 | 32 | `API_PROVIDER_GOOGLE_GEMINI` |
+| `gemini-3.8-flash-low` | Gemini 3.8 Flash (Low) | 1048576 | 65536 | 32 | `API_PROVIDER_GOOGLE_GEMINI` |
+| `gemini-3.8-flash-medium` | Gemini 3.8 Flash (Medium) | 1048576 | 65536 | 32 | `API_PROVIDER_GOOGLE_GEMINI` |
+| `gemini-3.8-flash-high` | Gemini 3.8 Flash (High) | 1048576 | 65536 | 32 | `API_PROVIDER_GOOGLE_GEMINI` |
+| `claude-opus-5-5-low` | Claude Opus 5.5 (Low) | 1000000 | 128000 | — | `API_PROVIDER_ANTHROPIC_VERTEX` |
+| `claude-opus-5-5-medium` | Claude Opus 5.5 (Medium) | 1000000 | 128000 | — | `API_PROVIDER_ANTHROPIC_VERTEX` |
+| `claude-opus-5-5-high` | Claude Opus 5.5 (High) | 1000000 | 128000 | — | `API_PROVIDER_ANTHROPIC_VERTEX` |
+| `claude-sonnet-5-5-low` | Claude Sonnet 5.5 (Low) | 1000000 | 128000 | — | `API_PROVIDER_ANTHROPIC_VERTEX` |
+| `claude-sonnet-5-5-medium` | Claude Sonnet 5.5 (Medium) | 1000000 | 128000 | — | `API_PROVIDER_ANTHROPIC_VERTEX` |
+| `claude-sonnet-5-5-high` | Claude Sonnet 5.5 (High) | 1000000 | 128000 | — | `API_PROVIDER_ANTHROPIC_VERTEX` |
+| `gpt-oss-120b-medium` | GPT-OSS 120B (Medium) | 131072 | 32768 | — | `API_PROVIDER_OPENAI_VERTEX` |
+
+`apiProvider` is server-reported and independently confirms the routing in
+[`04-api.md`](04-api.md) §7.3: Claude is `ANTHROPIC_VERTEX`, GPT-OSS is `OPENAI_VERTEX`, and
+neither is a vendor-direct endpoint. `modelProvider` is `MODEL_PROVIDER_GOOGLE` throughout,
+even for Anthropic and OpenAI weights.
+
+### What the payload says that the picker hides
+
+| field | value | meaning |
+|---|---|---|
+| `defaultAgentModelId` | `gemini-4-argon-medium` | the default model, not merely "first in list" |
+| `commandModelIds` | `[gemini-3-flash]` | slash-command generation |
+| `commitMessageModelIds` | `[gemini-3.5-flash-lite]` | commit messages |
+| `audioTranscriptionModelIds` | `[models/proactive-observer-v10]` | audio → text |
+| `tabModelIds` | `tab_flash_lite_preview`, `tab_jump_flash_lite_preview` | 16384 ctx / 4096 out — editor completion |
+| `imageGenerationModelIds`, `webSearchModelIds`, `mqueryModelIds`, `tieredModelIds` | model id lists | auxiliary roles |
+| `experimentIds` | list | experiment assignment |
+
+The catalogue also ships 13 models the agent picker never shows: `gemini-2.5-flash`,
+`gemini-2.5-pro`, `gemini-2.5-flash-thinking`, `gemini-2.5-flash-lite`, `gemini-3-flash`,
+`gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-3.1-flash-image`,
+`gemini-3.8-flash-tiered`, the two `tab_*` previews, and two `API_PROVIDER_INTERNAL`
+entries (`chat_20706` 16384 ctx, `chat_23310` 32768 ctx). **26 returned, 13 offered** — a
+client that renders the raw list will expose internal and auxiliary models as if they were
+user-selectable.
+
+### Per-model `quotaInfo` and a surprise about untouched buckets
+
+Every agent-facing model carries `quotaInfo { remainingFraction, resetTime }`, and the value
+matches its bucket from [`05-quota.md`](05-quota.md) §4.1 — Gemini models share the
+`gemini-5h` reset, Claude and GPT-OSS share `3p-5h`, Argon has its own. So the bucket → model
+mapping is server-side and needs no client table.
+
+The surprise: the Argon `resetTime` **moved between two reads 102 seconds apart**.
+
+| read | at | Argon `resetTime` | delta from read |
+|---|---|---|---|
+| `retrieveUserQuotaSummary` | `09:06:53Z` | `2026-11-03T09:06:53Z` | exactly 7 days |
+| `fetchAvailableModels` | `09:08:36Z` | `2026-11-03T09:08:36Z` | exactly 7 days |
+
+With `remainingFraction: 1` in both, this is a bucket with no usage yet whose window is
+anchored to the read. Do not cache it as a deadline and do not derive a window start from it:
+for an untouched bucket the countdown restarts every time you look. Render the returned value
+only while it is fresh.
+
 ## Open questions
 
 - The concrete value table behind `thinkingLevelToEffort` (which CLI level maps to which
   wire level). Function and call site are established (04-api §7.3); only the mapping is
   missing. `xhigh`/`max` have no `THINKING_LEVEL_*` counterpart, so they are certainly
   translated rather than forwarded.
-- Real context-window values per family: they arrive from the server, so there is
-  nothing static to recover — only the mechanism.
+- Real context-window values per family — **resolved live**, see the catalogue table above:
+  Gemini 1,048,576 / 65,536 out, Claude 1,000,000 / 128,000 out, GPT-OSS 131,072 / 32,768 out.

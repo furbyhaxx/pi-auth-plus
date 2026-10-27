@@ -5,9 +5,9 @@ document:
   title: "M2 quotas"
   description: "Port the pi-quotas engine, seven providers, line, panels, bus and CLI onto core/ and families/"
   status: "published"
-  revision: 9
+  revision: 10
   created_at: "2026-10-27T14:28:39+01:00"
-  updated_at: "2026-10-27T17:50:57+01:00"
+  updated_at: "2026-10-27T17:54:05+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -35,6 +35,9 @@ document:
     - revision: 9
       reason: "codex credential decision (D33)"
       changes: ["ChatGPT quota id becomes codex with its own credential chain and login; U20-U25 and codex units done"]
+    - revision: 10
+      reason: "M2 released"
+      changes: ["Live tmux pass at 36/57/80/140 done; released as v0.3.0; setup swap next"]
 ---
 
 # M2 quotas
@@ -173,9 +176,9 @@ Units (all landed on dev unless marked):
       resolver, `/quota codex login`, Providers tab and panel show the codex login commands.
       Live: `--quotas-json codex` ok on Pi-Bolt and stock Pi through the pi-quotas file.
 - [x] Cache fix: same-millisecond writes from another session win over stale memory.
-- [ ] Swap `pi-quotas` out of `~/.pi/agent/settings.json` (D29); live tmux pass at
-      36/57/80/140 (line, `/auth` Providers + Quotas, `/quota codex login --device` first leg);
-      release v0.3.0.
+- [x] Live tmux pass at 36/57/80/140 (line, `/auth` Providers + Quotas,
+      `/quota codex login --device` first leg); released as v0.3.0.
+- [ ] Swap `pi-quotas` out of `~/.pi/agent/settings.json` (D29), live check.
 
 ## Later
 

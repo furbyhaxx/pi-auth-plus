@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 16
+  revision: 17
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T17:51:21+01:00"
+  updated_at: "2026-10-27T17:54:05+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -59,6 +59,9 @@ document:
     - revision: 16
       reason: "codex decision (D33), cutover units landed"
       changes: ["ChatGPT quota is codex with its own login file; carry-over, docs, parity, bus client done; swap + release left"]
+    - revision: 17
+      reason: "M2 released as v0.3.0"
+      changes: ["Setup swap is the last M2 step"]
 ---
 
 # Roadmap
@@ -98,7 +101,7 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 6 panels        /auth quotas + settings tabs, /quotas
     [x] 7 resets + CLI  codex reset from the tab (confirm); --quotas-json/--quotas-list
     [>] 8 cutover       [x] carry-over, /quota, docs, parity run, bus client,
-                        [x] codex id + /quota codex login; [ ] swap pi-quotas, release v0.3.0
+                        [x] codex id + /quota codex login, [x] v0.3.0; [ ] swap pi-quotas
 [.] M3 Tokens       per-family counting sources, content-hash store, footer reuses it
 [.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream
 ```

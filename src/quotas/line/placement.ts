@@ -1,7 +1,7 @@
 /** Selects one footer owner; the caller wires session, placement and quota-change events. */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
-import { createFooterWithQuotaLine, type FooterContext, type FooterLayout } from "./footer.ts";
+import { createFooterWithQuotaLine, type FooterContext } from "./footer.ts";
 import { asFooterHost, type FooterRows, type WorkbenchFooterHost } from "./workbench.ts";
 
 /** UI and session data needed to mount the fallback footer. */
@@ -23,7 +23,6 @@ export interface FooterPlacement {
 export function createFooterPlacement(
 	pi: Pick<ExtensionAPI, "events" | "getThinkingLevel">,
 	rows: FooterRows,
-	layout: FooterLayout,
 ): FooterPlacement {
 	let ctx: FooterPlacementContext | undefined;
 	let enabled = false;
@@ -56,7 +55,7 @@ export function createFooterPlacement(
 			const current = ctx;
 			current.ui.setFooter((activeTui, theme, footerData) => {
 				tui = activeTui;
-				return createFooterWithQuotaLine(pi, current, activeTui, theme, footerData, rows, layout);
+				return createFooterWithQuotaLine(pi, current, activeTui, theme, footerData, rows);
 			});
 		} else if (desired && desired !== "own") {
 			desired.setFooterRows("pi-auth-plus", rows);

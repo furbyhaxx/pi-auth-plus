@@ -75,10 +75,7 @@ function rig() {
 		},
 	};
 	const rows: FooterRows = () => ["quota"];
-	const placement = createFooterPlacement({ events, getThinkingLevel: () => "off" }, rows, {
-		visibleWidth: (text) => text.length,
-		truncateToWidth: (text, width) => text.slice(0, width),
-	});
+	const placement = createFooterPlacement({ events, getThinkingLevel: () => "off" }, rows);
 	return {
 		events,
 		ctx,

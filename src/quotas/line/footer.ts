@@ -6,15 +6,9 @@ import type {
 	ReadonlyFooterDataProvider,
 	Theme,
 } from "@earendil-works/pi-coding-agent";
-import type { Component, TUI } from "@earendil-works/pi-tui";
+import { type Component, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { sanitize } from "../../ui/frame/index.ts";
 import type { FooterRows } from "./workbench.ts";
-
-/** ANSI-aware Pi layout functions supplied by the UI owner, keeping host imports type-only. */
-export interface FooterLayout {
-	visibleWidth(text: string): number;
-	truncateToWidth(text: string, width: number, ellipsis?: string): string;
-}
 
 function formatTokens(count: number): string {
 	if (count < 1000) return count.toString();
@@ -58,9 +52,7 @@ export function createFooterWithQuotaLine(
 	theme: Theme,
 	footerData: ReadonlyFooterDataProvider,
 	renderQuotaRows: FooterRows,
-	layout: FooterLayout,
 ): Component & { dispose(): void } {
-	const { visibleWidth, truncateToWidth } = layout;
 	const unsubBranch = footerData.onBranchChange(() => tui.requestRender());
 	let cachedLeafId: string | null | undefined;
 	let cachedEntryCount = -1;

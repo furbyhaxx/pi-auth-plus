@@ -1,23 +1,8 @@
 import { expect, test } from "bun:test";
-import { stripVTControlCharacters } from "node:util";
 import type { SessionEntry, Theme } from "@earendil-works/pi-coding-agent";
-import {
-	createFooterWithQuotaLine,
-	type FooterContext,
-	type FooterLayout,
-} from "../../../src/quotas/line/footer.ts";
+import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { createFooterWithQuotaLine, type FooterContext } from "../../../src/quotas/line/footer.ts";
 
-// Layout and theme are injected so these tests never load a host runtime.
-const layout: FooterLayout = {
-	visibleWidth: (text) => [...stripVTControlCharacters(text)].length,
-	truncateToWidth(text, width, ellipsis = "...") {
-		const plain = stripVTControlCharacters(text);
-		if ([...plain].length <= width) return text;
-		return (
-			[...plain].slice(0, Math.max(0, width - ellipsis.length)).join("") + ellipsis.slice(0, width)
-		);
-	},
-};
 const theme = { fg: (_color: string, text: string) => text } as Theme;
 
 function message(id: string, input: number, read = 0, write = 0): SessionEntry {
@@ -97,7 +82,6 @@ function rig(activeTheme = theme, thinking: "off" | "high" = "off") {
 			rowsCalls.push([width, terminalRows]);
 			return ["quota one", "quota two"];
 		},
-		layout,
 	);
 	return {
 		footer,
@@ -136,9 +120,9 @@ test("footer rows fit the check widths and unknown context remains unknown", () 
 	const r = rig();
 	for (const width of [36, 57, 80, 140]) {
 		for (const line of r.footer.render(width))
-			expect(layout.visibleWidth(line)).toBeLessThanOrEqual(width);
+			expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 	}
-	expect(r.footer.render(36)[1]).toEndWith("...");
+	expect(stripTerminalSequences(r.footer.render(36)[1] ?? "")).toEndWith("...");
 	r.setPercent(null);
 	expect(r.footer.render(140)[1]).toContain("?%/200k (auto)");
 });

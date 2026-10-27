@@ -46,6 +46,8 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	#tab: TabId;
 	readonly #views: Record<TabId, TabView>;
 	readonly #providerCount: number;
+	readonly #factories: Readonly<Record<TabId, TabViewFactory>>;
+	readonly #viewHost: TabViewHost;
 
 	constructor(
 		host: PanelHost,
@@ -58,6 +60,7 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	) {
 		super(host, theme, keys, onDone);
 		this.#tab = tab;
+		this.#factories = views;
 		this.#providerCount = providerCount;
 		const viewHost: TabViewHost = {
 			theme,
@@ -66,6 +69,7 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 			refresh: () => this.refresh(),
 			finish: (result) => this.finish(result),
 		};
+		this.#viewHost = viewHost;
 		this.#views = {} as Record<TabId, TabView>;
 		for (const spec of TABS) this.#views[spec.id] = views[spec.id](viewHost);
 	}
@@ -103,7 +107,13 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	#switch(step: number): void {
 		const index = TABS.findIndex((tab) => tab.id === this.#tab);
 		const next = TABS[(index + step + TABS.length) % TABS.length];
-		if (next) this.#tab = next.id;
+		if (next) {
+			if (this.#tab === "tokens") {
+				this.#views.tokens.dispose?.();
+				this.#views.tokens = this.#factories.tokens(this.#viewHost);
+			}
+			this.#tab = next.id;
+		}
 	}
 
 	handleInput(data: string): void {

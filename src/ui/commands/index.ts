@@ -7,6 +7,7 @@ import { type SaveScope, SettingsError } from "../../core/config/index.ts";
 import type { Registry } from "../../core/registry/index.ts";
 import { loginCodex } from "../../families/openai/codex-auth/index.ts";
 import type { LineTheme } from "../../quotas/line/format.ts";
+import type { TokenTracker } from "../../tokens/tracker/types.ts";
 import {
 	AuthDashboard,
 	type DashboardModel,
@@ -20,6 +21,7 @@ import {
 } from "../dashboard/index.ts";
 import { type QuotasTabDeps, QuotasView } from "../dashboard/quotas.ts";
 import { SettingsView } from "../dashboard/settings.ts";
+import { TokensView, tokensText } from "../dashboard/tokens.ts";
 import { sanitize } from "../frame/index.ts";
 import { type ResetFlowDeps, runResetFlow } from "./resets.ts";
 
@@ -47,6 +49,8 @@ export interface AuthCommandDeps {
 	readonly now: () => number;
 	/** Live quotas, or why they are unavailable in this session. */
 	readonly quotas?: () => QuotaPanelDeps | string;
+	/** Live session token counts, when a tracker is available. */
+	readonly tokens?: () => TokenTracker | undefined;
 	readonly settings?: SettingsPanelDeps;
 	readonly loginCodex?: typeof loginCodex;
 	readonly signal?: AbortSignal;
@@ -150,6 +154,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		target === undefined ? undefined : deps.registry.resolve(target)?.provider.id;
 
 	const headless = (tab: TabId, model: DashboardModel, target?: string): string => {
+		if (tab === "tokens") return tokensText(deps.tokens?.());
 		const quotas = deps.quotas?.();
 		if (tab === "quotas" && quotas !== undefined)
 			return typeof quotas === "string"
@@ -206,6 +211,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 			const opened = current;
 			const result = await ctx.ui.custom<DashboardResult>((tui, theme, keys, done) => {
 				const views = staticViews(dashboardModel(deps));
+				views.tokens = (host) => new TokensView(host, deps.tokens?.());
 				const quotas = deps.quotas?.();
 				if (typeof quotas === "string")
 					views.quotas = (host) => new RowsView(host, { rows: [], empty: quotas });
@@ -356,4 +362,14 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 	};
 	pi.registerCommand("quotas", quotaCommand);
 	pi.registerCommand("quota", quotaCommand);
+	const tokenCommand: Parameters<ExtensionAPI["registerCommand"]>[1] = {
+		description: "Live session context token counts; opens Auth › Tokens",
+		getArgumentCompletions: () => null,
+		handler: async (args, ctx) => {
+			if (args.trim()) return report(ctx, "Usage: /tokens (or /auth tokens).", "error");
+			await open(ctx, "tokens");
+		},
+	};
+	pi.registerCommand("tokens", tokenCommand);
+	pi.registerCommand("token", tokenCommand);
 }

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { KeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { Registry } from "../../src/core/registry/index.ts";
 import {
 	type AuthCommandDeps,
@@ -8,7 +9,9 @@ import {
 	registerAuthCommands,
 } from "../../src/ui/commands/index.ts";
 
+import type { AuthDashboard } from "../../src/ui/dashboard/index.ts";
 import type { DashboardResult } from "../../src/ui/dashboard/view.ts";
+import type { PanelHost, PanelTheme } from "../../src/ui/frame/index.ts";
 
 function rig(
 	mode: "tui" | "rpc",
@@ -17,6 +20,7 @@ function rig(
 	hasUI = true,
 ) {
 	let panels = 0;
+	const rendered: string[][] = [];
 	const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 	const notes: string[] = [];
 	const notices: [string, string | undefined][] = [];
@@ -46,8 +50,27 @@ function rig(
 		ui: {
 			notify: (text: string, tone?: string) => notices.push([text, tone]),
 			select: async () => "Spend 1 credit now (cannot be undone)",
-			custom: async () => {
+			custom: async (
+				factory: (
+					host: PanelHost,
+					theme: PanelTheme,
+					keys: KeybindingsManager,
+					done: (result: DashboardResult) => void,
+				) => AuthDashboard,
+			) => {
 				panels++;
+				const component = await factory(
+					{ terminal: { rows: 40 }, requestRender: () => {} },
+					{
+						fg: (_color: string, text: string) => text,
+						bg: (_color: string, text: string) => text,
+						bold: (text: string) => text,
+					},
+					new KeybindingsManager(TUI_KEYBINDINGS),
+					() => {},
+				);
+				rendered.push(component.render(140));
+				component.dispose?.();
 				return results.shift();
 			},
 		},
@@ -57,10 +80,33 @@ function rig(
 		if (!handler) throw new Error(`/${name} is not registered`);
 		return handler(args, ctx);
 	};
-	return { run, notes, notices, commands, names: [...commands.keys()], panels: () => panels };
+	return {
+		run,
+		notes,
+		notices,
+		commands,
+		rendered,
+		names: [...commands.keys()],
+		panels: () => panels,
+	};
 }
 
 describe("ui/commands", () => {
+	test("tokens opens its dashboard tab, aliases share handlers, and headless counts are text", async () => {
+		const tui = rig("tui");
+		await tui.run("tokens");
+		expect(tui.rendered[0]?.join("\n")).toContain("▸Tokens");
+		expect(tui.commands.get("token")).toBe(tui.commands.get("tokens"));
+		expect(tui.commands.get("tokens")?.getArgumentCompletions?.("")).toBeNull();
+		const rpc = rig("rpc");
+		await rpc.run("tokens");
+		expect(rpc.notices[0]?.[0]).toBe("Auth › Tokens\n  Token tracker unavailable in this session.");
+		await rpc.run("tokens", "unexpected");
+		expect(rpc.notices.at(-1)).toEqual(["Usage: /tokens (or /auth tokens).", "error"]);
+		const print = rig("rpc", {}, [], false);
+		await print.run("tokens");
+		expect(print.notes[0]).toStartWith("Auth › Tokens");
+	});
 	test("reset resolves aliases and defaults, rejects unknown providers, and reopens after panel reset", async () => {
 		const consumed: [string, string, string | undefined][] = [];
 		const quotas: ReturnType<NonNullable<AuthCommandDeps["quotas"]>> = {
@@ -284,7 +330,7 @@ describe("ui/commands", () => {
 
 	test("without a TUI the dashboard renders as text and opens the named section", async () => {
 		const rpc = rig("rpc");
-		expect(rpc.names).toEqual(["auth", "quotas", "quota"]);
+		expect(rpc.names).toEqual(["auth", "quotas", "quota", "tokens", "token"]);
 		await rpc.run("auth");
 		expect(rpc.notices[0]).toEqual([
 			"Auth › Providers\n  Claude: not signed in · /login claude",

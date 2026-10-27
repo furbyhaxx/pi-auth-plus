@@ -29,7 +29,7 @@ export const TABS: readonly TabSpec[] = [
 		id: "tokens",
 		label: "Tokens",
 		aliases: ["token", "count", "counts"],
-		description: "Token counts per provider.",
+		description: "Live session context counts and sources.",
 	},
 	{
 		id: "settings",
@@ -129,7 +129,7 @@ export function tabContent(tab: TabId, model: DashboardModel): TabContent {
 		case "quotas":
 			return { rows: [], empty: "Quota monitoring is not available yet." };
 		case "tokens":
-			return { rows: [], empty: "Token counting is not available yet." };
+			return { rows: [], empty: "Token tracker unavailable in this session." };
 		case "settings":
 			return { rows: [], empty: "No settings yet." };
 	}

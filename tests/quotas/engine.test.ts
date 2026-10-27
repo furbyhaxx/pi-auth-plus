@@ -472,6 +472,34 @@ test("cache parsing drops malformed fields without turning unknown into zero", (
 	).toBeUndefined();
 });
 
+test("a source's own auth resolver replaces the lookup by provider id", async () => {
+	const seen: unknown[] = [];
+	const { engine } = setup(undefined, [
+		{
+			id: "borrowed",
+			label: "Borrowed",
+			aliases: [],
+			quota: {
+				kind: "windows",
+				shortLabel: "b",
+				parserVersion: 1,
+				auth: async (lookup) => {
+					const other = await lookup("pi-provider");
+					return other && { token: `via-${other.token}`, extra: {} };
+				},
+				fetch: async (ctx) => {
+					seen.push(await ctx.auth());
+					return { ...snapshot(), provider: "borrowed" };
+				},
+			},
+		},
+	]);
+	await engine.start();
+	seen.length = 0;
+	await engine.refresh("borrowed", { force: true });
+	expect(seen).toEqual([{ token: "via-test-token", extra: {} }]);
+});
+
 test("quota auth supports header-only bearers and prefers Pi's API key", async () => {
 	expect(
 		await quotaAuthFor("fake", {

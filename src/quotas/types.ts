@@ -127,4 +127,12 @@ export interface QuotaSource {
 		now: number,
 	) => ProviderQuotaSnapshot | undefined;
 	readonly resets?: QuotaResets;
+	/**
+	 * Resolves credentials that do not live under this provider's own Pi id; `lookup` reads any
+	 * Pi provider's auth. Without it the engine looks up the provider's own id.
+	 */
+	readonly auth?: (
+		lookup: (piProviderId: string) => Promise<QuotaAuth | undefined>,
+		signal: AbortSignal,
+	) => Promise<QuotaAuth | undefined>;
 }

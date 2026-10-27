@@ -165,7 +165,10 @@ export class QuotaEngine {
 
 	private context(id: string, signal: AbortSignal): QuotaFetchContext {
 		return {
-			auth: () => this.options.authFor(id),
+			auth: () => {
+				const resolve = this.options.registry.byId(id)?.provider.quota?.auth;
+				return resolve ? resolve(this.options.authFor, signal) : this.options.authFor(id);
+			},
 			fetch: this.options.fetch,
 			signal,
 			now: this.options.now,

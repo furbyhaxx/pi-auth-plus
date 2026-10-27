@@ -5,9 +5,9 @@ document:
   title: "agy 1.4.8 integration notes for pi-auth-plus"
   description: "Reimplementation contract per subsystem, required deviations, risk table, observed-versus-read split and open questions"
   status: "published"
-  revision: 2
+  revision: 3
   created_at: "2026-10-27T09:59:34+01:00"
-  updated_at: "2026-10-27T10:18:00+01:00"
+  updated_at: "2026-10-27T10:26:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -17,6 +17,9 @@ document:
     - revision: 2
       at: "2026-10-27T10:18:00+01:00"
       note: "Folded in the live captures: two limits per group, rolling resets, untouched buckets re-anchoring, cost-weighted fractions, and the revised observed-versus-read split. Open questions 1 closed, 2 and 3 narrowed."
+    - revision: 3
+      at: "2026-10-27T10:26:00+01:00"
+      note: "Added the observed inference request head (seven headers, Authorization Bearer) and the Clearcut telemetry hop. Open question 3 closed, 2 narrowed to the opt-out switch."
 ---
 
 # 08 — Integration notes for pi-auth-plus
@@ -113,6 +116,19 @@ Responses are SSE, decoded by a line scanner (`deserializeStreamResponse`, eight
 instantiations) and, on the Anthropic path, by `(*StreamDecoder).DecodeEvent` plus four
 content-block processors (text, thinking, tool, …).
 
+**The observed request head is seven headers**, no more:
+
+```
+POST /v1internal:streamGenerateContent?alt=sse
+Host · User-Agent (the product UA above) · Transfer-Encoding: chunked
+Authorization: Bearer <oauth token> · Content-Type: application/json · Accept-Encoding: gzip
+```
+
+`Authorization` is a plain `Bearer` OAuth token — observed, not inferred. None of the
+`x-goog-*` headers that the header-construction functions suggest are actually sent on this
+path, so a port that copies the code's full list differs from the real client. Body is chunked
+JSON; `?alt=sse` selects streaming. See 04-api §8.1.
+
 Every model call carries `exa.codeium_common_pb.Metadata` — the attribution payload
 (`ide_name`, `extension_version`, `session_id`, `device_fingerprint`, `user_tier_id`,
 `product_name`, `environment_type`, …). That is the privacy-relevant part of the wire
@@ -179,28 +195,25 @@ Honest split, because it changes how much weight each claim deserves.
   conversation DBs, updater lock/status, `last_check.timestamp`.
 - klog call-site inventory (107 distinct sites, `evidence/klog-sites.txt`), including the
   child-language-server process and its two loopback ports.
-- **Request and response wire data** for five `v1internal` calls, captured from the CLI's own
-  `-v=5` logging (`evidence/live-2026-10-27/`): the exact `User-Agent`, the full response
-  header set, and the complete bodies of `loadCodeAssist`, `fetchUserInfo`,
-  `fetchAvailableModels` (26 models, 201 KB) and `retrieveUserQuotaSummary` (5 buckets,
-  3 groups). No TLS interception and no proxy were needed — `http_helpers.go:369/375/381`
-  log the UA, the response headers and the response body at that verbosity.
+- **One full agent turn**, behind a local TLS-terminating proxy, which captured every request
+  head on the wire: the exact inference request (`POST /v1internal:streamGenerateContent?alt=sse`,
+  seven headers, `Authorization: Bearer`), the three Clearcut batches to `play.googleapis.com/log`
+  (~117 KB, same token, default Go UA), `aicode.googleapis.com/v1alpha:fetchConfig`, and
+  `www.googleapis.com/oauth2/v2/userinfo` (`evidence/live-2026-10-27/`).
 
 **Read from the binary only**
 
-- The inference envelope: converter routing, streaming decode, request-body assembly. All
-  captured traffic is `v1internal` metadata; no model call was made.
-- The outbound header set of an *inference* call, and `Authorization` specifically — the log
-  site prints the UA only.
+- The inference envelope's *contents*: converter routing, streaming decode, request-body
+  assembly. The request **heads** are observed; the bodies are not.
 - OAuth client/secret pairing and scope list (instruction immediates — strong, but static).
 - Quota *semantics* behind the observed values: the proto schema, the fields the panel reads,
   the throttle constants, `window` being a free-form string.
 - Permission presets, sandbox behaviour, PolicyGuardian, battle mode.
 
-So §1.3 is now behaviourally verified end to end (real payloads, real reset times), §1.2 is
-behaviourally verified for the catalogue and still structural for the request it generates,
-and §1.4 remains structural. No inference request was issued and no quota endpoint was polled
-beyond what the CLI itself does on every run: the account is untouched.
+So §1.3 and §1.4's header surface are behaviourally verified, §1.2 is behaviourally verified
+for the catalogue and still structural for the request it generates, and the request *bodies*
+remain structural. Exactly one model turn was spent, on the cheapest offerable model, with a
+prompt that could not trigger a tool call.
 
 ## 5. Consolidated open questions
 
@@ -209,8 +222,8 @@ Ordered by how much they block the port.
 | # | question | blocks | owner doc |
 |---|---|---|---|
 | 1 | ~~Is `reset_time` fixed or rolling?~~ **Resolved: rolling.** Per-bucket, anchored to each window's first use; the two 5-hour buckets sit 4 s apart, nothing aligns to a clock boundary | — | 05-quota §4.1 |
-| 2 | Does `data_collection_optin=false` also stop operational telemetry (`recordClientEvent`, Clearcut)? A `models` run contacts nothing but `daily-cloudcode-pa`, but that is not an agent turn | privacy statement | 04-api §11.6 |
-| 3 | Outbound header set on an **inference** call. `User-Agent` and the response headers are now observed for metadata calls; the inference request and `Authorization` are still unobserved | wire parity | 04-api §11.5 |
+| 2 | Does `data_collection_optin=false` suppress the Clearcut hop? The hop itself is now proven (a turn posts three batches, ~117 KB, to `play.googleapis.com/log` with the user's token); only the switch is untested, because that needs an account-level setting change | privacy statement | 04-api §11.6 |
+| 3 | ~~Outbound header set on an inference call~~ **Resolved.** Seven headers, `Authorization: Bearer`, and none of the `x-goog-*` set the code suggested | — | 04-api §8.1 |
 | 4 | `daily-` vs `cloudcode-pa` discriminator | correct host | 04-api §11.1 |
 | 5 | The value table behind `thinkingLevelToEffort` | `--effort` mapping | 04-api §7.3 |
 | 6 | Which client id the WIF/enterprise path reuses | enterprise login | 02-auth §11.4 |
@@ -219,9 +232,9 @@ Ordered by how much they block the port.
 | 9 | Trusted-CLI escape list in the sandbox | security review only | 06-mechanics §8.8 |
 | 10 | `step_format` enum values | nothing for us (we do not read their DBs) | 06-mechanics §8.1 |
 
-Items 2–3 need one `agy -p` turn. Item 1 is closed, and it closed for free: the CLI logs its own
-responses at `-v=5`, so no proxy was needed and no extra request was issued beyond the CLI's
-normal startup calls.
+Items 2–3: item 3 is closed and item 2 is narrowed to the switch alone. Both came from a single
+`agy -p` turn behind a local TLS proxy; the CLI's own `-v=5` logging covered the metadata calls
+for free, so only one model turn was ever needed.
 
 ## 6. Suggested next steps
 

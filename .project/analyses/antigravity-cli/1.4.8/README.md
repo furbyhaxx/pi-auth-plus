@@ -5,9 +5,9 @@ document:
   title: "agy 1.4.8 reverse-engineering dossier"
   description: "Index, ten headline findings, reproduction instructions and method limits for the 1.4.8 analysis"
   status: "published"
-  revision: 2
+  revision: 3
   created_at: "2026-10-27T09:59:34+01:00"
-  updated_at: "2026-10-27T10:22:00+01:00"
+  updated_at: "2026-10-27T10:30:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -17,6 +17,9 @@ document:
     - revision: 2
       at: "2026-10-27T10:22:00+01:00"
       note: "Rewrote the quota, reset and credit findings around the live wire capture, and replaced the restraint note with what was actually issued."
+    - revision: 3
+      at: "2026-10-27T10:30:00+01:00"
+      note: "Recorded the single model turn and the proxy method that exposed the inference request head and the Clearcut hop."
 ---
 
 # agy 1.4.8 — reverse-engineering dossier
@@ -131,15 +134,19 @@ service/method pairs across 44 services).
 ## Deliberate restraint
 
 The account owner's only constraint was not to get the account blocked. So: no repeated auth
-attempts, no inference turn, no polling loop. The only requests issued were the ones the CLI
-performs on every ordinary run (`loadCodeAssist`, `fetchUserInfo`, `fetchAvailableModels`,
-`fetchAdminControls`, `retrieveUserQuotaSummary`), plus a single repeat of
-`fetchAvailableModels` because the CLI's own log interleaved that 201 KB body and truncated
-it. Read-only towards `~/.gemini/antigravity-cli/` and `~/.config/antigravity/` (SQLite
-inspected from copies).
+attempts, no polling loop, and exactly **one** model turn — the cheapest offerable model, with a
+prompt that cannot trigger a tool call. Everything else was the CLI's own startup traffic.
+Read-only towards `~/.gemini/antigravity-cli/` and `~/.config/antigravity/` (SQLite inspected
+from copies).
 
-A method finding worth keeping: `agy -v=5` logs the outbound `User-Agent`, the full response
-header set **and** the full response body (`http_helpers.go:369/375/381`), so no TLS proxy is
-needed to read this provider's wire format. The one caveat is that concurrent goroutines
-interleave those bodies mid-line, which truncates payloads above roughly 15 KB — re-read large
-ones through the endpoint rather than the log.
+Two method findings worth keeping:
+
+1. **`agy -v=5` logs the outbound `User-Agent`, the full response header set and the full
+   response body** (`http_helpers.go:369/375/381`), so the metadata wire format needs no proxy.
+   Caveat: concurrent goroutines interleave those bodies mid-line and truncate payloads above
+   roughly 15 KB, so re-read large ones through the endpoint.
+2. **Request heads need a proxy, because the CLI logs only the UA.** A ~150-line Python
+   TLS-terminating `CONNECT` proxy plus an `openssl` CA, with `HTTPS_PROXY` and `SSL_CERT_FILE`
+   set for the child, exposed the whole outbound surface in one turn. Go honours both variables,
+   and the loopback language-server hop is exempt from proxying, which keeps that boundary
+   untouched.

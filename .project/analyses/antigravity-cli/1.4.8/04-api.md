@@ -5,9 +5,9 @@ document:
   title: "agy 1.4.8 network API surface and inference plumbing"
   description: "Endpoint taxonomy, transport, base-URL selection, request envelope, multi-vendor routing, telemetry and feature flags"
   status: "published"
-  revision: 3
+  revision: 4
   created_at: "2026-10-27T09:47:48+01:00"
-  updated_at: "2026-10-27T10:16:00+01:00"
+  updated_at: "2026-10-27T10:24:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -20,6 +20,9 @@ document:
     - revision: 3
       at: "2026-10-27T10:16:00+01:00"
       note: "Added the observed live header capture: exact User-Agent with its five parameters (including the release-side cl that differs from the build), the real response header set, the confirmation that the wire is protojson over an ESF front end, and the finding that no quota or rate-limit headers exist."
+    - revision: 4
+      at: "2026-10-27T10:24:00+01:00"
+      note: "Observed the inference call behind a local TLS proxy: Authorization is Bearer, the complete request head is seven headers, and every x-goog-* header the code suggested is absent. Also established that a turn sends Clearcut to play.googleapis.com and that aicode.googleapis.com serves fetchConfig. Closes open questions 5 and most of 2."
 ---
 
 # agy 1.4.8 — network API surface and model-inference plumbing
@@ -632,6 +635,83 @@ Two things a reimplementation must not assume:
 front end that offers h3. No gRPC, no Connect for this hop — the Connect/gRPC layer is the
 *loopback* boundary to the language server, not the Google boundary.
 
+#### The inference call — observed, and smaller than the code implied
+
+One `agy -p 'Reply with exactly: OK' --model gemini-3.8-flash-low` turn, run behind a local
+TLS-terminating proxy so the request heads could be read. Verbatim (credential masked) in
+[`evidence/live-2026-10-27/inference-request-headers.txt`](evidence/live-2026-10-27/inference-request-headers.txt):
+
+```
+POST /v1internal:streamGenerateContent?alt=sse HTTP/1.1
+Host: daily-cloudcode-pa.googleapis.com
+User-Agent: antigravity/cli/1.4.8 (aidev_client; os_type=linux; arch=amd64; cl=1007749967; auth_method=consumer)
+Transfer-Encoding: chunked
+Authorization: Bearer <redacted, 265 chars>
+Content-Type: application/json
+Accept-Encoding: gzip
+```
+
+That is the **complete** set — seven headers and nothing else. `Authorization` is `Bearer`, a
+plain OAuth access token, not a signed request and not an `x-goog-*` credential header. The
+265-character value is `Bearer ` plus a 258-character token, consistent with a Google `ya29.`
+access token; the value itself is deliberately not recorded.
+
+Equally important is what is **absent**, because the §8.1 list above was assembled from
+`setHeaders` and its siblings and therefore overstates the wire:
+
+| header from the code | sent on inference? |
+|---|---|
+| `X-Goog-Request-Reason` | **no** |
+| `x-cloudaicompanion-trace-id` | **no** (response-only; the request carries no trace header) |
+| `x-goog-sherlog-Link` | **no** |
+| `X-Goog-User-Project` | **no** |
+| `goog-originating-service-id` | **no** |
+| `X-Vertex-AI-LLM-Shared-Request-Type` | **no** |
+| `X-Aicode-Request-Id` | **no** |
+
+So those headers exist in code paths that this account and this model do not take. A
+reimplementation that copies the whole list sends headers the real client never sends — the
+kind of difference that is harmless until an upstream starts caring. Send the seven above.
+
+The body is **chunked JSON**: `Transfer-Encoding: chunked` with no `Content-Length`, because
+the request envelope is streamed rather than buffered. `?alt=sse` on the URL, not a header, is
+what selects server-sent events.
+
+#### What else a turn contacts
+
+Same capture, same turn — the complete outbound surface, which is broader than a models
+listing:
+
+| host | request | auth |
+|---|---|---|
+| `daily-cloudcode-pa.googleapis.com` | `:loadCodeAssist`, `:fetchUserInfo`, `:fetchAvailableModels`, `:retrieveUserQuotaSummary`, `:writeTrajectoryAcls`, `:streamGenerateContent?alt=sse` | `Bearer` |
+| `aicode.googleapis.com` | `GET /v1alpha:fetchConfig` | `Bearer` |
+| `www.googleapis.com` | `GET /oauth2/v2/userinfo` | `Bearer` |
+| `play.googleapis.com` | `POST /log` ×3 (36,240 / 29,415 / 51,014 B) | `Bearer` |
+
+The last row is the telemetry answer: **an agent turn does send Clearcut traffic** — three
+batches of 36,240 / 29,415 / 51,014 bytes, ~117 KB in total for a one-word prompt — to
+`play.googleapis.com/log`, and they carry the user's access token, not an anonymous or API-key
+identity. Its request is visibly unscrubbed:
+
+```
+POST /log HTTP/1.1
+Host: play.googleapis.com
+User-Agent: Go-http-client/1.1          ← default Go UA, no product string
+Content-Length: 36240
+Authorization: Bearer <redacted>
+Content-Type: application/octet-stream  ← binary Clearcut batch
+Accept-Encoding: gzip
+```
+
+The missing product UA is the tell that this hop does **not** go through the logging
+`http_helpers` client: it uses a bare `http.Client`. A `data_collection_optin=false` account
+would presumably suppress it, but that is untested here and is not something to infer from
+this capture (see §11.6).
+
+`aicode.googleapis.com` being live also resolves §11.2 for the consumer path: the AICode host
+serves `fetchConfig` in 1.4.8, while prompt inference stays on `daily-cloudcode-pa`.
+
 OAuth scopes in play: `aicode`, `openid`, `cloud-platform`, `userinfo.email`,
 `userinfo.profile`, `experimentsandconfigs`, `cclog` (from `getScopesByAuthMethod`).
 
@@ -846,6 +926,10 @@ from nowhere and defaults apply.
    proves it is **off** in 1.4.8 on the Cloud Code management path. Whether the consumer
    inference path reaches AICode via this rewrite or via
    `StreamGenerateContentFromAICode`'s own `getAICodeURL()` is also open — both exist.
+   **Partly resolved:** a live turn shows `aicode.googleapis.com` is used for
+   `GET /v1alpha:fetchConfig`, while prompt inference goes to
+   `daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent`. So the rewrite is ON
+   for config and OFF for inference in 1.4.8 on the consumer path.
 3. **SeatManagementService routing.** `GetUserStatus`, `GetPlanStatus`, `MigrateApiKey`,
    `RegisterGdmUser`, `SelfAssignLicense` exist as `(*CodeAssistClient)` methods but I did not
    recover the route strings they build (the `/v1internal:` table has no seat-management
@@ -853,23 +937,25 @@ from nowhere and defaults apply.
 4. **Keepalive and retry constants.** `modelapiccpa.(*keepAlives)` intervals and
    `continuation.SleepForMidStreamRetry` backoff are immediates inside short BOLT fragments;
    not decoded.
-5. **Raw header capture — mostly closed (§8.1 "Observed live").** `agy -v=5` dumps the
-   outbound UA, response headers and response body itself, so no TLS proxy was needed. What is
-   now observed: the exact `User-Agent` with its five parameters, the full response header set,
-   `X-Cloudaicompanion-Trace-Id` echoing the minted trace, `Server: ESF`, and the absence of any
-   quota/rate-limit header. What is still **not** observed: the header set of an *inference*
-   call (all captures are `v1internal` metadata calls), and `Authorization` specifically — the
-   `Bearer` scheme remains derived from the token source, since `http_helpers.go:369` logs the
-   UA only, never the auth header.
-6. **Telemetry kill switch.** `data_collection_optin` (§9.4) is a real opt-out, but whether it
-   also stops the operational channels (`recordClientEvent`, `recordTrajectoryAnalytics`,
-   Clearcut via `/clearcut_proxy`) is not established, and no user-reachable route to
-   `DummyTelemetryClient` was found. What `/clearcut_proxy` forwards and with which auth is
-   also unknown. One new datum: a full `agy models` run (`-v=5`) contacted **only**
-   `daily-cloudcode-pa.googleapis.com` — no Clearcut, no Sentry, no Unleash, no
-   `play.googleapis.com`. That is a single non-interactive subcommand, so it establishes
-   "telemetry does not fire for a models listing" and nothing more; a `-p` turn is still
-   needed to say anything about an agent run. The open question survives.
+5. **Raw header capture — closed (§8.1 "The inference call").** Observed by running one
+   `agy -p` turn behind a local TLS-terminating proxy: the complete inference request head is
+   `Host`, `User-Agent`, `Transfer-Encoding: chunked`, `Authorization: Bearer <oauth token>`,
+   `Content-Type: application/json`, `Accept-Encoding: gzip` — and nothing else.
+   `Authorization` is `Bearer`, observed rather than derived. Every `x-goog-*` header the code
+   suggested (`X-Goog-Request-Reason`, `x-goog-sherlog-Link`, `X-Goog-User-Project`,
+   `goog-originating-service-id`, `X-Vertex-AI-LLM-Shared-Request-Type`, `X-Aicode-Request-Id`)
+   was **absent**, and the trace id is response-only. Copy the seven observed headers, not the
+   code's full list.
+6. **Telemetry kill switch — half closed.** A live agent turn **does** send Clearcut:
+   three `POST https://play.googleapis.com/log` batches (36,240 / 29,415 / 51,014 bytes,
+   ~117 KB for a one-word prompt) of `application/octet-stream`, with
+   `User-Agent: Go-http-client/1.1` and the user's `Bearer` token. So operational telemetry
+   fires on a turn and is tied to the account identity, unlike the product-UA'd
+   `v1internal` calls. What remains open is only the switch itself: whether
+   `data_collection_optin = false` suppresses this hop. Testing that needs an account-level
+   setting change, which was not made, so the answer stays unknown rather than inferred. What
+   `/clearcut_proxy` forwards is also still unrecovered; note that this capture shows the
+   client posting to `play.googleapis.com` directly.
 7. **`SENTRY_DSN`.** No DSN is embedded; the only activation is the env var. Whether the
    shipped `agy install` wrapper or the updater sets it was not checked.
 8. **`ApiService` (boq) and the mesh/proxy routes** (`connectInstanceV2`, `proxyCommand`,

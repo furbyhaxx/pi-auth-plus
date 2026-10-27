@@ -1,9 +1,8 @@
 /** Removes harness fingerprints and supplies the Claude Code system identity. */
 import type { TextRule } from "../../core/config/fields.ts";
 
-/** Anthropic's Claude Agent SDK identity, without cache-control metadata. */
-export const CLAUDE_CODE_IDENTITY =
-	"You are a Claude agent, built on Anthropic's Claude Agent SDK.";
+/** The interactive Claude Code CLI's identity line. */
+export const CLAUDE_CODE_IDENTITY = "You are Claude Code, Anthropic's official CLI for Claude.";
 
 const IDENTITY_PREFIXES = [
 	"You are OpenCode",
@@ -63,7 +62,10 @@ function systemBlock(value: unknown, rules: readonly TextRule[]): SystemBlock {
 	return { type: "text", text: sanitizeSystemText(String(value), rules) };
 }
 
-/** Normalizes system formats and prepends the identity once, preserving block metadata. */
+/**
+ * Normalizes system formats and prepends the identity once, preserving block metadata. Like the
+ * CLI, the identity block is cached; it reuses the first cache_control Pi set, if any.
+ */
 export function withClaudeCodeIdentity(system: unknown, rules: readonly TextRule[]): SystemBlock[] {
 	const identity: SystemBlock = { type: "text", text: CLAUDE_CODE_IDENTITY };
 	if (system == null) return [identity];
@@ -84,5 +86,9 @@ export function withClaudeCodeIdentity(system: unknown, rules: readonly TextRule
 			})
 		: [systemBlock(system, rules)];
 	if (blocks[0]?.text === CLAUDE_CODE_IDENTITY) return blocks;
+	const cacheControl = blocks.find((block) => block["cache_control"] !== undefined)?.[
+		"cache_control"
+	];
+	if (cacheControl !== undefined) identity["cache_control"] = cacheControl;
 	return [identity, ...blocks];
 }

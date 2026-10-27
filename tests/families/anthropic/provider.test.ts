@@ -138,7 +138,7 @@ describe("families/anthropic/provider", () => {
 		expect(request?.headers.get("x-app")).toBeNull();
 		expect(request?.headers.get("user-agent") ?? "").not.toContain("claude-cli/");
 		expect(request?.body.tools?.[0]?.name).toBe("bash");
-		expect(JSON.stringify(request?.body.system)).not.toContain("Claude Agent SDK");
+		expect(JSON.stringify(request?.body.system)).not.toContain(CLAUDE_CODE_IDENTITY);
 		expect(message.usage.cost.total).toBeGreaterThan(0);
 	});
 

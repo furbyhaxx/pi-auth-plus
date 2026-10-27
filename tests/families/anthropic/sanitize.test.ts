@@ -53,7 +53,10 @@ describe("families/anthropic/sanitize", () => {
 			expect(withClaudeCodeIdentity(system, [])).toEqual([identity]);
 		}
 		const cache_control = { type: "ephemeral" };
-		const expected = [identity, { type: "text", text: "Keep", cache_control }];
+		const expected = [
+			{ ...identity, cache_control },
+			{ type: "text", text: "Keep", cache_control },
+		];
 		expect(withClaudeCodeIdentity({ text: "Keep", cache_control }, [])).toEqual(expected);
 		expect(withClaudeCodeIdentity(expected, [])).toEqual(expected);
 		expect(withClaudeCodeIdentity(["Keep", 42, null, { type: "image" }], [])).toEqual([

@@ -1,0 +1,30 @@
+
+ Warning: Unknown argument "antigravity/quota". Usage: /quota [provider-id | codex login | refresh | reset | line <pos> | settings]
+
+
+ uota claude
+
+
+ Thinking...
+
+ Checking what “Claude” refers to here I’ll inspect the current workspace and its project notes, then update the relevant Claude
+ integration or config.
+
+
+ ls /tmp/parity-cwd (limit 100)
+
+ Operation aborted
+
+
+
+ $ ...
+
+ Operation aborted
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: 29.35$ · deepseek: 20.44$ · codex: 64% (1r) · claude: 5h/6% 7d/57% · antigravity: gem/59% arg/35% · synthetic: 66% · grok: 0%
+/tmp/parity-cwd
+$0.000 (sub) 4.8%/372k                                                                                           (openai) gpt-6-luna • xhigh

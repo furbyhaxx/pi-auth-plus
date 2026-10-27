@@ -1,0 +1,30 @@
+
+ Operation aborted
+
+
+── Provider Quotas   Quotas  · Settings ────────────────── below-editor-first ──
+ ❯ Claude Code (cl) · 5s ago
+     5h session             ▕█░░░░░░░░░░░▏   6% used · ↻ 4h 17m
+     7d weekly              ▕███████░░░░░▏  57% used · ↻ 4d 2h
+     7d Fable               ▕█░░░░░░░░░░░▏  12% used · ↻ 4d 2h
+     $250 cap               ▕████████████▏ 100% used ($250.22 / $250) · ↻ 8d 16h
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+ ↑↓ provider · r/R refresh · a show all · p position · l codex login · Tab/s se…
+or: 29.35$ · ds: 20.44$ · cox: 64% (1r) · cl: 5h/6% 7d/57% · ag: gem/59% arg/35%
+syn: 66% · xai: 0%
+/tmp/parity-cwd
+$0.000 (sub) 4.8%/372k                               (openai) gpt-6-luna • xhigh

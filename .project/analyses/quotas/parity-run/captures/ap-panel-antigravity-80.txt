@@ -1,0 +1,30 @@
+ - git.viitrium.io/furbyhaxx/pi-workbench
+ - github.com/furbyhaxx/pi-auth-plus
+────────────────────────────────────────────────────────────────────────────────
+
+── Auth › Quotas ───────────────────────────────────────── below-editor-first ──
+  Providers  ▸Quotas   Tokens   Settings
+ ❯ Antigravity (ag) · 54s ago
+     Gemini Models (7d)  ▕███████░░░░░▏ 59% used · ↻ 21h 54m
+     0.0%/h (window) · 0.0%/h (1h) · 0.0%/h (24h)
+     Gemini Models (5h)  ▕░░░░░░░░░░░░▏ 0% used · ↻ 4h 59m
+     Claude and GP… (7d) ▕█░░░░░░░░░░░▏ 6% used · ↻ 3d 0h
+     0.0%/h (window) · 0.0%/h (1h) · 0.0%/h (24h)
+     Claude and GP… (5h) ▕░░░░░░░░░░░░▏ 0% used · ↻ 4h 59m
+     Gemini 4 Argon (7d) ▕████░░░░░░░░▏ 35% used · ↻ 6d 19h
+     0.0%/h (window) · 0.0%/h (1h) · 0.0%/h (24h)
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+ Usage windows and credits per provider.
+ tab switch · ↑↓ provider · r/R refresh · a show all · p position · esc close
+────────────────────────────────────────────────────────────────────────────────
+or: 29.35$ · ds: 20.42$ · oai: login · cl: 5h/6% 7d/58% · ag: gem/59% arg/35%
+syn: 66% · xai: 0%
+/tmp/parity-cwd
+$0.000 (sub) 0.0%/372k                               (openai) gpt-6-luna • xhigh

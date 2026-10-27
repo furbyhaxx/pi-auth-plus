@@ -1,0 +1,1 @@
+openai: needs-auth: openai: GET https://chatgpt.com/backend-api/wham/usage rejected authentication (HTTP 401); run /login openai with a ChatGPT login; data from 2026-10-27 16:36:15 +01:00

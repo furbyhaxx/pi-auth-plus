@@ -1,0 +1,30 @@
+ codex login | refresh | reset | line <pos> | settings]
+
+
+ uota claude
+
+
+ Thinking...
+
+ Checking what “Claude” refers to here I’ll inspect the current workspace and
+ its project notes, then update the relevant Claude integration or config.
+
+
+ ls /tmp/parity-cwd (limit 100)
+
+ Operation aborted
+
+
+
+ $ ...
+
+ Operation aborted
+
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+or: 29.35$ · ds: 20.44$ · cox: 64% (1r) · cl: 5h/6% 7d/57% · ag: gem/59% arg/35%
+syn: 66% · xai: 0%
+/tmp/parity-cwd
+$0.000 (sub) 4.8%/372k                               (openai) gpt-6-luna • xhigh

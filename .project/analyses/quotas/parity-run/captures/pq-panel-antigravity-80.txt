@@ -1,0 +1,30 @@
+
+ Warning: Unknown argument "antigravity/quota". Usage: /quota [provider-id |
+ codex login | refresh | reset | line <pos> | settings]
+
+── Provider Quotas   Quotas  · Settings ────────────────── below-editor-first ──
+ ❯ Google Antigravity (ag) [aicode-consumers] · 6s ago
+     Gemini Models (7d)     ▕███████░░░░░▏  59% used · ↻ 21h 56m
+     Gemini Models (5h)     ▕░░░░░░░░░░░░▏   0% used · ↻ 4h 59m
+     Claude and GPT models… ▕█░░░░░░░░░░░▏   6% used · ↻ 3d 0h
+     Claude and GPT models… ▕░░░░░░░░░░░░▏   0% used · ↻ 4h 59m
+     Gemini 4 Argon (7d)    ▕████░░░░░░░░▏  35% used · ↻ 6d 19h
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+ ↑↓ provider · r/R refresh · a show all · p position · l codex login · Tab/s se…
+or: 29.35$ · ds: 20.45$ · cox: 64% (1r) · cl: 5h/5% 7d/57% · ag: gem/59% arg/35%
+syn: 66% · xai: 0%
+/tmp/parity-cwd
+$0.000 (sub) 0.0%/372k                               (openai) gpt-6-luna • xhigh

@@ -1,0 +1,30 @@
+ - git.viitrium.io/furbyhaxx/pi-workbench
+ - github.com/furbyhaxx/pi-auth-plus
+────────────────────────────────────────────────────────────────────────────────
+
+── Auth › Quotas ───────────────────────────────────────── below-editor-first ──
+  Providers  ▸Quotas   Tokens   Settings
+ ❯ Claude (cl) · 2m ago
+     5h session          ▕█░░░░░░░░░░░▏ 6% used · ↻ 4h 16m
+     10.6%/h (window) · 10.6%/h (1h) · 10.6%/h (24h) · resets first
+     7d weekly           ▕███████░░░░░▏ 58% used · ↻ 4d 2h
+     3.2%/h (window) · 2.4%/h (1h) · 3.2%/h (24h) · empty in 12h 58m
+     7d Fable            ▕██░░░░░░░░░░▏ 18% used · ↻ 4d 2h
+     1.3%/h (window) · 1.2%/h (1h) · 1.3%/h (24h) · empty in 2d 15h
+     $250 cap            ▕████████████▏ 100% used ($250.22 / $250) · ↻ 8d 16h
+     0.0%/h (window) · 0.0%/h (1h) · 0.0%/h (24h)
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+ Usage windows and credits per provider.
+ tab switch · ↑↓ provider · r/R refresh · a show all · p position · esc close
+────────────────────────────────────────────────────────────────────────────────
+or: 29.35$ · ds: 20.41$ · oai: login · cl: 5h/6% 7d/58% · ag: gem/59% arg/35%
+syn: 66% · xai: 0%
+/tmp/parity-cwd
+$0.000 (sub) 0.0%/372k                               (openai) gpt-6-luna • xhigh

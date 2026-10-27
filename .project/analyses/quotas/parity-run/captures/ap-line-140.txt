@@ -1,0 +1,30 @@
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use or extend Pi-Bolt.
+
+
+[Context]
+  ~/.pi/agent/APPEND_SYSTEM.md, ~/.pi/agent/AGENTS.md
+
+[Skills]
+  agents-md, ask-user, extending-pi-agent, models-dev, online-research, reddit, reddit-cli, reverse-engineer-anything, rust,
+rust-writing-examples, selecting-worker-model, systematic-debugging, toml, typescript
+
+[Extensions]
+  src
+
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf and restart tmux.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Package Updates Available
+ Package updates are available. Run pi-bolt update --extensions
+ Packages:
+ - git.viitrium.io/furbyhaxx/pi-workbench
+ - github.com/furbyhaxx/pi-auth-plus
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: 29.35$ · deepseek: 20.41$ · openai: login · claude: 5h/6% 7d/58% · antigravity: gem/59% arg/35% · synthetic: 66% · xai: 0%
+/tmp/parity-cwd
+$0.000 (sub) 0.0%/372k                                                                                           (openai) gpt-6-luna • xhigh

@@ -1,0 +1,489 @@
+{
+  "v": 1,
+  "generatedAt": 1793115391863,
+  "providers": [
+    {
+      "id": "synthetic",
+      "title": "Synthetic",
+      "short": "syn",
+      "state": "ok",
+      "windows": [
+        {
+          "id": "subscription",
+          "shortLabel": "sub",
+          "label": "Subscription requests",
+          "usedFraction": 0,
+          "valueText": "0/500 used",
+          "resetAtMs": 1793133375307,
+          "important": true,
+          "usedPercent": 0,
+          "remainingPercent": 100,
+          "resetAt": 1793133375307,
+          "resetInSec": 17983.444,
+          "drainage": {
+            "observedAt": 1793115375033
+          }
+        },
+        {
+          "id": "7d",
+          "shortLabel": "7d",
+          "label": "7d plan budget",
+          "usedFraction": 0.6626825327920614,
+          "valueText": "33.73% left",
+          "resetAtMs": 1793127088000,
+          "important": true,
+          "period": "7d",
+          "usedPercent": 66.26825327920614,
+          "remainingPercent": 33.731746720793865,
+          "resetAt": 1793127088000,
+          "resetInSec": 11696.137,
+          "drainage": {
+            "observedAt": 1793115375033,
+            "window": {
+              "perHour": 0.000029732757605697137,
+              "coverageSec": 324.602
+            },
+            "h1": {
+              "perHour": 0.000029732757605697137,
+              "coverageSec": 324.602
+            },
+            "h24": {
+              "perHour": 0.000029732757605697137,
+              "coverageSec": 324.602
+            },
+            "resetsBeforeExhaustion": true
+          }
+        },
+        {
+          "id": "search-1h",
+          "shortLabel": "srch",
+          "label": "1h search requests",
+          "usedFraction": 0,
+          "valueText": "0/250 used",
+          "resetAtMs": 1793118975308,
+          "important": false,
+          "period": "1h",
+          "scope": "search",
+          "usedPercent": 0,
+          "remainingPercent": 100,
+          "resetAt": 1793118975308,
+          "resetInSec": 3583.445,
+          "drainage": {
+            "observedAt": 1793115375033
+          }
+        }
+      ],
+      "fetchedAt": 1793115375033,
+      "ageSec": 17,
+      "source": "endpoint"
+    },
+    {
+      "id": "claude",
+      "title": "Claude",
+      "short": "cl",
+      "state": "ok",
+      "windows": [
+        {
+          "id": "5h",
+          "shortLabel": "5h",
+          "label": "5h session",
+          "usedFraction": 0.05,
+          "resetAtMs": 1793131200154,
+          "important": true,
+          "period": "5h",
+          "usedPercent": 5,
+          "remainingPercent": 95,
+          "resetAt": 1793131200154,
+          "resetInSec": 15808.291,
+          "drainage": {
+            "observedAt": 1793115375251,
+            "window": {
+              "perHour": 0.10029335807236167,
+              "coverageSec": 717.894
+            },
+            "h1": {
+              "perHour": 0.10029335807236167,
+              "coverageSec": 717.894
+            },
+            "h24": {
+              "perHour": 0.10029335807236167,
+              "coverageSec": 717.894
+            },
+            "resetsBeforeExhaustion": true
+          }
+        },
+        {
+          "id": "7d",
+          "shortLabel": "7d",
+          "label": "7d weekly",
+          "usedFraction": 0.57,
+          "resetAtMs": 1793469600154,
+          "important": true,
+          "period": "7d",
+          "usedPercent": 56.99999999999999,
+          "remainingPercent": 43.00000000000001,
+          "resetAt": 1793469600154,
+          "resetInSec": 354208.291,
+          "drainage": {
+            "observedAt": 1793115375251,
+            "window": {
+              "perHour": 0.02727940762766331,
+              "coverageSec": 5278.707
+            },
+            "h1": {
+              "perHour": 0.013139568496570438,
+              "coverageSec": 2739.816
+            },
+            "h24": {
+              "perHour": 0.02727940762766331,
+              "coverageSec": 5278.707
+            },
+            "etaSec": 56746.10025000012
+          }
+        },
+        {
+          "id": "scoped:fable",
+          "shortLabel": "fab",
+          "label": "7d Fable",
+          "usedFraction": 0.18,
+          "resetAtMs": 1793469600154,
+          "important": false,
+          "period": "7d",
+          "scope": "Fable",
+          "usedPercent": 18,
+          "remainingPercent": 82,
+          "resetAt": 1793469600154,
+          "resetInSec": 354208.291,
+          "drainage": {
+            "observedAt": 1793115375251,
+            "window": {
+              "perHour": 0.013589367075228462,
+              "coverageSec": 5298.26
+            },
+            "h1": {
+              "perHour": 0.013139568496570548,
+              "coverageSec": 2739.816
+            },
+            "h24": {
+              "perHour": 0.013589367075228462,
+              "coverageSec": 5298.26
+            },
+            "etaSec": 217228.66000000015
+          }
+        },
+        {
+          "id": "iguana_necktie",
+          "shortLabel": "cap",
+          "label": "$250 cap",
+          "usedFraction": 1,
+          "valueText": "$250.22 / $250",
+          "resetAtMs": 1793865540000,
+          "important": true,
+          "scope": "$250 cap",
+          "usedPercent": 100,
+          "remainingPercent": 0,
+          "resetAt": 1793865540000,
+          "resetInSec": 750148.137,
+          "drainage": {
+            "observedAt": 1793115375251,
+            "window": {
+              "perHour": 0,
+              "coverageSec": 5298.26
+            },
+            "h1": {
+              "perHour": 0,
+              "coverageSec": 2739.816
+            },
+            "h24": {
+              "perHour": 0,
+              "coverageSec": 5298.26
+            }
+          }
+        }
+      ],
+      "fetchedAt": 1793115375251,
+      "ageSec": 17,
+      "source": "endpoint"
+    },
+    {
+      "id": "antigravity",
+      "title": "Antigravity",
+      "short": "ag",
+      "state": "ok",
+      "windows": [
+        {
+          "id": "gemini-weekly",
+          "shortLabel": "gem",
+          "label": "Gemini Models (7d)",
+          "usedFraction": 0.5874597699999999,
+          "resetAtMs": 1793194691000,
+          "important": true,
+          "group": "Gemini Models",
+          "period": "7d",
+          "scope": "gemini",
+          "usedPercent": 58.745976999999996,
+          "remainingPercent": 41.254023000000004,
+          "resetAt": 1793194691000,
+          "resetInSec": 79299.137,
+          "drainage": {
+            "observedAt": 1793115376175,
+            "window": {
+              "perHour": 0,
+              "coverageSec": 5298.621
+            },
+            "h1": {
+              "perHour": 0,
+              "coverageSec": 2740.095
+            },
+            "h24": {
+              "perHour": 0,
+              "coverageSec": 5298.621
+            }
+          }
+        },
+        {
+          "id": "gemini-5h",
+          "shortLabel": "gem:5h",
+          "label": "Gemini Models (5h)",
+          "usedFraction": 0,
+          "resetAtMs": 1793133376000,
+          "important": false,
+          "group": "Gemini Models",
+          "period": "5h",
+          "scope": "gemini",
+          "usedPercent": 0,
+          "remainingPercent": 100,
+          "resetAt": 1793133376000,
+          "resetInSec": 17984.137,
+          "drainage": {
+            "observedAt": 1793115376175
+          }
+        },
+        {
+          "id": "3p-weekly",
+          "shortLabel": "3p",
+          "label": "Claude and GPT models (7d)",
+          "usedFraction": 0.05691440000000003,
+          "resetAtMs": 1793377230000,
+          "important": true,
+          "group": "Claude and GPT models",
+          "period": "7d",
+          "scope": "3p",
+          "usedPercent": 5.691440000000004,
+          "remainingPercent": 94.30856,
+          "resetAt": 1793377230000,
+          "resetInSec": 261838.137,
+          "drainage": {
+            "observedAt": 1793115376175,
+            "window": {
+              "perHour": 0,
+              "coverageSec": 5298.621
+            },
+            "h1": {
+              "perHour": 0,
+              "coverageSec": 2740.095
+            },
+            "h24": {
+              "perHour": 0,
+              "coverageSec": 5298.621
+            }
+          }
+        },
+        {
+          "id": "3p-5h",
+          "shortLabel": "3p:5h",
+          "label": "Claude and GPT models (5h)",
+          "usedFraction": 0,
+          "resetAtMs": 1793133376000,
+          "important": false,
+          "group": "Claude and GPT models",
+          "period": "5h",
+          "scope": "3p",
+          "usedPercent": 0,
+          "remainingPercent": 100,
+          "resetAt": 1793133376000,
+          "resetInSec": 17984.137,
+          "drainage": {
+            "observedAt": 1793115376175
+          }
+        },
+        {
+          "id": "gemini-argon-wtu-weekly",
+          "shortLabel": "arg",
+          "label": "Gemini 4 Argon (7d)",
+          "usedFraction": 0.3493533,
+          "resetAtMs": 1793705083000,
+          "important": true,
+          "group": "Gemini 4 Argon",
+          "period": "7d",
+          "scope": "gemini-4-argon",
+          "usedPercent": 34.93533,
+          "remainingPercent": 65.06467,
+          "resetAt": 1793705083000,
+          "resetInSec": 589691.137,
+          "drainage": {
+            "observedAt": 1793115376175,
+            "window": {
+              "perHour": 0,
+              "coverageSec": 5298.621
+            },
+            "h1": {
+              "perHour": 0,
+              "coverageSec": 2740.095
+            },
+            "h24": {
+              "perHour": 0,
+              "coverageSec": 5298.621
+            }
+          }
+        }
+      ],
+      "fetchedAt": 1793115376175,
+      "ageSec": 16,
+      "source": "endpoint"
+    },
+    {
+      "id": "openai",
+      "title": "OpenAI",
+      "short": "oai",
+      "state": "needs-auth",
+      "needsAuth": true,
+      "windows": [],
+      "fetchedAt": 1793115375048,
+      "ageSec": 17,
+      "source": "endpoint",
+      "error": "openai: GET https://chatgpt.com/backend-api/wham/usage rejected authentication (HTTP 401); run /login openai with a ChatGPT login"
+    },
+    {
+      "id": "xai",
+      "title": "xAI",
+      "short": "xai",
+      "state": "ok",
+      "tier": "unified",
+      "windows": [
+        {
+          "id": "7d",
+          "shortLabel": "7d",
+          "label": "7d weekly quota",
+          "usedFraction": 0,
+          "resetAtMs": 1793708589952,
+          "important": true,
+          "period": "7d",
+          "usedPercent": 0,
+          "remainingPercent": 100,
+          "resetAt": 1793708589952,
+          "resetInSec": 593198.089,
+          "drainage": {
+            "observedAt": 1793115375049,
+            "window": {
+              "perHour": 0,
+              "coverageSec": 5298.267
+            },
+            "h1": {
+              "perHour": 0,
+              "coverageSec": 2739.818
+            },
+            "h24": {
+              "perHour": 0,
+              "coverageSec": 5298.267
+            }
+          }
+        }
+      ],
+      "fetchedAt": 1793115375049,
+      "ageSec": 17,
+      "source": "endpoint"
+    },
+    {
+      "id": "openrouter",
+      "title": "OpenRouter",
+      "short": "or",
+      "state": "ok",
+      "credits": {
+        "currency": "$",
+        "remaining": 29.354851681000127,
+        "total": 4092.6,
+        "used": 4063.245148319,
+        "detailText": "day $3.62 · wk $8.65 · mo $132.75",
+        "drainage": {
+          "observedAt": 1793115375071,
+          "window": {
+            "perHour": 0.030087315519053904,
+            "coverageSec": 717.357
+          },
+          "h1": {
+            "perHour": 0.030087315519053904,
+            "coverageSec": 717.357
+          },
+          "h24": {
+            "perHour": 0.030087315519053904,
+            "coverageSec": 717.357
+          },
+          "etaSec": 3512359.418861291
+        }
+      },
+      "windows": [
+        {
+          "id": "credits",
+          "shortLabel": "cred",
+          "label": "Account credits",
+          "usedFraction": 0.9928273342909153,
+          "valueText": "$29.35 left of $4092.60",
+          "important": true,
+          "usedPercent": 99.28273342909154,
+          "remainingPercent": 0.7172665709084702,
+          "drainage": {
+            "observedAt": 1793115375071,
+            "window": {
+              "perHour": 0.000007351638449556375,
+              "coverageSec": 717.357
+            },
+            "h1": {
+              "perHour": 0.000007351638449556375,
+              "coverageSec": 717.357
+            },
+            "h24": {
+              "perHour": 0.000007351638449556375,
+              "coverageSec": 717.357
+            },
+            "etaSec": 3512359.4189079166
+          }
+        }
+      ],
+      "fetchedAt": 1793115375071,
+      "ageSec": 17,
+      "source": "endpoint"
+    },
+    {
+      "id": "deepseek",
+      "title": "DeepSeek",
+      "short": "ds",
+      "state": "ok",
+      "credits": {
+        "currency": "$",
+        "remaining": 20.6,
+        "detailText": "granted $0.00 · topped-up $20.60",
+        "drainage": {
+          "observedAt": 1793115375346,
+          "window": {
+            "perHour": 0.3010901974231633,
+            "coverageSec": 717.393
+          },
+          "h1": {
+            "perHour": 0.3010901974231633,
+            "coverageSec": 717.393
+          },
+          "h24": {
+            "perHour": 0.3010901974231633,
+            "coverageSec": 717.393
+          },
+          "etaSec": 246304.93000000532
+        }
+      },
+      "windows": [],
+      "fetchedAt": 1793115375346,
+      "ageSec": 17,
+      "source": "endpoint"
+    }
+  ]
+}

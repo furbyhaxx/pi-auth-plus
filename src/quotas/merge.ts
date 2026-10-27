@@ -16,9 +16,10 @@ export function effectiveSnapshot(state: QuotaState): ProviderQuotaSnapshot | un
 			previous
 				? {
 						...previous,
-						usedFraction: incoming.usedFraction ?? previous.usedFraction,
-						valueText: incoming.valueText,
-						resetAtMs: incoming.resetAtMs,
+						...(incoming.usedFraction === undefined
+							? {}
+							: { usedFraction: incoming.usedFraction, valueText: incoming.valueText }),
+						resetAtMs: incoming.resetAtMs ?? previous.resetAtMs,
 					}
 				: incoming,
 		);

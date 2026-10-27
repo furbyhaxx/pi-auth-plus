@@ -68,7 +68,8 @@ export class QuotaEngine {
 				snapshot: entry ? effectiveSnapshot(entry.value) : undefined,
 				backoff: this.cache.backoff(provider.id),
 				refreshing: this.refreshing.has(provider.id),
-				fetchedAt: entry?.fetchedAt,
+				// A headers-only entry has fetchedAt 0: no endpoint fetch has happened yet.
+				fetchedAt: entry?.fetchedAt || undefined,
 			};
 		});
 	}

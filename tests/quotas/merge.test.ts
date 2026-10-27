@@ -81,7 +81,7 @@ test("unknown header usage never erases known endpoint usage and absent tier fal
 		},
 		drainage: [],
 	});
-	expect(merged?.windows[0]?.usedFraction).toBe(0.2);
+	expect(merged?.windows[0]).toMatchObject({ usedFraction: 0.2, valueText: "20%", resetAtMs: 500 });
 	expect(merged?.tier).toBe("endpoint");
 });
 

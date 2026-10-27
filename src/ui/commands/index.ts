@@ -8,6 +8,7 @@ import {
 	type DashboardModel,
 	dashboardText,
 	resolveTab,
+	staticViews,
 	TABS,
 	type TabId,
 } from "../dashboard/index.ts";
@@ -96,8 +97,9 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 	const open = async (ctx: ExtensionCommandContext, tab: TabId) => {
 		const model = dashboardModel(deps);
 		if (ctx.mode !== "tui" || !ctx.hasUI) return report(ctx, dashboardText(tab, model), "info");
-		await ctx.ui.custom<void>(
-			(tui, theme, keys, done) => new AuthDashboard(tui, theme, keys, done, model, tab),
+		await ctx.ui.custom(
+			(tui, theme, keys, done) =>
+				new AuthDashboard(tui, theme, keys, done, staticViews(model), tab, model.providers.length),
 		);
 	};
 

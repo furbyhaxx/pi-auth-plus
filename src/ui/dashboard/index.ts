@@ -1,4 +1,4 @@
-/** The `/auth` dashboard panel: one frame, a tab row, and the active tab's rows. */
+/** The `/auth` dashboard panel: one frame, a tab row, and the active tab's body. */
 import { type KeybindingsManager, matchesKey, visibleWidth } from "@earendil-works/pi-tui";
 import {
 	bodyRowsFor,
@@ -7,14 +7,15 @@ import {
 	type HintItem,
 	type PanelHost,
 	type PanelTheme,
-	padTo,
 } from "../frame/index.ts";
 import { FramePanel } from "../panel/index.ts";
-import { type DashboardModel, type Row, TABS, type TabId, tabContent } from "./tabs.ts";
+import { RowsView } from "./rows.ts";
+import { type DashboardModel, TABS, type TabId, tabContent } from "./tabs.ts";
+import type { DashboardResult, TabView, TabViewFactory, TabViewHost } from "./view.ts";
 
+export * from "./rows.ts";
 export * from "./tabs.ts";
-
-const GAP = 2;
+export * from "./view.ts";
 
 /**
  * Tab row. Every tab has a marker column (`▸` when active), so color is not the only signal and
@@ -34,76 +35,65 @@ export function tabBar(theme: PanelTheme, active: TabId, width: number): string 
 	return `${paint(label, true)} ${theme.fg("dim", `${index + 1}/${TABS.length}`)}`;
 }
 
-export class AuthDashboard extends FramePanel<void> {
+/** Static row views for every tab; the command replaces live tabs. */
+export function staticViews(model: DashboardModel): Record<TabId, TabViewFactory> {
+	const views = {} as Record<TabId, TabViewFactory>;
+	for (const tab of TABS) views[tab.id] = (host) => new RowsView(host, tabContent(tab.id, model));
+	return views;
+}
+
+export class AuthDashboard extends FramePanel<DashboardResult> {
 	#tab: TabId;
-	#offset = 0;
-	readonly #model: DashboardModel;
+	readonly #views: Record<TabId, TabView>;
+	readonly #providerCount: number;
 
 	constructor(
 		host: PanelHost,
 		theme: PanelTheme,
 		keys: KeybindingsManager,
-		onDone: () => void,
-		model: DashboardModel,
+		onDone: (result: DashboardResult) => void,
+		views: Readonly<Record<TabId, TabViewFactory>>,
 		tab: TabId,
+		providerCount: number,
 	) {
 		super(host, theme, keys, onDone);
-		this.#model = model;
 		this.#tab = tab;
+		this.#providerCount = providerCount;
+		const viewHost: TabViewHost = {
+			theme,
+			keys,
+			binding: (id) => this.binding(id),
+			refresh: () => this.refresh(),
+			finish: (result) => this.finish(result),
+		};
+		this.#views = {} as Record<TabId, TabView>;
+		for (const spec of TABS) this.#views[spec.id] = views[spec.id](viewHost);
 	}
 
 	get tab(): TabId {
 		return this.#tab;
 	}
 
-	#bodyRows(): number {
-		const wanted = Math.max(...TABS.map((tab) => tabContent(tab.id, this.#model).rows.length), 1);
-		return bodyRowsFor(this.host.terminal.rows, 1, wanted);
-	}
-
-	#rowLines(rows: readonly Row[], width: number): string[] {
-		const inner = Math.max(1, width - 1);
-		const wantLabel = Math.max(...rows.map((row) => visibleWidth(row.label)));
-		const labelWidth = Math.min(wantLabel, Math.max(8, Math.floor(inner * 0.4)));
-		return rows.map(
-			(row) =>
-				` ${padTo(row.label, labelWidth)}${" ".repeat(GAP)}${this.theme.fg(row.tone, row.value)}`,
-		);
-	}
-
 	render(width: number): string[] {
-		const content = tabContent(this.#tab, this.#model);
-		const bodyRows = this.#bodyRows();
-		const lines =
-			content.rows.length > 0
-				? this.#rowLines(content.rows, width)
-				: [` ${this.theme.fg("muted", content.empty)}`];
-		const maxOffset = Math.max(0, lines.length - bodyRows);
-		this.#offset = Math.min(this.#offset, maxOffset);
-		const count = this.#model.providers.length;
+		const wanted = Math.max(...TABS.map((spec) => this.#views[spec.id].wantedRows()), 1);
+		const bodyRows = bodyRowsFor(this.host.terminal.rows, 1, wanted);
+		const body = this.#views[this.#tab].render(width, bodyRows);
 		const hints: HintItem[] = [
 			{ key: this.binding("tui.input.tab"), action: "switch", priority: 1 },
-			...(maxOffset > 0
-				? [
-						{
-							key: `${this.binding("tui.select.up")}${this.binding("tui.select.down")}`,
-							action: "scroll",
-							priority: 2,
-						},
-					]
-				: []),
+			...body.hints,
 			{ key: this.binding("tui.select.cancel"), action: "close", priority: 0 },
 		];
 		const spec = TABS.find((tab) => tab.id === this.#tab);
+		const count = this.#providerCount;
 		return drawFrame(this.theme, width, {
 			crumbs: ["Auth", spec?.label ?? ""],
-			state: this.theme.fg("dim", `${count} provider${count === 1 ? "" : "s"}`),
+			state: body.state ?? this.theme.fg("dim", `${count} provider${count === 1 ? "" : "s"}`),
 			header: [tabBar(this.theme, this.#tab, width - 1)],
-			body: lines.slice(this.#offset, this.#offset + bodyRows),
+			body: body.lines,
 			bodyRows,
-			above: this.#offset,
-			below: Math.max(0, lines.length - this.#offset - bodyRows),
-			description: this.theme.fg("muted", spec?.description ?? ""),
+			above: body.above,
+			below: body.below,
+			description: body.description ?? this.theme.fg("muted", spec?.description ?? ""),
 			footer: fitHint(this.theme, hints, width - 1),
 		});
 	}
@@ -111,24 +101,29 @@ export class AuthDashboard extends FramePanel<void> {
 	#switch(step: number): void {
 		const index = TABS.findIndex((tab) => tab.id === this.#tab);
 		const next = TABS[(index + step + TABS.length) % TABS.length];
-		if (!next) return;
-		this.#tab = next.id;
-		this.#offset = 0;
+		if (next) this.#tab = next.id;
 	}
 
 	handleInput(data: string): void {
+		if (this.#views[this.#tab].handleInput(data)) {
+			this.refresh();
+			return;
+		}
 		const keys = this.keys;
 		if (keys.matches(data, "tui.select.cancel")) {
-			this.finish();
+			this.finish(undefined);
 			return;
 		}
 		if (matchesKey(data, "shift+tab") || keys.matches(data, "tui.editor.cursorLeft"))
 			this.#switch(-1);
-		else if (keys.matches(data, "tui.input.tab") || keys.matches(data, "tui.editor.cursorRight")) {
+		else if (keys.matches(data, "tui.input.tab") || keys.matches(data, "tui.editor.cursorRight"))
 			this.#switch(1);
-		} else if (keys.matches(data, "tui.select.up")) this.#offset = Math.max(0, this.#offset - 1);
-		else if (keys.matches(data, "tui.select.down")) this.#offset += 1;
 		else return;
 		this.refresh();
+	}
+
+	override dispose(): void {
+		super.dispose();
+		for (const spec of TABS) this.#views[spec.id].dispose?.();
 	}
 }

@@ -1,8 +1,8 @@
 /** Owns the shared, credential-free quota report and its derived timing and usage fields. */
 import type { AppSettings } from "../core/config/catalog.ts";
 import { redactText } from "../core/redact/index.ts";
-import type { DrainageMetrics } from "./drainage.ts";
-import type { QuotaView } from "./engine.ts";
+import { type DrainageMetrics, getDrainageMetrics } from "./drainage.ts";
+import type { QuotaEngine, QuotaView } from "./engine.ts";
 import type { CreditBalance, QuotaWindow } from "./types.ts";
 
 /** Display state, including active endpoint backoff. */
@@ -107,4 +107,27 @@ export function buildQuotaReport(
 		};
 	});
 	return { v: 1, generatedAt: now, providers };
+}
+
+/** The report for the engine's enabled providers, or only `ids`, with drainage from its cache. */
+export function engineReport(
+	engine: QuotaEngine,
+	settings: AppSettings,
+	now: number,
+	ids?: readonly string[],
+): QuotaReport {
+	const metrics = (id: string, kind: "window" | "credits", key: string) =>
+		getDrainageMetrics(
+			engine.cache.get(id)?.value.drainage.find((entry) => entry.kind === kind && entry.id === key),
+			now,
+		);
+	return buildQuotaReport(
+		engine.view().filter((view) => ids === undefined || ids.includes(view.provider.id)),
+		settings,
+		now,
+		{
+			getWindowDrainage: (id, key) => metrics(id, "window", key),
+			getCreditDrainage: (id, key) => metrics(id, "credits", key),
+		},
+	);
 }

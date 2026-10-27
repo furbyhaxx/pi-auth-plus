@@ -3,9 +3,8 @@ import type { EventBus } from "@earendil-works/pi-coding-agent";
 import { publish, serve } from "../core/bus/index.ts";
 import type { AppSettings } from "../core/config/catalog.ts";
 import type { Registry } from "../core/registry/index.ts";
-import { getDrainageMetrics } from "./drainage.ts";
 import type { QuotaEngine } from "./engine.ts";
-import { buildQuotaReport, type QuotaReport, type ReportProvider } from "./report.ts";
+import { engineReport, type QuotaReport, type ReportProvider } from "./report.ts";
 import { enabledQuotaProviders } from "./settings.ts";
 
 /** Read cached quotas, optionally refreshing entries older than the requested age. */
@@ -89,25 +88,7 @@ export function registerQuotaBus(
 			if (active) events.emit(channel, payload);
 		},
 	};
-	const report = (ids?: readonly string[]) => {
-		const at = now();
-		const metrics = (id: string, kind: "window" | "credits", key: string) =>
-			getDrainageMetrics(
-				engine.cache
-					.get(id)
-					?.value.drainage.find((entry) => entry.kind === kind && entry.id === key),
-				at,
-			);
-		return buildQuotaReport(
-			engine.view().filter((view) => ids === undefined || ids.includes(view.provider.id)),
-			settings(),
-			at,
-			{
-				getWindowDrainage: (id, key) => metrics(id, "window", key),
-				getCreditDrainage: (id, key) => metrics(id, "credits", key),
-			},
-		);
-	};
+	const report = (ids?: readonly string[]) => engineReport(engine, settings(), now(), ids);
 	const respond = async (
 		request: QuotaQueryRequest | QuotaRefreshRequest,
 		refresh: boolean,

@@ -5,6 +5,7 @@ import {
 	AuthDashboard,
 	type DashboardModel,
 	dashboardText,
+	staticViews,
 	TABS,
 	type TabId,
 } from "../../src/ui/dashboard/index.ts";
@@ -37,7 +38,15 @@ function open(rows = 40, tab: TabId = "providers", data = model) {
 	let closed = 0;
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS);
 	const host = { terminal: { rows }, requestRender: () => {} };
-	const panel = new AuthDashboard(host, theme, keys, () => closed++, data, tab);
+	const panel = new AuthDashboard(
+		host,
+		theme,
+		keys,
+		() => closed++,
+		staticViews(data),
+		tab,
+		data.providers.length,
+	);
 	return { panel, closed: () => closed };
 }
 

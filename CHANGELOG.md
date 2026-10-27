@@ -33,6 +33,15 @@ All notable changes to this project are documented here. The format follows
 - **Claude replace patterns.** `"claude": { "replacePatterns": [{ "match": "...",
   "replacement": "..." }] }` in `auth-plus.json` rewrites system-prompt text; without
   `replacement` the paragraph is dropped.
+- **Antigravity.** The `antigravity` provider logs in through
+  `/login antigravity` with Google OAuth and the agy 1.4.8 CLI identity. It offers one model per
+  family (`gemini-4-argon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5`,
+  `gpt-oss-120b`); Pi's thinking level picks the wire level, so `/model` lists five entries
+  instead of one per level. The catalog refreshes from the account's entitlements, with a
+  bundled snapshot for the first run. Turns cost zero. Compared with pi-antigravity-auth: provider
+  id `antigravity` instead of `google`, one account (no pool), no Claustrum vault, no
+  `@cortexkit/*` packages, plain `fetch` instead of the raw TLS client, and the project id is
+  looked up per session instead of being packed into the stored refresh token.
 - **Settings file.** `<agentDir>/auth-plus.json` and, in trusted projects, `.pi/auth-plus.json`;
   invalid values warn and fall back to the inherited value.
 - **Providers tab.** Shows environment, models.json and anonymous credentials beside stored
@@ -44,6 +53,8 @@ All notable changes to this project are documented here. The format follows
   `claude.replacePatterns` in `auth-plus.json`.
 - pi-synthetic-auth's `websearch.synthetic` setting and `SYNTHETIC_WEB_SEARCH` variable are
   not read yet; set `synthetic.webSearch` in `auth-plus.json` instead.
+- pi-antigravity-auth logins under Pi's `google` slot are not carried over yet, because Pi
+  gives extensions no credential-store write; run `/login antigravity` once.
 - Anonymous OpenCode Zen works from Pi-Bolt only. Zen refuses stock Pi's Node HTTP client with
   `429 FreeUsageLimitError` regardless of headers. Keyed Zen requests are untested.
 

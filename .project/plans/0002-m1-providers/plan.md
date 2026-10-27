@@ -5,9 +5,9 @@ document:
   title: "M1 providers"
   description: "Absorb the opencode, synthetic, claude and antigravity providers as vendor families"
   status: "published"
-  revision: 8
+  revision: 9
   created_at: "2026-10-27T10:20:46+01:00"
-  updated_at: "2026-10-27T12:10:00+01:00"
+  updated_at: "2026-10-27T13:10:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -37,6 +37,9 @@ document:
     - revision: 8
       reason: "antigravity review done, slice planned"
       changes: ["Slice 4: review decisions, level codec landed, units 1-7 with write scope and the test that matters"]
+    - revision: 9
+      reason: "antigravity slice done"
+      changes: ["Units 1-7 landed and live-verified on both runtimes; migration unwired (no Pi seam); release next"]
 ---
 
 # M1 providers
@@ -143,7 +146,7 @@ and `thinking-display-updates` are not sent, because Pi has no such modes. Pi's 
 are appended after the CLI set. Logins stored before 3b send an empty `account_uuid` until their
 next refresh.
 
-## Slice 4: antigravity (now)
+## Slice 4: antigravity (done)
 
 Source: the `pi-antigravity-auth` fork 3.0.12, inventoried against agy 1.4.8 in
 `.project/analyses/pi-antigravity-auth/inventory.md`. Wire evidence: the agy dossier in
@@ -179,10 +182,18 @@ same provider and model.
 | 4 | stream + errors | `google/stream.ts`, `google/errors.ts` | an SSE body split at every byte boundary yields identical Pi events (text, thinking, signatures, tool calls, usage); `RATE_LIMIT_EXCEEDED` and the other named reasons map to a cause with a recovery hint |
 | 5 | migration | `google/migration.ts` | a fork OAuth slot under `google` fills an empty `antigravity` slot with the unpacked refresh; an existing `antigravity` slot and a non-OAuth `google` slot stay untouched |
 | 6 | wiring | `google/{provider,transport,index}.ts`, `families/index.ts` | the effective Pi level selects the wire level; zero cost; the 7 headers and UA go out; `parity-verify` lists `antigravity` |
-| 7 | live + tracking | `.project/analyses/agy-cli/tracking.md` | Pi-Bolt and stock Pi: a turn on Argon and Claude, a tool call, and a level switch mid-session, with request heads captured redacted |
+| 7 | live + tracking | `.project/analyses/antigravity-cli/tracking.md` | Pi-Bolt and stock Pi: a turn on Argon and Claude, a tool call, and a level switch mid-session, with request heads captured redacted |
 
 Units 1-5 run in parallel; unit 6 integrates them.
 
+Outcome: units 1-7 landed (catalog `c08ae17`, login `7a122b3`, request `294666e`, stream
+`7e6d637`, migration `68c3811`, transport `54da527`, local converter `87fbf6b`, wiring `0b42291`
+and `7399ccf`). Deviations: Pi's `google-shared` converter was replaced by a local port, because
+`pi-ai/api/google-shared` is not a loader-aliased specifier (`tests/imports.test.ts`); `last_execution_id` is not sent, per the
+capture. Live on Pi-Bolt and stock Pi: tool loops on all five families, level and model
+switches mid-session, request heads captured (`antigravity-cli/tracking.md`). The fill-only
+migration is tested but unwired, because Pi 1.4 exposes no credential-store write to extensions.
+
 ## Later slices (sparse)
 
-- End of M1: version bump, release section, tag.
+- End of M1 (next): version bump to 0.2.0, release section, tag, push.

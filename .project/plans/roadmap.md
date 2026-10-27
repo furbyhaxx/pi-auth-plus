@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 5
+  revision: 6
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T11:46:39+01:00"
+  updated_at: "2026-10-27T13:10:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -26,11 +26,14 @@ document:
     - revision: 5
       reason: "claude wire aligned"
       changes: ["claude matches the interactive Claude Code CLI on the wire"]
+    - revision: 6
+      reason: "antigravity slice done"
+      changes: ["antigravity reviewed, ported and live-verified; fork login migration blocked on a Pi seam; M1 release is next"]
 ---
 
 # Roadmap
 
-Legend: `[x]` done, `[>]` now, `[ ]` next, `[.]` later. Only the current milestone has a
+Legend: `[x]` done, `[>]` now, `[ ]` next, `[.]` later, `[!]` blocked. Only the current milestone has a
 detailed plan; later ones hold the ideas that must not get lost.
 
 ```text
@@ -48,8 +51,10 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] synthetic    catalog via refreshModels, no network in factory; opt-in web search
     [x] claude       OAuth + API key, CC shaping, lazy version probe, replace patterns;
                      wire aligned with the interactive CLI 2.1.311 (slice 3b)
-    [ ] antigravity  review session with the user FIRST (features, UX, API, vault yes/no),
-                     then port as provider id `antigravity` with migration from `google`
+    [x] antigravity  reviewed (one account, no vault/pool); one model per family, level via
+                     thinkingLevelMap; agy 1.4.8 identity over fetch; live on both runtimes
+    [!] fork login migration   tested, unwired: Pi 1.4 has no credential-store write
+    [ ] M1 release   version bump, tag, push
 [.] M2 Quotas       pi-quotas engine on core/ + families/; codex via Pi login, not its own
                     OAuth file; reset-consume needs approval each time
 [.] M3 Tokens       per-family counting sources, content-hash store, footer reuses it
@@ -61,4 +66,5 @@ detailed plan; later ones hold the ideas that must not get lost.
 - Pi has no token-estimator hook (`estimate.ts`, 3.5 chars/token); M3 works through `usage`,
   `message_end` and `session_before_compact`, an upstream hook is an M4 candidate.
 - pi-quotas footer duplicates token math; M3 removes that duplication.
-- antigravity carries ~2.9k LOC of vestigial account-pool code; the review decides what dies.
+- antigravity quota (five buckets, credits, reset times) is the M2 engine's first vendor input:
+  `.project/analyses/antigravity-cli/1.4.8/05-quota.md`.

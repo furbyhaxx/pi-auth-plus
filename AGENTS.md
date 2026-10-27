@@ -122,8 +122,11 @@ README.md, CHANGELOG.md, LICENSE, NOTICE, AGENTS.md
 
 This file describes the target state.
 
-- `families/index.ts` registers `opencode`, `synthetic` and `claude`; `antigravity` follows M1.
+- `families/index.ts` registers `opencode`, `synthetic`, `claude` and `antigravity`.
   `FamilyAdapter` has no `quota`/`tokens` parts until those engines land.
+- `google/migration.ts` (fork `google` OAuth slot to `antigravity`, fill-only) is tested but not
+  wired: Pi 1.4 gives extensions no credential-store write. Users log in again with
+  `/login antigravity` until Pi grows that seam or a locked `auth.json` write is approved.
 - No legacy migration exists yet: pi-synthetic-auth's `websearch.synthetic` in Pi's
   `settings.json` and its `SYNTHETIC_WEB_SEARCH` variable, and pi-claude-auth's replace
   patterns in Pi's `settings.json`, are not read.
@@ -189,13 +192,17 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
   streamed responses. Deviations and evidence: `.project/analyses/claude-code-cli/tracking.md`. Version
   precedence: env override > installed `claude --version` (if newer) > pinned. Subscription
   models carry zero cost.
-- **antigravity:** the wire envelope, request metadata and payload order; the raw transport
-  timeouts and abort forwarding; exact wire model ids with retired models refused before any
-  credential work; schema allowlist sanitizer; strip thinking blocks for Claude models;
-  cross-model signature sanitizing.
-- **antigravity scope:** pi-antigravity-auth is a fork whose feature set, UX and API surface
-  get a dedicated review with the user before porting. Nothing from it is ported unreviewed,
-  and no `@cortexkit/*` package is used.
+- **antigravity:** agy 1.4.8 identity (`google/transport.ts`): user agent and the CLI's header
+  set over plain `fetch`, every call to `daily-cloudcode-pa`. One Pi model per family; the
+  wire level comes from `thinkingLevelMap` (encoded catalog level), clamped upward. Envelope
+  `model` is the level id, `labels.model_enum` the catalog model. Project id from
+  `loadCodeAssist` once per session and token, never stored. Schema allowlist sanitizer;
+  signatures carried for the same model only; Claude keeps signed thinking only in the latest
+  same-model turn of an open tool loop. Zero cost. Deltas and evidence:
+  `.project/analyses/antigravity-cli/tracking.md`.
+- **antigravity scope:** reviewed with the user (`.project/analyses/pi-antigravity-auth/inventory.md`):
+  one account, no account pool, no Claustrum vault, no `@cortexkit/*` package.
+  Fork features not in the inventory's keep list are not ported.
 - **opencode:** spoof headers only when Pi's own opencode headers are present; a stored or
   environment key always wins over the anonymous fallback. Zen's free tier checks the
   `opencode/` user agent, `x-opencode-client: cli`, a `ses_` session-affinity header and an

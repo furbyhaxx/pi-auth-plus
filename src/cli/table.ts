@@ -14,11 +14,12 @@ const HEADERS = [
 	"Used",
 	"Remaining",
 	"Resets at",
+	"On-Demand Resets",
 	"Drainage (window)",
 	"Drainage (1h)",
 	"Drainage (24h)",
 ] as const;
-const RIGHT_ALIGNED = new Set([2, 3, 5, 6, 7]);
+const RIGHT_ALIGNED = new Set([2, 3, 6, 7, 8]);
 const HOUR_SEC = 3600;
 /** A lookback rate is shown only once observations cover most of that lookback. */
 const MIN_LOOKBACK_COVERAGE = 0.8;
@@ -125,6 +126,7 @@ function providerRows(provider: ReportProvider, color: boolean): string[][] {
 			"",
 			money(credits.remaining, credits.currency),
 			"",
+			"",
 			...drainageCells(credits.drainage, credits.currency),
 		]);
 	}
@@ -136,10 +138,13 @@ function providerRows(provider: ReportProvider, color: boolean): string[][] {
 			paint(percent(window.usedPercent), stressCode(window.usedFraction), color),
 			percent(window.remainingPercent),
 			timestamp(window.resetAtMs),
+			"",
 			...drainageCells(window.drainage),
 		]);
 	}
-	if (rows.length === 0) rows.push([id, "", "", "", "", "", "", ""]);
+	if (rows.length === 0) rows.push([id, "", "", "", "", "", "", "", ""]);
+	const first = rows[0];
+	if (first && provider.resets) first[5] = String(provider.resets.available);
 	return rows;
 }
 

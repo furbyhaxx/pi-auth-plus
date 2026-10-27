@@ -24,6 +24,7 @@ const snapshot: ProviderQuotaSnapshot = {
 		{ id: "5h", label: "Five hours", shortLabel: "5h", usedFraction: 0, resetAtMs: now + 5000 },
 	],
 	credits: { currency: "$", total: 100 },
+	resetCredits: 1,
 };
 function view(snap: ProviderQuotaSnapshot | undefined = snapshot): QuotaView {
 	return {
@@ -61,7 +62,18 @@ describe("quota report", () => {
 			resetInSec: 5,
 		});
 		expect(row?.credits?.remaining).toBeUndefined();
+		expect(row?.resets).toEqual({ available: 1 });
 		expect(JSON.stringify(report)).not.toContain("NaN");
+	});
+
+	test("omits resets when the snapshot has no reset credits", () => {
+		const report = buildQuotaReport(
+			[view({ ...snapshot, resetCredits: undefined })],
+			settings,
+			now,
+		);
+		expect(report.providers[0]?.resets).toBeUndefined();
+		expect(JSON.stringify(report)).not.toContain('"resets"');
 	});
 
 	test("staleness waits for the provider's polling floor", () => {

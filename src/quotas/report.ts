@@ -29,6 +29,7 @@ export interface ReportProvider {
 	readonly short: string;
 	readonly state: ReportState;
 	readonly windows: readonly ReportWindow[];
+	readonly resets?: { available: number } | undefined;
 	readonly credits?: ReportCredits | undefined;
 	readonly tier?: string | undefined;
 	readonly needsAuth?: boolean | undefined;
@@ -102,6 +103,10 @@ export function buildQuotaReport(
 							: Math.max(0, (window.resetAtMs - now) / 1000),
 					drainage: drainage?.getWindowDrainage(provider.id, window.id),
 				})) ?? [],
+			resets:
+				typeof snapshot?.resetCredits === "number"
+					? { available: snapshot.resetCredits }
+					: undefined,
 			fetchedAt: snapshot?.fetchedAt,
 			ageSec: snapshot ? Math.max(0, Math.round((now - snapshot.fetchedAt) / 1000)) : undefined,
 			source: snapshot?.source,

@@ -3,6 +3,36 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { renderQuotaDiagnostics, renderQuotaTable, timestamp } from "../../src/cli/table.ts";
 import type { QuotaReport } from "../../src/quotas/report.ts";
 
+test("shows on-demand reset credits and leaves missing reset cells blank", () => {
+	const report: QuotaReport = {
+		v: 1,
+		generatedAt: 0,
+		providers: [
+			{
+				id: "openai",
+				title: "OpenAI",
+				short: "oai",
+				state: "ok",
+				windows: [],
+				resets: { available: 1 },
+			},
+			{ id: "claude", title: "Claude", short: "cc", state: "ok", windows: [] },
+		],
+	};
+	const lines = renderQuotaTable(report, { color: false }).trimEnd().split("\n");
+	const header = lines[0] ?? "";
+	const resetColumnStart = header.indexOf("On-Demand Resets");
+	const drainageColumnStart = header.indexOf("Drainage (window)");
+	const resetCell = (id: string) => {
+		const row = lines.find((line) => line.startsWith(id));
+		return row?.slice(resetColumnStart, drainageColumnStart).trim();
+	};
+
+	expect(header).toContain("On-Demand Resets");
+	expect(resetCell("openai")).toBe("1");
+	expect(resetCell("claude")).toBe("");
+});
+
 test("unknown usage and balance remain visible and never render as zero", () => {
 	const report: QuotaReport = {
 		v: 1,

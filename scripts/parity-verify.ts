@@ -16,6 +16,7 @@ const entry = join(repo, "src/index.ts");
 const piBin = process.env["PI_BIN"] || "pi-bolt";
 const TIMEOUT_MS = 30_000;
 const BASE_ARGS = ["--offline", "--no-extensions", "-e", entry];
+const OAUTH_ONLY = new Set(["antigravity"]);
 
 function listModels(env: NodeJS.ProcessEnv): Map<string, string[]> {
 	const run = spawnSync(piBin, [...BASE_ARGS, "--list-models"], {
@@ -87,7 +88,14 @@ async function main(): Promise<number> {
 	const agentDir = await mkdtemp(join(tmpdir(), "parity-verify-"));
 	const failures: string[] = [];
 	try {
-		const auth = Object.fromEntries(providers.map((id) => [id, { type: "api_key", key: "dummy" }]));
+		// Pi hides OAuth-only providers behind an API-key credential, so those get a dummy login.
+		const dummyOAuth = { type: "oauth", access: "dummy", refresh: "dummy", expires: 4e12 };
+		const auth = Object.fromEntries(
+			providers.map((id) => [
+				id,
+				OAUTH_ONLY.has(id) ? dummyOAuth : { type: "api_key", key: "dummy" },
+			]),
+		);
 		await writeFile(join(agentDir, "auth.json"), JSON.stringify(auth), { mode: 0o600 });
 		const env = { ...process.env, PI_CODING_AGENT_DIR: agentDir };
 

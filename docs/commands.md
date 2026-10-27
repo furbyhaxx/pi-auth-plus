@@ -16,7 +16,7 @@ logs in or out; it reports status and points to the appropriate login.
 | `/quota [provider]` | Same handler as `/quotas` |
 | `/quotas reset [provider]` | List reset credits, then ask before spending one; default is first enabled reset-capable provider (`codex`) |
 | `/quota reset [provider]` | Same reset flow |
-| `/quota codex login [--device\|--browser]` | Codex OAuth login for the `codex` quota source; writes `<agentDir>/quotas-codex-auth.json`. Pending verification; see [Codex login](quotas.md#codex-login) |
+| `/quota codex login [--device\|--browser]` | Codex OAuth login for the `codex` quota source; writes `<agentDir>/quotas-codex-auth.json`. See [Codex login](quotas.md#codex-login) |
 
 `resets` aliases `reset`. Dashboard section names are case-insensitive and accept:
 

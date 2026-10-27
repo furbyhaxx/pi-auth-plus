@@ -114,9 +114,9 @@ so inspect the startup warning and `/auth settings` after migration. Numeric val
 the new catalog ranges (notably, interval `0` becomes 15 seconds).
 
 pi-quotas' `<agentDir>/quotas-codex-auth.json` is read directly, so an existing Codex
-quota login keeps working (pending verification, see [Codex login](quotas.md#codex-login));
-project `.auth.json` credentials are not read. Reports use `codex` and `xai`; `openai`
-and `grok` are accepted aliases, `cox` is not. The compact Synthetic id `syn` is a
+quota login keeps working (see [Codex login](quotas.md#codex-login));
+project `.auth.json` credentials are not read. Reports use `codex` and `xai`; `openai`,
+`cox` and `grok` are accepted aliases. The compact Synthetic id `syn` is a
 display label, not an accepted input alias.
 
 Replace `/quota settings` with `/auth settings`, `/quota refresh` with panel `r`/`R`,

@@ -15,7 +15,7 @@ accepted aliases.
 | `claude` | `cl`, `cc` | `cl` | Claude subscription session (5h), weekly (7d), scoped weekly windows, spend caps and enabled extra usage; response-header updates |
 | `antigravity` | `agy`, `ag` | `ag` | Every reported quota bucket in each group, including Gemini, Argon and third-party pools; reset times |
 | `synthetic` | None | `syn` | Subscription request count, weekly plan budget, hourly search requests |
-| `codex` | `openai`, `openai-codex`, `chatgpt`, `cx` | `cx` (pending verification) | ChatGPT primary, secondary and additional primary windows, plan and reset-credit count; response-header updates |
+| `codex` | `openai`, `openai-codex`, `chatgpt`, `cx`, `cox`, `oai` | `cox` | ChatGPT primary, secondary and additional primary windows, plan and reset-credit count; response-header updates |
 | `xai` | `grok` | `xai` | Current included period (weekly where reported), positive on-demand cap and positive monthly included limit |
 | `openrouter` | `or` | `or` | USD account balance, account-credit usage and positive key spend cap; daily/weekly/monthly spend breakdown |
 | `deepseek` | `ds` | `ds` | Prepaid USD or CNY balance, with granted and topped-up amounts when reported |
@@ -59,9 +59,6 @@ Provider details:
 
 ## Codex login
 
-> **Pending verification:** this section describes the `codex` credential path decided on
-> 2026-10-27; check it against the code once it lands.
-
 Pi's `openai` login ("Sign in with ChatGPT") is rejected with HTTP 401 by the ChatGPT
 usage endpoints, and `/login openai-codex` adds duplicate Codex models to the model
 picker. The `codex` quota source therefore resolves its credential in this order:
@@ -69,9 +66,13 @@ picker. The `codex` quota source therefore resolves its credential in this order
 1. Pi's `openai-codex` login, if one is stored (`/login openai-codex`).
 2. Otherwise pi-quotas' dedicated file `<agentDir>/quotas-codex-auth.json`.
 
-`/quota codex login [--device|--browser]` runs the Codex OAuth login and writes that
-file, without registering models. `--device` forces the device-code flow, `--browser`
-the browser callback flow. An existing pi-quotas file keeps working without a new login.
+`/quota codex login [--device|--browser]` (also `/quota login codex`, or any `codex`
+alias) runs the Codex OAuth login and writes that file, without registering models.
+`--device` forces the device-code flow, `--browser` the browser callback flow; the
+default tries the browser and falls back to the device code. It needs an interactive
+session. An existing pi-quotas file keeps working without a new login, and its token is
+refreshed under a file lock, so parallel sessions never spend the same refresh token.
+The Providers tab shows the sign-in state of whichever credential is used.
 
 ## Status line
 

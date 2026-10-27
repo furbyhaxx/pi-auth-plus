@@ -5,9 +5,9 @@ document:
   title: "M2 quotas"
   description: "Port the pi-quotas engine, seven providers, line, panels, bus and CLI onto core/ and families/"
   status: "published"
-  revision: 6
+  revision: 7
   created_at: "2026-10-27T14:28:39+01:00"
-  updated_at: "2026-10-27T15:56:33+01:00"
+  updated_at: "2026-10-27T16:00:29+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -122,15 +122,40 @@ Live: Pi-Bolt and stock Pi at 36/57/80/140 columns, editor round trip, RPC text 
 
 ## Slice 7: resets + CLI (now)
 
-Outcome: an openai reset credit can be spent from the Quotas tab after an explicit
-confirmation, and `--quotas-json` / `--quotas-list` print and exit without starting a session.
+Outcome: an openai reset credit can be spent from the Quotas tab (or `/quotas reset`, or a bus
+request) only after an explicit in-session confirmation; `--quotas-json [provider]` and
+`--quotas-list [provider]` print and exit before Pi starts a terminal or session.
 
-- Resets: port pi-quotas `codex-resets.ts` as an openai `QuotaSource` capability; the tab's
-  `x` key finishes the panel with a reset request, the command confirms through
-  `ctx.ui.select` ("Keep the credit" first), consumes, then force-refreshes. Account-changing:
-  the live consume needs user approval per call.
-- CLI: `--quotas-json` prints `engineReport` JSON, `--quotas-list` the provider/alias table.
-  Units are written when the slice starts.
+Source: pi-quotas `providers/codex-resets.ts`, `resets/service.ts`, `cli/*`, bus `resets`/`reset`.
+
+The CLI runs in the factory: interactive mode starts the TUI before `session_start`. Auth must
+refresh and persist rotating OAuth tokens exactly as Pi does, so the CLI lazily imports
+`ModelRuntime`/`ModelRegistry` (dynamic import passes aot-verify) and registers our providers
+into it through a family seam instead of reading auth.json itself.
+
+Units. Wave 1 runs in parallel; U17 needs U16, U19 needs U18.
+
+15. **U15 openai resets**. `src/families/openai/resets.ts`: list
+    `GET /wham/rate-limit-reset-credits`, consume `POST .../consume` sent exactly once
+    (no retry; an interrupted or 5xx consume says the credit may be spent). Attach as
+    `openaiQuota.resets`. Test: parse fixtures; consume never retries.
+16. **U16 reset service**. `src/quotas/resets.ts` (credit choice, wording), engine
+    `listResets`/`consumeReset` (consume then forced refresh), bus `resets` (read-only) and
+    `reset` (needs `confirm: true` plus the injected in-session confirm). Test: a bus reset
+    without UI approval spends nothing.
+17. **U17 reset UI**. Quotas tab `x` (only where supported) finishes with a reset request;
+    the command lists credits, confirms via `ctx.ui.select` with "Keep the credit" first,
+    consumes, notifies; `/quotas reset [provider]`; index wiring of the bus confirm.
+18. **U18 provider seam**. `FamilyAdapter.providers(host)` returns the Pi provider
+    registrations; `src/index.ts` registers them; families keep only the rest in `register`.
+    Test: parity-verify unchanged.
+19. **U19 CLI**. `src/cli/*`: argv parsing (`--quotas-json`, `--quotas-list`, optional
+    provider), standalone runtime + registry, engine refresh honoring the interval, JSON
+    (`engineReport`) or table output to fd 1, diagnostics to fd 2, exit 0/1/2.
+
+Verification: unit tests per unit; live `pi --quotas-json`/`--quotas-list` on both runtimes;
+the reset flow up to the confirm dialog in tmux, choosing "Keep the credit". A real consume only
+with the user's explicit approval for that call.
 
 ## Slice 8+: sparse
 

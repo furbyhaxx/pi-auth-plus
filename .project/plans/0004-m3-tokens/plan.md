@@ -5,9 +5,9 @@ document:
   title: "M3 tokens"
   description: "Accurate token counts per family: correct usage on every assistant turn, count sources, store, /tokens surface"
   status: "published"
-  revision: 5
+  revision: 6
   created_at: "2026-10-27T18:43:41+01:00"
-  updated_at: "2026-10-27T20:14:50+01:00"
+  updated_at: "2026-10-27T20:20:48+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -26,6 +26,9 @@ document:
     - revision: 5
       reason: "U3a-U3c landed"
       changes: ["Tokenizer store, Synthetic usage rescale and wiring landed and live-verified on Pi-Bolt and stock Pi"]
+    - revision: 6
+      reason: "U3d split, slice 4 detailed"
+      changes: ["Counter contracts landed (c58f881, 14120c0); engine, claude counter and family counters delegated; slice 4 units"]
 ---
 
 # M3 tokens
@@ -92,7 +95,26 @@ Units:
 [x] U3b synthetic usage   message_end rescale to tokenizer count (a972462)
 [x] U3c wiring + live     32ccdf1; live: DeepSeek prompt persists 15966 (provider ~6.8K),
                           offline reuse ok, stock Pi on Node same
-[.] U3d count engine      context breakdown by source, claude count_tokens, tail per family
+[x] U3d-0 contracts      TokenCounter, FamilyAdapter.tokens, ratio estimates (c58f881, 14120c0)
+[>] U3d-1 engine         src/tokens/engine: anchor (mirrors Pi) + tail, breakdown, memo
+[>] U3d-2 claude counter count_tokens minus baseline, backoff to measured ratios
+[>] U3d-3 family hooks   antigravity (claude/gemini ratios, gpt-oss tokenizer),
+                         synthetic tokenizer, openai/xai ratios; others default 4/3
+```
+
+## Slice 4 (next)
+
+```
+[ ] U4a tracker   src/tokens/tracker: latest ContextReport per session, recompute on
+                  session_start, model_select, message_end, turn_end, session_compact,
+                  session_tree; debounced, abortable; CounterDeps from quotaAuthFor + store
+[ ] U4b bus       pi-auth-plus:v1:tokens:{ready,context,query}, decoders + typed consumers
+                  in src/bus like the quota bus
+[ ] U4c tab       /auth tokens view + /tokens entry: total with source, ours vs Pi's,
+                  anchor/tail, breakdown (computed on open), tokenizer state; text fallback
+[ ] U4d footer    footer clone shows our context % when it matches the model, marked
+                  when estimated; tmux pass 36/57/80/140
+[ ] U4e docs      docs/tokens.md, README pointer, CHANGELOG; release
 ```
 
 ## Decision (user, 2026-10-27)

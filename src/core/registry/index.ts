@@ -2,6 +2,7 @@
 import type { Provider } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ProviderConfig } from "@earendil-works/pi-coding-agent";
 import type { QuotaSource } from "../../quotas/types.ts";
+import type { CounterDeps, TokenCounter, TokenModel } from "../../tokens/types.ts";
 import type { AmbientCredential, CredentialStatus } from "../auth/index.ts";
 import type { AppSettings } from "../config/catalog.ts";
 
@@ -46,6 +47,11 @@ export interface FamilyAdapter {
 	readonly prepareProviders?: () => void | Promise<void>;
 	/** Declares providers without I/O; called after prepareProviders by registerFamilyProviders. */
 	readonly providerRegistrations?: (host: FamilyHost) => readonly ProviderRegistration[];
+	/**
+	 * The token counter for a model this family serves, including Pi builtins it measured;
+	 * undefined lets the next family or the default estimate answer.
+	 */
+	readonly tokens?: (model: TokenModel, deps: CounterDeps) => TokenCounter | undefined;
 	/** Registers the family's remaining Pi hooks inside the awaited extension factory. */
 	readonly register?: (pi: ExtensionAPI, host: FamilyHost) => void | Promise<void>;
 }

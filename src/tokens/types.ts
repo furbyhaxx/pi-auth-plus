@@ -23,3 +23,64 @@ export interface TokenizerStore {
 	/** Loads from the disk cache or downloads it; resolves undefined when unavailable, never rejects. */
 	load(repo: string): Promise<TextTokenizer | undefined>;
 }
+
+const PRECEDENCE: readonly TokenSource[] = ["provider", "count-endpoint", "tokenizer", "estimate"];
+
+/** The less authoritative of two sources; a sum is only as good as its weakest part. */
+export function weakerSource(a: TokenSource, b: TokenSource): TokenSource {
+	return PRECEDENCE.indexOf(a) >= PRECEDENCE.indexOf(b) ? a : b;
+}
+
+/** Adds counts, labelling the result with the weakest source; an empty list is an exact zero. */
+export function sumCounts(counts: readonly TokenCount[]): TokenCount {
+	let tokens = 0;
+	let source: TokenSource = "provider";
+	for (const count of counts) {
+		tokens += count.tokens;
+		source = weakerSource(source, count.source);
+	}
+	return { tokens, source };
+}
+
+/** How text is shaped; estimates use a different chars-per-token ratio for each. */
+export type TextKind = "prose" | "json";
+
+/** A tool definition as the model sees it. */
+export interface ToolSchema {
+	readonly name: string;
+	readonly description: string;
+	readonly parameters: unknown;
+}
+
+/** The model a counter is asked for. */
+export interface TokenModel {
+	/** Pi provider id, e.g. `claude`, `antigravity`, `openai`. */
+	readonly provider: string;
+	readonly id: string;
+}
+
+/** Counts content for one model; the engine memoizes results by counter id and content hash. */
+export interface TokenCounter {
+	/** Identifies the counting method; equal ids must give equal counts for equal input. */
+	readonly id: string;
+	/** Where the persisted assistant `usage` of this model comes from. */
+	readonly anchorSource: TokenSource;
+	/** Counts plain text with the best source available now; never rejects. */
+	count(text: string, kind: TextKind, signal?: AbortSignal): Promise<TokenCount>;
+	/** Counts tool definitions as the provider encodes them; without it the engine counts their JSON. */
+	countTools?(tools: readonly ToolSchema[], signal?: AbortSignal): Promise<TokenCount>;
+}
+
+/** The credential a counter authenticates with, resolved through Pi. */
+export interface CounterAuth {
+	readonly token: string;
+	readonly extra: Readonly<Record<string, unknown>>;
+}
+
+/** Shared services a family's counter may use. */
+export interface CounterDeps {
+	/** Pi's refreshed credential for a provider id; undefined when not signed in. */
+	readonly auth: (providerId: string) => Promise<CounterAuth | undefined>;
+	readonly fetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+	readonly tokenizers: TokenizerStore;
+}

@@ -6,6 +6,7 @@ import { CODEX_LOGIN_COMMANDS, codexCredentialStatus, codexQuotaAuth } from "./a
 import type { CodexOptions } from "./codex-auth/index.ts";
 import { CODEX_PROVIDER_ID } from "./identity.ts";
 import { openaiQuota } from "./quota.ts";
+import { applyOpenaiVerbosity } from "./verbosity.ts";
 
 /** Creates the quota-only OpenAI family without network I/O; `codexAuth` relocates the Codex file. */
 export function createOpenaiFamily(
@@ -27,6 +28,16 @@ export function createOpenaiFamily(
 				},
 			},
 		],
+		register: (pi, host) => {
+			pi.on("before_provider_request", (event, ctx) =>
+				applyOpenaiVerbosity(
+					event.payload,
+					ctx.model,
+					host.settings().get("openai.verbosity"),
+					host.settings().get("openai.verbosityProviders"),
+				),
+			);
+		},
 		tokens: (model) => {
 			if (model.provider !== "openai" && model.provider !== "openai-codex") return undefined;
 			const cached = counters.get(model.id);

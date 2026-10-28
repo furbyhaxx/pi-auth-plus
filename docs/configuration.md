@@ -26,6 +26,7 @@ Files are partial JSON objects with nested sections, not dotted top-level keys:
     "linePlacement": "below-editor-first",
     "percentDisplay": "remaining"
   },
+  "openai": { "verbosity": "high", "verbosityProviders": ["openai", "openai-codex"] },
   "synthetic": { "webSearch": true },
   "claude": {
     "replacePatterns": [
@@ -62,6 +63,8 @@ listed range. Booleans must be JSON booleans; enum values are exact strings.
 | `quotas.creditHealthyUsd` | `50` | Number, 5–500; balance at or above this is healthy. Panel step: 5. |
 | `quotas.creditCriticalUsd` | `5` | Number, 0–100; balance at or below this is critical. |
 | `quotas.lineTemplate` | Seven-provider template | Nonblank string, preserved verbatim; [default and grammar](quotas.md#template-reference). |
+| `openai.verbosity` | `"default"` | `"default"`, `"low"`, `"medium"`, `"high"`. Default leaves the provider request unchanged. Overrides are applied only to Responses requests for the selected model; other requests are untouched. |
+| `openai.verbosityProviders` | `["openai", "openai-codex"]` | Provider IDs for the verbosity override. An empty list disables it. |
 | `claude.replacePatterns` | `[]` | Array of literal text rules: nonblank `match`, optional string `replacement`. With a replacement, rewrite matching system-prompt text; without one, drop paragraphs containing the match. These are not regular expressions. One malformed rule rejects the field. |
 | `synthetic.webSearch` | `false` | Boolean; offer `synthetic_web_search` at session start. Requires a Synthetic credential. `--synthetic-web-search` also enables it for one run. |
 

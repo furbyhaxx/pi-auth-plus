@@ -5,7 +5,7 @@ title: "OpenAI subscription response verbosity in Pi"
 description: "Live verification of low, medium, and high text verbosity through Pi's provider request hook"
 type: "analysis"
 created: "2026-10-28T10:41:45+01:00"
-updated: "2026-10-28T10:42:35+01:00"
+updated: "2026-10-28T11:36:00+01:00"
 createdBy: "pi"
 updatedBy: "pi"
 document:
@@ -14,21 +14,36 @@ document:
   title: "OpenAI subscription response verbosity in Pi"
   description: "Live verification of low, medium, and high text verbosity through Pi's provider request hook"
   status: "published"
-  revision: 1
+  revision: 2
   created_at: "2026-10-28T10:41:45+01:00"
-  updated_at: "2026-10-28T10:42:35+01:00"
+  updated_at: "2026-10-28T11:36:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       reason: "probe results"
       changes: ["Live and isolated probe evidence for M4 model management"]
+    - revision: 2
+      reason: "production-hook verification"
+      changes: ["Captured isolated low/high requests and responses from both OpenAI routes"]
 ---
 
 # OpenAI subscription response verbosity in Pi
 
 status: "qa-complete"
 confidence: "high"
+
+## Production-hook verification
+
+The implemented `src/index.ts` extension was loaded in four isolated Pi-Bolt sessions.
+Both `openai` and `openai-codex` completed once with `openai.verbosity` set to `low` and
+once to `high`; each observed request contained the configured `text.verbosity`, and each
+assistant response ended with `stop`. Full request payloads and finalized assistant responses
+are in `implementation-live/<provider>-<level>-{requests,responses}.jsonl`. No headers or
+credentials were captured, and the evidence was checked against the source credentials.
+The scratch credentials had unexpired access tokens and disabled refresh fields; no token
+refresh, key creation, revocation or quota reset occurred. Each session used an isolated
+agent directory and a fixed two-sentence prompt.
 
 ## Summary
 

@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **OpenAI response verbosity.** `/auth settings` can set low, medium or high verbosity for
+  OpenAI Responses and Codex, with configurable provider scope. The default leaves requests
+  unchanged.
+
 ## [0.4.1] - 2026-10-28
 
 ### Fixed

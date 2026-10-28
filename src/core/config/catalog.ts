@@ -83,6 +83,22 @@ export const SETTINGS = {
 		description: "Template tokens {provider:field}; provider ids and aliases both resolve",
 		default: DEFAULT_LINE_TEMPLATE,
 	}),
+	"openai.verbosity": enumField({
+		label: "Response verbosity",
+		description: "OpenAI Responses verbosity; default leaves Pi's request unchanged",
+		default: "default",
+		options: [
+			{ value: "default", label: "Pi default" },
+			{ value: "low", label: "Low" },
+			{ value: "medium", label: "Medium" },
+			{ value: "high", label: "High" },
+		],
+	}),
+	"openai.verbosityProviders": listField({
+		label: "Verbosity providers",
+		description: "Provider IDs for the OpenAI Responses verbosity override",
+		default: ["openai", "openai-codex"],
+	}),
 	"claude.replacePatterns": textRulesField({
 		label: "Claude prompt rules",
 		description:

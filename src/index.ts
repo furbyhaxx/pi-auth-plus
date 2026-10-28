@@ -86,6 +86,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		registry,
 		settings: () => settings,
 		now: Date.now,
+		tokens,
 	});
 	let stopQuotaBus: (() => void) | undefined;
 	pi.on("session_start", async (_event, ctx) => {

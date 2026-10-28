@@ -7,6 +7,7 @@ import type {
 	Theme,
 } from "@earendil-works/pi-coding-agent";
 import { type Component, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import type { ContextReport } from "../../tokens/engine/index.ts";
 import { sanitize } from "../../ui/frame/index.ts";
 import type { FooterRows } from "./workbench.ts";
 
@@ -52,6 +53,7 @@ export function createFooterWithQuotaLine(
 	theme: Theme,
 	footerData: ReadonlyFooterDataProvider,
 	renderQuotaRows: FooterRows,
+	tokens?: () => ContextReport | undefined,
 ): Component & { dispose(): void } {
 	const unsubBranch = footerData.onBranchChange(() => tui.requestRender());
 	let cachedLeafId: string | null | undefined;
@@ -121,12 +123,19 @@ export function createFooterWithQuotaLine(
 
 			const contextUsage = ctx.getContextUsage();
 			const contextWindow = contextUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
-			const pctVal = contextUsage?.percent ?? 0;
-			const pctStr =
-				contextUsage?.percent !== null && contextUsage?.percent !== undefined
-					? pctVal.toFixed(1)
-					: "?";
-			const ctxDisplay = `${pctStr}%/${formatTokens(contextWindow)} (auto)`;
+			const report = tokens?.();
+			const counted =
+				report?.percent !== undefined &&
+				report.provider === ctx.model?.provider &&
+				report.model === ctx.model?.id
+					? report
+					: undefined;
+			const percent = counted ? counted.percent : contextUsage?.percent;
+			const pctVal = percent ?? 0;
+			const pctStr = percent !== null && percent !== undefined ? pctVal.toFixed(1) : "?";
+			// "~" marks a count whose weakest part is a character-ratio estimate.
+			const approx = counted?.tokens.source === "estimate" ? "~" : "";
+			const ctxDisplay = `${approx}${pctStr}%/${formatTokens(contextWindow)} (auto)`;
 			if (pctVal > 90) statsParts.push(theme.fg("error", ctxDisplay));
 			else if (pctVal > 70) statsParts.push(theme.fg("warning", ctxDisplay));
 			else statsParts.push(ctxDisplay);

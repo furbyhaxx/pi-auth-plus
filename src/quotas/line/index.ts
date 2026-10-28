@@ -3,6 +3,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import type { TUI } from "@earendil-works/pi-tui";
 import type { AppSettings } from "../../core/config/catalog.ts";
 import type { Registry } from "../../core/registry/index.ts";
+import type { TokenTracker } from "../../tokens/tracker/types.ts";
 import type { QuotaEngine } from "../engine.ts";
 import type { LineTheme } from "./format.ts";
 import { createQuotaLineRenderer, limitQuotaRows, quotaLineConfig } from "./line.ts";
@@ -41,6 +42,8 @@ export function createQuotaLine(
 		readonly registry: Registry;
 		readonly settings: () => AppSettings;
 		readonly now: () => number;
+		/** Replaces Pi's context percent in the fallback footer when it counts the current model. */
+		readonly tokens?: TokenTracker;
 	},
 ): QuotaLine {
 	const resolve = (token: string) => deps.registry.resolve(token)?.provider.id;
@@ -57,7 +60,8 @@ export function createQuotaLine(
 		const lines = render(width, theme, deps.engine.view(), config, deps.now());
 		return limitQuotaRows(width, theme, lines, terminalRows - EDITOR_RESERVE_ROWS);
 	};
-	const footer = createFooterPlacement(pi, rows);
+	const footer = createFooterPlacement(pi, rows, deps.tokens && (() => deps.tokens?.latest()));
+	let offTokens: (() => void) | undefined;
 
 	function sync(): void {
 		if (ctx?.mode !== "tui" || !ctx.hasUI) return;
@@ -87,6 +91,8 @@ export function createQuotaLine(
 	function stop(): void {
 		offChange?.();
 		offChange = undefined;
+		offTokens?.();
+		offTokens = undefined;
 		if (ctx?.mode === "tui" && ctx.hasUI) ctx.ui.setWidget(WIDGET_KEY, undefined);
 		footer.stop();
 		ctx = undefined;
@@ -101,6 +107,7 @@ export function createQuotaLine(
 			footer.start(context, false);
 			sync();
 			offChange = deps.engine.onChange(sync);
+			offTokens = deps.tokens?.onChange(() => footer.requestRender());
 		},
 		stop,
 		settingsChanged: sync,

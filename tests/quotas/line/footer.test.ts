@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { SessionEntry, Theme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { createFooterWithQuotaLine, type FooterContext } from "../../../src/quotas/line/footer.ts";
+import type { ContextReport } from "../../../src/tokens/engine/index.ts";
 
 const theme = { fg: (_color: string, text: string) => text } as Theme;
 
@@ -31,7 +32,11 @@ function message(id: string, input: number, read = 0, write = 0): SessionEntry {
 	};
 }
 
-function rig(activeTheme = theme, thinking: "off" | "high" = "off") {
+function rig(
+	activeTheme = theme,
+	thinking: "off" | "high" = "off",
+	tokens?: () => ContextReport | undefined,
+) {
 	let entries: SessionEntry[] = [message("a", 1000, 2000, 1000)];
 	let leaf = "a";
 	let percent: number | null = 75;
@@ -82,6 +87,7 @@ function rig(activeTheme = theme, thinking: "off" | "high" = "off") {
 			rowsCalls.push([width, terminalRows]);
 			return ["quota one", "quota two"];
 		},
+		tokens,
 	);
 	return {
 		footer,
@@ -186,4 +192,26 @@ test("usage totals refresh on entry count, branch leaf and explicit invalidation
 	expect(line).not.toContain("↑");
 	expect(line).not.toContain("CH");
 	expect(line).not.toContain("$");
+});
+
+test("a token report for the current model replaces Pi's percent and marks estimates", () => {
+	let report: ContextReport = {
+		provider: "p",
+		model: "m",
+		contextWindow: 200_000,
+		tokens: { tokens: 50_000, source: "estimate" },
+		percent: 25,
+		anchor: undefined,
+		tail: { tokens: 50_000, source: "estimate" },
+		tailMessages: 3,
+		pi: 150_000,
+		computedAt: 0,
+	};
+	const r = rig(theme, "off", () => report);
+	r.ctx.model = { provider: "p", id: "m" } as FooterContext["model"];
+	expect(r.footer.render(140)[1]).toContain("~25.0%/200k (auto)");
+	report = { ...report, tokens: { tokens: 50_000, source: "count-endpoint" } };
+	expect(r.footer.render(140)[1]).toContain(" 25.0%/200k (auto)");
+	r.ctx.model = { provider: "p", id: "other" } as FooterContext["model"];
+	expect(r.footer.render(140)[1]).toContain("75.0%/200k (auto)");
 });

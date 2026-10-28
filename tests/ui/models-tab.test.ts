@@ -166,6 +166,29 @@ describe("models tab", () => {
 		rig.view.handleInput("\x13");
 		expect(saves).toHaveLength(2);
 	});
+	test("shows the inherited catalog value after an override is removed", async () => {
+		let override: Record<string, unknown> | undefined = { contextWindow: 1200 };
+		const details: NonNullable<ModelsTabDeps["details"]> = {
+			read: async () => override,
+			save: async () => {
+				override = undefined;
+			},
+			current: () => ({ provider: "vendor", id: "one", name: "First", contextWindow: 5000 }),
+		};
+		const rig = open([], false, [], details);
+		rig.view.handleInput("v");
+		let refreshed = rig.nextRefresh();
+		rig.view.handleInput("\r");
+		await refreshed;
+		expect(rig.text()).toContain("Context window · 1200 · override");
+		rig.view.handleInput("j");
+		rig.view.handleInput("\x7f");
+		refreshed = rig.nextRefresh();
+		rig.view.handleInput("\x13");
+		await refreshed;
+		expect(rig.text()).toContain("Context window · 5000 · default");
+	});
+
 	test("detail cycles typed fields and removes default verbosity", async () => {
 		const saves: unknown[] = [];
 		const details: NonNullable<ModelsTabDeps["details"]> = {

@@ -99,6 +99,8 @@ export class ModelDetail {
 			this.#changes.clear();
 			try {
 				this.#override = await this.#deps.read(this.#item.provider, this.#item.id);
+				const current = this.#deps.current?.(this.#item.provider, this.#item.id);
+				if (current) for (const field of this.#fields) field.value = at(current, field.path);
 				if (!this.#disposed) this.#message = "Saved overrides";
 			} catch (error) {
 				if (!this.#disposed) {
@@ -207,13 +209,13 @@ export class ModelDetail {
 				options[(Math.max(index, 0) + (left ? -1 : 1) + options.length) % options.length];
 			if (next) this.#changes.set(this.#selected, { kind: "set", value: next });
 		} else if ((enter || data === " " || left || right) && field.kind === "verbosity") {
-			const options = ["default", "low", "medium", "high"];
-			const index = Math.max(0, options.indexOf(String(this.#value(field) ?? "default")));
+			const options = ["inherit", "low", "medium", "high"];
+			const index = Math.max(0, options.indexOf(String(this.#value(field) ?? "inherit")));
 			const next = options[(index + (left ? -1 : 1) + options.length) % options.length];
 			if (next)
 				this.#changes.set(
 					this.#selected,
-					next === "default" ? { kind: "remove" } : { kind: "set", value: next },
+					next === "inherit" ? { kind: "remove" } : { kind: "set", value: next },
 				);
 		} else return true;
 		this.#message = "";
@@ -239,7 +241,7 @@ export class ModelDetail {
 					: clean(
 							Array.isArray(value)
 								? value.join(", ")
-								: String(value ?? (field.kind === "verbosity" ? "default" : "unknown")),
+								: String(value ?? (field.kind === "verbosity" ? "inherit" : "unknown")),
 						);
 			const source =
 				edit?.kind === "remove"

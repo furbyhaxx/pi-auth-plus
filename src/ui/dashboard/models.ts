@@ -34,6 +34,7 @@ export interface ModelsTabDeps {
 	save(rules: readonly string[], scope: SaveScope): Promise<void>;
 	details?: {
 		read(provider: string, id: string): Promise<Record<string, unknown> | undefined>;
+		current?(provider: string, id: string): ModelCatalogItem | undefined;
 		save(
 			provider: string,
 			id: string,

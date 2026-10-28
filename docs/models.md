@@ -49,6 +49,11 @@ other extensions' registrations during startup, so a built-in provider's configu
 already have been merged before a conflict is detected. Avoid rules for providers another
 extension customizes.
 
+In RPC mode, startup catalog refresh coordination is available for verified Pi builds.
+If coordination is unavailable while rules or groups are configured, pi-auth-plus warns:
+Pi still uses its cached catalog, and a later model refresh can fetch an updated catalog.
+The coordinator does not run in offline mode.
+
 ## Model overrides
 
 Select a model in the catalog and press Enter. Name, context and output limits,

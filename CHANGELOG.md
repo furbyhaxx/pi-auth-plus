@@ -27,6 +27,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **RPC catalog startup.** On verified Pi builds, startup rules and groups no longer cancel
+  the initial background catalog refresh. Unsupported builds warn and keep Pi's normal behavior.
 - **Missing Gemini thought signatures.** Eligible missing-signature errors trigger one
   request-local repair and continuation without re-executing tools; genuine signatures
   are preserved.

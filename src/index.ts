@@ -5,6 +5,7 @@ import { isModelType, type Provider } from "@earendil-works/pi-ai";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
+	ModelRuntime,
 	ProviderConfig,
 	ProviderModelConfig,
 } from "@earendil-works/pi-coding-agent";
@@ -25,6 +26,7 @@ import { wrapNamedAliases } from "./models/aliases/named.ts";
 import { wrapNativeAliases } from "./models/aliases/native.ts";
 import { filterNativeProvider, filterOwnedConfig } from "./models/catalog/owned-filter.ts";
 import { CatalogVisibility } from "./models/catalog/runtime.ts";
+import { installStartupCoordinator } from "./models/catalog/startup.ts";
 import { installGroupContextCap } from "./models/groups/context-cap.ts";
 import { GroupRegistrations } from "./models/groups/registration.ts";
 import { registerGroupSettlement } from "./models/groups/settlement.ts";
@@ -53,7 +55,40 @@ import type { ModelCatalogItem } from "./ui/dashboard/models.ts";
 
 const NO_EXTENSIONS = process.argv.some((arg) => arg === "--no-extensions" || arg === "-ne");
 
+function sessionRuntime(ctx: ExtensionContext): ModelRuntime | undefined {
+	const runtime: unknown = (ctx.modelRegistry as unknown as { runtime?: unknown }).runtime;
+	if (
+		!runtime ||
+		typeof runtime !== "object" ||
+		!("refresh" in runtime) ||
+		typeof runtime.refresh !== "function"
+	)
+		return undefined;
+	return runtime as ModelRuntime;
+}
+
 export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
+	const modeIndex = process.argv.indexOf("--mode");
+	const rpcStartup = modeIndex >= 0 && process.argv[modeIndex + 1] === "rpc";
+	const offline =
+		process.argv.includes("--offline") ||
+		["1", "true", "yes"].includes((process.env["PI_OFFLINE"] ?? "").toLowerCase());
+	let startupCoordinator: ReturnType<typeof installStartupCoordinator>;
+	if (rpcStartup && !offline) {
+		try {
+			const { ModelRuntime } = await import("@earendil-works/pi-coding-agent");
+			startupCoordinator = installStartupCoordinator(ModelRuntime.prototype);
+		} catch {
+			startupCoordinator = undefined;
+		}
+	}
+	if (startupCoordinator) {
+		const coordinator = startupCoordinator;
+		pi.on("session_shutdown", (_event, ctx) => {
+			const runtime = sessionRuntime(ctx);
+			if (runtime) coordinator.stop(runtime);
+		});
+	}
 	registerQuotaCliFlags(pi);
 	await handleQuotaCli(process.argv.slice(2));
 	const registry = new Registry(FAMILIES);
@@ -335,17 +370,36 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		}),
 	]);
 	// Groups, physical hooks and the cap install need this session's cwd and catalog.
+	let warnedStartup = false;
 	pi.on("session_start", (event, ctx) => {
-		sessionCwd = ctx.cwd;
-		physicalHooksActive = installPhysicalRequestHooks(ctx.modelRegistry, physicalFactory);
-		recovery.setPhysicalHooksAvailable(physicalHooksActive);
-		installGroupContextCap(ctx.modelRegistry);
-		groups.apply(ctx.modelRegistry.getAll());
-		if (!physicalHooksActive && event.reason === "startup") {
-			ctx.ui.notify(
-				"pi-auth-plus: physical request hooks are unavailable in this Pi build; aliases and groups fall back to session-level detection.",
-				"warning",
-			);
+		try {
+			sessionCwd = ctx.cwd;
+			physicalHooksActive = installPhysicalRequestHooks(ctx.modelRegistry, physicalFactory);
+			recovery.setPhysicalHooksAvailable(physicalHooksActive);
+			installGroupContextCap(ctx.modelRegistry);
+			groups.apply(ctx.modelRegistry.getAll());
+			if (!physicalHooksActive && event.reason === "startup") {
+				ctx.ui.notify(
+					"pi-auth-plus: physical request hooks are unavailable in this Pi build; aliases and groups fall back to session-level detection.",
+					"warning",
+				);
+			}
+		} finally {
+			const captured = startupCoordinator?.ready(sessionRuntime(ctx));
+			if (
+				rpcStartup &&
+				!offline &&
+				event.reason === "startup" &&
+				!captured &&
+				!warnedStartup &&
+				(effectiveModelRules(settings).length > 0 || settings.get("models.groups").length > 0)
+			) {
+				warnedStartup = true;
+				ctx.ui.notify(
+					"pi-auth-plus: RPC startup catalog coordination is unavailable in this Pi build; model rules or groups may interrupt the background refresh. Refresh models later to retry.",
+					"warning",
+				);
+			}
 		}
 	});
 	pi.on("session_shutdown", () => {

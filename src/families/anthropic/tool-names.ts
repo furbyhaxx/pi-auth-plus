@@ -21,15 +21,29 @@ export function wireToolName(name: string): string {
 		.join("");
 }
 
-/** Restores exact request names plus the reserved placeholder; unknown names pass through. */
-export function toolNameRestorer(names: Iterable<string>): (wire: string) => string {
+/**
+ * Restores exact request names plus the reserved placeholder; unknown names pass through.
+ *
+ * `current` tools must be wire-unique, because a response that names that wire name is
+ * dispatched against them. Names from earlier transcript entries only fill free slots: a tool
+ * that a session once called and Pi no longer offers can fold onto a live one, and that must
+ * not block every later request in that session.
+ */
+export function toolNameRestorer(
+	current: Iterable<string>,
+	earlier: Iterable<string> = [],
+): (wire: string) => string {
 	const byWire = new Map<string, string>();
-	for (const name of [PI_PLACEHOLDER, ...names]) {
+	for (const name of [PI_PLACEHOLDER, ...current]) {
 		const wire = wireToolName(name);
 		const previous = byWire.get(wire);
 		if (previous !== undefined && previous !== name)
 			throw new ToolNameCollisionError(previous, name);
 		byWire.set(wire, name);
+	}
+	for (const name of earlier) {
+		const wire = wireToolName(name);
+		if (!byWire.has(wire)) byWire.set(wire, name);
 	}
 	return (wire) => byWire.get(wire) ?? wire;
 }

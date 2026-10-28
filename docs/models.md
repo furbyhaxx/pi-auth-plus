@@ -1,7 +1,8 @@
 # Model management
 
-Open `/auth models` to edit visibility rules and model overrides. The catalog preview
-includes hidden models, so they can be shown again without editing a file.
+Open `/auth models` to edit visibility rules, model overrides and aliases; open
+`/auth groups` to configure virtual model groups. The catalog preview includes hidden
+models, so they can be shown again without editing a file.
 
 ## Visibility rules
 
@@ -63,3 +64,73 @@ files, and saves all staged fields in one locked update. Another writer that ign
 lock can still race the final filesystem replacement. Changes refresh the catalog; if a
 selected model cannot be refreshed, reselect it. Adjusting displayed limits does not
 change the provider's actual limits.
+
+## Aliases
+
+In the Models catalog, select a source model, press Enter, and use its alias controls
+to add or edit an alias. Set an ID and optionally a display name, context window and
+output limit. Blank optional fields inherit from the source. Ctrl+S saves to user,
+trusted-project or runtime scope; `d` stages removal of an existing alias. The alias
+appears under the same provider, but requests use the source model ID. Alias editing
+is available for providers owned by pi-auth-plus. The source must exist and the alias ID
+must not collide with another model in that provider.
+
+Aliases are stored in `models.aliases` as a list. A higher-scope list replaces the
+lower-scope list. For example:
+
+```json
+{
+  "models": {
+    "aliases": [
+      { "provider": "antigravity", "source": "gemini-4-argon", "id": "fast" }
+    ]
+  }
+}
+```
+
+## Model groups
+
+Groups are virtual models named `group/<id>`. Open `/auth groups`, press `a` to add
+a group or Enter to edit one, and add members as `provider/model-id` from the catalog.
+In the group editor, Enter edits a field, Left/Right changes options, `d` removes a
+member, and Shift+Up/Down reorders members. Ctrl+S stages the group; Ctrl+S again in
+the group list saves to user, trusted-project or runtime scope. Escape discards staged
+changes. As with aliases, a higher-scope `models.groups` list replaces the lower list.
+
+Each member has a positive priority tier: routing first considers healthy members in
+the lowest available tier. If none is known to be healthy, it falls back to the remaining
+members. Within the chosen tier:
+
+- `sticky` retains the previous member when available; otherwise it picks the first.
+- `failover` picks the first member in group order.
+- `random` picks a member randomly.
+- `balance` estimates remaining requests using recent token usage, model rates and
+  available USD credits when all candidates have comparable data. Otherwise it compares
+  quota headroom when all candidates have comparable fractions, or rotates in order.
+
+Cost labels (`included`, `free`, `paid`) are informational and do not exclude a member.
+Optional thinking maps translate a group thinking level for a member, for example
+`low=high`; the result is clamped to the member's supported levels. The group context
+window defaults to the smallest available member window; an optional cap can lower it.
+It does not change the members' actual limits.
+
+By default, groups can switch members on rate-limit, quota or authentication errors
+before any output. Each trigger can be disabled in the editor. A cross-provider switch
+can lose prompt-cache reuse and thinking signatures. Existing tool calls are not replayed.
+
+```json
+{
+  "models": {
+    "groups": [
+      {
+        "id": "auto",
+        "strategy": "sticky",
+        "members": [
+          { "provider": "antigravity", "id": "gemini-4-argon", "tier": 1 },
+          { "provider": "synthetic", "id": "hf:example/model", "tier": 2 }
+        ]
+      }
+    ]
+  }
+}
+```

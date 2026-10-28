@@ -67,6 +67,8 @@ listed range. Booleans must be JSON booleans; enum values are exact strings.
 | `models.rules` | `[]` | Ordered hide and `!` re-show patterns; last match wins. See [Model management](models.md). |
 | `models.rulesScope` | `"trusted-project"` | `"user"` ignores project rules; `"trusted-project"` accepts trusted project rules. Runtime changes remain available. |
 | `models.hiddenDefault` | `"warn"` | `"warn"` keeps a selected model hidden by rules; `"fallback"` selects an available model when possible. |
+| `models.aliases` | `[]` | Provider-local model aliases; see [Aliases](models.md#aliases). |
+| `models.groups` | `[]` | Virtual models with prioritized physical members; see [Model groups](models.md#model-groups). |
 | `openai.verbosity` | `"default"` | `"default"`, `"low"`, `"medium"`, `"high"`. Default leaves the provider request unchanged. Overrides are applied only to Responses requests for the selected model; other requests are untouched. |
 | `openai.verbosityProviders` | `["openai", "openai-codex"]` | Provider IDs for the verbosity override. An empty list disables it. |
 | `claude.replacePatterns` | `[]` | Array of literal text rules: nonblank `match`, optional string `replacement`. With a replacement, rewrite matching system-prompt text; without one, drop paragraphs containing the match. These are not regular expressions. One malformed rule rejects the field. |

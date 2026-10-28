@@ -11,7 +11,8 @@ logs in or out; it reports status and points to the appropriate login.
 | `/auth providers` | Credential status, source and OAuth expiry |
 | `/auth quotas [provider]` | Live quota detail; optional solo provider |
 | `/auth tokens` | Live context count, sources and full-request breakdown; see [Token counts](tokens.md) |
-| `/auth models` | Visibility rules, catalog preview and per-model overrides; see [Model management](models.md) |
+| `/auth models` | Visibility rules, catalog preview, overrides and aliases; see [Model management](models.md) |
+| `/auth groups` | Configure and inspect virtual model groups; see [Model groups](models.md#model-groups) |
 | `/auth settings [key]` | All settings; optional dotted key selects that row |
 | `/quotas [provider]` | Open Quotas, optionally solo |
 | `/quota [provider]` | Same handler as `/quotas` |
@@ -29,6 +30,7 @@ logs in or out; it reports status and points to the appropriate login.
 | `quotas` | `quota`, `usage`, `limits` |
 | `tokens` | `token`, `count`, `counts` |
 | `models` | `model`, `visibility` |
+| `groups` | `group`, `routing`, `route` |
 | `settings` | `setting`, `config`, `options` |
 
 Provider arguments accept the [quota provider aliases](quotas.md#providers).
@@ -43,7 +45,8 @@ login subcommand is `/quota codex login`; every other provider uses Pi's `/login
 
 Outside an interactive TUI, read-only dashboard commands render text. Quotas print
 cached state without fetching on open; Tokens prints the latest count without recounting.
-Settings print effective values and source scopes; Models prints the rules and hidden count.
+Settings print effective values and source scopes; Models prints the rules and hidden count;
+Groups prints configured groups and their members.
 A reset without an interactive UI lists credits and spends nothing.
 
 ## Dashboard keys

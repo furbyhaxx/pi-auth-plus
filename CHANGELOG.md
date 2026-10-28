@@ -17,12 +17,19 @@ All notable changes to this project are documented here. The format follows
   and hide output by what the session uses: the current model's provider, running
   subagents, and providers under quota pressure.
 
-- **Model management.** `/auth models` edits ordered visibility rules and previews hidden
-  models; per-model metadata overrides are saved to Pi's `models.json` with comments and
-  unrelated settings preserved.
+- **Model management.** `/auth models` edits ordered visibility rules, previews hidden
+  models and manages provider-local aliases. Per-model metadata overrides are saved to Pi's
+  `models.json` with comments and unrelated settings preserved. `/auth groups` configures
+  prioritized virtual models with failover and quota-aware balancing.
 - **OpenAI response verbosity.** `/auth settings` can set low, medium or high verbosity for
   OpenAI Responses and Codex, with configurable provider scope. The default leaves requests
   unchanged.
+
+### Fixed
+
+- **Missing Gemini thought signatures.** Eligible missing-signature errors trigger one
+  request-local repair and continuation without re-executing tools; genuine signatures
+  are preserved.
 
 ## [0.4.1] - 2026-10-28
 

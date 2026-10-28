@@ -151,6 +151,60 @@ describe("physical request hooks", () => {
 		]);
 	});
 
+	test("runs caller response callbacks before request-local hooks for concurrent requests", async () => {
+		const { runtime, requests } = runtimeFixture();
+		const calls: { phase: string; response: object; actual: Model<Api> }[] = [];
+		installPhysicalRequestHooks({ runtime }, (selected) => ({
+			response: async (response, actual) => {
+				calls.push({ phase: `hook:${selected.provider}`, response, actual });
+			},
+		}));
+		const options: ModelsSimpleStreamOptions = {
+			onResponse: async (response, actual) => {
+				await Promise.resolve();
+				calls.push({ phase: `caller:${actual.provider}`, response, actual });
+			},
+		};
+		runtime.stream(model("a"), context, options);
+		runtime.streamSimple(model("b"), context, options);
+		const [a, b] = requests;
+		if (!a?.options?.onResponse || !b?.options?.onResponse) throw new Error("missing callback");
+		const responseA = { status: 201, headers: { request: "a" } };
+		const responseB = { status: 202, headers: { request: "b" } };
+		const actualA = { ...a.model, baseUrl: "resolved-a" };
+		const actualB = { ...b.model, baseUrl: "resolved-b" };
+		await Promise.all([
+			b.options.onResponse(responseB, actualB),
+			a.options.onResponse(responseA, actualA),
+		]);
+		expect(calls.map(({ phase }) => phase)).toEqual(["caller:b", "caller:a", "hook:b", "hook:a"]);
+		for (const call of calls) {
+			const isA = call.phase.endsWith(":a");
+			expect(call.response).toBe(isA ? responseA : responseB);
+			expect(call.actual).toBe(isA ? actualA : actualB);
+		}
+		const failure = new Error("caller failed");
+		runtime.stream(model("a"), context, {
+			onResponse: () => {
+				throw failure;
+			},
+		});
+		const rejected = requests[2]?.options?.onResponse;
+		if (!rejected) throw new Error("missing callback");
+		await expect(rejected(responseA, actualA)).rejects.toBe(failure);
+		expect(calls).toHaveLength(4);
+		const hookFailure = new Error("hook failed");
+		installPhysicalRequestHooks({ runtime }, () => ({
+			response: () => {
+				throw hookFailure;
+			},
+		}));
+		runtime.streamSimple(model("b"), context);
+		const failingHook = requests[3]?.options?.onResponse;
+		if (!failingHook) throw new Error("missing callback");
+		await expect(failingHook(responseB, actualB)).rejects.toBe(hookFailure);
+	});
+
 	test("passes virtual and unmatched calls through and updates factory on reload", async () => {
 		const { runtime, requests } = runtimeFixture();
 		let called = 0;

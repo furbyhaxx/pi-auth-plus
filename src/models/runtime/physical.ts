@@ -9,12 +9,14 @@ import {
 	type Model,
 	type ModelsSimpleStreamOptions,
 	type ProviderHeaders,
+	type ProviderResponse,
 } from "@earendil-works/pi-ai";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 
 export interface PhysicalRequestHooks {
 	headers?: (headers: ProviderHeaders) => ProviderHeaders | Promise<ProviderHeaders>;
 	payload?: (payload: unknown, actualModel: Model<Api>) => unknown | Promise<unknown>;
+	response?: (response: ProviderResponse, actualModel: Model<Api>) => void | Promise<void>;
 	message?: (message: AssistantMessage) => AssistantMessage | undefined;
 }
 
@@ -102,7 +104,15 @@ function wrap(original: Dispatch, state: State): Dispatch {
 				return result === undefined ? value : result;
 			};
 		}
-		if (hooks.headers || hooks.payload) args[2] = transformed;
+		if (hooks.response) {
+			const handler = hooks.response;
+			const previous = options?.onResponse;
+			transformed.onResponse = async (response, actualModel) => {
+				if (previous) await previous(response, actualModel);
+				await handler(response, actualModel);
+			};
+		}
+		if (hooks.headers || hooks.payload || hooks.response) args[2] = transformed;
 		const stream = Reflect.apply(original, this, args);
 		return hooks.message ? mapMessages(model, stream, hooks.message) : stream;
 	};

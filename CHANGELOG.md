@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-28
+
+### Fixed
+
+- **RPC catalog coordination after Pi-Bolt rebuilds.** Accept regenerated bundle hashes
+  for the verified startup call, so coordination remains active after recompilation.
+
 ## [0.5.0] - 2026-10-28
 
 ### Added

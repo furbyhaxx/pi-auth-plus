@@ -135,7 +135,7 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 2 usage fix     Synthetic duplicate count removed
     [x] 3 counts        HF tokenizers, Synthetic correction and count engine
     [x] 4 surface       /tokens tab, bus, fallback footer and documentation
-[x] M4 Models       verbosity, rules, overrides, aliases, groups; v0.5.0
+[x] M4 Models       verbosity, rules, overrides, aliases, groups; v0.5.0, guard patch v0.5.1
     plan: plans/0005-m4-model-management/plan.md
     design: designs/model-management/ (design.md, wireframes/index.html)
     [x] 0 verify     probes in analyses/model-management/ (filter, verbosity,

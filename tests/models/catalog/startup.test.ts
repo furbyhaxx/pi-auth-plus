@@ -129,7 +129,7 @@ test("forwards cancellation after entry and never starts a second fetch", async 
 	const f = fixture();
 	const runtime = new f.Runtime();
 	await runtime.refresh({ allowNetwork: false });
-	f.setFrame("    at main2 (/$bunfs/root/entry-gftdmvvf.js:11261:25)");
+	f.setFrame("    at main2 (/$bunfs/root/entry-xpeyq4hv.js:11261:25)");
 	f.slowNetwork();
 	const controller = new AbortController();
 	const startup = runtime.refresh({ signal: controller.signal });

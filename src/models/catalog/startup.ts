@@ -28,7 +28,7 @@ interface Installation {
 const marker = Symbol.for("pi-auth-plus.rpc-startup-refresh.v1");
 const stockCaller =
 	/^\s*at main \(file:\/\/.*\/dist\/bundle\/chunks\/chunk-MM3LKT73\.js:1222:18193\)$/u;
-const boltCaller = /^\s*at main2 \(\/\$bunfs\/root\/entry-(?:x282c8b9|gftdmvvf)\.js:11261:25\)$/u;
+const boltCaller = /^\s*at main2 \(\/\$bunfs\/root\/entry-[a-z0-9]+\.js:11261:25\)$/u;
 
 function callerFrame(): string {
 	return new Error().stack?.split("\n")[3] ?? "";

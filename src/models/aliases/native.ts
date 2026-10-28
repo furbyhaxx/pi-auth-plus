@@ -1,10 +1,16 @@
 /** Native-provider alias catalogs and request shaping. */
 import {
 	type Api,
+	type AssistantMessage,
+	type AssistantMessageEvent,
+	type AssistantMessageEventStream,
 	isModelType,
+	lazyStream,
 	type Model,
+	normalizeContext,
 	type Provider,
 	type StreamOptions,
+	type TranscriptContext,
 } from "@earendil-works/pi-ai";
 import { type AliasIssue, expandAliases, type ModelAlias, rewriteAliasPayload } from "./index.ts";
 
@@ -37,21 +43,72 @@ export function wrapNativeAliases<TApi extends Api>(
 
 	function optionsFor<T extends StreamOptions>(
 		model: Model<TApi>,
+		alias: ModelAlias,
 		options: T | undefined,
-	): T | undefined {
-		const selected = resolved().aliases.filter(
-			(alias) => alias.id === model.id && alias.provider === model.provider,
-		);
-		if (selected.length === 0) return options;
+	): T {
 		const onPayload: NonNullable<StreamOptions["onPayload"]> = async (payload, payloadModel) => {
-			const transformed = await options?.onPayload?.(payload, payloadModel);
-			return rewriteAliasPayload(
-				transformed === undefined ? payload : transformed,
-				model,
-				selected,
-			);
+			const transformed = await options?.onPayload?.(payload, { ...payloadModel, id: model.id });
+			return rewriteAliasPayload(transformed === undefined ? payload : transformed, model, [alias]);
 		};
-		return Object.assign({}, options, { onPayload });
+		const onResponse: StreamOptions["onResponse"] = options?.onResponse
+			? (response, responseModel) =>
+					options.onResponse?.(response, { ...responseModel, id: model.id })
+			: undefined;
+		const onProviderStreamEvent: StreamOptions["onProviderStreamEvent"] =
+			options?.onProviderStreamEvent
+				? (data, eventModel) =>
+						options.onProviderStreamEvent?.(data, { ...eventModel, id: model.id })
+				: undefined;
+		return Object.assign({}, options, {
+			onPayload,
+			...(onResponse ? { onResponse } : {}),
+			...(onProviderStreamEvent ? { onProviderStreamEvent } : {}),
+		});
+	}
+
+	function contextFor(
+		context: TranscriptContext,
+		model: Model<TApi>,
+		alias: ModelAlias,
+	): TranscriptContext {
+		return normalizeContext({
+			messages: context.messages.map((message) => {
+				if (message.role !== "assistant" || message.provider !== model.provider) return message;
+				if (message.model === alias.id) return { ...message, model: alias.source };
+				// Physical-model turns must remain distinct from turns created under this alias.
+				if (message.model === alias.source) return { ...message, model: alias.id };
+				return message;
+			}),
+		});
+	}
+
+	function mapStream(
+		source: AssistantMessageEventStream,
+		model: Model<TApi>,
+		alias: ModelAlias,
+	): AssistantMessageEventStream {
+		const mapped = new WeakMap<AssistantMessage, AssistantMessage>();
+		function messageFor(message: AssistantMessage): AssistantMessage {
+			if (message.provider !== model.provider || message.model !== alias.source) return message;
+			const prior = mapped.get(message);
+			if (prior) return Object.assign(prior, message, { model: model.id });
+			const result = { ...message, model: model.id };
+			mapped.set(message, result);
+			return result;
+		}
+		function eventFor(event: AssistantMessageEvent): AssistantMessageEvent {
+			if (event.type === "done") return { ...event, message: messageFor(event.message) };
+			if (event.type === "error") return { ...event, error: messageFor(event.error) };
+			return { ...event, partial: messageFor(event.partial) };
+		}
+		return lazyStream(model, async () => ({
+			async *[Symbol.asyncIterator]() {
+				for await (const event of source) yield eventFor(event);
+			},
+			async result() {
+				return messageFor(await source.result());
+			},
+		}));
 	}
 
 	return {
@@ -103,10 +160,34 @@ export function wrapNativeAliases<TApi extends Api>(
 			];
 		},
 		stream(model, context, options) {
-			return provider.stream(model, context, optionsFor(model, options));
+			const alias = resolved().aliases.find(
+				(entry) => entry.id === model.id && entry.provider === model.provider,
+			);
+			if (!alias) return provider.stream(model, context, options);
+			return mapStream(
+				provider.stream(
+					{ ...model, id: alias.source },
+					contextFor(context, model, alias),
+					optionsFor(model, alias, options),
+				),
+				model,
+				alias,
+			);
 		},
 		streamSimple(model, context, options) {
-			return provider.streamSimple(model, context, optionsFor(model, options));
+			const alias = resolved().aliases.find(
+				(entry) => entry.id === model.id && entry.provider === model.provider,
+			);
+			if (!alias) return provider.streamSimple(model, context, options);
+			return mapStream(
+				provider.streamSimple(
+					{ ...model, id: alias.source },
+					contextFor(context, model, alias),
+					optionsFor(model, alias, options),
+				),
+				model,
+				alias,
+			);
 		},
 	};
 }

@@ -9,7 +9,11 @@ import { deviceId, sessionId } from "./identity.ts";
 import { insecureTls, mergeRequestHeaders, shapeBody, shapeHeaders, shapeUrl } from "./request.ts";
 import { restoreToolNames } from "./response.ts";
 
-let preflightStarted = false;
+/**
+ * Origins that already sent this process's `/api/hello` probe, keyed by state root and account:
+ * one probe per process in production, one per isolated state root under test.
+ */
+const preflightsSent = new Set<string>();
 
 const BEARER_PREFIX = "Bearer ";
 const OAUTH_KEY_MARKER = "sk-ant-oat";
@@ -68,18 +72,21 @@ export function claudeFetch(transport: ClaudeTransport): FetchFunction {
 		if (insecure && !("Bun" in globalThis)) throw new InsecureTlsUnsupportedError();
 		const url = shapeUrl(input, transport.env);
 		const target = new URL(url instanceof Request ? url.url : String(url));
-		if (!preflightStarted && target.pathname === "/v1/messages") {
-			preflightStarted = true;
-			const hello = new URL("/api/hello", target);
-			void Promise.resolve()
-				.then(() =>
-					underlying(hello, {
-						method: "HEAD",
-						signal: AbortSignal.timeout(10_000),
-						...(insecure ? { tls: { rejectUnauthorized: false } } : {}),
-					}),
-				)
-				.catch(() => undefined);
+		if (target.pathname === "/v1/messages") {
+			const key = `${transport.env["XDG_STATE_HOME"] ?? ""}\u0000${transport.accountUuid ?? ""}\u0000${target.origin}`;
+			if (!preflightsSent.has(key)) {
+				preflightsSent.add(key);
+				const hello = new URL("/api/hello", target);
+				void Promise.resolve()
+					.then(() =>
+						underlying(hello, {
+							method: "HEAD",
+							signal: AbortSignal.timeout(10_000),
+							...(insecure ? { tls: { rejectUnauthorized: false } } : {}),
+						}),
+					)
+					.catch(() => undefined);
+			}
 		}
 		const session = sessionId(transport.sessionId);
 		const userId = JSON.stringify({

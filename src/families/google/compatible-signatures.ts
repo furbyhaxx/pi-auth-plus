@@ -1,5 +1,7 @@
 /** Preserves Google tool-call signatures across OpenAI-compatible streams. */
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { Api, Context, Model } from "@earendil-works/pi-ai";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { PhysicalRequestHooks } from "../../models/runtime/physical.ts";
 
 type Fragment = { id?: string; signature?: string; ambiguous: boolean };
 type Capture = { calls: Map<number, Fragment> };
@@ -111,68 +113,101 @@ export function registerCompatibleThoughtSignatures(pi: ExtensionAPI): void {
 	});
 
 	pi.on("before_provider_request", ({ payload }, ctx) => {
-		const model = ctx.model;
-		const request = object(payload);
-		if (
-			model?.api !== "openai-completions" ||
-			!gemini(model.id) ||
-			request?.["model"] !== model.id ||
-			!Array.isArray(request["messages"])
-		)
-			return;
-		const signatures = new Map<string, string | undefined>();
-		for (const message of ctx.sessionManager.buildSessionProjection().messages) {
-			if (message.role !== "assistant") continue;
-			for (const block of message.content) {
-				if (block.type !== "toolCall") continue;
-				// Pi also stores OpenRouter reasoning_details as JSON in this field.
-				const signature =
-					message.api === model.api &&
-					message.provider === model.provider &&
-					message.model === model.id &&
-					typeof block.thoughtSignature === "string" &&
-					block.thoughtSignature &&
-					!/^(?:\s*\[|\s*\{)/.test(block.thoughtSignature)
-						? block.thoughtSignature
-						: undefined;
-				if (signatures.has(block.id)) signatures.set(block.id, undefined);
-				else signatures.set(block.id, signature);
-			}
-		}
-		const counts = new Map<string, number>();
-		for (const raw of request["messages"]) {
-			const message = object(raw);
-			if (message?.["role"] !== "assistant" || !Array.isArray(message["tool_calls"])) continue;
-			for (const rawCall of message["tool_calls"]) {
-				const id = object(rawCall)?.["id"];
-				if (typeof id === "string") counts.set(id, (counts.get(id) ?? 0) + 1);
-			}
-		}
-		let changed = false;
-		const messages = request["messages"].map((raw) => {
-			const message = object(raw);
-			if (message?.["role"] !== "assistant" || !Array.isArray(message["tool_calls"])) return raw;
-			let messageChanged = false;
-			const calls = message["tool_calls"].map((rawCall) => {
-				const call = object(rawCall);
-				const id = call?.["id"];
-				if (!call || typeof id !== "string" || counts.get(id) !== 1) return rawCall;
-				const signature = signatures.get(id);
-				if (!signature) return rawCall;
-				const extra = call["extra_content"] === undefined ? {} : object(call["extra_content"]);
-				if (!extra) return rawCall;
-				const google = extra["google"] === undefined ? {} : object(extra["google"]);
-				if (!google || "thought_signature" in google) return rawCall;
-				changed = true;
-				messageChanged = true;
-				return {
-					...call,
-					extra_content: { ...extra, google: { ...google, thought_signature: signature } },
-				};
-			});
-			return messageChanged ? { ...message, tool_calls: calls } : raw;
-		});
-		if (changed) return { ...request, messages };
-		return undefined;
+		if (!ctx.model) return;
+		return restoreSignatures(
+			payload,
+			ctx.model,
+			() => ctx.sessionManager.buildSessionProjection().messages,
+		);
 	});
+}
+
+/** Creates a request-local signature restoration hook for a compatible Gemini model. */
+export function compatiblePhysicalHooks(
+	model: Model<Api>,
+	context: Context,
+): PhysicalRequestHooks | undefined {
+	if (model.api !== "openai-completions" || !gemini(model.id)) return undefined;
+	return {
+		payload: (payload, actualModel) => {
+			if (
+				actualModel.api !== model.api ||
+				actualModel.provider !== model.provider ||
+				actualModel.id !== model.id
+			)
+				return undefined;
+			return restoreSignatures(payload, model, () => context.messages);
+		},
+	};
+}
+
+function restoreSignatures(
+	payload: unknown,
+	model: Model<Api>,
+	source: () =>
+		| Context["messages"]
+		| ReturnType<ExtensionContext["sessionManager"]["buildSessionProjection"]>["messages"],
+): unknown {
+	const request = object(payload);
+	if (
+		model.api !== "openai-completions" ||
+		!gemini(model.id) ||
+		request?.["model"] !== model.id ||
+		!Array.isArray(request["messages"])
+	)
+		return undefined;
+	const signatures = new Map<string, string | undefined>();
+	for (const message of source()) {
+		if (message.role !== "assistant") continue;
+		for (const block of message.content) {
+			if (block.type !== "toolCall") continue;
+			// Pi also stores OpenRouter reasoning_details as JSON in this field.
+			const signature =
+				message.api === model.api &&
+				message.provider === model.provider &&
+				message.model === model.id &&
+				typeof block.thoughtSignature === "string" &&
+				block.thoughtSignature &&
+				!/^(?:\s*\[|\s*\{)/.test(block.thoughtSignature)
+					? block.thoughtSignature
+					: undefined;
+			if (signatures.has(block.id)) signatures.set(block.id, undefined);
+			else signatures.set(block.id, signature);
+		}
+	}
+	const counts = new Map<string, number>();
+	for (const raw of request["messages"]) {
+		const message = object(raw);
+		if (message?.["role"] !== "assistant" || !Array.isArray(message["tool_calls"])) continue;
+		for (const rawCall of message["tool_calls"]) {
+			const id = object(rawCall)?.["id"];
+			if (typeof id === "string") counts.set(id, (counts.get(id) ?? 0) + 1);
+		}
+	}
+	let changed = false;
+	const messages = request["messages"].map((raw) => {
+		const message = object(raw);
+		if (message?.["role"] !== "assistant" || !Array.isArray(message["tool_calls"])) return raw;
+		let messageChanged = false;
+		const calls = message["tool_calls"].map((rawCall) => {
+			const call = object(rawCall);
+			const id = call?.["id"];
+			if (!call || typeof id !== "string" || counts.get(id) !== 1) return rawCall;
+			const signature = signatures.get(id);
+			if (!signature) return rawCall;
+			const extra = call["extra_content"] === undefined ? {} : object(call["extra_content"]);
+			if (!extra) return rawCall;
+			const google = extra["google"] === undefined ? {} : object(extra["google"]);
+			if (!google || "thought_signature" in google) return rawCall;
+			changed = true;
+			messageChanged = true;
+			return {
+				...call,
+				extra_content: { ...extra, google: { ...google, thought_signature: signature } },
+			};
+		});
+		return messageChanged ? { ...message, tool_calls: calls } : raw;
+	});
+	if (changed) return { ...request, messages };
+	return undefined;
 }

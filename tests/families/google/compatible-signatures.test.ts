@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { AssistantMessage, Model } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { registerCompatibleThoughtSignatures } from "../../../src/families/google/compatible-signatures.ts";
+import {
+	compatiblePhysicalHooks,
+	registerCompatibleThoughtSignatures,
+} from "../../../src/families/google/compatible-signatures.ts";
 
 const signature = "opaque-genuine-signature==";
 const selected = {
@@ -84,6 +87,86 @@ function request() {
 }
 
 describe("compatible thought signatures", () => {
+	test("restores only unique genuine signatures from the routed physical context", async () => {
+		const h = harness();
+		h.emit(
+			"provider_stream_event",
+			chunk({
+				index: 0,
+				id: "call-a",
+				extra_content: { google: { thought_signature: signature } },
+			}),
+		);
+		const message = assistant([
+			{ type: "toolCall", id: "call-a", name: "read", arguments: {} },
+			{ type: "toolCall", id: "call-b", name: "read", arguments: {}, thoughtSignature: "other" },
+			{
+				type: "toolCall",
+				id: "duplicate",
+				name: "read",
+				arguments: {},
+				thoughtSignature: signature,
+			},
+			{
+				type: "toolCall",
+				id: "duplicate",
+				name: "read",
+				arguments: {},
+				thoughtSignature: signature,
+			},
+		]);
+		const captured = h.emit("message_end", { message }) as { message: AssistantMessage };
+		const physicalMessage = captured.message;
+		h.context.model = { ...selected, provider: "group", id: "group/example" };
+		const payload = request();
+		payload.messages[0]?.tool_calls.push({
+			id: "duplicate",
+			type: "function",
+			function: { name: "read", arguments: "{}" },
+		});
+		expect(h.emit("before_provider_request", { payload })).toBeUndefined();
+		const hooks = compatiblePhysicalHooks(selected, { messages: [physicalMessage] });
+		const output = await hooks?.payload?.(payload, selected);
+		expect(output).toEqual({
+			...payload,
+			messages: [
+				{
+					...payload.messages[0],
+					tool_calls: [
+						{
+							...payload.messages[0]?.tool_calls[0],
+							extra_content: { google: { thought_signature: signature } },
+						},
+						payload.messages[0]?.tool_calls[1],
+						payload.messages[0]?.tool_calls[2],
+					],
+				},
+			],
+		});
+		expect(await hooks?.payload?.(output, selected)).toBeUndefined();
+		expect(await hooks?.payload?.(payload, { ...selected, provider: "other" })).toBeUndefined();
+		expect(
+			await hooks?.payload?.(payload, { ...selected, id: "other/gemini-example" }),
+		).toBeUndefined();
+		expect(
+			await hooks?.payload?.(payload, { ...selected, api: "openai-responses" }),
+		).toBeUndefined();
+		expect(
+			await hooks?.payload?.(
+				{ ...payload, messages: [payload.messages[0], payload.messages[0]] },
+				selected,
+			),
+		).toBeUndefined();
+		expect(
+			compatiblePhysicalHooks({ ...selected, id: "other/model" }, { messages: [physicalMessage] }),
+		).toBeUndefined();
+		expect(
+			await compatiblePhysicalHooks(
+				{ ...selected, provider: "other" },
+				{ messages: [physicalMessage] },
+			)?.payload?.(payload, { ...selected, provider: "other" }),
+		).toBeUndefined();
+	});
 	test("persists a split streamed signature and replays it only on its original call", () => {
 		const h = harness();
 		h.emit("provider_stream_event", chunk({ index: 0, id: "call-a" }));
@@ -125,6 +208,7 @@ describe("compatible thought signatures", () => {
 			],
 		});
 		expect(payload.messages[0]?.tool_calls[0]).not.toHaveProperty("extra_content");
+		expect(h.emit("before_provider_request", { payload: output })).toBeUndefined();
 	});
 
 	test("clears pending captures on session shutdown and after binding", () => {

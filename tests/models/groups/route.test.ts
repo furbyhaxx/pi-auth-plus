@@ -218,7 +218,7 @@ describe("group routes", () => {
 			).model,
 		).toEqual(b);
 	});
-	test("partial output, thinking, tool calls and prior tool work prevent switches", async () => {
+	test("partial output, thinking, and tool calls from the failed request prevent switches", async () => {
 		const { route } = setup();
 		for (const content of [
 			[{ type: "text", text: "partial" }],
@@ -236,11 +236,37 @@ describe("group routes", () => {
 				await route({
 					reason: "retry",
 					state: state(a),
-					messages: [error("old", [{ type: "toolCall", id: "1", name: "run", arguments: {} }])],
+					messages: [
+						{
+							...error("old", [{ type: "toolCall", id: "1", name: "run", arguments: {} }]),
+							stopReason: "toolUse",
+						},
+						{
+							role: "toolResult",
+							toolCallId: "1",
+							toolName: "run",
+							content: [{ type: "text", text: "done" }],
+							isError: false,
+							timestamp: 0,
+						},
+					],
 					failed: failed(a, error("429")),
 				})
 			).model,
-		).toEqual(a);
+		).toEqual(b);
+	});
+	test("settlement failover keeps earlier exclusions when Pi labels a retry as a user turn", async () => {
+		const failures = [a, b];
+		const coordinated = setup({ takeFailed: () => failures.shift() });
+		const first = await coordinated.route({ reason: "user", state: state(a) });
+		expect(first.model).toEqual(b);
+		if (!first.state) throw new Error("Expected route state");
+		const second = await coordinated.route({ reason: "user", state: first.state });
+		expect(second.model).toEqual(c);
+		expect(second.state?.failed).toEqual([
+			{ provider: "a", id: "same" },
+			{ provider: "b", id: "same" },
+		]);
 	});
 	test("best effort when auth or plan quota exhausts all, and ignore scoped quota", async () => {
 		const quota = (provider: string) => snapshot(provider, { needsAuth: true });
@@ -311,7 +337,7 @@ describe("group routes", () => {
 					messages: [error("prior", [{ type: "text", text: "started" }])],
 				})
 			).model,
-		).toEqual(a);
+		).toEqual(b);
 		await expect(setup({ models: [] }).route()).rejects.toThrow("no physical models");
 	});
 });

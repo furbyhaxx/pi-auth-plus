@@ -36,6 +36,7 @@ export interface GroupRouteDeps {
 		messages: readonly Message[],
 	) => GroupMember | undefined;
 	readonly takeFailed?: (groupId: string) => ModelIdentity | undefined;
+	readonly onSwitch?: (from: ModelIdentity, to: ModelIdentity) => void;
 	readonly random: () => number;
 }
 
@@ -96,13 +97,6 @@ function healthy(candidate: GroupRouteCandidate, available: readonly Model<Api>[
 	);
 }
 
-function outputSinceUser(messages: readonly Message[]): boolean {
-	const lastUser = messages.findLastIndex((message) => message.role === "user");
-	return messages
-		.slice(lastUser + 1)
-		.some((message) => message.role === "assistant" && hasOutput(message));
-}
-
 /** Construct a group virtual model; physical models are resolved on each route. */
 export function createGroupDefinition(
 	group: ModelGroup,
@@ -144,11 +138,6 @@ export function createGroupDefinition(
 					provider: request.previous.model.provider,
 					id: request.previous.model.id,
 				});
-			const failed =
-				request.reason === "user" || request.reason === "direct"
-					? []
-					: [...(request.state?.failed ?? [])];
-			const safeToSwitch = !outputSinceUser(request.messages);
 			const retryFailure =
 				request.reason === "retry" &&
 				request.failed &&
@@ -159,7 +148,11 @@ export function createGroupDefinition(
 				request.reason === "user" || request.reason === "continuation"
 					? deps.takeFailed?.(group.id)
 					: undefined;
-			const newlyFailed = safeToSwitch ? (retryFailure ?? settledFailure) : undefined;
+			const failed =
+				request.reason === "direct" || (request.reason === "user" && !settledFailure)
+					? []
+					: [...(request.state?.failed ?? [])];
+			const newlyFailed = retryFailure ?? settledFailure;
 			if (newlyFailed && !failed.some((identity) => same(identity, newlyFailed)))
 				failed.push({ provider: newlyFailed.provider, id: newlyFailed.id });
 			const retained = request.reason === "retry" ? (request.failed?.model ?? previous) : previous;
@@ -203,6 +196,13 @@ export function createGroupDefinition(
 					`Group ${group.id} has no physical models in the catalog; configure an available member.`,
 				);
 			const identity = { provider: selected.member.provider, id: selected.member.id };
+			if (newlyFailed && !same(newlyFailed, identity)) {
+				try {
+					deps.onSwitch?.(newlyFailed, identity);
+				} catch {
+					// A notification failure must not block the selected route.
+				}
+			}
 			const nextState =
 				request.state &&
 				same(request.state.selected, identity) &&

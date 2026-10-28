@@ -5,9 +5,9 @@ document:
   title: "Model management, verbosity and model groups"
   description: "Verified seams, UX and mechanisms for model rules, overrides, aliases, OpenAI verbosity and quota-aware groups (web search evidence kept for a separate extension)"
   status: "draft"
-  revision: 3
+  revision: 4
   created_at: "2026-10-28T11:45:00+01:00"
-  updated_at: "2026-10-28T14:00:00+01:00"
+  updated_at: "2026-10-28T11:29:26+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -20,6 +20,9 @@ document:
     - revision: 3
       reason: "user decisions on paid members and web search"
       changes: ["Group members get priority tiers; cost class is a label only", "Web search moved to a separate extension"]
+    - revision: 4
+      reason: "user prohibited filing Pi hook requests upstream and authorized implementation"
+      changes: ["Record Pi API limitations without proposing upstream requests"]
 ---
 
 # Model management, verbosity and model groups
@@ -52,9 +55,10 @@ Side findings that affect existing code:
 - `AGENTS.md` stated `before_provider_request` runs before the headers event; Pi runs headers
   first. Corrected.
 
-## Upstream asks (Pi)
+## Pi API limitations
 
-Smallest seams that unblock the parts a pure extension cannot do. Each is one issue/PR.
+The installed Pi API lacks the following capabilities. The user explicitly prohibited filing
+upstream hook requests; these are technical constraints, not planned external actions.
 
 1. **Model visibility filter**:
    `pi.registerModelVisibilityFilter((id, { cwd, projectTrusted }) => boolean)`, applied
@@ -146,8 +150,8 @@ live probe results in `analyses/model-management/search-entitlement/` stay as it
   `modelOverrides` still apply, openai list matches stock exactly. Gaps: OpenRouter
   personalization is lost (spike `personalizeOpenRouterCatalog`), explicit `--model` on a
   hidden id fails with a misleading `vercel-ai-gateway` key error, refresh behaviour
-  unobserved (`analyses/model-management/builtin-reregistration/`). Upstream ask 1 still
-  filed to replace the rebuild.
+  unobserved (`analyses/model-management/builtin-reregistration/`). No upstream hook request
+  will be filed.
 - **Overrides**: locked read-modify-write of `models.json` preserving unknown keys and order.
 - **Aliases**: owned families append alias entries (copied metadata, own limits) to static and
   refreshed catalogs; the stream wrapper chains the caller's `onPayload`, then rewrites the
@@ -160,13 +164,13 @@ live probe results in `analyses/model-management/search-entitlement/` stay as it
   401/quota failures before output (mark member, `context_edit` the failed assistant,
   continue). Health = sign-in + quota snapshot (unknown = not healthy) + recent failure
   cool-down. Quota attribution from physical assistant messages; header ingest for routed
-  requests waits for upstream ask 2.
+  requests cannot be attributed generically with the current response hook.
 
 ## Decisions (2026-10-28)
 
 - Rules: everything listed by default; rules hide, `!rule` shows again, last match wins.
 - Enforcement: everywhere now. Owned families drop ids; built-ins via re-registration (user
-  idea, probe-verified with the gaps above); upstream visibility hook filed anyway.
+  idea, probe-verified with the gaps above); no upstream hook request.
 - Failover: any member, including other providers; the status line names the switch.
 
 - Paid members: no paid policy; members get priority tiers instead (user: "only fall back to

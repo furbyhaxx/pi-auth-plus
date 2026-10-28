@@ -132,20 +132,20 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 2 usage fix     Synthetic duplicate count removed
     [x] 3 counts        HF tokenizers, Synthetic correction and count engine
     [x] 4 surface       /tokens tab, bus, fallback footer and documentation
-[ ] M4 Models       verbosity, rules, overrides, aliases, groups
+[>] M4 Models       verbosity, rules, overrides, aliases, groups
     plan: plans/0005-m4-model-management/plan.md (draft, all slices unblocked; web_search moved to a separate extension)
     design: designs/model-management/ (design.md, wireframes/index.html)
     [x] 0 verify     probes in analyses/model-management/ (filter, verbosity,
                      search, routing, alias limits, attribution)
     [ ] 1 verbosity  [ ] 2 rules+catalog  [ ] 3 overrides  [ ] 4 aliases
-    [-] 5 web_search [ ] 6 groups         [ ] U Pi asks (visibility, response model)
+    [-] 5 web_search [ ] 6 groups         no upstream Pi hook requests
 [.] Later           codex/grok providers?, Pi estimator hook upstream
 ```
 
 ## Ideas parked for later milestones
 
 - Pi has no token-estimator hook (`estimate.ts`, 3.5 chars/token); M3 works through `usage`,
-  `message_end` and `session_before_compact`, an upstream hook is an M4 candidate.
+  `message_end` and `session_before_compact`.
 - Workbench and native footer hosts retain their own context percentage; the M3 count
   appears in the fallback footer only.
 - antigravity quota (five buckets, credits, reset times) is the M2 engine's first vendor input:

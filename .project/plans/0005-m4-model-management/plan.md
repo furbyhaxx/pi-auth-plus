@@ -5,9 +5,9 @@ document:
   title: "M4 model management"
   description: "Verbosity, model rules, overrides, aliases, unified web search and quota-aware model groups, grounded in the 2026-10-28 probes"
   status: "draft"
-  revision: 3
+  revision: 4
   created_at: "2026-10-28T11:55:00+01:00"
-  updated_at: "2026-10-28T14:00:00+01:00"
+  updated_at: "2026-10-28T11:29:26+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -20,13 +20,17 @@ document:
     - revision: 3
       reason: "user decisions on paid members and web search"
       changes: ["S5 web_search moved to a separate extension", "S6 groups use priority tiers"]
+    - revision: 4
+      reason: "user prohibited filing Pi hook requests upstream and authorized implementation"
+      changes: ["Removed upstream request work", "M4 implementation started"]
 ---
 
 # M4 model management
 
 Design: `.project/designs/model-management/design.md`. Wireframes:
 `.project/designs/model-management/wireframes/index.html`. Evidence:
-`.project/analyses/model-management/`. Not started; all slices unblocked.
+`.project/analyses/model-management/`. Implementation authorized; use local Pi seams and report
+limitations without filing upstream hook requests.
 
 ## Order and why
 
@@ -37,7 +41,6 @@ Design: `.project/designs/model-management/design.md`. Wireframes:
 [ ] S4 Aliases (owned families)   stream-level id rewrite; built-ins wait for Pi
 [-] S5 web_search               moved to a separate extension (2026-10-28)
 [ ] S6 Model groups               tiers, router, failover recovery, attribution, guards
-[ ] U  Upstream Pi asks           visibility filter, response model metadata, wireId
 ```
 
 S1 and S2 are independent; S3 reuses S2's catalog view; S4 extends S3's detail view; S6
@@ -93,14 +96,12 @@ Units:
   usage with request/physical-message checks; (b) router: priority tiers (strategy inside the lowest healthy
   tier, next tier only when a tier is exhausted), branch-state stickiness, `retry` switching; (c) `agent_before_settle` recovery for 401/quota before output; (d) quota
   attribution from physical assistant messages; (e) Groups tab per wireframe.
-- **U Upstream**: file the three Pi asks from the design; when the visibility filter lands,
-  replace the S2 re-registration with it (keeps personalization, fixes the misleading
-  hidden-id error).
 
 ## Decided 2026-10-28
 
 - Rules default-visible, hide rules, `!` re-shows, last match wins.
-- Enforce everywhere now (re-registration for built-ins); upstream hook still filed.
+- Enforce via owned catalogs and built-in re-registration where possible; do not file Pi hook
+  requests upstream (explicit user decision).
 - Group failover may cross providers.
 - Group members carry priority tiers; paid is a label, not a policy.
 - Web search leaves pi-auth-plus.

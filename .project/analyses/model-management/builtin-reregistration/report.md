@@ -86,5 +86,5 @@ credentials, and the scratch dir was deleted afterwards.
 - Merge bundled + store on `type:id`. Re-run on catalog refresh.
 - OpenRouter: spike `personalizeOpenRouterCatalog` before enabling; until then the panel marks
   openrouter rules as `re-reg (raw)`.
-- Still file the upstream visibility hook: it removes the rebuild, the personalization gap and
-  the misleading error.
+- The user subsequently ruled out filing an upstream Pi hook request; handle these limitations
+  locally and expose any remaining gaps honestly.

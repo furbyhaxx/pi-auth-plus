@@ -68,9 +68,13 @@ export function createQuotaLine(
 	let offTokens: (() => void) | undefined;
 	let offOwnership: (() => void) | undefined;
 
+	/** Workbench's statusline segment owns the row; every other placement stays dormant. */
+	const effective = () =>
+		statusline.owned() ? ("off" as const) : deps.settings().get("quotas.linePlacement");
+
 	function sync(): void {
 		if (ctx?.mode !== "tui" || !ctx.hasUI) return;
-		const desired = deps.settings().get("quotas.linePlacement");
+		const desired = effective();
 		if (desired === placement) {
 			tui?.requestRender();
 			footer.requestRender();
@@ -116,10 +120,7 @@ export function createQuotaLine(
 			ctx = context;
 			// Ownership decides whether the legacy rows may appear, so subscribe before registering.
 			offOwnership = statusline.onOwnership(() => {
-				footer.setEnabled(
-					deps.settings().get("quotas.linePlacement") === "below-editor-last" &&
-						!statusline.owned(),
-				);
+				sync();
 				statusline.invalidate();
 			});
 			statusline.start();

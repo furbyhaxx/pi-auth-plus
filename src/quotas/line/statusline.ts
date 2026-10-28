@@ -3,7 +3,7 @@ import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import type { AppSettings } from "../../core/config/catalog.ts";
 import type { Registry } from "../../core/registry/index.ts";
 import type { QuotaEngine } from "../engine.ts";
-import { createQuotaLineRenderer, limitQuotaRows, quotaLineConfig } from "./line.ts";
+import { createQuotaLineRenderer, quotaLineConfig } from "./line.ts";
 
 /** Segment id inside pi-workbench; its owner prefix is the extension name. */
 export const QUOTA_SEGMENT_ID = "pi-auth-plus:quotas";
@@ -92,7 +92,8 @@ export function createQuotaStatusline(
 				deps.now(),
 				ctx.providersInUse,
 			);
-			const rows = limitQuotaRows(ctx.width, ctx.theme, lines, ctx.maxRows);
+			// A statusline is a fixed-height surface: drop overflow rows instead of naming them.
+			const rows = lines.slice(0, Math.max(1, ctx.maxRows));
 			return { lines: rows, zero: rows.length === 0 };
 		},
 	};

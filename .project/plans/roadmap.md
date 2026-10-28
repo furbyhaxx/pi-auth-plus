@@ -1,13 +1,22 @@
 ---
+version: 1
+id: "ROADMAP"
+title: "pi-auth-plus roadmap"
+description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
+type: "plan"
+created: "2026-10-27T09:43:00+01:00"
+updated: "2026-10-28T10:15:32+01:00"
+createdBy: "pi"
+updatedBy: "pi"
 document:
   type: "plan"
   id: "ROADMAP"
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 20
+  revision: 21
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-28T09:10:24+01:00"
+  updated_at: "2026-10-28T10:15:32+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -71,6 +80,9 @@ document:
     - revision: 20
       reason: "M3 release"
       changes: ["Token counters, tracker, bus, tab and fallback footer shipped in v0.4.0"]
+    - revision: 21
+      reason: "Record user ideas and correct vault status"
+      changes: ["Model filtering, overrides and groups; verbosity; unified search", "Claustrum vault was dropped"]
 ---
 
 # Roadmap
@@ -117,7 +129,9 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 2 usage fix     Synthetic duplicate count removed
     [x] 3 counts        HF tokenizers, Synthetic correction and count engine
     [x] 4 surface       /tokens tab, bus, fallback footer and documentation
-[.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream
+[.] M4 Later        codex/grok providers?, Pi estimator hook upstream
+    [.] Ideas       model filters, overrides and groups; verbosity; unified web search
+                    .project/ideas/model-management-and-routing/ideas.md
 ```
 
 ## Ideas parked for later milestones

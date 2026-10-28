@@ -148,6 +148,84 @@ function render(
 	);
 }
 describe("quota templates", () => {
+	test("in-use expansion and gates use aliases and all quota pressure", () => {
+		const snapshots = views(snapshot([win("5h")])).map((view) => {
+			if (view.provider.id === "antigravity")
+				return { ...view, snapshot: snapshot([win("5h"), win("7d"), win("1h", undefined, 0.9)]) };
+			if (view.provider.id === "xai")
+				return { ...view, snapshot: { ...snapshot(), credits: { remaining: 2.5, currency: "$" } } };
+			return view;
+		});
+		const run = (source: string, inUse: readonly string[] = []) =>
+			renderLineTemplate(
+				theme,
+				compileLineTemplate(source),
+				snapshots,
+				DEFAULT_QUOTAS_CONFIG,
+				0,
+				false,
+				inUse,
+			);
+		expect(run("[{codex:in-use,id,pct}]", [])).toEqual([]);
+		expect(run("[{codex:in-use,id,pct}]", ["openai-codex"])).toEqual(["codex: 25%"]);
+		expect(run("[{antigravity:in-use,id}] [{xai:in-use,id}]")).toEqual(["antigravity xai"]);
+		expect(run("{codex:id}{sep}{in-use:short}", ["cc", "unknown"])).toEqual([
+			"codex",
+			"cl: 25%",
+			"ag: 25%/25%",
+			"xai: 2.50$",
+		]);
+		expect(run("{in-use}")).toEqual(["Antigravity: 5h 25% 7d 25%", "xAI: 2.50$", "+2"]);
+		expect(run("{in-use}", ["openai"])).toEqual([
+			"OpenAI Codex: 25%",
+			"Antigravity: 5h 25% 7d 25%",
+			"xAI: 2.50$",
+			"+1",
+		]);
+		expect(run("[{codex:in-use}]", ["openai"])).toEqual([]);
+		expect(
+			renderLineTemplate(
+				theme,
+				compileLineTemplate("[{codex:in-use,id}]{in-use}"),
+				[],
+				DEFAULT_QUOTAS_CONFIG,
+				0,
+				false,
+				["openai"],
+			),
+		).toEqual([]);
+		const unknown = views(undefined);
+		expect(
+			renderLineTemplate(
+				theme,
+				compileLineTemplate("[{codex:in-use,id}]"),
+				unknown,
+				DEFAULT_QUOTAS_CONFIG,
+				0,
+				false,
+				["openai"],
+			),
+		).toEqual(["codex"]);
+		const colors: string[] = [];
+		const coloredTheme: LineTheme = {
+			...theme,
+			fg: (color, text) => {
+				colors.push(`${color}:${text}`);
+				return text;
+			},
+		};
+		expect(
+			renderLineTemplate(
+				coloredTheme,
+				compileLineTemplate("{in-use}"),
+				unknown,
+				DEFAULT_QUOTAS_CONFIG,
+				0,
+				false,
+			),
+		).toEqual(["+4"]);
+		expect(colors).toContain("dim:+4");
+	});
 	test("aliases resolve to Pi ids and resolver caches stay independent", () => {
 		const value = snapshot([win("5h")]);
 		expect(render("{cl:pct}/{claude:pct}/{cc:pct}", value)).toEqual(["25%/25%/25%"]);

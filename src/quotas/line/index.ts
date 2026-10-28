@@ -8,6 +8,7 @@ import type { QuotaEngine } from "../engine.ts";
 import type { LineTheme } from "./format.ts";
 import { createQuotaLineRenderer, limitQuotaRows, quotaLineConfig } from "./line.ts";
 import { createFooterPlacement, type FooterPlacementContext } from "./placement.ts";
+import { createQuotaStatusline } from "./statusline.ts";
 import { compileLineTemplate } from "./template.ts";
 import { QuotaLineWidget } from "./widget.ts";
 import type { FooterRows } from "./workbench.ts";
@@ -60,21 +61,31 @@ export function createQuotaLine(
 		const lines = render(width, theme, deps.engine.view(), config, deps.now());
 		return limitQuotaRows(width, theme, lines, terminalRows - EDITOR_RESERVE_ROWS);
 	};
-	const footer = createFooterPlacement(pi, rows, deps.tokens && (() => deps.tokens?.latest()));
+	const statusline = createQuotaStatusline(pi, deps);
+	const footer = createFooterPlacement(pi, rows, deps.tokens && (() => deps.tokens?.latest()), () =>
+		statusline.owned(),
+	);
 	let offTokens: (() => void) | undefined;
+	let offOwnership: (() => void) | undefined;
+
+	/** Workbench's statusline segment owns the row; every other placement stays dormant. */
+	const effective = () =>
+		statusline.owned() ? ("off" as const) : deps.settings().get("quotas.linePlacement");
 
 	function sync(): void {
 		if (ctx?.mode !== "tui" || !ctx.hasUI) return;
-		const desired = deps.settings().get("quotas.linePlacement");
+		const desired = effective();
 		if (desired === placement) {
 			tui?.requestRender();
 			footer.requestRender();
+			statusline.invalidate();
 			return;
 		}
 		ctx.ui.setWidget(WIDGET_KEY, undefined);
 		tui = undefined;
 		placement = desired;
 		footer.setEnabled(desired === "below-editor-last");
+		statusline.invalidate();
 		if (desired !== "above-editor" && desired !== "below-editor-first") return;
 		ctx.ui.setWidget(
 			WIDGET_KEY,
@@ -89,10 +100,13 @@ export function createQuotaLine(
 	}
 
 	function stop(): void {
+		statusline.stop();
 		offChange?.();
 		offChange = undefined;
 		offTokens?.();
 		offTokens = undefined;
+		offOwnership?.();
+		offOwnership = undefined;
 		if (ctx?.mode === "tui" && ctx.hasUI) ctx.ui.setWidget(WIDGET_KEY, undefined);
 		footer.stop();
 		ctx = undefined;
@@ -104,10 +118,19 @@ export function createQuotaLine(
 		start(context) {
 			stop();
 			ctx = context;
+			// Ownership decides whether the legacy rows may appear, so subscribe before registering.
+			offOwnership = statusline.onOwnership(() => {
+				sync();
+				statusline.invalidate();
+			});
+			statusline.start();
 			footer.start(context, false);
 			sync();
 			offChange = deps.engine.onChange(sync);
-			offTokens = deps.tokens?.onChange(() => footer.requestRender());
+			offTokens = deps.tokens?.onChange(() => {
+				footer.requestRender();
+				statusline.invalidate();
+			});
 		},
 		stop,
 		settingsChanged: sync,

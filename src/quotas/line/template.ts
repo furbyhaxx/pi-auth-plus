@@ -104,6 +104,7 @@ function providerFields(
 	config: LineConfig,
 	now: number,
 	shortIds: boolean,
+	inUse: boolean,
 	style?: TokenStyle,
 ): Value {
 	const meta = { label: provider.label, shortLabel: provider.quota?.shortLabel ?? provider.id };
@@ -128,6 +129,7 @@ function providerFields(
 	});
 	const primary = snapshot ? selectImportantWindows(snapshot)[0] : undefined;
 	const value = (field: TemplateField): Value => {
+		if (field === "in-use") return { text: "", available: inUse };
 		if (field === "id" || field === "name" || field === "short")
 			return {
 				text: paint(
@@ -244,8 +246,15 @@ export function renderLineTemplate(
 	config: LineConfig,
 	now: number,
 	shortIds: boolean,
+	inUse?: readonly string[],
 ): string[] {
 	const enabled = new Map(views.map((view) => [view.provider.id, view]));
+	const active = new Set(inUse?.map((id) => compiled.resolve(id.trim().toLowerCase())));
+	const relevant = (view: QuotaView): boolean =>
+		active.has(view.provider.id) ||
+		(view.snapshot?.windows.some((window) => (window.usedFraction ?? -1) >= 0.9) ?? false) ||
+		(view.snapshot?.credits?.remaining !== undefined &&
+			creditStress(view.snapshot.credits.remaining, config) >= 0.9);
 	const remainder = views.filter((view) => !compiled.explicit.has(view.provider.id));
 	function render(parts: readonly TemplatePart[]): { segments: string[]; available: boolean } {
 		const segments = [""];
@@ -270,6 +279,7 @@ export function renderLineTemplate(
 				config,
 				now,
 				short,
+				relevant(view),
 				style,
 			);
 		};
@@ -305,6 +315,7 @@ export function renderLineTemplate(
 								config,
 								now,
 								shortIds,
+								relevant(view),
 								part.style,
 							)
 						: auto(view, shortIds, part.style);
@@ -313,13 +324,21 @@ export function renderLineTemplate(
 					break;
 				}
 				case "all":
-					remainder.forEach((view, index) => {
+				case "in-use": {
+					const selected = part.kind === "all" ? remainder : remainder.filter(relevant);
+					selected.forEach((view, index) => {
 						if (index > 0) segments.push("");
 						const result = auto(view, shortIds || part.short);
 						append(result.text);
 						available &&= result.available;
 					});
+					const omitted = remainder.length - selected.length;
+					if (part.kind === "in-use" && omitted > 0) {
+						if (selected.length) segments.push("");
+						append(theme.fg("dim", `+${omitted}`));
+					}
 					break;
+				}
 			}
 		}
 		return { segments, available };

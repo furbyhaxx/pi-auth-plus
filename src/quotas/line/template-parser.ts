@@ -18,6 +18,7 @@ export const TEMPLATE_FIELDS = [
 	"bar",
 	"credits-remaining",
 	"resets-available",
+	"in-use",
 ] as const;
 /** A provider metric or identity requested by a token. */
 export type TemplateField =
@@ -38,7 +39,7 @@ export type TemplatePart =
 	| { kind: "text"; text: string }
 	| { kind: "sep" }
 	| { kind: "group"; parts: readonly TemplatePart[] }
-	| { kind: "all"; short: boolean }
+	| { kind: "all" | "in-use"; short: boolean }
 	| {
 			kind: "provider";
 			id: string;
@@ -51,6 +52,7 @@ export interface CompiledTemplate {
 	parts: readonly TemplatePart[];
 	explicit: ReadonlySet<string>;
 	unknown: readonly string[];
+	resolve: (token: string) => string | undefined;
 }
 const TOKENS: readonly ThemeToken[] = [
 	"accent",
@@ -156,9 +158,9 @@ function token(
 	const rawFields = args[1];
 	if (alias === "sep")
 		return rawFields === undefined && style === undefined ? { kind: "sep" } : undefined;
-	if (alias === "all")
+	if (alias === "all" || alias === "in-use")
 		return style === undefined && (rawFields === undefined || rawFields === "short")
-			? { kind: "all", short: rawFields === "short" }
+			? { kind: alias, short: rawFields === "short" }
 			: undefined;
 	const id = resolve(alias);
 	if (!id) return undefined;
@@ -245,5 +247,5 @@ export function parseTemplate(
 		if (nested) unknown.push("[");
 		return result;
 	}
-	return { parts: parts(false, 0), explicit, unknown };
+	return { parts: parts(false, 0), explicit, unknown, resolve };
 }

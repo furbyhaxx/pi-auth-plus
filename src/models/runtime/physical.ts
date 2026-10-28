@@ -25,6 +25,72 @@ export type PhysicalRequestFactory = (
 	context: Context,
 ) => PhysicalRequestHooks | undefined;
 
+/** One hook chain that runs every factory's hooks in order for a single physical request. */
+export function composePhysicalFactories(
+	factories: readonly PhysicalRequestFactory[],
+): PhysicalRequestFactory {
+	return (model, context) => {
+		const hooks = factories.flatMap((factory) => {
+			try {
+				const hook = factory(model, context);
+				return hook ? [hook] : [];
+			} catch {
+				return [];
+			}
+		});
+		if (hooks.length === 0) return undefined;
+		const sequential = <T>(
+			pick: (
+				hook: PhysicalRequestHooks,
+			) => ((value: T) => T | undefined | Promise<T | undefined>) | undefined,
+		): ((value: T) => Promise<T>) | undefined => {
+			const chain = hooks.flatMap((hook) => {
+				const step = pick(hook);
+				return step ? [step] : [];
+			});
+			if (chain.length === 0) return undefined;
+			return async (value) => {
+				let current = value;
+				for (const step of chain) current = (await step(current)) ?? current;
+				return current;
+			};
+		};
+		const headers = sequential<ProviderHeaders>((hook) => hook.headers);
+		const payloadHooks = hooks.flatMap((hook) => (hook.payload ? [hook.payload] : []));
+		const responseHooks = hooks.flatMap((hook) => (hook.response ? [hook.response] : []));
+		const messageHooks = hooks.flatMap((hook) => (hook.message ? [hook.message] : []));
+		return {
+			...(headers ? { headers } : {}),
+			...(payloadHooks.length > 0
+				? {
+						payload: async (payload: unknown, actualModel: Model<Api>) => {
+							let current = payload;
+							for (const hook of payloadHooks)
+								current = (await hook(current, actualModel)) ?? current;
+							return current;
+						},
+					}
+				: {}),
+			...(responseHooks.length > 0
+				? {
+						response: async (response: ProviderResponse, actualModel: Model<Api>) => {
+							for (const hook of responseHooks) await hook(response, actualModel);
+						},
+					}
+				: {}),
+			...(messageHooks.length > 0
+				? {
+						message: (message: AssistantMessage) => {
+							let current = message;
+							for (const hook of messageHooks) current = hook(current) ?? current;
+							return current === message ? undefined : current;
+						},
+					}
+				: {}),
+		};
+	};
+}
+
 type Dispatch = (
 	model: Model<Api>,
 	context: Context,

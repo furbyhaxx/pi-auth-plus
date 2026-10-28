@@ -17,6 +17,7 @@ import { antigravityProject } from "../../../src/families/google/project.ts";
 import { antigravityProvider } from "../../../src/families/google/provider.ts";
 import { registerThoughtSignatureRecovery } from "../../../src/families/google/signature-recovery.ts";
 import { wrapNativeAliases } from "../../../src/models/aliases/native.ts";
+import { installPhysicalRequestHooks } from "../../../src/models/runtime/physical.ts";
 
 const DUMMY = "skip_thought_signature_validator";
 const SIGNATURE = "Z2VudWluZS1zaWduYXR1cmU=";
@@ -32,20 +33,37 @@ async function runScenario(
 		queueFollowUp?: boolean;
 		secondPrompt?: boolean;
 		provider?: "google" | "opencode";
+		physical?: boolean;
+		helper?: "before" | "after" | "retry";
+		differentConfig?: boolean;
 	} = {},
 ) {
 	const scratch = mkdtempSync(join(tmpdir(), "pi-signature-recovery-"));
 	let session: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
 	let toolRuns = 0;
+	let runHelper: (() => Promise<void>) | undefined;
+	let helperActive = false;
+	let helperStarted = false;
+	const helperRequests: Array<{ role: string; parts: Array<Record<string, unknown>> }[]> = [];
 	const requests: Array<{ role: string; parts: Array<Record<string, unknown>> }[]> = [];
+	const bodies: unknown[] = [];
+	const helperBodies: unknown[] = [];
 	const server = Bun.serve({
 		hostname: "127.0.0.1",
 		port: 0,
 		async fetch(req) {
 			const body = (await req.json()) as { contents: (typeof requests)[number] };
 			const contents = body.contents;
-			requests.push(contents);
-			if (options.queueFollowUp && requests.length === 2) {
+			if (helperActive) {
+				helperRequests.push(contents);
+				helperBodies.push(body);
+			} else {
+				requests.push(contents);
+				bodies.push(body);
+			}
+			if (!helperActive && options.helper === "after" && requests.length === 2 && runHelper)
+				await runHelper();
+			if (!helperActive && options.queueFollowUp && requests.length === 2) {
 				await session?.prompt("Continue with this follow-up", {
 					streamingBehavior: "followUp",
 					expandPromptTemplates: false,
@@ -129,7 +147,7 @@ async function runScenario(
 			extensionFactories: [
 				...(options.earlierDraft
 					? [
-							(pi: ExtensionAPI) =>
+							(pi: ExtensionAPI) => {
 								pi.on("agent_before_settle", (event) => {
 									if (event.outcome === "error")
 										return {
@@ -139,10 +157,50 @@ async function runScenario(
 											],
 										};
 									return undefined;
-								}),
+								});
+							},
 						]
 					: []),
-				registerThoughtSignatureRecovery,
+				(pi: ExtensionAPI) => {
+					const recovery = registerThoughtSignatureRecovery(pi);
+					if (options.physical) {
+						const available = installPhysicalRequestHooks({ runtime }, (model, context) => {
+							const hooks = recovery.factory(model, context);
+							if (!hooks) return undefined;
+							const original = hooks.payload;
+							return {
+								...hooks,
+								payload: async (payload, actualModel) => {
+									if (!helperActive && context.messages.some((m) => m.role === "toolResult")) {
+										runHelper = async () => {
+											if (helperStarted) return;
+											helperStarted = true;
+											helperActive = true;
+											try {
+												await runtime
+													.streamSimple(model, context, {
+														apiKey: "fixture",
+														...(options.differentConfig ? { temperature: 0.12 } : {}),
+													})
+													.result();
+											} finally {
+												helperActive = false;
+											}
+										};
+										if (
+											options.helper === "before" ||
+											(options.helper === "retry" && requests.length === 2)
+										)
+											await runHelper();
+									}
+									return original?.(payload, actualModel);
+								},
+							};
+						});
+						recovery.setPhysicalHooksAvailable(available);
+						if (!available) throw new Error("physical hooks unavailable");
+					}
+				},
 			],
 		});
 		await loader.reload();
@@ -182,7 +240,17 @@ async function runScenario(
 		const earlierDrafts = branch.filter(
 			(e) => e.type === "custom" && e.customType === "other-extension",
 		).length;
-		return { requests, toolRuns, final, edits, earlierDrafts, errors };
+		return {
+			requests,
+			helperRequests,
+			bodies,
+			helperBodies,
+			toolRuns,
+			final,
+			edits,
+			earlierDrafts,
+			errors,
+		};
 	} finally {
 		session?.dispose();
 		server.stop(true);
@@ -283,7 +351,12 @@ async function runCompatibleScenario(provider: "openrouter" | "opencode", signed
 			noPromptTemplates: true,
 			noThemes: true,
 			noContextFiles: true,
-			extensionFactories: [registerCompatibleThoughtSignatures, registerThoughtSignatureRecovery],
+			extensionFactories: [
+				registerCompatibleThoughtSignatures,
+				(pi) => {
+					registerThoughtSignatureRecovery(pi);
+				},
+			],
 		});
 		await loader.reload();
 		({ session } = await createAgentSession({
@@ -400,7 +473,11 @@ async function runAntigravityScenario(alias = false) {
 			noPromptTemplates: true,
 			noThemes: true,
 			noContextFiles: true,
-			extensionFactories: [registerThoughtSignatureRecovery],
+			extensionFactories: [
+				(pi) => {
+					registerThoughtSignatureRecovery(pi);
+				},
+			],
 		});
 		await loader.reload();
 		({ session } = await createAgentSession({
@@ -442,6 +519,48 @@ async function runAntigravityScenario(alias = false) {
 }
 
 describe("thought signature recovery", () => {
+	test("correlates main requests independently of same-model helpers", async () => {
+		for (const helper of ["before", "after"] as const) {
+			for (const differentConfig of [false, true]) {
+				const result = await runScenario("missing", { physical: true, helper, differentConfig });
+				expect(result.errors).toEqual([]);
+				expect(result.toolRuns).toBe(1);
+				expect(result.requests).toHaveLength(3);
+				expect(result.helperRequests).toHaveLength(1);
+				if (differentConfig) expect(result.helperBodies[0]).not.toEqual(result.bodies[1]);
+				else expect(result.helperBodies[0]).toEqual(result.bodies[1]);
+				expect(toolParts(result.helperRequests[0] ?? [])[0]?.["thoughtSignature"]).toBeUndefined();
+				expect(toolParts(result.requests[2] ?? [])[0]?.["thoughtSignature"]).toBe(DUMMY);
+				expect(result.final?.stopReason).toBe("stop");
+			}
+		}
+	});
+
+	test("does not repair a helper with a different configuration during recovery", async () => {
+		const result = await runScenario("missing", {
+			physical: true,
+			helper: "retry",
+			differentConfig: true,
+		});
+		expect(result.errors).toEqual([]);
+		expect(result.toolRuns).toBe(1);
+		expect(result.requests).toHaveLength(3);
+		expect(result.helperRequests).toHaveLength(1);
+		expect(result.helperBodies[0]).not.toEqual(result.bodies[1]);
+		expect(result.helperRequests[0]).toEqual(result.requests[1]);
+		expect(toolParts(result.helperRequests[0] ?? [])[0]?.["thoughtSignature"]).toBeUndefined();
+		expect(toolParts(result.requests[2] ?? [])[0]?.["thoughtSignature"]).toBe(DUMMY);
+		expect(result.final?.stopReason).toBe("stop");
+	});
+
+	test("recovers through physical request hooks without rerunning tools", async () => {
+		const result = await runScenario("missing", { physical: true, queueFollowUp: true });
+		expect(result.errors).toEqual([]);
+		expect(result.toolRuns).toBe(1);
+		expect(result.requests).toHaveLength(3);
+		expect(toolParts(result.requests[2] ?? [])[0]?.["thoughtSignature"]).toBe(DUMMY);
+		expect(result.final?.stopReason).toBe("stop");
+	});
 	test("recovers Gemini through OpenCode's Google-native request format", async () => {
 		const result = await runScenario("missing", { provider: "opencode" });
 		expect(result.errors).toEqual([]);

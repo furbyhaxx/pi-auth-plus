@@ -1,13 +1,16 @@
 /** Bounded recovery of rejected Google function-call signatures. */
 
-import type { Api, Model, ToolResultMessage } from "@earendil-works/pi-ai";
+import type { Api, AssistantMessage, Model, ToolResultMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { PhysicalRequestFactory } from "../../models/runtime/physical.ts";
 import { repairThoughtSignaturePayload } from "./thought-repair.ts";
 
 interface Snapshot {
 	readonly format: "native" | "chat";
 	readonly model: string;
 	readonly messages: readonly string[];
+	readonly fingerprint: string;
+	readonly repairable: boolean;
 	readonly lastToolId: string | undefined;
 	readonly lastToolName: string | undefined;
 }
@@ -36,7 +39,15 @@ function matchesModel(payload: Record<string, unknown>, model: Model<Api>): bool
 }
 
 function snapshot(payload: unknown, model: Model<Api>): Snapshot | undefined {
-	const body = object(payload);
+	let parsed: unknown = payload;
+	if (typeof payload === "string") {
+		try {
+			parsed = JSON.parse(payload);
+		} catch {
+			return undefined;
+		}
+	}
+	const body = object(parsed);
 	if (!body || !matchesModel(body, model)) return undefined;
 	const request = object(body["request"]);
 	const native = request?.["contents"] ?? body["contents"];
@@ -64,10 +75,26 @@ function snapshot(payload: unknown, model: Model<Api>): Snapshot | undefined {
 		}
 	}
 	try {
+		const fingerprintBody = { ...body };
+		if (model.provider === "antigravity") delete fingerprintBody["requestId"];
+		if (format === "chat") delete fingerprintBody["messages"];
+		else if (request && Array.isArray(request["contents"])) {
+			const fingerprintRequest = { ...request };
+			delete fingerprintRequest["contents"];
+			const labels = object(fingerprintRequest["labels"]);
+			if (model.provider === "antigravity" && labels) {
+				const stableLabels = { ...labels };
+				delete stableLabels["request_id"];
+				fingerprintRequest["labels"] = stableLabels;
+			}
+			fingerprintBody["request"] = fingerprintRequest;
+		} else delete fingerprintBody["contents"];
 		return {
 			format,
 			model: body["model"] as string,
 			messages: messages.map((message) => JSON.stringify(message)),
+			fingerprint: JSON.stringify(fingerprintBody),
+			repairable: !!repairThoughtSignaturePayload(parsed, { history: true }),
 			lastToolId,
 			lastToolName,
 		};
@@ -80,6 +107,7 @@ function samePrefix(before: Snapshot, current: Snapshot): boolean {
 	return (
 		before.format === current.format &&
 		before.model === current.model &&
+		before.fingerprint === current.fingerprint &&
 		before.messages.length <= current.messages.length &&
 		before.messages.every((message, index) => message === current.messages[index])
 	);
@@ -103,14 +131,23 @@ function isMissingSignatureError(message: string): boolean {
 }
 
 /** Register a one-attempt continuation from the already persisted tool results. */
-export function registerThoughtSignatureRecovery(pi: ExtensionAPI): void {
-	let candidates = new Map<string, Snapshot>();
+export function registerThoughtSignatureRecovery(pi: ExtensionAPI): {
+	readonly factory: PhysicalRequestFactory;
+	readonly setPhysicalHooksAvailable: (available: boolean) => void;
+} {
+	let candidates: Snapshot[] = [];
+	let requests = new WeakMap<
+		AssistantMessage,
+		{ snapshot: Snapshot; provider: string; model: string }
+	>();
+	let physicalHooksAvailable = false;
 	let pending: PendingRecovery | undefined;
 	let active: PendingRecovery | undefined;
 	let inTurn = false;
 
 	const clear = () => {
-		candidates = new Map();
+		candidates = [];
+		requests = new WeakMap();
 		pending = undefined;
 		active = undefined;
 		inTurn = false;
@@ -123,12 +160,11 @@ export function registerThoughtSignatureRecovery(pi: ExtensionAPI): void {
 	pi.on("before_agent_start", clear);
 	pi.on("agent_settled", clear);
 	pi.on("turn_start", () => {
-		candidates.clear();
+		candidates = [];
 		inTurn = true;
 	});
 	pi.on("before_provider_request", (event, ctx) => {
-		if (!inTurn || !ctx.model) return;
-		if (!active && !repairThoughtSignaturePayload(event.payload, { history: true })) return;
+		if (physicalHooksAvailable || !inTurn || !ctx.model) return;
 		const current = snapshot(event.payload, ctx.model);
 		if (!current) return;
 		if (active) {
@@ -143,8 +179,7 @@ export function registerThoughtSignatureRecovery(pi: ExtensionAPI): void {
 				history: true,
 			})?.payload;
 		}
-		const key = JSON.stringify([current.format, current.model, current.messages]);
-		candidates.set(key, current);
+		candidates.push(current);
 		return undefined;
 	});
 	pi.on("turn_end", (event, ctx) => {
@@ -158,9 +193,6 @@ export function registerThoughtSignatureRecovery(pi: ExtensionAPI): void {
 			message.stopReason !== "error" ||
 			!message.errorMessage ||
 			!isMissingSignatureError(message.errorMessage) ||
-			!ctx.model ||
-			message.provider !== ctx.model.provider ||
-			message.model !== ctx.model.id ||
 			ctx.signal?.aborted
 		)
 			return;
@@ -168,10 +200,20 @@ export function registerThoughtSignatureRecovery(pi: ExtensionAPI): void {
 		const last = context[context.length - 1];
 		const prior = context.findLast((item) => item.role === "toolResult");
 		if (last?.role !== "assistant" || !prior) return;
-		const matches = [...candidates.values()].filter((candidate) => matchesResult(candidate, prior));
-		if (matches.length !== 1) return;
-		const candidate = matches[0];
-		if (!candidate) return;
+		let candidate: Snapshot | undefined;
+		if (physicalHooksAvailable) {
+			const request = requests.get(message);
+			if (!request || request.provider !== message.provider || request.model !== message.model)
+				return;
+			candidate = request.snapshot;
+		} else {
+			if (!ctx.model || message.provider !== ctx.model.provider || message.model !== ctx.model.id)
+				return;
+			const matches = candidates.filter((item) => matchesResult(item, prior));
+			if (matches.length !== 1) return;
+			candidate = matches[0];
+		}
+		if (!candidate?.repairable || !matchesResult(candidate, prior)) return;
 		pending = {
 			entryId: event.messageEntryId,
 			provider: message.provider,
@@ -215,4 +257,35 @@ export function registerThoughtSignatureRecovery(pi: ExtensionAPI): void {
 			continue: true,
 		};
 	});
+	return {
+		setPhysicalHooksAvailable: (available) => {
+			physicalHooksAvailable = available;
+		},
+		factory: (model) => {
+			let current: Snapshot | undefined;
+			return {
+				payload: (payload) => {
+					if (!inTurn) return;
+					current = snapshot(payload, model);
+					if (
+						!active ||
+						model.provider !== active.provider ||
+						model.id !== active.model ||
+						!current ||
+						!samePrefix(active.snapshot, current)
+					)
+						return;
+					return repairThoughtSignaturePayload(payload, {
+						prefixLength: active.snapshot.messages.length,
+						history: true,
+					})?.payload;
+				},
+				message: (message) => {
+					if (current)
+						requests.set(message, { snapshot: current, provider: model.provider, model: model.id });
+					return undefined;
+				},
+			};
+		},
+	};
 }

@@ -1,6 +1,7 @@
 /** Family registry: the only place engines and the UI learn provider ids, aliases and families. */
-import type { Provider } from "@earendil-works/pi-ai";
+import type { Api, Model, Provider } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ProviderConfig } from "@earendil-works/pi-coding-agent";
+import type { PhysicalRequestHooks } from "../../models/runtime/physical.ts";
 import type { QuotaSource } from "../../quotas/types.ts";
 import type { CounterDeps, TokenCounter, TokenModel } from "../../tokens/types.ts";
 import type { AmbientCredential, CredentialStatus } from "../auth/index.ts";
@@ -54,6 +55,14 @@ export interface FamilyAdapter {
 	readonly tokens?: (model: TokenModel, deps: CounterDeps) => TokenCounter | undefined;
 	/** Registers the family's remaining Pi hooks inside the awaited extension factory. */
 	readonly register?: (pi: ExtensionAPI, host: FamilyHost) => void | Promise<void>;
+	/**
+	 * Request shaping or observation that needs the physical model, e.g. under an alias or a
+	 * cross-provider group. Composition is the entrypoint's job; the family only names its hooks.
+	 */
+	readonly physical?: (
+		model: Model<Api>,
+		host: { readonly settings: () => AppSettings; readonly cwd: string },
+	) => PhysicalRequestHooks | undefined;
 }
 
 /** What the entrypoint shares with families. */

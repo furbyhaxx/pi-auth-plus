@@ -6,6 +6,7 @@ import type { FamilyAdapter, FamilyHost } from "../../core/registry/index.ts";
 import { estimateCounter, tokenizerCounter } from "../../tokens/estimate/index.ts";
 import type { TokenCounter, TokenizerStore } from "../../tokens/types.ts";
 import { BASE_URL, bundledModels, PROVIDER, refreshCatalog } from "./catalog.ts";
+import { syntheticPhysicalHooks } from "./physical.ts";
 import { syntheticQuota } from "./quota.ts";
 import { requestModel, syntheticTokenizerRepo } from "./request-tokens.ts";
 import { correctSyntheticRequestUsage } from "./usage.ts";
@@ -67,6 +68,8 @@ export function createSyntheticFamily(
 				},
 			},
 		],
+		physical: (model, familyHost) =>
+			syntheticPhysicalHooks(model, familyHost.settings().get("models.aliases"), tokenizers),
 		register: (pi, familyHost) => {
 			host = familyHost;
 			pi.registerFlag(WEB_SEARCH_FLAG, {

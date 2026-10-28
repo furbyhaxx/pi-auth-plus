@@ -5,6 +5,7 @@ import { readJsonFile } from "../../core/fs/index.ts";
 import { modelsPath, type PathEnv } from "../../core/paths/index.ts";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
 import { applyCliEnv, applyCliIdentity, envBlock, IdSource } from "./identity.ts";
+import { opencodePhysicalHooks } from "./physical.ts";
 
 export const ZEN_PROVIDER = "opencode";
 export const GO_PROVIDER = "opencode-go";
@@ -46,6 +47,8 @@ export function createOpencodeFamily(
 	now: () => number = Date.now,
 ): FamilyAdapter {
 	let models: unknown;
+	const ids = new IdSource();
+	let sessionId = ids.session(now());
 	return {
 		id: "opencode",
 		label: "OpenCode",
@@ -71,9 +74,8 @@ export function createOpencodeFamily(
 			ambientFor(env, models, ZEN_PROVIDER) === ANONYMOUS
 				? [{ name: ZEN_PROVIDER, config: { apiKey: ANONYMOUS_KEY } }]
 				: [],
+		physical: (model, host) => opencodePhysicalHooks(model, host.cwd, sessionId),
 		register: (pi: ExtensionAPI, host) => {
-			const ids = new IdSource();
-			let sessionId = ids.session(now());
 			pi.on("session_start", () => {
 				sessionId = ids.session(now());
 			});

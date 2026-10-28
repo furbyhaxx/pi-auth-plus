@@ -172,6 +172,19 @@ describe("group routes", () => {
 			setup({ group: { ...g, contextWindow: 500 }, models: [ma, mb] }).definition.contextWindow,
 		).toBe(500);
 	});
+	test("offers every thinking level before a catalog is known", () => {
+		// Factory-time registration has no catalog, and Pi clamps the level to the routed model.
+		const { definition } = setup({ models: [] });
+		expect(definition.thinkingLevels).toEqual([
+			"off",
+			"minimal",
+			"low",
+			"medium",
+			"high",
+			"xhigh",
+			"max",
+		]);
+	});
 	test("only configured safe failure types switch and preserve exclusions", async () => {
 		const { route } = setup();
 		const first = await route({

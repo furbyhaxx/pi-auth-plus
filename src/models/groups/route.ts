@@ -114,13 +114,16 @@ export function createGroupDefinition(
 	const maxTokens = positiveMinimum(models.map((model) => model.maxTokens));
 	const levels: ModelThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 	const supported = new Set(models.flatMap(getSupportedThinkingLevels));
+	// With no catalog yet (factory time) Pi clamps whatever the user picks to the routed model.
+	const thinkingLevels =
+		supported.size === 0 ? levels : levels.filter((level) => supported.has(level));
 	return {
 		provider: "group",
 		id: group.id,
 		name: group.name ?? group.id,
 		...(contextWindow === undefined ? {} : { contextWindow }),
 		...(maxTokens === undefined ? {} : { maxTokens }),
-		thinkingLevels: levels.filter((level) => supported.has(level)),
+		thinkingLevels,
 		route(request, ctx) {
 			const candidates: GroupRouteCandidate[] = group.members.flatMap((member) => {
 				const model = ctx.modelRegistry.find(member.provider, member.id);

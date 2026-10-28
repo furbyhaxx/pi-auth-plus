@@ -176,7 +176,7 @@ Read it before touching registration, and correct it when Pi changes.
   `after_provider_response` carry no provider id. Identify the request from the request itself
   (Pi's own provider headers or the base URL); `ctx.model` is the session model and can differ
   for helper calls, so it is a hint, never the filter on its own. `before_provider_request`
-  runs before the headers event and its payload carries no headers, so a payload patch requires
+  runs after the headers event and its payload carries no headers, so a payload patch requires
   both: the session model is ours and the payload's `model` equals that model's id.
 - **Credentials live in Pi's `auth.json`**, under our provider ids, so `/login` and `/logout`
   work. A separate credential file needs a recorded reason in the provider's research report.

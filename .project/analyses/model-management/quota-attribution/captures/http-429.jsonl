@@ -1,0 +1,8 @@
+{"hook":"route","provider":"mock-openai"}
+{"hook":"before_provider_headers","status":null,"headerKeys":[]}
+{"hook":"before_provider_request","status":null,"headerKeys":[]}
+{"hook":"message_end","provider":"mock-openai","api":"openai-completions","stopReason":"error"}
+{"hook":"route","provider":"mock-anthropic"}
+{"hook":"before_provider_headers","status":null,"headerKeys":[]}
+{"hook":"before_provider_request","status":null,"headerKeys":[]}
+{"hook":"message_end","provider":"mock-anthropic","api":"anthropic-messages","stopReason":"error"}

@@ -1,0 +1,41 @@
+# Live and loopback probe commands
+Working directory: /tmp/pi-quota-attribution.FHUVNJtA
+Pi: 1.4.0 (Pi-Bolt 1.0.7, linux-x64, JIT off); Bun 1.4.3
+Clock: 2026-10-28, Europe/Zurich
+
+PROBE_INTERLEAVE=0 timeout 110 bun /tmp/pi-quota-attribution.FHUVNJtA/driver.mjs 2
+PROBE_INTERLEAVE=1 timeout 110 bun /tmp/pi-quota-attribution.FHUVNJtA/driver.mjs 1
+PROBE_INTERLEAVE=2 timeout 110 bun /tmp/pi-quota-attribution.FHUVNJtA/driver.mjs 1
+timeout 70 bun /tmp/pi-quota-attribution.FHUVNJtA/mock-429.mjs
+
+The three RPC drivers start Pi with --mode rpc --no-session -ne -nc -ns -np -na
+--offline --no-mcp --tools read --model probe-group/g -e /tmp/pi-quota-attribution.FHUVNJtA/probe.ts.
+HOME, PI_CODING_AGENT_DIR, XDG_CONFIG_HOME, XDG_CACHE_HOME, XDG_DATA_HOME,
+and XDG_STATE_HOME were isolated below the scratch directory. Credentials were copied
+to the isolated agent directory; no credential or header values appear in captures.
+The temporary originals and copied credentials were removed after this investigation;
+probe source and driver copies are retained here. To recreate the scratch directory
+from the repository root without overwriting an existing path, run:
+
+  D=/tmp/pi-quota-attribution.FHUVNJtA
+  test ! -e "$D" || { printf 'Scratch path already exists; stop.\n' >&2; exit 1; }
+  umask 077
+  mkdir -p "$D"/{agent,cache,config,data,home,state}
+  cp .project/analyses/model-management/quota-attribution/captures/{probe.ts,driver.mjs,mock-429.ts,mock-429.mjs} "$D"/
+  install -m 600 /home/furbyhaxx/.pi/agent/auth.json "$D/agent/auth.json"
+  printf '%s\n' '{"retry":{"enabled":false,"provider":{"maxRetries":0,"timeoutMs":25000}},"cacheWarming":"off"}' > "$D/agent/settings.json"
+
+Then execute the four commands above. They perform five live inference requests;
+the Synthetic calls use the configured account. Remove the scratch directory afterward.
+The source imports assume this repository remains at /mnt/Projects/furbyhaxx/pi-auth-plus.
+
+In the first run, one session alternates two main requests. The second inserts an
+already-aborted direct route during before_provider_headers. The third starts a
+Synthetic direct call with the same session and signal as an OpenCode main request;
+both calls receive HTTP 200. The direct call's onResponse receives the physical model,
+but it does not emit the session after_provider_response hook.
+
+The last command starts a loopback server that returns two HTTP 429 responses;
+it uses separate virtual and physical mock providers with native OpenAI-completions
+and Anthropic-messages APIs. It observed 2 requests, 2 assistant errors and 0
+after_provider_response events. Provider retries and cache warming were disabled.

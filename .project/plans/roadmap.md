@@ -5,7 +5,7 @@ title: "pi-auth-plus roadmap"
 description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
 type: "plan"
 created: "2026-10-27T09:43:00+01:00"
-updated: "2026-10-28T10:15:32+01:00"
+updated: "2026-10-28T11:05:48+01:00"
 createdBy: "pi"
 updatedBy: "pi"
 document:
@@ -14,12 +14,15 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 21
+  revision: 22
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-28T10:15:32+01:00"
+  updated_at: "2026-10-28T11:05:48+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
+    - revision: 22
+      reason: "M4 verified and planned"
+      changes: ["M4 = model management; probes done; plan 0005 and design with wireframes linked"]
     - revision: 1
       reason: "document creation"
       changes: ["M0-M4 tree after AGENTS.md approval"]
@@ -129,9 +132,14 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 2 usage fix     Synthetic duplicate count removed
     [x] 3 counts        HF tokenizers, Synthetic correction and count engine
     [x] 4 surface       /tokens tab, bus, fallback footer and documentation
-[.] M4 Later        codex/grok providers?, Pi estimator hook upstream
-    [.] Ideas       model filters, overrides and groups; verbosity; unified web search
-                    .project/ideas/model-management-and-routing/ideas.md
+[ ] M4 Models       verbosity, rules, overrides, aliases, web_search, groups
+    plan: plans/0005-m4-model-management/plan.md (draft, 5 open decisions)
+    design: designs/model-management/ (design.md, wireframes/index.html)
+    [x] 0 verify     probes in analyses/model-management/ (filter, verbosity,
+                     search, routing, alias limits, attribution)
+    [ ] 1 verbosity  [ ] 2 rules+catalog  [ ] 3 overrides  [ ] 4 aliases
+    [ ] 5 web_search [ ] 6 groups         [ ] U Pi asks (visibility, response model)
+[.] Later           codex/grok providers?, Pi estimator hook upstream
 ```
 
 ## Ideas parked for later milestones

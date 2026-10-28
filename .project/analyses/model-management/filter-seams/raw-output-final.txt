@@ -1,0 +1,628 @@
+# Temp root: /tmp/pi-filter-probe-l4osudhh
+# Base environment (env -i equivalent): PATH=/usr/bin:/bin HOME=/tmp/pi-filter-probe-l4osudhh/home PI_CODING_AGENT_DIR=/tmp/pi-filter-probe-l4osudhh/agent XDG_CONFIG_HOME=/tmp/pi-filter-probe-l4osudhh/config XDG_CACHE_HOME=/tmp/pi-filter-probe-l4osudhh/cache XDG_DATA_HOME=/tmp/pi-filter-probe-l4osudhh/data XDG_STATE_HOME=/tmp/pi-filter-probe-l4osudhh/state XDG_RUNTIME_DIR=/tmp/pi-filter-probe-l4osudhh/runtime TMPDIR=/tmp/pi-filter-probe-l4osudhh/tmp TERM=xterm-256color LC_ALL=C PROBE_KEY=dummy PI_OFFLINE=1 PI_SKIP_VERSION_CHECK=1
+# Sandbox prefix: bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project --
+$ bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /usr/bin/python3 -c 'import os; print('"'"'host-pi-state-visible='"'"' + str(os.path.exists('"'"'/home/furbyhaxx/.pi'"'"'))); print('"'"'net-namespace='"'"' + os.readlink('"'"'/proc/self/ns/net'"'"')); print(open('"'"'/proc/net/route'"'"').read(), end='"'"''"'"')'
+host-pi-state-visible=False
+net-namespace=net:[4026533024]
+Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT
+
+# models.json: {"providers": {"fixture": {"baseUrl": "https://fixture.invalid/v1", "apiKey": "$PROBE_KEY", "api": "openai-completions", "models": [{"id": "hide", "name": "hide", "reasoning": false, "input": ["text"], "contextWindow": 8192, "maxTokens": 1024}, {"id": "keep", "name": "keep", "reasoning": false, "input": ["text"], "contextWindow": 8192, "maxTokens": 1024}, {"id": "third", "name": "third", "reasoning": false, "input": ["text"], "contextWindow": 8192, "maxTokens": 1024}]}}}
+# filter-probe.json: {"rules": ["fixture/*", "!fixture/keep", "!fixture/third"]}
+# project/.pi/settings.json: {"defaultThinkingLevel": "high"}
+# settings.json: {"defaultModel": "keep", "defaultProvider": "fixture", "theme": "dark"}
+
+## discover baseline
+$ PROBE_ACTION=discover OPENAI_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models fixture
+exit: 0
+stdout:
+provider  model  context  max-out  thinking  images
+fixture   hide   8.2K     1.0K     no        no
+fixture   keep   8.2K     1.0K     no        no
+fixture   third  8.2K     1.0K     no        no
+stderr:
+FACTORY action=discover builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## builtin baseline
+$ PROBE_ACTION=discover OPENAI_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models gpt-4
+exit: 0
+stdout:
+provider  model              context  max-out  thinking  images
+openai    gpt-4              8.2K     8.2K     no        no
+openai    gpt-4-turbo        128K     4.1K     no        yes
+openai    gpt-4.1            1.0M     32.8K    no        yes
+openai    gpt-4.1-mini       1.0M     32.8K    no        yes
+openai    gpt-4.1-nano       1.0M     32.8K    no        yes
+openai    gpt-4o             128K     16.4K    no        yes
+openai    gpt-4o-2024-05-13  128K     4.1K     no        yes
+openai    gpt-4o-2024-08-06  128K     16.4K    no        yes
+openai    gpt-4o-2024-11-20  128K     16.4K    no        yes
+openai    gpt-4o-mini        128K     16.4K    no        yes
+openai    gpt-5.4            272K     128K     yes       yes
+openai    gpt-5.4-mini       400K     128K     yes       yes
+openai    gpt-5.4-nano       400K     128K     yes       yes
+openai    gpt-5.4-pro        1.1M     128K     yes       yes
+stderr:
+FACTORY action=discover builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## anthropic baseline
+$ PROBE_ACTION=discover ANTHROPIC_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models claude-fable-5
+exit: 0
+stdout:
+provider   model             context  max-out  thinking  images
+anthropic  claude-fable-5    1M       128K     yes       yes
+anthropic  claude-fable-5-1  1M       128K     yes       yes
+stderr:
+FACTORY action=discover builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## anthropic named config
+$ PROBE_ACTION=named ANTHROPIC_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models claude-fable-5
+exit: 0
+stdout:
+provider   model             context  max-out  thinking  images
+anthropic  claude-fable-5    1M       128K     yes       yes
+anthropic  claude-fable-5-1  1M       128K     yes       yes
+stderr:
+FACTORY action=named builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## openrouter baseline
+$ PROBE_ACTION=discover OPENROUTER_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models anthropic/claude-fable-5
+exit: 0
+stdout:
+provider    model                             context  max-out  thinking  images
+openrouter  anthropic/claude-fable-5          1M       128K     yes       yes
+openrouter  anthropic/claude-fable-5:batch    1M       128K     yes       yes
+openrouter  anthropic/claude-fable-5.1        1M       128K     yes       yes
+openrouter  anthropic/claude-fable-5.1:batch  1M       128K     yes       yes
+stderr:
+FACTORY action=discover builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## openrouter named config
+$ PROBE_ACTION=named OPENROUTER_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models anthropic/claude-fable-5
+exit: 0
+stdout:
+provider    model                             context  max-out  thinking  images
+openrouter  anthropic/claude-fable-5          1M       128K     yes       yes
+openrouter  anthropic/claude-fable-5:batch    1M       128K     yes       yes
+openrouter  anthropic/claude-fable-5.1        1M       128K     yes       yes
+openrouter  anthropic/claude-fable-5.1:batch  1M       128K     yes       yes
+stderr:
+FACTORY action=named builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## named config builtin
+$ PROBE_ACTION=named OPENAI_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models gpt-4
+exit: 0
+stdout:
+provider  model              context  max-out  thinking  images
+openai    gpt-4              8.2K     8.2K     no        no
+openai    gpt-4-turbo        128K     4.1K     no        yes
+openai    gpt-4.1            1.0M     32.8K    no        yes
+openai    gpt-4.1-mini       1.0M     32.8K    no        yes
+openai    gpt-4.1-nano       1.0M     32.8K    no        yes
+openai    gpt-4o             128K     16.4K    no        yes
+openai    gpt-4o-2024-05-13  128K     4.1K     no        yes
+openai    gpt-4o-2024-08-06  128K     16.4K    no        yes
+openai    gpt-4o-2024-11-20  128K     16.4K    no        yes
+openai    gpt-4o-mini        128K     16.4K    no        yes
+openai    gpt-5.4            272K     128K     yes       yes
+openai    gpt-5.4-mini       400K     128K     yes       yes
+openai    gpt-5.4-nano       400K     128K     yes       yes
+openai    gpt-5.4-pro        1.1M     128K     yes       yes
+stderr:
+FACTORY action=named builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## named config models.json
+$ PROBE_ACTION=named bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models fixture
+exit: 0
+stdout:
+provider  model  context  max-out  thinking  images
+fixture   hide   8.2K     1.0K     no        no
+fixture   keep   8.2K     1.0K     no        no
+fixture   third  8.2K     1.0K     no        no
+stderr:
+FACTORY action=named builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## extension-registered baseline
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-provider.ts -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models ephemeral
+exit: 0
+stdout:
+provider   model  context  max-out  thinking  images
+ephemeral  hide   8.2K     1.0K     no        no
+ephemeral  keep   8.2K     1.0K     no        no
+stderr:
+FACTORY action=discover builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## named config extension-registered
+$ PROBE_ACTION=named bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-provider.ts -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models ephemeral
+exit: 0
+stdout:
+provider   model  context  max-out  thinking  images
+ephemeral  hide   8.2K     1.0K     no        no
+ephemeral  keep   8.2K     1.0K     no        no
+stderr:
+FACTORY action=named builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## native builtin
+$ PROBE_ACTION=native-builtin OPENAI_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models gpt-4
+exit: 0
+stdout:
+provider  model              context  max-out  thinking  images
+openai    gpt-4-turbo        128K     4.1K     no        yes
+openai    gpt-4.1            1.0M     32.8K    no        yes
+openai    gpt-4.1-mini       1.0M     32.8K    no        yes
+openai    gpt-4.1-nano       1.0M     32.8K    no        yes
+openai    gpt-4o             128K     16.4K    no        yes
+openai    gpt-4o-2024-05-13  128K     4.1K     no        yes
+openai    gpt-4o-2024-08-06  128K     16.4K    no        yes
+openai    gpt-4o-2024-11-20  128K     16.4K    no        yes
+openai    gpt-4o-mini        128K     16.4K    no        yes
+openai    gpt-5.4            272K     128K     yes       yes
+openai    gpt-5.4-mini       400K     128K     yes       yes
+openai    gpt-5.4-nano       400K     128K     yes       yes
+openai    gpt-5.4-pro        1.1M     128K     yes       yes
+stderr:
+FACTORY action=native-builtin builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+NATIVE-openai-chat received=gpt-4,gpt-4-turbo,gpt-4.1,gpt-4.1-mini,gpt-4.1-nano,gpt-4o,gpt-4o-2024-05-13,gpt-4o-2024-08-06,gpt-4o-2024-11-20,gpt-4o-mini,gpt-5,gpt-5-chat-latest,gpt-5-mini,gpt-5-nano,gpt-5-pro,gpt-5.1,gpt-5.2,gpt-5.2-pro,gpt-5.3-codex,gpt-5.3-codex-spark,gpt-5.4,gpt-5.4-mini,gpt-5.4-nano,gpt-5.4-pro,gpt-5.5,gpt-5.5-pro,gpt-5.6-luna,gpt-5.6-sol,gpt-5.6-terra,gpt-6-astra,gpt-6-luna,gpt-6-sol,gpt-6.1-sol,gpt-daybreak-blue-latest,gpt-daybreak-red-latest,gpt-realtime-2.1,o1,o1-pro,o3,o3-mini,o3-pro,o4-mini
+
+
+## native builtin filterAllModels only
+$ PROBE_ACTION=native-all-only OPENAI_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models gpt-4
+exit: 0
+stdout:
+provider  model              context  max-out  thinking  images
+openai    gpt-4              8.2K     8.2K     no        no
+openai    gpt-4-turbo        128K     4.1K     no        yes
+openai    gpt-4.1            1.0M     32.8K    no        yes
+openai    gpt-4.1-mini       1.0M     32.8K    no        yes
+openai    gpt-4.1-nano       1.0M     32.8K    no        yes
+openai    gpt-4o             128K     16.4K    no        yes
+openai    gpt-4o-2024-05-13  128K     4.1K     no        yes
+openai    gpt-4o-2024-08-06  128K     16.4K    no        yes
+openai    gpt-4o-2024-11-20  128K     16.4K    no        yes
+openai    gpt-4o-mini        128K     16.4K    no        yes
+openai    gpt-5.4            272K     128K     yes       yes
+openai    gpt-5.4-mini       400K     128K     yes       yes
+openai    gpt-5.4-nano       400K     128K     yes       yes
+openai    gpt-5.4-pro        1.1M     128K     yes       yes
+stderr:
+FACTORY action=native-all-only builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## native custom
+$ PROBE_ACTION=native-custom bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models fixture
+exit: 0
+stdout:
+provider  model  context  max-out  thinking  images
+fixture   keep   8.2K     1.0K     no        no
+fixture   third  8.2K     1.0K     no        no
+stderr:
+FACTORY action=native-custom builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+NATIVE-fixture-chat received=hide,keep,third
+
+
+## native custom virtuals
+$ PROBE_ACTION=native-custom-virtual bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models virtual-hide
+exit: 0
+stdout:
+provider      model         context  max-out  thinking  images
+fixture       virtual-hide  0        0        no        yes
+virtual-only  virtual-hide  0        0        no        yes
+stderr:
+FACTORY action=native-custom-virtual builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+NATIVE-fixture-chat received=hide,keep,third
+
+
+## native builtin virtuals
+$ PROBE_ACTION=native-builtin-virtual OPENAI_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models virtual-hide
+exit: 0
+stdout:
+provider      model         context  max-out  thinking  images
+openai        virtual-hide  0        0        no        yes
+virtual-only  virtual-hide  0        0        no        yes
+stderr:
+FACTORY action=native-builtin-virtual builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+NATIVE-openai-chat received=gpt-4,gpt-4-turbo,gpt-4.1,gpt-4.1-mini,gpt-4.1-nano,gpt-4o,gpt-4o-2024-05-13,gpt-4o-2024-08-06,gpt-4o-2024-11-20,gpt-4o-mini,gpt-5,gpt-5-chat-latest,gpt-5-mini,gpt-5-nano,gpt-5-pro,gpt-5.1,gpt-5.2,gpt-5.2-pro,gpt-5.3-codex,gpt-5.3-codex-spark,gpt-5.4,gpt-5.4-mini,gpt-5.4-nano,gpt-5.4-pro,gpt-5.5,gpt-5.5-pro,gpt-5.6-luna,gpt-5.6-sol,gpt-5.6-terra,gpt-6-astra,gpt-6-luna,gpt-6-sol,gpt-6.1-sol,gpt-daybreak-blue-latest,gpt-daybreak-red-latest,gpt-realtime-2.1,o1,o1-pro,o3,o3-mini,o3-pro,o4-mini
+
+
+## virtual register then unregister
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/virtual-register.ts -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/virtual-remove.ts --list-models virtual-extra
+exit: 0
+stdout:
+No models matching "virtual-extra"
+stderr:
+
+
+## virtual unregister then register
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/virtual-remove.ts -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/virtual-register.ts --list-models virtual-extra
+exit: 0
+stdout:
+provider       model   context  max-out  thinking  images
+virtual-extra  hidden  0        0        no        yes
+stderr:
+
+
+## native custom RPC keep default, set hidden, cycle
+$ PROBE_ACTION=native-custom bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --no-approve --no-session --mode rpc
+stdin: '{"type": "get_state", "id": "state"}\n{"type": "set_model", "provider": "fixture", "modelId": "hide", "id": "set-hidden"}\n{"type": "cycle_model", "id": "cycle-1"}\n{"type": "cycle_model", "id": "cycle-2"}\n{"type": "cycle_model", "id": "cycle-3"}\n'
+exit: 0
+stdout:
+{"id":"state","type":"response","command":"get_state","success":true,"data":{"model":{"id":"keep","name":"keep","api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024},"thinkingLevel":"off","isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","sessionId":"01a181e8-966f-7006-b557-8f82e3044121","autoCompactionEnabled":true,"messageCount":0,"pendingMessageCount":0}}
+{"id":"set-hidden","type":"response","command":"set_model","success":false,"error":"Model not found: fixture/hide"}
+{"id":"cycle-1","type":"response","command":"cycle_model","success":true,"data":{"model":{"id":"third","name":"third","api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024},"thinkingLevel":"off","isScoped":false}}
+{"id":"cycle-2","type":"response","command":"cycle_model","success":true,"data":{"model":{"id":"keep","name":"keep","api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024},"thinkingLevel":"off","isScoped":false}}
+{"id":"cycle-3","type":"response","command":"cycle_model","success":true,"data":{"model":{"id":"third","name":"third","api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024},"thinkingLevel":"off","isScoped":false}}
+stderr:
+FACTORY action=native-custom builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+NATIVE-fixture-chat received=hide,keep,third
+NATIVE-fixture-all received=hide,keep,third
+SESSION trusted=false selected=fixture/keep fixture-all=hide,keep,third fixture-available=keep,third fixture-alltypes=keep,third
+
+
+## native custom virtual filterAllModels
+$ PROBE_ACTION=native-custom-virtual bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --no-approve --no-session --mode rpc
+stdin: '{"type": "get_state", "id": "state"}\n'
+exit: 0
+stdout:
+{"id":"state","type":"response","command":"get_state","success":true,"data":{"model":{"id":"keep","name":"keep","api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024},"thinkingLevel":"off","isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","sessionId":"01a181e8-9699-77a2-824d-d88430d01095","autoCompactionEnabled":true,"messageCount":0,"pendingMessageCount":0}}
+stderr:
+FACTORY action=native-custom-virtual builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+NATIVE-fixture-chat received=hide,keep,third
+NATIVE-fixture-all received=hide,keep,third
+SESSION trusted=false selected=fixture/keep fixture-all=hide,keep,third,virtual-hide fixture-available=keep,third,virtual-hide fixture-alltypes=keep,third,virtual-hide
+
+
+## native builtin filterAllModels only RPC
+$ PROBE_ACTION=native-all-only OPENAI_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --no-approve --no-session --mode rpc
+stdin: '{"type": "get_state", "id": "state"}\n'
+exit: 0
+stdout:
+{"id":"state","type":"response","command":"get_state","success":true,"data":{"model":{"id":"keep","name":"keep","api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024},"thinkingLevel":"off","isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","sessionId":"01a181e8-96c2-7012-9bab-660b1a9b6a26","autoCompactionEnabled":true,"messageCount":0,"pendingMessageCount":0}}
+stderr:
+FACTORY action=native-all-only builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+SESSION trusted=false selected=fixture/keep fixture-all=hide,keep,third fixture-available=hide,keep,third fixture-alltypes=hide,keep,third
+NATIVE-openai-all-only received=gpt-4,gpt-4-turbo,gpt-4.1,gpt-4.1-mini,gpt-4.1-nano,gpt-4o,gpt-4o-2024-05-13,gpt-4o-2024-08-06,gpt-4o-2024-11-20,gpt-4o-mini,gpt-5,gpt-5-chat-latest,gpt-5-mini,gpt-5-nano,gpt-5-pro,gpt-5.1,gpt-5.2,gpt-5.2-pro,gpt-5.3-codex,gpt-5.3-codex-spark,gpt-5.4,gpt-5.4-mini,gpt-5.4-nano,gpt-5.4-pro,gpt-5.5,gpt-5.5-pro,gpt-5.6-luna,gpt-5.6-sol,gpt-5.6-terra,gpt-6-astra,gpt-6-luna,gpt-6-sol,gpt-6.1-sol,gpt-daybreak-blue-latest,gpt-daybreak-red-latest,gpt-realtime-2.1,o1,o1-pro,o3,o3-mini,o3-pro,o4-mini,gpt-6-luna
+SESSION all-only available-target=true alltypes-target=false
+
+# settings.json: {"defaultModel": "hide", "defaultProvider": "fixture", "theme": "dark"}
+
+## native custom hidden saved default
+$ PROBE_ACTION=native-custom bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --no-approve --no-session --mode rpc
+stdin: '{"type": "get_state", "id": "state"}\n'
+exit: 0
+stdout:
+{"id":"state","type":"response","command":"get_state","success":true,"data":{"model":{"id":"hide","name":"hide","api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024},"thinkingLevel":"off","isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","sessionId":"01a181e8-96f2-7005-a3e3-d7162854f1bf","autoCompactionEnabled":true,"messageCount":0,"pendingMessageCount":0}}
+stderr:
+FACTORY action=native-custom builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+NATIVE-fixture-chat received=hide,keep,third
+NATIVE-fixture-all received=hide,keep,third
+SESSION trusted=false selected=fixture/hide fixture-all=hide,keep,third fixture-available=keep,third fixture-alltypes=keep,third
+
+
+## catalog removed saved default
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-override.ts -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --no-approve --no-session --mode rpc
+stdin: '{"type": "get_state", "id": "state"}\n'
+exit: 0
+stdout:
+{"id":"state","type":"response","command":"get_state","success":true,"data":{"model":{"id":"extension-only","name":"extension-only","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024,"api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1"},"thinkingLevel":"off","isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","sessionId":"01a181e8-971d-7718-ba91-9db1cda3a75e","autoCompactionEnabled":true,"messageCount":0,"pendingMessageCount":0}}
+stderr:
+FACTORY action=discover builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+SESSION trusted=false selected=fixture/extension-only fixture-all=extension-only fixture-available=extension-only fixture-alltypes=extension-only
+
+# settings.json: {"defaultModel": "keep", "defaultProvider": "fixture", "theme": "dark"}
+
+## catalog removed explicit --model
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-override.ts -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --no-approve --no-session --mode rpc --model fixture/hide
+stdin: '{"type": "get_state", "id": "state"}\n'
+exit: 0
+stdout:
+{"id":"state","type":"response","command":"get_state","success":true,"data":{"model":{"id":"hide","name":"hide","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024,"api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1"},"thinkingLevel":"off","isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","sessionId":"01a181e8-974f-7784-af94-90e441cecf6c","autoCompactionEnabled":true,"messageCount":0,"pendingMessageCount":0}}
+stderr:
+FACTORY action=discover builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+Warning: Model "hide" not found for provider "fixture". Using custom model id.
+SESSION trusted=false selected=fixture/hide fixture-all=extension-only fixture-available=extension-only fixture-alltypes=extension-only
+
+
+## native custom hidden --model
+$ PROBE_ACTION=native-custom bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --no-approve --no-session --mode rpc --model fixture/hide
+stdin: '{"type": "get_state", "id": "state"}\n'
+exit: 0
+stdout:
+{"id":"state","type":"response","command":"get_state","success":true,"data":{"model":{"id":"hide","name":"hide","api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024},"thinkingLevel":"off","isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","sessionId":"01a181e8-977a-76e0-8980-eef3da51e443","autoCompactionEnabled":true,"messageCount":0,"pendingMessageCount":0}}
+stderr:
+FACTORY action=native-custom builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+NATIVE-fixture-chat received=hide,keep,third
+NATIVE-fixture-all received=hide,keep,third
+SESSION trusted=false selected=fixture/hide fixture-all=hide,keep,third fixture-available=keep,third fixture-alltypes=keep,third
+
+
+## native builtin hidden --model
+$ PROBE_ACTION=native-builtin OPENAI_API_KEY=dummy bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --no-approve --no-session --mode rpc --model openai/gpt-4
+stdin: '{"type": "get_state", "id": "state"}\n'
+exit: 0
+stdout:
+{"id":"state","type":"response","command":"get_state","success":true,"data":{"model":{"id":"gpt-4","name":"GPT-4","api":"openai-responses","provider":"openai","baseUrl":"https://api.openai.com/v1","reasoning":false,"input":["text"],"cost":{"input":30,"output":60,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":8192,"compat":{"supportsStrictMode":true},"type":"chat"},"thinkingLevel":"off","isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","sessionId":"01a181e8-97a8-756a-ae2b-39db077709c5","autoCompactionEnabled":true,"messageCount":0,"pendingMessageCount":0}}
+stderr:
+FACTORY action=native-builtin builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+NATIVE-openai-chat received=gpt-4,gpt-4-turbo,gpt-4.1,gpt-4.1-mini,gpt-4.1-nano,gpt-4o,gpt-4o-2024-05-13,gpt-4o-2024-08-06,gpt-4o-2024-11-20,gpt-4o-mini,gpt-5,gpt-5-chat-latest,gpt-5-mini,gpt-5-nano,gpt-5-pro,gpt-5.1,gpt-5.2,gpt-5.2-pro,gpt-5.3-codex,gpt-5.3-codex-spark,gpt-5.4,gpt-5.4-mini,gpt-5.4-nano,gpt-5.4-pro,gpt-5.5,gpt-5.5-pro,gpt-5.6-luna,gpt-5.6-sol,gpt-5.6-terra,gpt-6-astra,gpt-6-luna,gpt-6-sol,gpt-6.1-sol,gpt-daybreak-blue-latest,gpt-daybreak-red-latest,gpt-realtime-2.1,o1,o1-pro,o3,o3-mini,o3-pro,o4-mini
+SESSION trusted=false selected=openai/gpt-4 fixture-all=hide,keep,third fixture-available=hide,keep,third fixture-alltypes=hide,keep,third
+
+
+## trust implicit pre-trust list
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --list-models fixture
+exit: 0
+stdout:
+provider  model  context  max-out  thinking  images
+fixture   hide   8.2K     1.0K     no        no
+fixture   keep   8.2K     1.0K     no        no
+fixture   third  8.2K     1.0K     no        no
+stderr:
+FACTORY action=discover builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+
+
+## trust approved
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --approve --no-session --mode rpc
+stdin: '{"type": "get_state", "id": "state"}\n'
+exit: 0
+stdout:
+{"id":"state","type":"response","command":"get_state","success":true,"data":{"model":{"id":"keep","name":"keep","api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024},"thinkingLevel":"off","isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","sessionId":"01a181e8-97fb-744d-9486-b84d990139ea","autoCompactionEnabled":true,"messageCount":0,"pendingMessageCount":0}}
+stderr:
+FACTORY action=discover builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+SESSION trusted=true selected=fixture/keep fixture-all=hide,keep,third fixture-available=hide,keep,third fixture-alltypes=hide,keep,third
+
+
+## trust rejected
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --no-approve --no-session --mode rpc
+stdin: '{"type": "get_state", "id": "state"}\n'
+exit: 0
+stdout:
+{"id":"state","type":"response","command":"get_state","success":true,"data":{"model":{"id":"keep","name":"keep","api":"openai-completions","provider":"fixture","baseUrl":"https://fixture.invalid/v1","reasoning":false,"input":["text"],"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},"contextWindow":8192,"maxTokens":1024},"thinkingLevel":"off","isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","sessionId":"01a181e8-9823-76a9-8892-be52d9ed9fdc","autoCompactionEnabled":true,"messageCount":0,"pendingMessageCount":0}}
+stderr:
+FACTORY action=discover builtin-target=gpt-4 rules=["fixture/*","!fixture/keep","!fixture/third"]
+FACTORY extra-targets={"anthropic":"claude-fable-5","openrouter":"anthropic/claude-fable-5"}
+FACTORY typeof-isProjectTrusted=undefined
+FACTORY getSettings=Extension runtime not initialized. Action methods cannot be called during extension loading.
+SESSION trusted=false selected=fixture/keep fixture-all=hide,keep,third fixture-available=hide,keep,third fixture-alltypes=hide,keep,third
+
+
+## native order A then B
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-a.ts -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-b.ts --list-models fixture
+exit: 0
+stdout:
+provider  model  context  max-out  thinking  images
+fixture   hide   8.2K     1.0K     no        no
+fixture   third  8.2K     1.0K     no        no
+stderr:
+EXT-B-chat received=hide,keep,third
+
+
+## native order B then A
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-b.ts -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-a.ts --list-models fixture
+exit: 0
+stdout:
+provider  model  context  max-out  thinking  images
+fixture   keep   8.2K     1.0K     no        no
+fixture   third  8.2K     1.0K     no        no
+stderr:
+EXT-A-chat received=hide,keep,third
+
+
+## named override baseline
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-override.ts --list-models fixture
+exit: 0
+stdout:
+provider  model           context  max-out  thinking  images
+fixture   extension-only  8.2K     1.0K     no        no
+stderr:
+
+
+## named override then native
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-override.ts -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-a.ts --list-models fixture
+exit: 0
+stdout:
+provider  model  context  max-out  thinking  images
+fixture   keep   8.2K     1.0K     no        no
+fixture   third  8.2K     1.0K     no        no
+stderr:
+EXT-A-chat received=hide,keep,third
+
+
+## native then named override
+$ PROBE_ACTION=discover bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-a.ts -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/ext-override.ts --list-models fixture
+exit: 0
+stdout:
+provider  model  context  max-out  thinking  images
+fixture   keep   8.2K     1.0K     no        no
+fixture   third  8.2K     1.0K     no        no
+stderr:
+EXT-A-chat received=hide,keep,third
+
+
+## real TUI: /model and Ctrl+P
+$ PROBE_ACTION=native-custom-virtual tmux -S /tmp/pi-filter-probe-l4osudhh/tmux.sock new-session -d -x 100 -y 30 'exec timeout 20 bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --no-approve --no-session'
+$ tmux send-keys -l /model; tmux send-keys Enter
+--- pane /model ---
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use or extend Pi-Bolt.
+
+[Extensions]
+  probe.ts
+
+ This project is not trusted. Project .pi resources and packages are ignored. Use /trust to save a
+ trust decision, then restart pi-bolt.
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys
+ on` to ~/.tmux.conf and restart tmux.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Only showing models from configured providers. Use /login to add providers.
+
+>
+
+→ ✓ keep [fixture] · default
+    third [fixture]
+    virtual-hide [fixture]
+    virtual-hide [virtual-only]
+
+  Model Name: keep
+
+  Model catalogs refreshed.
+
+  Enter to select · Ctrl+S to set as default · Escape/Ctrl+C to cancel
+────────────────────────────────────────────────────────────────────────────────────────────────────
+/tmp/pi-filter-probe-l4osudhh/project
+0.0%/8.2k (auto)                                                                      (fixture) keep
+
+$ tmux send-keys Escape; wait; tmux send-keys C-p
+--- pane after cycle ---
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use or extend Pi-Bolt.
+
+[Extensions]
+  probe.ts
+
+ This project is not trusted. Project .pi resources and packages are ignored. Use /trust to save a
+ trust decision, then restart pi-bolt.
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys
+ on` to ~/.tmux.conf and restart tmux.
+
+ Switched to third
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+/tmp/pi-filter-probe-l4osudhh/project
+0.0%/8.2k (auto)                                                                     (fixture) third
+
+
+## real TUI: builtin filtered /model
+$ PROBE_ACTION=native-builtin OPENAI_API_KEY=dummy tmux -S /tmp/pi-filter-probe-l4osudhh/tmux.sock new-session -d -x 100 -y 30 'exec timeout 20 bwrap --unshare-net --ro-bind / / --proc /proc --dev /dev --bind /tmp/pi-filter-probe-l4osudhh /tmp/pi-filter-probe-l4osudhh --ro-bind /home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64 /tmp/pi-filter-probe-l4osudhh/pi-install --tmpfs /home/furbyhaxx --chdir /tmp/pi-filter-probe-l4osudhh/project -- /tmp/pi-filter-probe-l4osudhh/pi-install/pi --offline --no-extensions -e /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/filter-seams/probe.ts --no-approve --no-session'
+$ tmux send-keys -l /model; tmux send-keys Enter; wait; tmux send-keys -l gpt-4
+--- pane builtin /model ---
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys
+ on` to ~/.tmux.conf and restart tmux.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Only showing models from configured providers. Use /login to add providers.
+
+> gpt-4
+
+→   gpt-4-turbo [openai]
+    gpt-4.1 [openai]
+    gpt-4.1-mini [openai]
+    gpt-4.1-nano [openai]
+    gpt-4o [openai]
+    gpt-4o-2024-05-13 [openai]
+    gpt-4o-2024-08-06 [openai]
+    gpt-4o-2024-11-20 [openai]
+    gpt-4o-mini [openai]
+    gpt-5.4 [openai]
+  (1/13)
+
+  Model Name: GPT-4 Turbo
+
+  Model catalogs refreshed.
+
+  Enter to select · Ctrl+S to set as default · Escape/Ctrl+C to cancel
+────────────────────────────────────────────────────────────────────────────────────────────────────
+/tmp/pi-filter-probe-l4osudhh/project
+0.0%/8.2k (auto)                                                                      (fixture) keep
+
+# cleanup: tmux servers stopped; temporary directory /tmp/pi-filter-probe-l4osudhh removed by TemporaryDirectory

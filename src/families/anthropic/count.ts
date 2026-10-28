@@ -1,10 +1,12 @@
 /** Counts Claude text and tool schemas through the subscription-compatible native endpoint. */
+
+import type { TextRule } from "../../core/config/fields.ts";
 import { ProviderHttpError, request } from "../../core/http/index.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
 import { estimateCounter } from "../../tokens/estimate/index.ts";
 import type { CounterDeps, TokenCounter, TokenModel, ToolSchema } from "../../tokens/types.ts";
 import { shapeHeaders, shapeUrl } from "./request.ts";
-import { withClaudeCodeIdentity } from "./sanitize.ts";
+import { sanitizeSystemText, withClaudeCodeIdentity } from "./sanitize.ts";
 import { wireToolName } from "./tool-names.ts";
 import { oauthToken } from "./transport.ts";
 
@@ -30,6 +32,8 @@ function release(): void {
 /** Shares the family's lazy reported version and environment without probing at construction. */
 export interface ClaudeCountOptions {
 	readonly version: () => Promise<string>;
+	/** The user's system prompt rewrite rules, read per count like the provider reads them. */
+	readonly rules?: () => readonly TextRule[];
 	readonly env?: PathEnv;
 }
 
@@ -128,6 +132,7 @@ export function claudeTokenCounter(
 			// Live x/x x/x x x = 33/34/35 (x = 1); prose A+B subtraction residual was -1 token.
 			return { tokens: Math.max(0, total - base + 1), source: "count-endpoint" };
 		},
+		systemText: (text) => sanitizeSystemText(text, options.rules?.() ?? []),
 		async countTools(tools, signal) {
 			if (!tools.length) return { tokens: 0, source: "count-endpoint" };
 			const base = await getBaseline(signal);

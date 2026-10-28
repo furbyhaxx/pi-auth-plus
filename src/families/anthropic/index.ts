@@ -1,4 +1,5 @@
 /** Anthropic registers `claude`: Claude Pro/Max OAuth or an API key, shaped like Claude Code. */
+import type { TextRule } from "../../core/config/fields.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
 import type { TokenCounter } from "../../tokens/types.ts";
@@ -15,6 +16,7 @@ export function createAnthropicFamily(
 	// Constructing the version does not probe; the first OAuth request does.
 	const version = new ReportedVersion(env, probe);
 	const counters = new Map<string, TokenCounter>();
+	let rules: () => readonly TextRule[] = () => [];
 	return {
 		id: "anthropic",
 		label: "Anthropic",
@@ -28,21 +30,28 @@ export function createAnthropicFamily(
 					env["ANTHROPIC_API_KEY"] ? { source: "ANTHROPIC_API_KEY", limited: false } : undefined,
 			},
 		],
-		providerRegistrations: (host) => [
-			{
-				provider: claudeProvider({
-					auth: claudeAuth(),
-					version: () => version.get(),
-					rules: () => host.settings().get("claude.replacePatterns"),
-					env,
-				}),
-			},
-		],
+		providerRegistrations: (host) => {
+			rules = () => host.settings().get("claude.replacePatterns");
+			return [
+				{
+					provider: claudeProvider({
+						auth: claudeAuth(),
+						version: () => version.get(),
+						rules: () => rules(),
+						env,
+					}),
+				},
+			];
+		},
 		tokens: (model, deps) => {
 			if (model.provider !== PROVIDER) return undefined;
 			let counter = counters.get(model.id);
 			if (!counter) {
-				counter = claudeTokenCounter(model, deps, { version: () => version.get(), env });
+				counter = claudeTokenCounter(model, deps, {
+					version: () => version.get(),
+					rules: () => rules(),
+					env,
+				});
 				counters.set(model.id, counter);
 			}
 			return counter;

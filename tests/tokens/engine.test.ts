@@ -476,3 +476,20 @@ test("recorded system messages replace the live prompt and tools instead of addi
 	expect(parts?.find((part) => part.kind === "system")?.items).toBe(2);
 	expect(parts?.find((part) => part.kind === "tools")?.items).toBe(1);
 });
+
+test("system prose is rewritten to what the provider sends before counting; tool JSON is not", async () => {
+	const { calls, counter } = setup();
+	const rewriting: TokenCounter = { ...counter, systemText: (text) => text.toUpperCase() };
+	const rewritten = createTokenEngine({
+		families: [{ id: "fake", label: "Fake", providers: [], tokens: () => rewriting }],
+		deps,
+		tools: () => [{ name: "t", description: "d", parameters: {} }],
+	});
+	const { ctx } = session([{ role: "user", content: "hi", timestamp: 0 }]);
+	await rewritten.context(ctx);
+	expect(calls).toEqual([
+		"prose:SYSTEM",
+		`json:${JSON.stringify({ name: "t", description: "d", parameters: {} })}`,
+		"prose:hi",
+	]);
+});

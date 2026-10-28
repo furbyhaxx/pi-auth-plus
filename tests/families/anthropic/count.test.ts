@@ -147,4 +147,12 @@ describe("families/anthropic/count", () => {
 		expect(family.tokens?.(model, services)).toBe(family.tokens?.(model, services));
 		expect(family.tokens?.({ ...model, provider: "antigravity" }, services)).toBeUndefined();
 	});
+	test("rewrites system text the way the provider sends it, including user rules", () => {
+		const counter = claudeTokenCounter(model, deps(fetch), {
+			...options,
+			rules: () => [{ match: "secret", replacement: "public" }],
+		});
+		const prompt = "Keep this secret.\n\nRead the docs at earendil-works/pi first.\n\nTail.";
+		expect(counter.systemText?.(prompt)).toBe("Keep this public.\n\nTail.");
+	});
 });

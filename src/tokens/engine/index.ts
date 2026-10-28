@@ -201,9 +201,20 @@ export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 		return signal?.aborted ? undefined : result;
 	}
 
+	function asSent(counter: TokenCounter, segments: readonly Segment[]): readonly Segment[] {
+		const rewrite = counter.systemText?.bind(counter);
+		if (!rewrite) return segments;
+		return segments.map((segment) =>
+			"text" in segment && segment.kind === "prose"
+				? { text: rewrite(segment.text), kind: segment.kind }
+				: segment,
+		);
+	}
+
 	// Pi 1.4 records prompt sections and tool loadouts as transcript system messages; the live
 	// prompt and tool list only stand in before the first one is recorded.
 	function systemInputs(
+		counter: TokenCounter,
 		ctx: EngineContext,
 		messages: SessionMessages,
 	): {
@@ -213,9 +224,13 @@ export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 	} {
 		const recorded = currentSystem(messages);
 		if (recorded)
-			return { segments: recorded.segments, tools: recorded.tools, items: recorded.messages };
+			return {
+				segments: asSent(counter, recorded.segments),
+				tools: recorded.tools,
+				items: recorded.messages,
+			};
 		return {
-			segments: [{ text: ctx.getSystemPrompt(), kind: "prose" }],
+			segments: asSent(counter, [{ text: ctx.getSystemPrompt(), kind: "prose" }]),
 			tools: options.tools(),
 			items: 1,
 		};
@@ -228,7 +243,7 @@ export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 		if (!ctx.model || signal?.aborted) return undefined;
 		const counter = counterFor(ctx.model);
 		const messages = ctx.sessionManager.buildSessionProjection().messages;
-		const inputs = systemInputs(ctx, messages);
+		const inputs = systemInputs(counter, ctx, messages);
 		const system = await countSegments(counter, inputs.segments, signal);
 		if (!system) return undefined;
 		const toolCount = await countTools(counter, inputs.tools, signal);
@@ -265,7 +280,7 @@ export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 		const anchorInfo = usageAnchor(projection, ctx.sessionManager.getBranch());
 		const counts: TokenCount[] = [];
 		if (!anchorInfo) {
-			const inputs = systemInputs(ctx, projection.messages);
+			const inputs = systemInputs(counter, ctx, projection.messages);
 			const system = await countSegments(counter, inputs.segments, signal);
 			if (!system) return undefined;
 			counts.push(system);
@@ -277,7 +292,12 @@ export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 		for (const message of messages) {
 			// Without an anchor the replayed system state above already covers every system message.
 			if (!anchorInfo && message.role === "system") continue;
-			const count = await countSegments(counter, messageSegments(message), signal);
+			const segments = messageSegments(message);
+			const count = await countSegments(
+				counter,
+				message.role === "system" ? asSent(counter, segments) : segments,
+				signal,
+			);
 			if (!count) return undefined;
 			counts.push(count);
 		}

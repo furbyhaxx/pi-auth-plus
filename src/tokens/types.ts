@@ -69,6 +69,8 @@ export interface TokenCounter {
 	count(text: string, kind: TextKind, signal?: AbortSignal): Promise<TokenCount>;
 	/** Counts tool definitions as the provider encodes them; without it the engine counts their JSON. */
 	countTools?(tools: readonly ToolSchema[], signal?: AbortSignal): Promise<TokenCount>;
+	/** Rewrites system prompt text into what the provider sends, before counting. */
+	systemText?(text: string): string;
 }
 
 /** The credential a counter authenticates with, resolved through Pi. */

@@ -147,6 +147,38 @@ test("switching away cancels counting, returning counts again, and close unsubsc
 	f.view.dispose();
 });
 
+test("dashboard grows and shrinks with asynchronous token breakdowns", async () => {
+	const f = open();
+	const views = staticViews({ providers: [], nowMs: 0 });
+	views.tokens = (host) => new TokensView(host, f.tracker);
+	const panel = new AuthDashboard(
+		{ terminal: { rows: 80 }, requestRender: () => {} },
+		f.host.theme,
+		f.host.keys,
+		() => {},
+		views,
+		"tokens",
+		0,
+	);
+	const counting = panel.render(80);
+	expect(counting).toHaveLength(15);
+	expect(counting).not.toContain("");
+	f.resolve([
+		{ kind: "system", count: { tokens: 200, source: "estimate" }, items: 1 },
+		{ kind: "tools", count: { tokens: 100, source: "estimate" }, items: 2 },
+	]);
+	await Promise.resolve();
+	const complete = panel.render(80);
+	expect(complete).toHaveLength(17);
+	expect(complete.join("\n")).toContain("system");
+	f.change(undefined);
+	const empty = panel.render(80);
+	expect(empty).toHaveLength(7);
+	expect(empty.join("\n")).toContain("No model or session count yet");
+	panel.dispose();
+	f.view.dispose();
+});
+
 test("count failures are visible and provider text is sanitized", async () => {
 	const f = open();
 	const tracker: TokenTracker = {

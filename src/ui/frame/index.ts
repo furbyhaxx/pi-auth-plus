@@ -21,10 +21,9 @@ const MIN_BODY_ROWS = 4;
 // Pi's editor and footer plus a few transcript lines stay visible below and above a panel.
 const RESERVED_ROWS = 8;
 
-/** Body height: `wanted` rows, capped by the terminal, never below four. */
-export function bodyRowsFor(terminalRows: number, headerRows: number, wanted: number): number {
-	const available = terminalRows - headerRows - FRAME_ROWS - RESERVED_ROWS;
-	return Math.max(MIN_BODY_ROWS, Math.min(Math.floor(wanted), available));
+/** Maximum body height, leaving space for the surrounding Pi interface. */
+export function bodyRowsFor(terminalRows: number, headerRows: number): number {
+	return Math.max(MIN_BODY_ROWS, terminalRows - headerRows - FRAME_ROWS - RESERVED_ROWS);
 }
 
 const CONTROL_RE = /[\p{Cc}\uFFF9-\uFFFB]/gu;
@@ -132,7 +131,7 @@ export function fitHint(theme: PanelTheme, items: readonly HintItem[], width: nu
 		.join(theme.fg("dim", " · "));
 }
 
-/** Everything a panel contributes; the frame adds rules, padding and a constant height. */
+/** Everything a panel contributes; the frame adds rules and clips the body to its viewport. */
 export interface FrameSpec {
 	readonly crumbs: readonly string[];
 	/** Right end of the top rule, already themed. */
@@ -147,13 +146,12 @@ export interface FrameSpec {
 	readonly footer: string;
 }
 
-/** Same header and `bodyRows` always yield the same line count; every line fits `width`. */
+/** Render the visible content without padding; every line fits `width`. */
 export function drawFrame(theme: PanelTheme, width: number, spec: FrameSpec): string[] {
 	const w = Math.max(1, width);
 	const above = spec.above ?? 0;
 	const below = spec.below ?? 0;
 	const body = spec.body.slice(0, spec.bodyRows);
-	while (body.length < spec.bodyRows) body.push("");
 	const lines = [
 		rule(
 			theme,

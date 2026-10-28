@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-28
+
+### Fixed
+
+- **Compact menus.** Dashboard tabs use only the rows their content needs, while scrolling on short terminals.
+
 ## [0.4.0] - 2026-10-28
 
 ### Added

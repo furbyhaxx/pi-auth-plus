@@ -59,17 +59,27 @@ function open(rows = 40, tab: TabId = "providers", data = model) {
 const plain = (lines: string[]) => lines.map((line) => stripVTControlCharacters(line));
 
 describe("ui/dashboard", () => {
-	test("every line fits at the check widths and the frame height is constant across tabs", () => {
+	test("every line fits at the check widths", () => {
 		for (const width of [36, 57, 80, 140]) {
-			const heights = new Set<number>();
 			for (const tab of TABS) {
 				const lines = open(40, tab.id).panel.render(width);
-				heights.add(lines.length);
 				for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 				expect(plain(lines)[1]).toContain(`▸${tab.label}`);
 			}
-			expect(heights.size).toBe(1);
 		}
+	});
+
+	test("each tab fits its content without padding and resizes when switching", () => {
+		const { panel } = open(80);
+		const providers = plain(panel.render(80));
+		expect(providers).toHaveLength(10);
+		expect(providers).not.toContain("");
+		panel.handleInput("\t");
+		const quotas = plain(panel.render(80));
+		expect(quotas).toHaveLength(7);
+		expect(quotas).not.toContain("");
+		panel.handleInput("\x1b[Z");
+		expect(plain(panel.render(80))).toHaveLength(providers.length);
 	});
 
 	test("provider rows show sign-in state as text, with /login for missing credentials", () => {

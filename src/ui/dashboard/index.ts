@@ -79,8 +79,7 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	}
 
 	render(width: number): string[] {
-		const wanted = Math.max(...TABS.map((spec) => this.#views[spec.id].wantedRows()), 1);
-		const bodyRows = bodyRowsFor(this.host.terminal.rows, 1, wanted);
+		const bodyRows = bodyRowsFor(this.host.terminal.rows, 1);
 		const body = this.#views[this.#tab].render(width, bodyRows);
 		const hints: HintItem[] = body.modal
 			? [...body.hints]

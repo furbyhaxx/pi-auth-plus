@@ -40,10 +40,6 @@ export class SettingsView implements TabView {
 		}
 	}
 
-	wantedRows(): number {
-		return settingKeys.length + new Set(settingKeys.map((key) => key.split(".")[0])).size + 4;
-	}
-
 	dispose(): void {
 		this.#disposed = true;
 	}

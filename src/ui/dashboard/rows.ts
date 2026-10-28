@@ -27,10 +27,6 @@ export class RowsView implements TabView {
 		this.#content = content;
 	}
 
-	wantedRows(): number {
-		return Math.max(1, this.#content.rows.length);
-	}
-
 	render(width: number, bodyRows: number): TabBody {
 		const { theme } = this.#host;
 		const lines =

@@ -1,0 +1,18 @@
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set
+ -g extended-keys on` to ~/.tmux.conf and restart tmux.
+
+── Auth › Tokens ────────────────── ↑ 7 more ──────────────────── 9 providers ──
+  Providers   Quotas  ▸Tokens   Settings
+ Tail       none
+ Breakdown  Full request
+ system     720 · estimate · 1 item
+ tools      1.2K · estimate · 6 items
+────────────────────────────────────────────────────────────────────────────────
+ Live session context counts and sources.
+ tab switch · ↑↓ scroll · esc close
+────────────────────────────────────────────────────────────────────────────────
+or: login · ds: login · cox: login · cl: 5h/login 7d/login
+ag: gem/login arg/login · syn: … · xai: login
+/mnt/Projects/furbyhaxx/pi-auth-plus (dev)
+0.0%/272k (auto)                                       (openai) gpt-5.5 • medium

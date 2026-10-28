@@ -35,8 +35,6 @@ export interface TabBody {
 }
 
 export interface TabView {
-	/** Rows this tab would like; the dashboard keeps one height across tabs. */
-	wantedRows(): number;
 	render(width: number, bodyRows: number): TabBody;
 	/** True when the tab consumed the key; it then sees Tab, arrows and cancel first. */
 	handleInput(data: string): boolean;

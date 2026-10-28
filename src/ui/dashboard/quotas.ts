@@ -125,11 +125,6 @@ export class QuotasView implements TabView {
 		this.#unsubscribe = deps.onChange(() => this.#refreshHost());
 	}
 
-	/** Request the content height; the dashboard caps it to the terminal. */
-	wantedRows(): number {
-		return this.#content(80).lines.length;
-	}
-
 	#providers(): readonly ReportProvider[] {
 		const all = this.#deps.report().providers;
 		if (this.#solo && !all.some((provider) => provider.id === this.#solo)) this.#solo = undefined;

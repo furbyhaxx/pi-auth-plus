@@ -93,11 +93,6 @@ export class TokensView implements TabView {
 		this.#report = tracker?.latest();
 	}
 
-	/** Keep the dashboard height independent of counting progress and terminal width. */
-	wantedRows(): number {
-		return 15;
-	}
-
 	async #count(): Promise<void> {
 		this.#controller?.abort();
 		const controller = new AbortController();

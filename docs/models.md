@@ -109,8 +109,7 @@ members. Within the chosen tier:
   models without cache reuse. Otherwise it compares plan-wide quota headroom when all
   candidates have comparable fractions, or rotates in order. Credit fractions and usage
   window fractions are not compared with each other. Model-group-specific windows and
-  reset times are not used in this fallback. A member with zero USD credits and nonzero
-  model rates is deprioritized when another member is available; zero-cost models are not.
+  reset times are not used in this fallback.
 
 Cost labels (`included`, `free`, `paid`) are informational and do not exclude a member.
 Optional thinking maps translate a group thinking level for a member, for example

@@ -37,16 +37,9 @@ function capacity(
 	const credits = candidate.quota?.credits;
 	if (!credits || (credits.currency !== "$" && credits.currency !== "USD")) return undefined;
 	if (!nonnegative(credits.remaining)) return undefined;
-	const keys = ["input", "output", "cacheRead", "cacheWrite"] as const;
-	if (credits.remaining === 0) {
-		const rates = [candidate.model.cost, ...(candidate.model.cost.tiers ?? [])];
-		return rates.every(
-			(rate) => keys.every((key) => nonnegative(rate[key])) && keys.some((key) => rate[key] > 0),
-		)
-			? 0
-			: undefined;
-	}
+	if (credits.remaining === 0) return 0;
 	if (!usage) return undefined;
+	const keys = ["input", "output", "cacheRead", "cacheWrite"] as const;
 	if (keys.some((key) => !nonnegative(usage[key]))) return undefined;
 	const inputTokens = usage.input + usage.cacheRead + usage.cacheWrite;
 	if (!Number.isFinite(inputTokens)) return undefined;
@@ -113,16 +106,11 @@ export function selectBalancedMember(options: BalanceOptions): GroupMember | und
 		: sameHeadroomKind
 			? candidates.map(headroom)
 			: candidates.map(() => undefined);
-	const hasAlternative = capacities.some((value) => value !== 0);
-	const eligibleValues = values.filter((_, index) => !hasAlternative || capacities[index] !== 0);
-	const comparable = eligibleValues.every((value) => value !== undefined);
-	const best = comparable
-		? Math.max(...eligibleValues.filter((value) => value !== undefined))
-		: undefined;
+	const comparable = values.every((value) => value !== undefined);
+	const best = comparable ? Math.max(...values.filter((value) => value !== undefined)) : undefined;
 	for (let offset = 1; offset <= candidates.length; offset++) {
 		const index = (previousIndex + offset) % candidates.length;
 		const candidate = candidates[index];
-		if (hasAlternative && capacities[index] === 0) continue;
 		if (candidate && (best === undefined || values[index] === best)) return candidate.member;
 	}
 	return undefined;

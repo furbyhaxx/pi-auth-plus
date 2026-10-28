@@ -9,7 +9,8 @@ and a shared `/auth` dashboard.
   OpenCode Zen for Pi's builtin `opencode`. Login stays in Pi's `/login`.
 - Quotas and credits for Claude, Antigravity, Synthetic, ChatGPT (`codex`), xAI,
   OpenRouter and DeepSeek: configurable status line, live panel and host-shared cache.
-- `/auth` provider status and staged settings; `/quotas` and `/quota` open quota detail.
+- `/auth` provider status, model visibility and overrides, and staged settings; `/quotas`
+  and `/quota` open quota detail.
 - ChatGPT reset credits with explicit approval, read-only quota CLI, and an extension bus.
 - Optional Synthetic web search with highlights and full-page text files.
 - Context token counts from the best source per model (provider usage, Claude's count
@@ -30,6 +31,7 @@ quota engine. Anonymous OpenCode Zen requires Pi-Bolt.
 - [Getting started and migration](docs/getting-started.md)
 - [Quotas: providers, line templates, resets and CLI](docs/quotas.md)
 - [Token counts: sources, tokenizers and the Tokens tab](docs/tokens.md)
+- [Model visibility rules and overrides](docs/models.md)
 - [Commands and keys](docs/commands.md)
 - [Settings, files and environment](docs/configuration.md)
 - [Event bus for extensions](docs/events.md)

@@ -17,6 +17,9 @@ All notable changes to this project are documented here. The format follows
   and hide output by what the session uses: the current model's provider, running
   subagents, and providers under quota pressure.
 
+- **Model management.** `/auth models` edits ordered visibility rules and previews hidden
+  models; per-model metadata overrides are saved to Pi's `models.json` with comments and
+  unrelated settings preserved.
 - **OpenAI response verbosity.** `/auth settings` can set low, medium or high verbosity for
   OpenAI Responses and Codex, with configurable provider scope. The default leaves requests
   unchanged.

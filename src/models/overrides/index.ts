@@ -28,6 +28,11 @@ export type JsonValue =
 export type OverrideEdit =
 	| { readonly kind: "set"; readonly value: JsonValue }
 	| { readonly kind: "remove" };
+/** A staged edit to one nested override field. */
+export interface OverrideChange {
+	readonly field: readonly string[];
+	readonly edit: OverrideEdit;
+}
 
 type Snapshot =
 	| { readonly text: string; readonly mode: number; readonly identity: string }
@@ -173,7 +178,18 @@ export async function updateOverride(
 	field: readonly string[],
 	edit: OverrideEdit,
 ): Promise<void> {
-	if (field.length === 0 || field.some((key) => key.length === 0))
+	await updateOverrides(path, providerId, modelId, [{ field, edit }]);
+}
+
+/** Atomically apply all staged edits to one model override. */
+export async function updateOverrides(
+	path: string,
+	providerId: string,
+	modelId: string,
+	changes: readonly OverrideChange[],
+): Promise<void> {
+	if (changes.length === 0) return;
+	if (changes.some(({ field }) => field.length === 0 || field.some((key) => key.length === 0)))
 		throw new Error("An override field path is required");
 	const target = resolve(path);
 	const dir = dirname(target);
@@ -190,11 +206,13 @@ export async function updateOverride(
 	try {
 		const before = snapshot(target);
 		const source = before?.text ?? '{"providers":{}}\n';
-		const result = changed(
-			source,
-			["providers", providerId, "modelOverrides", modelId, ...field],
-			edit,
-		);
+		let result = source;
+		for (const { field, edit } of changes)
+			result = changed(
+				result,
+				["providers", providerId, "modelOverrides", modelId, ...field],
+				edit,
+			);
 		if (result === source) return;
 		parsed(result);
 		const temp = join(dir, `.${basename(target)}.${randomBytes(16).toString("hex")}.tmp`);

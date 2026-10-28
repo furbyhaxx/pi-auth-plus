@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import lockfile from "proper-lockfile";
 import { ModelConfig } from "../../../node_modules/@earendil-works/pi-coding-agent/dist/core/model-config.js";
-import { readOverride, updateOverride } from "../../../src/models/overrides/index.ts";
+import {
+	readOverride,
+	updateOverride,
+	updateOverrides,
+} from "../../../src/models/overrides/index.ts";
 
 const dirs: string[] = [];
 async function pathForTest(): Promise<string> {
@@ -53,6 +57,26 @@ describe("model overrides", () => {
 		]);
 		await updateOverride(path, "p", "a/b", ["cost", "input"], { kind: "remove" });
 		expect(await readOverride(path, "p", "a/b")).toEqual({ cost: { output: 2 } });
+	});
+
+	test("applies a staged group atomically and leaves the file untouched when an edit is invalid", async () => {
+		const path = await pathForTest();
+		const source =
+			'{"providers":{"p":{"modelOverrides":{"m":{"contextWindow":100}}}},"other":true}';
+		await writeFile(path, source);
+		await expect(
+			updateOverrides(path, "p", "m", [
+				{ field: ["contextWindow"], edit: { kind: "set", value: 200 } },
+				{ field: ["cost", "input"], edit: { kind: "set", value: Number.NaN } },
+			]),
+		).rejects.toThrow("JSON-compatible");
+		expect(await readFile(path, "utf8")).toBe(source);
+		await updateOverrides(path, "p", "m", [
+			{ field: ["contextWindow"], edit: { kind: "set", value: 200 } },
+			{ field: ["cost", "input"], edit: { kind: "set", value: 0 } },
+		]);
+		expect(await readOverride(path, "p", "m")).toEqual({ contextWindow: 200, cost: { input: 0 } });
+		expect(await readFile(path, "utf8")).toContain('"other":true');
 	});
 
 	test("removes the last field and retains other settings and comments", async () => {

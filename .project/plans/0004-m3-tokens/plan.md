@@ -5,9 +5,9 @@ document:
   title: "M3 tokens"
   description: "Accurate token counts per family: correct usage on every assistant turn, count sources, store, /tokens surface"
   status: "published"
-  revision: 6
+  revision: 7
   created_at: "2026-10-27T18:43:41+01:00"
-  updated_at: "2026-10-27T20:20:48+01:00"
+  updated_at: "2026-10-28T09:10:24+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -29,6 +29,9 @@ document:
     - revision: 6
       reason: "U3d split, slice 4 detailed"
       changes: ["Counter contracts landed (c58f881, 14120c0); engine, claude counter and family counters delegated; slice 4 units"]
+    - revision: 7
+      reason: "M3 release"
+      changes: ["Counts and token surface completed and documented for v0.4.0"]
 ---
 
 # M3 tokens
@@ -57,12 +60,12 @@ Goal: the token numbers Pi and our surfaces show are right, and say where they c
 ```
 [x] 1 Evidence     analyses/tokens/{usage-audit,count-endpoints}/report.md
 [x] 2 Usage fix    synthetic duplicate cache write dropped (message_end); antigravity clamp
-[>] 3 Counts       sources per family (usage > count endpoint > tokenizer) + content-hash store
-[.] 3b Tokenizers  offline tokenizer assets per family (research/tokenizers)
-[.] 4 Surface      /tokens tab, bus pi-auth-plus:v1:tokens:*, footer reuses the store
+[x] 3 Counts       family counters, usage anchors and content-hash store
+[x] 3b Tokenizers  first-use downloads and offline cache for supported models
+[x] 4 Surface      /tokens tab, bus and fallback footer
 ```
 
-## Slice 3 (now)
+## Slice 3 (done)
 
 Evidence: `analyses/tokens/synthetic-counts/report.md`, `research/tokenizers/report.md`.
 
@@ -102,19 +105,19 @@ Units:
                          synthetic tokenizer, openai/xai ratios; others default 4/3 (65c63a2)
 ```
 
-## Slice 4 (next)
+## Slice 4 (done)
 
 ```
-[>] U4a tracker   src/tokens/tracker: latest ContextReport per session, recompute on
+[x] U4a tracker   src/tokens/tracker: latest ContextReport per session, recompute on
                   session_start, model_select, message_end, turn_end, session_compact,
                   session_tree; debounced, abortable; CounterDeps from quotaAuthFor + store
-[>] U4b bus       pi-auth-plus:v1:tokens:{ready,context,query}, decoders + typed consumers
+[x] U4b bus       pi-auth-plus:v1:tokens:{ready,context,query}, decoders + typed consumers
                   in src/bus like the quota bus
-[>] U4c tab       /auth tokens view + /tokens entry: total with source, ours vs Pi's,
-                  anchor/tail, breakdown (computed on open), tokenizer state; text fallback
-[ ] U4d footer    footer clone shows our context % when it matches the model, marked
+[x] U4c tab       /auth tokens view + /tokens entry: total with source, ours vs Pi's,
+                  anchor/tail, breakdown (computed on open); text fallback
+[x] U4d footer    footer clone shows our context % when it matches the model, marked
                   when estimated; tmux pass 36/57/80/140
-[ ] U4e docs      docs/tokens.md, README pointer, CHANGELOG; release
+[x] U4e docs      docs/tokens.md, README pointer, CHANGELOG; release
 ```
 
 ## Decision (user, 2026-10-27)
@@ -129,8 +132,7 @@ User correction: Synthetic documents `POST /anthropic/v1/messages/count_tokens`
 came from parts of the full Anthropic payload. Provider capabilities are checked against
 current docs before they are stated; tokenizer availability is researched, not assumed.
 
-In flight: `analyses/tokens/synthetic-counts/` (shape support, which count is real, which
-one the context limit enforces) and `research/tokenizers/` (offline tokenizer per family).
+Evidence: `analyses/tokens/synthetic-counts/` and `research/tokenizers/`.
 
 ## Slices 1-2 results (2026-10-27)
 
@@ -148,8 +150,7 @@ one the context limit enforces) and `research/tokenizers/` (offline tokenizer pe
   (0 delta, 6 payloads, p50 166 ms; drop `metadata` and the billing system block, keep
   identity). Google `countTokens` ignores system and tools (-50 % on Claude), unusable.
   xAI tokenize 404, OpenAI `input_tokens` 401, Synthetic/Zen 500/404.
-- Open: Synthetic reports ~10 chars/token uniformly; either its counts are not real token
-  counts or the endpoint counts differently. Its context % may be 2-3x too low.
+- The Synthetic scaling investigation is resolved in Slice 3 above.
 - `ctx.compact()` exists, so an extension can trigger compaction from its own count.
 
 ## Slice 1: evidence (done)

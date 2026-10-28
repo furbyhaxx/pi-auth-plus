@@ -5,9 +5,9 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 19
+  revision: 20
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-27T18:43:41+01:00"
+  updated_at: "2026-10-28T09:10:24+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -68,6 +68,9 @@ document:
     - revision: 19
       reason: "M3 started"
       changes: ["v0.3.1/v0.3.2 line fixes; M3 plan with slice 1 (evidence) in detail"]
+    - revision: 20
+      reason: "M3 release"
+      changes: ["Token counters, tracker, bus, tab and fallback footer shipped in v0.4.0"]
 ---
 
 # Roadmap
@@ -108,12 +111,12 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 7 resets + CLI  codex reset from the tab (confirm); --quotas-json/--quotas-list
     [x] 8 cutover       [x] carry-over, /quota, docs, parity run, bus client,
                         [x] codex id + /quota codex login, [x] v0.3.0, [x] swap
-[>] M3 Tokens       correct usage on every turn, count sources, store, /tokens surface
+[x] M3 Tokens       counts, offline tokenizers and /tokens surface; v0.4.0
     plan: plans/0004-m3-tokens/plan.md
-    [x] 1 evidence      usage correct on 7/8 routes; claude count_tokens exact
-    [x] 2 usage fix     synthetic double count fixed (message_end)
-    [>] 3 counts        HF tokenizers on first use; synthetic usage corrected; engine
-    [.] 4 surface       /tokens tab, bus, footer reuses the store
+    [x] 1 evidence      provider usage and count endpoints investigated
+    [x] 2 usage fix     Synthetic duplicate count removed
+    [x] 3 counts        HF tokenizers, Synthetic correction and count engine
+    [x] 4 surface       /tokens tab, bus, fallback footer and documentation
 [.] M4 Later        codex/grok providers?, Claustrum vault?, Pi estimator hook upstream
 ```
 
@@ -121,6 +124,7 @@ detailed plan; later ones hold the ideas that must not get lost.
 
 - Pi has no token-estimator hook (`estimate.ts`, 3.5 chars/token); M3 works through `usage`,
   `message_end` and `session_before_compact`, an upstream hook is an M4 candidate.
-- pi-quotas footer duplicates token math; M3 removes that duplication.
+- Workbench and native footer hosts retain their own context percentage; the M3 count
+  appears in the fallback footer only.
 - antigravity quota (five buckets, credits, reset times) is the M2 engine's first vendor input:
   `.project/analyses/antigravity-cli/1.4.8/05-quota.md`.

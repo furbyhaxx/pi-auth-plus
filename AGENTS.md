@@ -209,8 +209,9 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
 - **antigravity scope:** reviewed with the user (`.project/analyses/pi-antigravity-auth/inventory.md`):
   one account, no account pool, no Claustrum vault, no `@cortexkit/*` package.
   Fork features not in the inventory's keep list are not ported.
-- **opencode:** spoof headers only when Pi's own opencode headers are present; a stored or
-  environment key always wins over the anonymous fallback. Zen's free tier checks the
+- **opencode:** spoof headers only for a verified physical OpenCode request; when the physical
+  wrapper is unavailable, require Pi's OpenCode header stamp and a compatible session provider.
+  A stored or environment key always wins over the anonymous fallback. Zen's free tier checks the
   `opencode/` user agent, `x-opencode-client: cli`, a `ses_` session-affinity header and an
   `<env>` block with the working directory in the system message. It also gates on the HTTP
   client: Bun's fetch passes, Node's undici (stock Pi) and curl get `429 FreeUsageLimitError` for

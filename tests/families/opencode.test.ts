@@ -24,7 +24,11 @@ function fakePi() {
 	return { pi, registered, handlers };
 }
 
-async function registerWith(env: Record<string, string | undefined>, models?: unknown) {
+async function registerWith(
+	env: Record<string, string | undefined>,
+	models?: unknown,
+	physicalHooksAvailable = false,
+) {
 	const path = modelsPath(env);
 	rmSync(path, { force: true });
 	if (models !== undefined) {
@@ -33,7 +37,7 @@ async function registerWith(env: Record<string, string | undefined>, models?: un
 	}
 	const fake = fakePi();
 	const family = createOpencodeFamily(env, () => 1_700_000_000_000);
-	const host = await testHost();
+	const host = { ...(await testHost()), physicalHooksAvailable: () => physicalHooksAvailable };
 	await registerFamilyProviders(fake.pi, new Registry([family]), host);
 	await family.register?.(fake.pi, host);
 	const ambient = family.providers.map((provider) => provider.ambient?.()?.source);
@@ -127,6 +131,21 @@ describe("families/opencode", () => {
 		expect(
 			shape({ payload: { model: "big-pickle", system: "x" } }, { model: zen, cwd: "/work" }),
 		).toBeUndefined();
+	});
+
+	test("does not stamp foreign headers or duplicate request-local identity hooks", async () => {
+		const physical = await registerWith({}, undefined, true);
+		const intercepted = { headers: { "x-opencode-client": "pi" } as Record<string, string | null> };
+		physical.handlers.get("before_provider_headers")?.(intercepted);
+		expect(intercepted.headers).toEqual({ "x-opencode-client": "pi" });
+		const legacy = await registerWith({}, undefined, false);
+		const headers = { headers: { "x-opencode-client": "pi" } as Record<string, string | null> };
+		const handle = legacy.handlers.get("before_provider_headers") as unknown as (
+			event: typeof headers,
+			ctx: { model: { provider: string } },
+		) => void;
+		handle(headers, { model: { provider: "openrouter" } });
+		expect(headers.headers).toEqual({ "x-opencode-client": "pi" });
 	});
 
 	test("stamps every request with the session affinity id", async () => {

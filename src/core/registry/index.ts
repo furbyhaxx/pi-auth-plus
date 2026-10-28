@@ -60,6 +60,8 @@ export interface FamilyAdapter {
 export interface FamilyHost {
 	/** The session's settings, loaded before any family's `session_start` handler runs. */
 	readonly settings: () => AppSettings;
+	/** Whether request-local physical hooks are active for this session. */
+	readonly physicalHooksAvailable?: () => boolean;
 }
 
 /** Prepares local registration state, then installs every family's providers in order. */

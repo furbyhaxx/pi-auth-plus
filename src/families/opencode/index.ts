@@ -71,18 +71,21 @@ export function createOpencodeFamily(
 			ambientFor(env, models, ZEN_PROVIDER) === ANONYMOUS
 				? [{ name: ZEN_PROVIDER, config: { apiKey: ANONYMOUS_KEY } }]
 				: [],
-		register: (pi: ExtensionAPI) => {
+		register: (pi: ExtensionAPI, host) => {
 			const ids = new IdSource();
 			let sessionId = ids.session(now());
 			pi.on("session_start", () => {
 				sessionId = ids.session(now());
 			});
-			pi.on("before_provider_headers", (event) => {
+			pi.on("before_provider_headers", (event, ctx) => {
+				if (host.physicalHooksAvailable?.()) return;
+				const provider = ctx?.model?.provider;
+				if (provider && provider !== ZEN_PROVIDER && provider !== GO_PROVIDER) return;
 				applyCliIdentity(event.headers, sessionId);
 			});
-			// The payload event carries no provider id and runs before the headers event, so the
-			// request must name the session model's id while that model is an opencode one.
+			// Without physical hooks, the session model is the best available provider hint.
 			pi.on("before_provider_request", (event, ctx) => {
+				if (host.physicalHooksAvailable?.()) return;
 				const model = ctx.model;
 				if (!model || (model.provider !== ZEN_PROVIDER && model.provider !== GO_PROVIDER)) return;
 				const payload = event.payload as { model?: unknown } | null;

@@ -82,13 +82,14 @@ export function createSyntheticFamily(
 			};
 			pi.on("model_select", ({ model }) => preload(model));
 			pi.on("before_provider_request", (event, ctx) => {
+				if (familyHost.physicalHooksAvailable?.()) return;
 				payload = undefined;
 				if (ctx.model?.provider !== PROVIDER || requestModel(event.payload) !== ctx.model.id)
 					return;
 				payload = event.payload;
 			});
 			pi.on("message_end", ({ message }) => {
-				if (message.role !== "assistant") return;
+				if (familyHost.physicalHooksAvailable?.() || message.role !== "assistant") return;
 				const request = payload;
 				payload = undefined;
 				const corrected = correctSyntheticRequestUsage(

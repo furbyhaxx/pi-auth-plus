@@ -249,6 +249,15 @@ describe("Synthetic tokenizer usage", () => {
 		expect(calls).toContain(JSON.stringify(tool));
 	});
 
+	test("leaves request-local usage correction to the physical wrapper when available", async () => {
+		const host = { ...(await testHost()), physicalHooksAvailable: () => true };
+		const { emit, end } = await registered(store(), host);
+		emit({ type: "before_provider_request", payload });
+		const captured = CAPTURED[0];
+		if (!captured) throw new Error("missing captured usage");
+		expect(end(assistant(captured.usage))).toBeUndefined();
+	});
+
 	test("preloads on lifecycle events without awaiting, captures and persists matching usage", async () => {
 		const loads: string[] = [];
 		const tokenizers = store();

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { modelsPath } from "../../src/core/paths/index.ts";
 import { Registry, registerFamilyProviders } from "../../src/core/registry/index.ts";
@@ -29,19 +30,24 @@ async function registerWith(
 	models?: unknown,
 	physicalHooksAvailable = false,
 ) {
-	const path = modelsPath(env);
-	rmSync(path, { force: true });
-	if (models !== undefined) {
-		mkdirSync(dirname(path), { recursive: true });
-		writeFileSync(path, JSON.stringify(models));
+	const dir = mkdtempSync(join(tmpdir(), "auth-plus-opencode-test-"));
+	try {
+		const isolatedEnv = { ...env, PI_CODING_AGENT_DIR: dir };
+		const path = modelsPath(isolatedEnv);
+		if (models !== undefined) {
+			mkdirSync(dirname(path), { recursive: true });
+			writeFileSync(path, JSON.stringify(models));
+		}
+		const fake = fakePi();
+		const family = createOpencodeFamily(isolatedEnv, () => 1_700_000_000_000);
+		const host = { ...(await testHost()), physicalHooksAvailable: () => physicalHooksAvailable };
+		await registerFamilyProviders(fake.pi, new Registry([family]), host);
+		await family.register?.(fake.pi, host);
+		const ambient = family.providers.map((provider) => provider.ambient?.()?.source);
+		return { ...fake, ambient };
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
 	}
-	const fake = fakePi();
-	const family = createOpencodeFamily(env, () => 1_700_000_000_000);
-	const host = { ...(await testHost()), physicalHooksAvailable: () => physicalHooksAvailable };
-	await registerFamilyProviders(fake.pi, new Registry([family]), host);
-	await family.register?.(fake.pi, host);
-	const ambient = family.providers.map((provider) => provider.ambient?.()?.source);
-	return { ...fake, ambient };
 }
 
 describe("families/opencode", () => {
@@ -134,11 +140,11 @@ describe("families/opencode", () => {
 	});
 
 	test("does not stamp foreign headers or duplicate request-local identity hooks", async () => {
-		const physical = await registerWith({}, undefined, true);
+		const physical = await registerWith({ ...process.env }, undefined, true);
 		const intercepted = { headers: { "x-opencode-client": "pi" } as Record<string, string | null> };
 		physical.handlers.get("before_provider_headers")?.(intercepted);
 		expect(intercepted.headers).toEqual({ "x-opencode-client": "pi" });
-		const legacy = await registerWith({}, undefined, false);
+		const legacy = await registerWith({ ...process.env }, undefined, false);
 		const headers = { headers: { "x-opencode-client": "pi" } as Record<string, string | null> };
 		const handle = legacy.handlers.get("before_provider_headers") as unknown as (
 			event: typeof headers,

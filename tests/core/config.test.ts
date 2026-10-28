@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SETTINGS } from "../../src/core/config/catalog.ts";
 import {
 	booleanField,
 	enumField,
@@ -10,6 +11,7 @@ import {
 	SettingsStore,
 	textRulesField,
 } from "../../src/core/config/index.ts";
+import { effectiveModelRules } from "../../src/models/rules/settings.ts";
 
 const catalog = {
 	"quotas.refreshIntervalSec": numberField({
@@ -55,6 +57,38 @@ beforeEach(() => {
 });
 
 describe("core/config", () => {
+	test("loads validated aliases and rejects a malformed project alias list", async () => {
+		const aliases = [{ provider: "claude", source: "source", id: "short", contextWindow: 10000 }];
+		write(user, { models: { aliases } });
+		write(project, {
+			models: { aliases: [...aliases, { provider: "claude", source: "source", id: "short" }] },
+		});
+		const store = new SettingsStore(SETTINGS, { user, project });
+		const problems = await store.load();
+		expect(problems.map((problem) => problem.key)).toEqual(["models.aliases"]);
+		expect(store.get("models.aliases")).toEqual(aliases);
+	});
+
+	test("loads ordered model visibility rules from user settings before a session exists", async () => {
+		const rules = ["opencode/*", "!opencode/example", "openrouter/google/**"];
+		write(user, { models: { rules } });
+		const store = new SettingsStore(SETTINGS, { user });
+		expect(await store.load()).toEqual([]);
+		expect(store.get("models.rules")).toEqual(rules);
+		expect(store.get("models.rulesScope")).toBe("trusted-project");
+		expect(store.get("models.hiddenDefault")).toBe("warn");
+	});
+
+	test("does not allow trusted project rules when user scope is restricted", async () => {
+		write(user, { models: { rules: ["claude/*"], rulesScope: "user" } });
+		write(project, { models: { rules: ["synthetic/*"], rulesScope: "trusted-project" } });
+		const store = new SettingsStore(SETTINGS, { user, project });
+		await store.load();
+		expect(effectiveModelRules(store)).toEqual(["claude/*"]);
+		await store.save("runtime", { "models.rulesScope": "trusted-project" });
+		expect(effectiveModelRules(store)).toEqual(["synthetic/*"]);
+	});
+
 	test("runtime > project > user > default, each value reports its source", async () => {
 		write(user, { quotas: { refreshIntervalSec: 30, placement: "above-editor" } });
 		write(project, { quotas: { refreshIntervalSec: 10 } });
@@ -69,11 +103,16 @@ describe("core/config", () => {
 			"claude.replacePatterns": [],
 		});
 		expect(store.sourceOf("quotas.refreshIntervalSec")).toBe("project");
+		expect(store.get("quotas.refreshIntervalSec", { includeProject: false })).toBe(30);
+		expect(store.sourceOf("quotas.refreshIntervalSec", { includeProject: false })).toBe("user");
 		expect(store.sourceOf("quotas.placement")).toBe("user");
 		expect(store.sourceOf("synthetic.webSearch")).toBe("runtime");
 		expect(store.shadowed("user", ["quotas.refreshIntervalSec", "quotas.placement"])).toEqual([
 			"quotas.refreshIntervalSec",
 		]);
+		await store.save("runtime", { "quotas.refreshIntervalSec": 20 });
+		expect(store.get("quotas.refreshIntervalSec", { includeProject: false })).toBe(20);
+		expect(store.sourceOf("quotas.refreshIntervalSec", { includeProject: false })).toBe("runtime");
 	});
 
 	test("an untrusted project file is never read", async () => {

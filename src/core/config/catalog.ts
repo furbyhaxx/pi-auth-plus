@@ -1,4 +1,5 @@
 /** The one pi-auth-plus settings catalog; `auth-plus.json` keys are its dotted names. */
+import { type ModelAlias, parseAliases } from "../../models/aliases/index.ts";
 import {
 	booleanField,
 	enumField,
@@ -83,6 +84,36 @@ export const SETTINGS = {
 		description: "Template tokens {provider:field}; provider ids and aliases both resolve",
 		default: DEFAULT_LINE_TEMPLATE,
 	}),
+	"models.rules": listField({
+		label: "Model visibility rules",
+		description: "Ordered provider/model patterns; hide matches and use ! to show them again",
+		default: [],
+	}),
+	"models.rulesScope": enumField({
+		label: "Model rules scope",
+		description: "Whether trusted project rules can override user rules",
+		default: "trusted-project",
+		options: [
+			{ value: "user", label: "User" },
+			{ value: "trusted-project", label: "User and trusted project" },
+		],
+	}),
+	"models.hiddenDefault": enumField({
+		label: "Hidden selected model",
+		description: "Warn and keep the selection, or switch to a visible model",
+		default: "warn",
+		options: [
+			{ value: "warn", label: "Warn and keep" },
+			{ value: "fallback", label: "Fall back" },
+		],
+	}),
+	"models.aliases": {
+		kind: "rules",
+		label: "Model aliases",
+		description: "Provider, source and alias IDs with optional name and limits",
+		default: [] as readonly ModelAlias[],
+		parse: parseAliases,
+	},
 	"openai.verbosity": enumField({
 		label: "Response verbosity",
 		description: "OpenAI Responses verbosity; default leaves Pi's request unchanged",

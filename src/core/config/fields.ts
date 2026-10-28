@@ -6,7 +6,7 @@ export interface TextRule {
 	readonly replacement?: string;
 }
 
-export type FieldValue = boolean | number | string | readonly string[] | readonly TextRule[];
+export type FieldValue = boolean | number | string | readonly string[] | readonly object[];
 export type FieldKind = "boolean" | "number" | "enum" | "string" | "list" | "rules";
 
 export interface FieldOption<V extends string = string> {

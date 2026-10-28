@@ -15,6 +15,11 @@ export type Layer<C extends Catalog> = { [K in keyof C]?: ValueOf<C, K> };
 /** Staged edits; `null` removes the key from the scope so the value inherits again. */
 export type Changes<C extends Catalog> = { [K in keyof C]?: ValueOf<C, K> | null };
 
+export interface SettingsResolutionOptions {
+	/** Exclude the trusted project layer without excluding runtime changes. */
+	readonly includeProject?: boolean;
+}
+
 export interface SettingsPaths {
 	readonly user: string;
 	/** Omitted when the project is not trusted; its file is then never read or written. */
@@ -70,8 +75,9 @@ export class SettingsStore<C extends Catalog> {
 		return problems;
 	}
 
-	get<K extends keyof C & string>(key: K): ValueOf<C, K> {
+	get<K extends keyof C & string>(key: K, options?: SettingsResolutionOptions): ValueOf<C, K> {
 		for (const scope of ["runtime", "project", "user"] as const) {
+			if (scope === "project" && options?.includeProject === false) continue;
 			const value = this.layers[scope][key];
 			if (value !== undefined) return value;
 		}
@@ -84,8 +90,9 @@ export class SettingsStore<C extends Catalog> {
 		return out as Values<C>;
 	}
 
-	sourceOf(key: keyof C & string): Scope {
+	sourceOf(key: keyof C & string, options?: SettingsResolutionOptions): Scope {
 		for (const scope of ["runtime", "project", "user"] as const) {
+			if (scope === "project" && options?.includeProject === false) continue;
 			if (this.layers[scope][key] !== undefined) return scope;
 		}
 		return "default";

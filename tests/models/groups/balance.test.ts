@@ -173,6 +173,22 @@ describe("balance group selection", () => {
 		expect(selectBalancedMember({ candidates: [a, c], usage, previous: c.member })).toBe(c.member);
 	});
 
+	test("avoids known exhausted paid credits when another member has unknown quota", () => {
+		const exhausted = candidate("paid", 1, credits("paid", 0));
+		const unknown = candidate("included", 0);
+		expect(
+			selectBalancedMember({ candidates: [exhausted, unknown], previous: unknown.member }),
+		).toBe(unknown.member);
+	});
+
+	test("does not treat a zero-cost model as exhausted by an empty credit balance", () => {
+		const free = candidate("free", 0, credits("free", 0));
+		const paid = candidate("other", 1, credits("other", 0));
+		expect(selectBalancedMember({ candidates: [free, paid], previous: free.member })).toBe(
+			free.member,
+		);
+	});
+
 	test("invalid counts, rates and fractions remain unknown", () => {
 		const a = candidate("a", 1, credits("a", 10));
 		const b = candidate("b", 1, credits("b", 20));

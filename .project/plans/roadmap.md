@@ -133,7 +133,7 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 3 counts        HF tokenizers, Synthetic correction and count engine
     [x] 4 surface       /tokens tab, bus, fallback footer and documentation
 [ ] M4 Models       verbosity, rules, overrides, aliases, web_search, groups
-    plan: plans/0005-m4-model-management/plan.md (draft, 5 open decisions)
+    plan: plans/0005-m4-model-management/plan.md (draft, 2 open decisions: paid members, search output)
     design: designs/model-management/ (design.md, wireframes/index.html)
     [x] 0 verify     probes in analyses/model-management/ (filter, verbosity,
                      search, routing, alias limits, attribution)

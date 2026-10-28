@@ -174,7 +174,7 @@ function viewRules() {
     const right = r.on ? `${n} ${neg ? "shown" : "hidden"}` : "off";
     const rw = w >= 57 ? 26 : 12;
     const lw = Math.max(10, w - rw - 2);
-    const tail = r.on && !owned && w >= 57 ? " · needs Pi hook" : "";
+    const tail = r.on && !owned && w >= 57 ? (prov === "openrouter" ? " · re-reg (raw)" : " · re-reg") : "";
     body.push([...pad(left, lw), ...padS(right.padStart(10), 10, "dim"), ...padS(tail, rw - 10, "warn")]);
   });
   body.push([cursor(S.sel === S.rules.length), seg("+ add rule", "muted")]);
@@ -316,8 +316,8 @@ function notesRules() { return `<h2>Models › Rules</h2>
 <h3>Behaviour</h3>${li(["Default: everything listed. A rule hides; <code>!rule</code> shows again. Last matching rule wins (gitignore).",
 "<code>*</code> stays in one segment, <code>**</code> crosses <code>/</code>. <code>openrouter/*</code> therefore also needs to match <code>openrouter/google/x</code>: a provider-only pattern matches the whole provider.",
 "Saved to <code>auth-plus.json</code> (user) or trusted project settings. User rules are read in the extension factory, so owned providers drop hidden ids before <code>--list-models</code>; project rules apply from session start (trust is unknown earlier)."])}
-<h3>Open decisions</h3>${li(["Default-visible + hide rules (shown) vs. default-hidden allowlist.", "Should <code>/model</code> show hidden models greyed with a toggle?"])}
-<h3>Evidence</h3><p class="note">Pi 1.4 has no seam that hides a built-in model everywhere (<code>--model</code> still resolves). Owned families (claude, antigravity, synthetic) can drop ids now; built-ins need the upstream visibility hook. Rules on other providers are saved but marked <code>needs Pi hook</code> until that lands.</p>`; }
+<h3>Decided</h3>${li(["Default-visible; rules hide, <code>!rule</code> shows again, last match wins (2026-10-28).", "Enforce everywhere now: owned providers drop ids; built-ins are re-registered with the filtered catalog."])}<h3>Open</h3>${li(["Should <code>/model</code> show hidden models greyed with a toggle?"])}
+<h3>Evidence</h3><p class="note">Owned families (claude, antigravity, synthetic) drop hidden ids from their own catalog. Built-ins with an active hide rule are re-registered via <code>pi.registerProvider(id, { models })</code> with bundled + <code>models-store.json</code> merged on <code>type:id</code> (openai parity verified, live calls ok, overrides kept). <code>re-reg (raw)</code>: OpenRouter loses Pi's per-account personalization until that is spiked. See <code>analyses/model-management/builtin-reregistration/</code>.</p>`; }
 function notesCatalog() { return `<h2>Models › Catalog</h2>${li(["Every model Pi knows, grouped by provider, with the rule that decided it.",
 "<kbd>h</kbd> on a row appends a rule (<code>openai/gpt-6-mini</code> or <code>!…</code>) rather than toggling a hidden flag, so the rule list stays the single source.",
 "Pink context = <code>modelOverrides</code>; <code>↳</code> = alias."])}`; }

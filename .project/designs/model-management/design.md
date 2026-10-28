@@ -5,15 +5,18 @@ document:
   title: "Model management, verbosity, web search and model groups"
   description: "Verified seams, UX and mechanisms for model rules, overrides, aliases, OpenAI verbosity, unified web search and quota-aware groups"
   status: "draft"
-  revision: 1
+  revision: 2
   created_at: "2026-10-28T11:45:00+01:00"
-  updated_at: "2026-10-28T11:45:00+01:00"
+  updated_at: "2026-10-28T13:35:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       reason: "document creation"
       changes: ["Probe results for filter seams, verbosity, search, routing, alias limits and attribution; UX for /auth Models, Groups and Settings additions"]
+    - revision: 2
+      reason: "user decisions D62-D64 and built-in re-registration probe"
+      changes: ["Rules default-visible decided", "Built-in enforcement via provider re-registration", "Cross-provider failover decided"]
 ---
 
 # Model management, verbosity, web search and model groups
@@ -82,8 +85,8 @@ shrink-wrapped body. Two new tabs; Settings gains three sections. `/auth models`
 - Each row shows its live effect (`3 hidden`, `1 shown`); the bottom line shows the total and
   the surfaces it governs. Keys: `a` add, `enter` edit, `space` on/off, `shift+↑↓` reorder,
   `d` delete, `ctrl+s` save with the existing scope dialog (user / trusted project).
-- Where a rule cannot be enforced (built-ins until upstream ask 1 lands), the row says so
-  rather than pretending: e.g. `2 hidden · picker only`.
+- Built-in providers are enforced by re-registration; the row tail says `re-reg`, and
+  `re-reg (raw)` for OpenRouter while it loses Pi's per-account personalization.
 
 ### Models › Catalog and model detail
 
@@ -141,8 +144,15 @@ quota, so they rank after direct backends by default and show their quota class.
   panel says so.
 - **Enforcement today**: owned families (`claude`, `antigravity`, `synthetic`) drop hidden
   ids from their catalog (verified to remove them from `--list-models`; explicit `--model`
-  warns and reconstructs). Built-ins: picker-only via native provider filter is rejected
-  because it replaces another owner's registration; wait for upstream ask 1.
+  warns and reconstructs). Built-ins with at least one active hide rule: named
+  `pi.registerProvider(id, { models })` from the factory with bundled `getModels(id)` +
+  `models-store.json` merged on `type:id`, hidden ids dropped; re-run on catalog refresh.
+  Verified: hidden ids leave `--list-models` online and offline, kept models answer live,
+  `modelOverrides` still apply, openai list matches stock exactly. Gaps: OpenRouter
+  personalization is lost (spike `personalizeOpenRouterCatalog`), explicit `--model` on a
+  hidden id fails with a misleading `vercel-ai-gateway` key error, refresh behaviour
+  unobserved (`analyses/model-management/builtin-reregistration/`). Upstream ask 1 still
+  filed to replace the rebuild.
 - **Overrides**: locked read-modify-write of `models.json` preserving unknown keys and order.
 - **Aliases**: owned families append alias entries (copied metadata, own limits) to static and
   refreshed catalogs; the stream wrapper chains the caller's `onPayload`, then rewrites the
@@ -157,10 +167,14 @@ quota, so they rank after direct backends by default and show their quota class.
   cool-down. Quota attribution from physical assistant messages; header ingest for routed
   requests waits for upstream ask 2.
 
+## Decisions (2026-10-28)
+
+- Rules: everything listed by default; rules hide, `!rule` shows again, last match wins.
+- Enforcement: everywhere now. Owned families drop ids; built-ins via re-registration (user
+  idea, probe-verified with the gaps above); upstream visibility hook filed anyway.
+- Failover: any member, including other providers; the status line names the switch.
+
 ## Open decisions
 
-1. Rules semantics: default listed + hide rules (designed) vs. allowlist.
-2. Enforcement scope now: owned families only + upstream PR, or wait for the PR.
-3. Cross-provider failover by default (breaks prompt cache and thinking signatures)?
-4. Paid members default: never vs. only when free fail.
-5. Web search output: results, answers, or both.
+1. Paid members default: never vs. only when free fail.
+2. Web search output: results, answers, or results-else-answer (designed).

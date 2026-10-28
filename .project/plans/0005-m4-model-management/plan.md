@@ -5,28 +5,32 @@ document:
   title: "M4 model management"
   description: "Verbosity, model rules, overrides, aliases, unified web search and quota-aware model groups, grounded in the 2026-10-28 probes"
   status: "draft"
-  revision: 1
+  revision: 2
   created_at: "2026-10-28T11:55:00+01:00"
-  updated_at: "2026-10-28T11:55:00+01:00"
+  updated_at: "2026-10-28T13:35:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       reason: "document creation"
       changes: ["Probe-backed slice order; slices 1-2 detailed, later slices sparse; upstream asks; open decisions"]
+    - revision: 2
+      reason: "user decisions D62-D64 and built-in re-registration probe"
+      changes: ["S2 enforces on built-ins via re-registration", "Decided items removed from open decisions"]
 ---
 
 # M4 model management
 
 Design: `.project/designs/model-management/design.md`. Wireframes:
 `.project/designs/model-management/wireframes/index.html`. Evidence:
-`.project/analyses/model-management/`. Not started; waits for the open decisions below.
+`.project/analyses/model-management/`. Not started. S1-S5 are unblocked; S5 output shape and
+S6 paid policy wait for the two open decisions below.
 
 ## Order and why
 
 ```
 [ ] S1 OpenAI verbosity          verified live, smallest, no Pi seam needed
-[ ] S2 Models tab: rules+catalog  engine + editor; enforcement on owned families
+[ ] S2 Models tab: rules+catalog  engine + editor; enforce owned + re-registered built-ins
 [ ] S3 Overrides editor          Pi's modelOverrides, works for every provider
 [ ] S4 Aliases (owned families)   stream-level id rewrite; built-ins wait for Pi
 [ ] S5 Unified web_search         all backends verified; replaces synthetic_web_search
@@ -62,9 +66,16 @@ Units:
 3. Enforcement on owned families (`claude`, `antigravity`, `synthetic`): drop hidden ids from
    static and refreshed catalogs. Test: hidden id absent from `--list-models`; `--model` on it
    warns (isolated `pi-bolt --offline` fixture as in `filter-seams/`).
-4. `/auth` Models tab: Rules and Catalog views per wireframe, `needs Pi hook` marker for
-   other providers, `h` appends a rule, saves through the existing scope dialog.
-5. Panel captures at 36/57/80/140.
+4. Built-in enforcement (`src/models/rules/reregister.ts`): for each built-in provider with an
+   active hide rule, merge `getModels(id)` + `models-store.json` on `type:id`, drop hidden,
+   `pi.registerProvider(id, { models })`; repeat on catalog refresh. Test: isolated fixture
+   diff of `--list-models` equals exactly the hidden set (as in
+   `builtin-reregistration/report.md`); one live call on a kept openai model.
+5. OpenRouter spike: apply `personalizeOpenRouterCatalog` to the rebuilt list; parity diff
+   must be empty. Until it passes, openrouter rules show `re-reg (raw)`.
+6. `/auth` Models tab: Rules and Catalog views per wireframe, `h` appends a rule, saves
+   through the existing scope dialog.
+7. Panel captures at 36/57/80/140.
 
 ## Later slices (sparse)
 
@@ -82,12 +93,16 @@ Units:
   `retry` switching; (c) `agent_before_settle` recovery for 401/quota before output; (d) quota
   attribution from physical assistant messages; (e) Groups tab per wireframe.
 - **U Upstream**: file the three Pi asks from the design; when the visibility filter lands,
-  extend S2 enforcement to all providers and drop the `needs Pi hook` marker.
+  replace the S2 re-registration with it (keeps personalization, fixes the misleading
+  hidden-id error).
 
-## Open decisions (block S2 and S6 only)
+## Decided 2026-10-28
 
-1. Rules semantics: default listed + hide rules (designed) or allowlist.
-2. Ship S2 enforcement on owned families now, or wait for the Pi hook.
-3. Cross-provider failover default on or off.
-4. Paid members default: never, or only when free ones fail.
-5. web_search output: results, answers, or results-else-answer (designed).
+- Rules default-visible, hide rules, `!` re-shows, last match wins.
+- Enforce everywhere now (re-registration for built-ins); upstream hook still filed.
+- Group failover may cross providers.
+
+## Open decisions
+
+1. Paid group members default: never, or only when free ones fail (blocks S6).
+2. web_search output: results, answers, or results-else-answer (designed; blocks S5).

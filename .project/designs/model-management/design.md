@@ -2,12 +2,12 @@
 document:
   type: "design"
   id: "design-model-management"
-  title: "Model management, verbosity, web search and model groups"
-  description: "Verified seams, UX and mechanisms for model rules, overrides, aliases, OpenAI verbosity, unified web search and quota-aware groups"
+  title: "Model management, verbosity and model groups"
+  description: "Verified seams, UX and mechanisms for model rules, overrides, aliases, OpenAI verbosity and quota-aware groups (web search evidence kept for a separate extension)"
   status: "draft"
-  revision: 2
+  revision: 3
   created_at: "2026-10-28T11:45:00+01:00"
-  updated_at: "2026-10-28T13:35:00+01:00"
+  updated_at: "2026-10-28T14:00:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -17,9 +17,12 @@ document:
     - revision: 2
       reason: "user decisions D62-D64 and built-in re-registration probe"
       changes: ["Rules default-visible decided", "Built-in enforcement via provider re-registration", "Cross-provider failover decided"]
+    - revision: 3
+      reason: "user decisions on paid members and web search"
+      changes: ["Group members get priority tiers; cost class is a label only", "Web search moved to a separate extension"]
 ---
 
-# Model management, verbosity, web search and model groups
+# Model management, verbosity and model groups
 
 Source ideas: `.project/ideas/model-management-and-routing/ideas.md`. Interactive wireframes:
 `wireframes/index.html` (views `rules`, `catalog`, `detail`, `groups`, `group`, `settings`;
@@ -34,7 +37,7 @@ All findings are against Pi 1.4.0 (Pi-Bolt 1.0.6/1.0.7) on 2026-10-28.
 | Overrides | Feasible now through Pi's own `models.json` `modelOverrides` (metadata only). | `ideas.md` probe |
 | Aliases with own limits | Feasible **for providers whose stream we own**: physical alias entry + `onPayload` model-id rewrite inside the provider stream (covers compaction summaries, which `before_provider_request` misses). Virtual aliases lose their limits after the first response. Built-ins (`openai`, `xai`, `openrouter`, `opencode`) need a Pi seam. | `alias-limits/` |
 | OpenAI verbosity | **Verified live** on `openai` (ChatGPT OAuth, Responses) and `openai-codex` (legacy Codex). `before_provider_request` merge accepted at low/medium/high, output length rose with level, `text.format` preserved. | `verbosity/` |
-| Unified web search | **Executed live on every subscription route**: Claude OAuth (encrypted results + cited prose), ChatGPT-direct and legacy Codex (2 searches each, `web_search.num_requests: 2`, cited prose), xAI OAuth (2 searches + page open, citations; `cost_in_usd_ticks` reported, subscription billing unverified), Synthetic (raw hits + page text), OpenRouter (citations, $0.001), OpenCode Exa MCP (unauthenticated). Only Synthetic and Exa return raw results; the others are a full model call (~17-21K input tokens). | `search-entitlement/` |
+| Unified web search (moved to a separate extension) | **Executed live on every subscription route**: Claude OAuth (encrypted results + cited prose), ChatGPT-direct and legacy Codex (2 searches each, `web_search.num_requests: 2`, cited prose), xAI OAuth (2 searches + page open, citations; `cost_in_usd_ticks` reported, subscription billing unverified), Synthetic (raw hits + page text), OpenRouter (citations, $0.001), OpenCode Exa MCP (unauthenticated). Only Synthetic and Exa return raw results; the others are a full model call (~17-21K input tokens). | `search-entitlement/` |
 | Groups: stickiness | Works: router state on the branch survives tool continuations, restart, fork and clone (forks inherit ancestor state). State is saved **before** dispatch, so it records attempts. | `virtual-routing/` |
 | Groups: failover | Pi retries ordinary 429/5xx/transient errors and calls `route(reason: "retry")` with the failed message; the router can switch. **No retry** for 401, quota-exhausted 429, OpenCode free-tier 429. `agent_before_settle` + `context_edit` recovered a quota failure in a probe. Partial output may already be shown before a retry. | `virtual-routing/` |
 | Groups: attribution | `ctx.model` is the **virtual** model in every hook. Physical provider/model/usage only on the assistant message (`message_end`, `turn_end`). Headers cannot be attributed generically; 429s fire no `after_provider_response`. | `quota-attribution/` |
@@ -72,7 +75,7 @@ shrink-wrapped body. Two new tabs; Settings gains three sections. `/auth models`
 
 ```
  Providers  Quotas  Tokens  Models  Groups  Settings
-                            │       │       └ Models · OpenAI · Web search sections
+                            │       │       └ Models · OpenAI sections
                             │       └ list → group detail (strategy, policy, members)
                             └ Rules ⇄ Catalog (v) → model detail (overrides, aliases)
 ```
@@ -104,9 +107,12 @@ shrink-wrapped body. Two new tabs; Settings gains three sections. `/auth models`
 - Group = selectable virtual model `group/<name>`. List row: id, strategy, healthy/total;
   second line shows member order.
 - Detail: strategy (`sticky` default, `failover`, `balance`, `random`), fail-over triggers,
-  paid policy (`never` / `only when free fail` / `always`), context window (default smallest
-  member, editable down only), thinking map, ordered members with live auth/quota and
-  `included|free|paid` cost class.
+  context window (default smallest member, editable down only), thinking map, members with
+  live auth/quota, a priority tier (`T1` first) and an `included|free|paid` cost label.
+- Tiers: the strategy picks inside the lowest tier that has a healthy member; the next tier
+  is used only when every member of the current one fails. Paid members get no special
+  treatment; e.g. paid OpenRouter in T1, free members x, y, z in T2 (or T2, T3, T4 for a
+  strict order). Default: every member in T1, so plain strategy order applies.
 - Failover boundary: only before the first output token and never across a started tool
   call; otherwise the turn errors with the reason. Partial-text retries are visible to the
   user, so the status line names the switch (`→ opencode`).
@@ -119,22 +125,11 @@ shrink-wrapped body. Two new tabs; Settings gains three sections. `/auth models`
 | Models | Hidden default model | warn and keep, fall back (warn and keep) |
 | OpenAI | Response verbosity | Pi default (low), low, medium, high (Pi default) |
 | OpenAI | Verbosity scope | providers: openai, openai-codex |
-| Web search | Web search tool | on / off (off) |
-| Web search | Search backends | ordered list of signed-in, verified backends |
-| Web search | Result kind | results, answer, results else answer |
-| Web search | Allow paid backends | off |
 
 Per-model verbosity in model detail overrides the global value.
 
-### Web search tool
-
-One `web_search` tool replaces `synthetic_web_search`. Rendering stays Pi's default tool
-rendering, as `synthetic_web_search` today. Result contract: `{ backend, kind: "results" |
-"answer", results?: [{url,title,text,published?}], answer?: {text, citations:[{url,title}]},
-cost?: {class, usd?} }`. Backends tried in configured order; paid ones only when allowed.
-Claude's encrypted result blocks are not exposed; only prose + citations. Model-backed
-backends cost a full inference call (observed 17-21K input tokens) against the account's
-quota, so they rank after direct backends by default and show their quota class.
+Web search moved out of pi-auth-plus (2026-10-28): it will live in a separate extension. The
+live probe results in `analyses/model-management/search-entitlement/` stay as its input.
 
 ## Mechanisms
 
@@ -174,7 +169,10 @@ quota, so they rank after direct backends by default and show their quota class.
   idea, probe-verified with the gaps above); upstream visibility hook filed anyway.
 - Failover: any member, including other providers; the status line names the switch.
 
+- Paid members: no paid policy; members get priority tiers instead (user: "only fall back to
+  the free models in order x, y, z when the paid ones fail").
+- Web search: dropped from pi-auth-plus; a separate extension will own it.
+
 ## Open decisions
 
-1. Paid members default: never vs. only when free fail.
-2. Web search output: results, answers, or results-else-answer (designed).
+1. Should `balance` weigh cost or only quota headroom? (Decide in S6.)

@@ -3,7 +3,7 @@
 version: 1
 id: "model-management-wireframes"
 title: "Model management /auth wireframes"
-description: "Interactive TUI wireframes for model filters, overrides, aliases, groups, verbosity and web search"
+description: "Interactive TUI wireframes for model filters, overrides, aliases, groups and verbosity"
 type: "wireframe"
 created: "2026-10-28T11:30:00+01:00"
 updated: "2026-10-28T11:30:00+01:00"
@@ -131,10 +131,10 @@ const S = {
   overrides: { "openai/gpt-6": { contextWindow: ["272K", "400K"] }, "claude/claude-opus-5": { maxTokens: ["64K", "32K"] } },
   aliases: [ { id: "openai/gpt-6-1m", of: "openai/gpt-6", ctx: "1M", note: "alias" } ],
   groups: [
-    { id: "group/deepseek-v4.1", name: "DeepSeek V4.1", strategy: "sticky · failover", members: [
+    { id: "group/deepseek-v4.1", name: "DeepSeek V4.1", strategy: "sticky · failover", tiers: [1, 2, 2, 3], members: [
+      ["openrouter", "deepseek/deepseek-v4.1", "160K", "ok", "$48.20", "paid"],
       ["synthetic", "hf:deepseek-ai/DeepSeek-V4.1", "160K", "ok", "5h 41%", "included"],
       ["opencode", "deepseek-free", "128K", "warn", "rate-limited 2m", "free"],
-      ["openrouter", "deepseek/deepseek-v4.1", "160K", "ok", "$48.20", "paid"],
       ["deepseek", "deepseek-v4.1", "128K", "dim", "not signed in", "paid"] ] },
     { id: "group/claude-any", name: "Claude, any route", strategy: "balance", members: [
       ["claude", "claude-sonnet-5", "200K", "ok", "5h 63%", "included"],
@@ -259,22 +259,22 @@ function viewGroup() {
   const kv = (i, k, v, cls) => body.push([cursor(S.sel === i), ...padS(k, lw - 1), seg(" "), seg(v, cls || "")]);
   kv(0, "Strategy", "sticky · failover", "");
   kv(1, "Fail over on", "429, quota, 5xx before output", "");
-  kv(2, "Paid members", "only when free ones fail", "warn");
+  kv(2, "Tier fallback", "next tier when a whole tier fails", "");
   kv(3, "Context window", "128K · smallest member", "muted");
   kv(4, "Thinking", "high → max · medium → high", "muted");
-  body.push(section("Members · order = preference"));
+  body.push(section("Members · tier first, strategy inside a tier"));
   g.members.forEach((m, k) => {
     const i = 5 + k; const nameW = Math.max(10, w - 52);
-    body.push([cursor(S.sel === i), seg(`${k + 1} `, "dim"), ...padS(m[0], 12), ...pad([seg(m[1])], nameW), ...padS(m[2].padStart(5), 6, "muted"),
+    body.push([cursor(S.sel === i), seg(`T${(g.tiers || [])[k] ?? k + 1} `, (g.tiers || [])[k] === 1 ? "ok" : "dim"), ...padS(m[0], 12), ...pad([seg(m[1])], nameW), ...padS(m[2].padStart(5), 6, "muted"),
       ...padS(" " + m[4], 17, m[3]), ...padS(m[5], 9, m[5] === "paid" ? "warn" : "dim")]);
   });
   body.push([cursor(S.sel === 9), seg("+ add member", "muted")]);
   return {
     state: "sticky → synthetic", crumbs: ["Auth", "Groups", g.name], body,
     description: S.sel === 1 ? "Never fails over after output or a tool call started; the turn errors instead." :
-                 S.sel === 2 ? "Paid members are skipped unless every included or free member is unavailable." :
+                 S.sel === 2 ? "Cost class is only a label; tiers decide order. Example: paid OpenRouter first, then free members in order." :
                  "Session stays on its member until it fails; failover moves the session.",
-    hints: [["enter", "edit", 1], ["←/→", "change", 2], ["shift+↑↓", "reorder", 2], ["a", "add", 3], ["d", "remove", 3], ["ctrl+s", "save", 1], ["esc", "back", 1]],
+    hints: [["enter", "edit", 1], ["←/→", "change", 2], ["shift+↑↓", "reorder", 2], ["1-9", "tier", 2], ["a", "add", 3], ["d", "remove", 3], ["ctrl+s", "save", 1], ["esc", "back", 1]],
     notes: notesGroup,
   };
 }
@@ -287,11 +287,6 @@ function viewSettings() {
   body.push(section("OpenAI"));
   row(2, "Response verbosity", "medium", "user");
   row(3, "Verbosity scope", "openai, openai-codex");
-  body.push(section("Web search"));
-  row(4, "Web search tool", "on", "user");
-  row(5, "Search backends", "synthetic, exa, claude, codex, xai");
-  row(6, "Result kind", "results, else answer");
-  row(7, "Allow paid backends", "off");
   return {
     state: "9 providers", crumbs: ["Auth", "Settings"], body,
     description: [
@@ -299,11 +294,7 @@ function viewSettings() {
       "When the saved default model is hidden: keep it and warn, or fall back.",
       "OpenAI text.verbosity: low, medium, high, or Pi default (low).",
       "Providers whose GPT requests get the verbosity override.",
-      "Registers one web_search tool; replaces synthetic_web_search.",
-      "Order tried; only signed-in backends with verified search access are offered.",
-      "results: raw hits and page text; answer: model summary with citations.",
-      "Never use a separately billed backend unless on.",
-    ][Math.min(S.sel, 7)],
+    ][Math.min(S.sel, 3)],
     hints: [["tab", "switch", 1], ["enter", "edit", 1], ["ctrl+s", "save", 1], ["↑/↓", "move", 2], ["←/→", "change", 2], ["esc", "close", 1]],
     notes: notesSettings,
   };
@@ -327,12 +318,11 @@ function notesDetail() { return `<h2>Model detail</h2>${li(["Same row layout as 
 function notesGroups() { return `<h2>Groups</h2>${li(["A group is a selectable model id <code>group/&lt;name&gt;</code> (Pi virtual model).",
 "Second line shows the member order at a glance; the count is healthy members.", "Health uses quota snapshots and sign-in state; unknown is not healthy."])}`; }
 function notesGroup() { return `<h2>Group detail</h2>${li(["Strategies: <b>sticky</b> (default), <b>failover</b>, <b>balance</b> (lowest quota use), <b>random</b>.",
-"Failover boundary: only before the first output token and never across a tool call.", "Members show auth/quota live; paid members marked.",
+"Failover boundary: only before the first output token and never across a tool call.", "Members carry a priority tier (T1 first); the strategy picks inside the lowest healthy tier. Cost class (included/free/paid) is a label, not a policy.", "Failover may cross providers; the status line names the switch.",
 "Group limits default to the smallest member; editable down, never above a member."])}
-<h3>Open decisions</h3>${li(["Cross-provider failover breaks prompt cache and thinking signatures: allow by default?", "Should balance consider cost or only quota headroom?"])}`; }
+<h3>Open</h3>${li(["Should balance consider cost or only quota headroom?"])}`; }
 function notesSettings() { return `<h2>Settings additions</h2>${li(["New sections in the existing Settings tab; same row format, staged save with scope dialog.",
-"Web search registers one <code>web_search</code> tool. Its tool-call rendering stays Pi's default, like <code>synthetic_web_search</code> today.",
-"Verified live 2026-10-28: synthetic + exa return raw hits; claude, openai, codex, xai return cited answers (each a full model call, ~17-21K input tokens).", "Verbosity verified live on openai and openai-codex: low/medium/high accepted, output length grows with level."])}`; }
+"Verbosity verified live on openai and openai-codex: low/medium/high accepted, output length grows with level."])}`; }
 
 // ---------- chrome + loop ----------
 function render() {

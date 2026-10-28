@@ -5,9 +5,9 @@ document:
   title: "M4 model management"
   description: "Verbosity, model rules, overrides, aliases, unified web search and quota-aware model groups, grounded in the 2026-10-28 probes"
   status: "draft"
-  revision: 2
+  revision: 3
   created_at: "2026-10-28T11:55:00+01:00"
-  updated_at: "2026-10-28T13:35:00+01:00"
+  updated_at: "2026-10-28T14:00:00+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -17,14 +17,16 @@ document:
     - revision: 2
       reason: "user decisions D62-D64 and built-in re-registration probe"
       changes: ["S2 enforces on built-ins via re-registration", "Decided items removed from open decisions"]
+    - revision: 3
+      reason: "user decisions on paid members and web search"
+      changes: ["S5 web_search moved to a separate extension", "S6 groups use priority tiers"]
 ---
 
 # M4 model management
 
 Design: `.project/designs/model-management/design.md`. Wireframes:
 `.project/designs/model-management/wireframes/index.html`. Evidence:
-`.project/analyses/model-management/`. Not started. S1-S5 are unblocked; S5 output shape and
-S6 paid policy wait for the two open decisions below.
+`.project/analyses/model-management/`. Not started; all slices unblocked.
 
 ## Order and why
 
@@ -33,8 +35,8 @@ S6 paid policy wait for the two open decisions below.
 [ ] S2 Models tab: rules+catalog  engine + editor; enforce owned + re-registered built-ins
 [ ] S3 Overrides editor          Pi's modelOverrides, works for every provider
 [ ] S4 Aliases (owned families)   stream-level id rewrite; built-ins wait for Pi
-[ ] S5 Unified web_search         all backends verified; replaces synthetic_web_search
-[ ] S6 Model groups               router, failover recovery, attribution, guard fixes
+[-] S5 web_search               moved to a separate extension (2026-10-28)
+[ ] S6 Model groups               tiers, router, failover recovery, attribution, guards
 [ ] U  Upstream Pi asks           visibility filter, response model metadata, wireId
 ```
 
@@ -85,12 +87,11 @@ Units:
   wrapper chains caller `onPayload` then rewrites `model`; regression set from
   `alias-limits/report.md` (first response, compaction summary, output cap, refresh, logout).
   Live Anthropic and Responses checks still open.
-- **S5 web_search**: one tool, backends `synthetic`, `exa`, `claude`, `codex`/`openai`, `xai`,
-  `openrouter` (paid); result contract `results|answer`; cost class per backend; paid off by
-  default. Remove `synthetic_web_search` with a settings migration.
+- **S5 web_search**: dropped here; the separate extension takes
+  `analyses/model-management/search-entitlement/` as input. `synthetic_web_search` stays.
 - **S6 Groups**: (a) replace `ctx.model.provider` guards in OpenCode identity and Synthetic
-  usage with request/physical-message checks; (b) router with branch-state stickiness and
-  `retry` switching; (c) `agent_before_settle` recovery for 401/quota before output; (d) quota
+  usage with request/physical-message checks; (b) router: priority tiers (strategy inside the lowest healthy
+  tier, next tier only when a tier is exhausted), branch-state stickiness, `retry` switching; (c) `agent_before_settle` recovery for 401/quota before output; (d) quota
   attribution from physical assistant messages; (e) Groups tab per wireframe.
 - **U Upstream**: file the three Pi asks from the design; when the visibility filter lands,
   replace the S2 re-registration with it (keeps personalization, fixes the misleading
@@ -101,8 +102,9 @@ Units:
 - Rules default-visible, hide rules, `!` re-shows, last match wins.
 - Enforce everywhere now (re-registration for built-ins); upstream hook still filed.
 - Group failover may cross providers.
+- Group members carry priority tiers; paid is a label, not a policy.
+- Web search leaves pi-auth-plus.
 
 ## Open decisions
 
-1. Paid group members default: never, or only when free ones fail (blocks S6).
-2. web_search output: results, answers, or results-else-answer (designed; blocks S5).
+1. `balance` strategy: weigh cost or only quota headroom (decide inside S6).

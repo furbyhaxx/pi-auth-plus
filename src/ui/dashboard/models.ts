@@ -1,6 +1,7 @@
 /** Staged model visibility rules and their catalog preview. */
 import { Input, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../core/config/index.ts";
+import { exactModelRule } from "../../models/rules/match.ts";
 import { sanitize } from "../frame/index.ts";
 import type { TabBody, TabView, TabViewHost } from "./view.ts";
 
@@ -193,7 +194,7 @@ export class ModelsView implements TabView {
 			const item = catalog[this.#modelSelected];
 			if (data !== "h" || !item) return false;
 			const visible = this.#deps.evaluate(rules, item.provider, item.id).visible;
-			this.#stage([...rules, `${visible ? "" : "!"}${item.provider}/${item.id}`]);
+			this.#stage([...rules, `${visible ? "" : "!"}${exactModelRule(item.provider, item.id)}`]);
 			return true;
 		}
 		const current = rules[this.#ruleSelected];

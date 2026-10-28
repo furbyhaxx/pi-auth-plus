@@ -2,11 +2,20 @@ import { describe, expect, test } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
 import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../src/core/config/index.ts";
-import { type ModelsTabDeps, ModelsView } from "../../src/ui/dashboard/models.ts";
+import { compileModelRules, evaluateModelRules } from "../../src/models/rules/match.ts";
+import {
+	type ModelCatalogItem,
+	type ModelsTabDeps,
+	ModelsView,
+} from "../../src/ui/dashboard/models.ts";
 import type { TabViewHost } from "../../src/ui/dashboard/view.ts";
 import { bindingLabel } from "../../src/ui/frame/index.ts";
 
-function open(initial: readonly string[] = ["vendor/*", "!vendor/one"], fail = false) {
+function open(
+	initial: readonly string[] = ["vendor/*", "!vendor/one"],
+	fail = false,
+	extra: readonly ModelCatalogItem[] = [],
+) {
 	let stored = [...initial];
 	const saves: { rules: readonly string[]; scope: SaveScope }[] = [];
 	let onRefresh: (() => void) | undefined;
@@ -31,20 +40,13 @@ function open(initial: readonly string[] = ["vendor/*", "!vendor/one"], fail = f
 			{ provider: "vendor", id: "one", name: "First\x1b]0;evil\x07", contextWindow: 1000 },
 			{ provider: "vendor", id: "two", name: "Second", contextWindow: 2000 },
 			{ provider: "other", id: "three", name: "Third", contextWindow: 3000 },
+			...extra,
 		],
 		evaluate: (rules, provider, id) => {
-			let visible = true;
-			let ruleIndex: number | undefined;
-			for (const [index, rule] of rules.entries()) {
-				if (rule.startsWith("#")) continue;
-				const show = rule.startsWith("!");
-				const pattern = show ? rule.slice(1) : rule;
-				if (pattern === `${provider}/${id}` || pattern === `${provider}/*`) {
-					visible = show;
-					ruleIndex = index;
-				}
-			}
-			return ruleIndex === undefined ? { visible } : { visible, ruleIndex };
+			const outcome = evaluateModelRules(compileModelRules(rules), provider, id);
+			return outcome.ruleIndex === undefined
+				? { visible: !outcome.hidden }
+				: { visible: !outcome.hidden, ruleIndex: outcome.ruleIndex };
 		},
 		save: async (rules, scope) => {
 			if (fail) throw new Error("save failed; retry");
@@ -140,6 +142,21 @@ describe("models tab", () => {
 		expect(rig.text()).toContain("0 hidden");
 		await save(rig, "r");
 		expect(rig.stored()).toEqual(["vendor/one", "!vendor/one"]);
+	});
+
+	test("catalog hide targets only the selected ID when it contains a wildcard", async () => {
+		const rig = open([], false, [
+			{ provider: "vendor", id: "star*id", name: "Literal star", contextWindow: 1000 },
+			{ provider: "vendor", id: "star-other-id", name: "Other", contextWindow: 1000 },
+		]);
+		rig.view.handleInput("v");
+		rig.view.handleInput("j");
+		rig.view.handleInput("j");
+		rig.view.handleInput("h");
+		expect(rig.text()).toContain("1 hidden");
+		expect(rig.text()).toContain("listed star-other-id");
+		await save(rig, "r");
+		expect(rig.stored()).toEqual(["vendor/star\\*id"]);
 	});
 
 	test("failed save retains staged rules and retry prompt can be cancelled", async () => {

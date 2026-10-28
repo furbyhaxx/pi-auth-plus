@@ -6,10 +6,17 @@ export interface CompiledModelRule {
 	readonly ruleIndex: number;
 }
 
+/** Escape wildcard and rule-prefix characters so a catalog action targets one exact ID. */
+export function exactModelRule(provider: string, modelId: string): string {
+	const literal = (value: string) => value.replace(/[\\*!#]/g, "\\$&");
+	return `${literal(provider)}/${literal(modelId)}`;
+}
+
 export function compileModelRules(patterns: readonly string[]): readonly CompiledModelRule[] {
 	const rules: CompiledModelRule[] = [];
 	for (const [ruleIndex, input] of patterns.entries()) {
 		const trimmed = input.trim();
+		if (trimmed.startsWith("#")) continue;
 		const hidden = !trimmed.startsWith("!");
 		const pattern = (hidden ? trimmed : trimmed.slice(1)).trim();
 		if (!pattern) continue;
@@ -18,7 +25,11 @@ export function compileModelRules(patterns: readonly string[]): readonly Compile
 		let expression = "";
 		for (let i = 0; i < pattern.length; i++) {
 			const char = pattern.charAt(i);
-			if (char === "*") {
+			const next = pattern.charAt(i + 1);
+			if (char === "\\" && /[\\*!#]/.test(next)) {
+				expression += next.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+				i++;
+			} else if (char === "*") {
 				if (pattern.charAt(i + 1) === "*") {
 					expression += "[\\s\\S]*";
 					i++;

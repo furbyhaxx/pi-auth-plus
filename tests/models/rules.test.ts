@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { compileModelRules, evaluateModelRules } from "../../src/models/rules/match.ts";
+import {
+	compileModelRules,
+	evaluateModelRules,
+	exactModelRule,
+} from "../../src/models/rules/match.ts";
 
 describe("model visibility rules", () => {
 	test("applies the approved rule list to flat and nested model ids", () => {
@@ -83,6 +87,14 @@ describe("model visibility rules", () => {
 			hidden: false,
 			ruleIndex: undefined,
 		});
+	});
+
+	test("ignores disabled rules and matches escaped wildcard characters literally", () => {
+		const rules = compileModelRules(["provider/*", "#provider/*", "#!provider/one"]);
+		expect(rules).toHaveLength(1);
+		const exact = compileModelRules([exactModelRule("#provider", "star*\\id")]);
+		expect(evaluateModelRules(exact, "#provider", "star*\\id").hidden).toBe(true);
+		expect(evaluateModelRules(exact, "#provider", "star-other-id").hidden).toBe(false);
 	});
 
 	test("a re-show affects only its own pattern", () => {

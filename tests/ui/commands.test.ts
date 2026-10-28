@@ -18,6 +18,7 @@ function rig(
 	overrides: Partial<AuthCommandDeps> = {},
 	results: DashboardResult[] = [],
 	hasUI = true,
+	interact?: (panel: AuthDashboard) => Promise<void> | void,
 ) {
 	let panels = 0;
 	const rendered: string[][] = [];
@@ -69,6 +70,7 @@ function rig(
 					new KeybindingsManager(TUI_KEYBINDINGS),
 					() => {},
 				);
+				await interact?.(component);
 				rendered.push(component.render(140));
 				component.dispose?.();
 				return results.shift();
@@ -322,10 +324,76 @@ describe("ui/commands", () => {
 		const unknown = parseAuthArgs("tokns");
 		expect("error" in unknown && unknown.error).toContain("Did you mean: tokens");
 		expect("error" in unknown && unknown.error).toContain(
-			"Usage: /auth [providers|quotas|tokens|settings]",
+			"Usage: /auth [providers|quotas|tokens|models|settings]",
 		);
+		expect(parseAuthArgs("models")).toEqual({ tab: "models" });
+		expect(parseAuthArgs("model")).toEqual({ tab: "models" });
+		expect(authCompletions("mo")?.map((item) => item.value)).toEqual(["models"]);
 		expect(authCompletions("u")?.map((item) => item.value)).toEqual(["quotas"]);
 		expect(authCompletions("zz")).toBeNull();
+	});
+
+	test("models uses the live view and scoped save when available, with safe headless summaries", async () => {
+		const saved: string[] = [];
+		let currentRules = ["!vendor/private-model-one"];
+		const models: NonNullable<AuthCommandDeps["models"]> = {
+			rules: () => currentRules,
+			catalog: () => [
+				{
+					provider: "vendor",
+					id: "private-model-one",
+					name: "First catalog model",
+					contextWindow: 1000,
+				},
+				{
+					provider: "vendor",
+					id: "private-model-two",
+					name: "Second catalog model",
+					contextWindow: 2000,
+				},
+			],
+			evaluate: (rules, _provider, id) => ({
+				visible: id === "private-model-one" && !rules.includes("vendor/private-model-one"),
+			}),
+			save: async (rules, scope) => {
+				currentRules = [...rules];
+				saved.push(`${scope}:${rules.join("|")}`);
+			},
+		};
+		const tui = rig("tui", { models }, [], true, async (panel) => {
+			panel.handleInput("v");
+			panel.handleInput("h");
+			panel.handleInput("\x13");
+			panel.handleInput("p");
+			await Promise.resolve();
+		});
+		await tui.run("auth", "models");
+		const live = tui.rendered[0]?.join("\n") ?? "";
+		expect(live).toContain("Catalog");
+		expect(live).toContain("2 hidden");
+		expect(live).toContain("private-model-one");
+		expect(saved).toEqual(["project:!vendor/private-model-one|vendor/private-model-one"]);
+		expect(tui.commands.get("auth")?.description).toContain("models");
+
+		const rpc = rig("rpc", {
+			models: {
+				...models,
+				rules: () => ["vendor/*"],
+				evaluate: (_rules, _provider, id) => ({ visible: id === "private-model-one" }),
+			},
+		});
+		await rpc.run("auth", "models");
+		const summary = rpc.notices[0]?.[0] ?? "";
+		expect(summary).toContain("vendor/*");
+		expect(summary).toContain("1 hidden / 2 total");
+		expect(summary).not.toContain("private-model-one");
+		expect(summary).not.toContain("First catalog model");
+
+		const unavailable = rig("rpc");
+		await unavailable.run("auth", "models");
+		expect(unavailable.notices[0]?.[0]).toBe(
+			"Auth › Models\n  Model visibility rules are unavailable in this session.",
+		);
 	});
 
 	test("without a TUI the dashboard renders as text and opens the named section", async () => {

@@ -93,6 +93,9 @@ describe("ui/dashboard", () => {
 		expect(dashboardText("quotas", model)).toBe(
 			"Auth › Quotas\n  Quota monitoring is not available yet.",
 		);
+		expect(dashboardText("models", model)).toBe(
+			"Auth › Models\n  Model visibility rules are unavailable in this session.",
+		);
 	});
 
 	test("tab and shift+tab wrap around; cancel closes exactly once", () => {

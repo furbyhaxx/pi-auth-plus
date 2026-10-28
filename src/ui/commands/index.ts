@@ -19,6 +19,7 @@ import {
 	TABS,
 	type TabId,
 } from "../dashboard/index.ts";
+import { type ModelsTabDeps, ModelsView } from "../dashboard/models.ts";
 import { type QuotasTabDeps, QuotasView } from "../dashboard/quotas.ts";
 import { SettingsView } from "../dashboard/settings.ts";
 import { TokensView, tokensText } from "../dashboard/tokens.ts";
@@ -51,6 +52,7 @@ export interface AuthCommandDeps {
 	readonly quotas?: () => QuotaPanelDeps | string;
 	/** Live session token counts, when a tracker is available. */
 	readonly tokens?: () => TokenTracker | undefined;
+	readonly models?: ModelsTabDeps;
 	readonly settings?: SettingsPanelDeps;
 	readonly loginCodex?: typeof loginCodex;
 	readonly signal?: AbortSignal;
@@ -69,6 +71,23 @@ function settingsText(store: AppSettings): string {
 		(key) => `  ${key} = ${sanitize(JSON.stringify(store.get(key)))} (${store.sourceOf(key)})`,
 	);
 	return ["Auth › Settings", ...lines].join("\n");
+}
+
+function modelsText(models: ModelsTabDeps | undefined): string {
+	if (!models) return "Auth › Models\n  Model visibility rules are unavailable in this session.";
+	const rules = models.rules();
+	const catalog = models.catalog();
+	const hidden = catalog.filter(
+		(item) => !models.evaluate(rules, item.provider, item.id).visible,
+	).length;
+	const ruleLines = rules.length
+		? ["  Rules:", ...rules.map((rule) => `    ${sanitize(rule).replace(/\n/g, " ")}`)]
+		: ["  No visibility rules."];
+	return [
+		"Auth › Models",
+		...ruleLines,
+		`  Models: ${hidden} hidden / ${catalog.length} total`,
+	].join("\n");
 }
 
 function editDistance(a: string, b: string): number {
@@ -155,6 +174,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 
 	const headless = (tab: TabId, model: DashboardModel, target?: string): string => {
 		if (tab === "tokens") return tokensText(deps.tokens?.());
+		if (tab === "models") return modelsText(deps.models);
 		const quotas = deps.quotas?.();
 		if (tab === "quotas" && quotas !== undefined)
 			return typeof quotas === "string"
@@ -212,6 +232,8 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 			const result = await ctx.ui.custom<DashboardResult>((tui, theme, keys, done) => {
 				const views = staticViews(dashboardModel(deps));
 				views.tokens = (host) => new TokensView(host, deps.tokens?.());
+				const models = deps.models;
+				if (models) views.models = (host) => new ModelsView(host, models);
 				const quotas = deps.quotas?.();
 				if (typeof quotas === "string")
 					views.quotas = (host) => new RowsView(host, { rows: [], empty: quotas });
@@ -258,7 +280,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 	};
 
 	pi.registerCommand("auth", {
-		description: "Provider status, quotas, token counts and settings",
+		description: "Provider status, quotas, token counts, models and settings",
 		getArgumentCompletions: authCompletions,
 		handler: async (args, ctx) => {
 			const parsed = parseAuthArgs(args);

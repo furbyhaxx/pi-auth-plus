@@ -2,7 +2,7 @@
 import type { CredentialStatus } from "../../core/auth/index.ts";
 import { sanitize } from "../frame/index.ts";
 
-export type TabId = "providers" | "quotas" | "tokens" | "settings";
+export type TabId = "providers" | "quotas" | "tokens" | "models" | "settings";
 
 export interface TabSpec {
 	readonly id: TabId;
@@ -30,6 +30,12 @@ export const TABS: readonly TabSpec[] = [
 		label: "Tokens",
 		aliases: ["token", "count", "counts"],
 		description: "Live session context counts and sources.",
+	},
+	{
+		id: "models",
+		label: "Models",
+		aliases: ["model", "visibility"],
+		description: "Model visibility rules and catalog preview.",
 	},
 	{
 		id: "settings",
@@ -130,6 +136,8 @@ export function tabContent(tab: TabId, model: DashboardModel): TabContent {
 			return { rows: [], empty: "Quota monitoring is not available yet." };
 		case "tokens":
 			return { rows: [], empty: "Token tracker unavailable in this session." };
+		case "models":
+			return { rows: [], empty: "Model visibility rules are unavailable in this session." };
 		case "settings":
 			return { rows: [], empty: "No settings yet." };
 	}

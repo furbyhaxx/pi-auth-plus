@@ -174,6 +174,19 @@ export class GroupDetail {
 			this.#message = "Context window must be a positive integer";
 			return;
 		}
+		const limits = d.members.flatMap((member) => {
+			const model = this.#catalog().find(
+				(item) => item.provider === member.provider && item.id === member.id,
+			);
+			return model && Number.isFinite(model.contextWindow) && model.contextWindow > 0
+				? [model.contextWindow]
+				: [];
+		});
+		const smallest = limits.length ? Math.min(...limits) : undefined;
+		if (d.cap.trim() && smallest !== undefined && integer(d.cap) > smallest) {
+			this.#message = `Context window cannot exceed smallest member (${smallest})`;
+			return;
+		}
 		const members: unknown[] = [];
 		for (const member of d.members) {
 			const thinking: Record<string, string> = {};

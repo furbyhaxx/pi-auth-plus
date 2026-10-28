@@ -102,6 +102,9 @@ describe("group detail", () => {
 		r.edit("Context window", "12oops");
 		r.press("\x13");
 		expect(r.text()).toContain("Context window must be a positive integer");
+		r.edit("Context window", "1001");
+		r.press("\x13");
+		expect(r.text()).toContain("cannot exceed smallest member (1000)");
 		r.edit("Context window", "");
 		r.edit("Thinking map", "low=bogus");
 		r.press("\x13");

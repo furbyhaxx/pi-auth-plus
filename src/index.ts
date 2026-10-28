@@ -15,16 +15,26 @@ import { SettingsStore } from "./core/config/index.ts";
 import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts/index.ts";
 import { cacheDir, modelsPath, projectSettingsPath, userSettingsPath } from "./core/paths/index.ts";
 import { type ProviderSink, Registry, registerFamilyProviders } from "./core/registry/index.ts";
-import { registerCompatibleThoughtSignatures } from "./families/google/compatible-signatures.ts";
+import {
+	compatiblePhysicalHooks,
+	registerCompatibleThoughtSignatures,
+} from "./families/google/compatible-signatures.ts";
 import { registerThoughtSignatureRecovery } from "./families/google/signature-recovery.ts";
 import { FAMILIES } from "./families/index.ts";
 import { wrapNamedAliases } from "./models/aliases/named.ts";
 import { wrapNativeAliases } from "./models/aliases/native.ts";
 import { filterNativeProvider, filterOwnedConfig } from "./models/catalog/owned-filter.ts";
 import { CatalogVisibility } from "./models/catalog/runtime.ts";
+import { installGroupContextCap } from "./models/groups/context-cap.ts";
+import { GroupRegistrations } from "./models/groups/registration.ts";
+import { registerGroupSettlement } from "./models/groups/settlement.ts";
 import { readOverride, updateOverrides } from "./models/overrides/index.ts";
 import { compileModelRules, evaluateModelRules } from "./models/rules/match.ts";
 import { effectiveModelRules } from "./models/rules/settings.ts";
+import {
+	composePhysicalFactories,
+	installPhysicalRequestHooks,
+} from "./models/runtime/physical.ts";
 import { quotaAuthFor } from "./quotas/auth.ts";
 import { registerQuotaBus } from "./quotas/bus.ts";
 import { QuotaEngine } from "./quotas/engine.ts";
@@ -162,6 +172,10 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		}
 	});
 	let quotaContext: ExtensionContext | undefined;
+	// Filled by session_start; request hooks only run inside a session.
+	let sessionCwd = "";
+	let physicalHooksActive = false;
+	const pendingIngests = new Set<Promise<unknown>>();
 	const tokens = createTokenTracker(pi, {
 		engine: createTokenEngine({
 			families: registry.families,
@@ -244,7 +258,6 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		});
 		quotaLine.start(ctx);
 	});
-	const pendingIngests = new Set<Promise<unknown>>();
 	pi.on("session_shutdown", async () => {
 		// Print mode exits right after the turn; let header writes land, bounded.
 		await Promise.race([
@@ -259,7 +272,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		quotas.stop();
 	});
 	pi.on("after_provider_response", (event, ctx) => {
-		if (!quotasEnabled) return;
+		// A physical request reported its own response with an exact provider.
+		if (!quotasEnabled || physicalHooksActive) return;
 		const ingest = quotas.ingestHeaders(event.headers, ctx.model?.provider);
 		pendingIngests.add(ingest);
 		void ingest.finally(() => pendingIngests.delete(ingest));
@@ -271,12 +285,72 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		const provider = id ? registry.resolve(id)?.provider : undefined;
 		if (provider?.quota) void quotas.refresh(provider.id, { minAgeMs: 2000 });
 	});
-	const host = { settings: () => settings };
+	const host = {
+		settings: () => settings,
+		physicalHooksAvailable: () => physicalHooksActive,
+	};
 	await registerFamilyProviders(providerSink, registry, host);
 	await catalogVisibility.apply();
 	for (const family of registry.families) await family.register?.(pi, host);
 	registerCompatibleThoughtSignatures(pi);
-	registerThoughtSignatureRecovery(pi);
+	const recovery = registerThoughtSignatureRecovery(pi);
+	const settlement = registerGroupSettlement(pi, () => settings.get("models.groups"));
+	const groups = new GroupRegistrations(pi, {
+		groups: () => settings.get("models.groups"),
+		quota: (provider) => quotas.view().find((view) => view.provider.id === provider)?.snapshot,
+		takeFailed: (groupId) => settlement.takeFailed(groupId),
+		onSwitch: (group, from, to) =>
+			quotaContext?.ui.notify(
+				`Group ${group.name ?? group.id}: ${from.provider}/${from.id} failed; routed to ${to.provider}/${to.id}.`,
+				"warning",
+			),
+	});
+	groups.apply();
+	const physicalFactory = composePhysicalFactories([
+		(model, context) => {
+			const hooks = registry.families.flatMap((family) => {
+				try {
+					const hook = family.physical?.(model, {
+						settings: () => settings,
+						cwd: sessionCwd,
+					});
+					return hook ? [hook] : [];
+				} catch {
+					return [];
+				}
+			});
+			if (hooks.length === 0) return undefined;
+			return composePhysicalFactories(hooks.map((hook) => () => hook))(model, context);
+		},
+		(model, context) => recovery.factory(model, context),
+		(model, context) => compatiblePhysicalHooks(model, context),
+		(model) => ({
+			response: (response) => {
+				if (!quotasEnabled) return;
+				// The physical provider owns this response; the session model may be a group or alias.
+				const ingest = quotas.ingestHeaders(response.headers, model.provider, { strict: true });
+				pendingIngests.add(ingest);
+				void ingest.finally(() => pendingIngests.delete(ingest));
+			},
+		}),
+	]);
+	// Groups, physical hooks and the cap install need this session's cwd and catalog.
+	pi.on("session_start", (event, ctx) => {
+		sessionCwd = ctx.cwd;
+		physicalHooksActive = installPhysicalRequestHooks(ctx.modelRegistry, physicalFactory);
+		recovery.setPhysicalHooksAvailable(physicalHooksActive);
+		installGroupContextCap(ctx.modelRegistry);
+		groups.apply(ctx.modelRegistry.getAll());
+		if (!physicalHooksActive && event.reason === "startup") {
+			ctx.ui.notify(
+				"pi-auth-plus: physical request hooks are unavailable in this Pi build; aliases and groups fall back to session-level detection.",
+				"warning",
+			);
+		}
+	});
+	pi.on("session_shutdown", () => {
+		physicalHooksActive = false;
+	});
 	let previewRules: readonly string[] | undefined;
 	let previewCompiled = compileModelRules([]);
 	const modelCatalog = (): ModelCatalogItem[] => {
@@ -291,6 +365,23 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	};
 	registerAuthCommands(pi, {
 		registry,
+		groups: {
+			groups: () => settings.get("models.groups"),
+			catalog: () => modelCatalog(),
+			health: (member) => {
+				const model = quotaContext?.modelRegistry.find(member.provider, member.id);
+				if (!model || model.api === "pi-virtual") return "unavailable";
+				const available = quotaContext?.modelRegistry
+					.getAvailable()
+					.some((item) => item.provider === member.provider && item.id === member.id);
+				if (available === undefined) return "unknown";
+				return available ? "healthy" : "unavailable";
+			},
+			save: async (next, scope) => {
+				await settings.save(scope, { "models.groups": next });
+				groups.apply(quotaContext?.modelRegistry.getAll() ?? []);
+			},
+		},
 		models: {
 			rules: () => effectiveModelRules(settings),
 			catalog: modelCatalog,

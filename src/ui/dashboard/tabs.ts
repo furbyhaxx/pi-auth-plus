@@ -2,7 +2,7 @@
 import type { CredentialStatus } from "../../core/auth/index.ts";
 import { sanitize } from "../frame/index.ts";
 
-export type TabId = "providers" | "quotas" | "tokens" | "models" | "settings";
+export type TabId = "providers" | "quotas" | "tokens" | "models" | "groups" | "settings";
 
 export interface TabSpec {
 	readonly id: TabId;
@@ -36,6 +36,12 @@ export const TABS: readonly TabSpec[] = [
 		label: "Models",
 		aliases: ["model", "visibility"],
 		description: "Model visibility rules and catalog preview.",
+	},
+	{
+		id: "groups",
+		label: "Groups",
+		aliases: ["group", "routing", "route"],
+		description: "Virtual models that route to prioritized physical members.",
 	},
 	{
 		id: "settings",
@@ -138,6 +144,8 @@ export function tabContent(tab: TabId, model: DashboardModel): TabContent {
 			return { rows: [], empty: "Token tracker unavailable in this session." };
 		case "models":
 			return { rows: [], empty: "Model visibility rules are unavailable in this session." };
+		case "groups":
+			return { rows: [], empty: "Model groups are unavailable in this session." };
 		case "settings":
 			return { rows: [], empty: "No settings yet." };
 	}

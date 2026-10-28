@@ -8,6 +8,7 @@ import type { Registry } from "../../core/registry/index.ts";
 import { loginCodex } from "../../families/openai/codex-auth/index.ts";
 import type { LineTheme } from "../../quotas/line/format.ts";
 import type { TokenTracker } from "../../tokens/tracker/types.ts";
+import { type GroupsTabDeps, GroupsView } from "../dashboard/groups.ts";
 import {
 	AuthDashboard,
 	type DashboardModel,
@@ -53,6 +54,7 @@ export interface AuthCommandDeps {
 	/** Live session token counts, when a tracker is available. */
 	readonly tokens?: () => TokenTracker | undefined;
 	readonly models?: ModelsTabDeps;
+	readonly groups?: GroupsTabDeps;
 	readonly settings?: SettingsPanelDeps;
 	readonly loginCodex?: typeof loginCodex;
 	readonly signal?: AbortSignal;
@@ -88,6 +90,17 @@ function modelsText(models: ModelsTabDeps | undefined): string {
 		...ruleLines,
 		`  Models: ${hidden} hidden / ${catalog.length} total`,
 	].join("\n");
+}
+
+function groupsText(groups: GroupsTabDeps | undefined): string {
+	if (!groups) return "Auth › Groups\n  Model groups are unavailable in this session.";
+	const list = groups.groups();
+	if (list.length === 0) return "Auth › Groups\n  No groups configured. Add one in /auth groups.";
+	const lines = list.map(
+		(group) =>
+			`  ${sanitize(group.id)} · ${group.strategy} · ${group.members.map((member) => `${sanitize(member.provider)}/${sanitize(member.id)}`).join(" → ")}`,
+	);
+	return ["Auth › Groups", ...lines].join("\n");
 }
 
 function editDistance(a: string, b: string): number {
@@ -175,6 +188,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 	const headless = (tab: TabId, model: DashboardModel, target?: string): string => {
 		if (tab === "tokens") return tokensText(deps.tokens?.());
 		if (tab === "models") return modelsText(deps.models);
+		if (tab === "groups") return groupsText(deps.groups);
 		const quotas = deps.quotas?.();
 		if (tab === "quotas" && quotas !== undefined)
 			return typeof quotas === "string"
@@ -245,6 +259,8 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 							quotas,
 							opened.tab === "quotas" ? quotaTarget(opened.select) : undefined,
 						);
+				const groups = deps.groups;
+				if (groups) views.groups = (host) => new GroupsView(host, groups);
 				const settings = deps.settings;
 				if (settings)
 					views.settings = (host) =>

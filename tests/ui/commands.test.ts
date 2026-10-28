@@ -324,7 +324,7 @@ describe("ui/commands", () => {
 		const unknown = parseAuthArgs("tokns");
 		expect("error" in unknown && unknown.error).toContain("Did you mean: tokens");
 		expect("error" in unknown && unknown.error).toContain(
-			"Usage: /auth [providers|quotas|tokens|models|settings]",
+			"Usage: /auth [providers|quotas|tokens|models|groups|settings]",
 		);
 		expect(parseAuthArgs("models")).toEqual({ tab: "models" });
 		expect(parseAuthArgs("model")).toEqual({ tab: "models" });

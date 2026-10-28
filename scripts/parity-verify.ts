@@ -8,7 +8,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
-import { Registry } from "../src/core/registry/index.ts";
+import { SETTINGS } from "../src/core/config/catalog.ts";
+import {
+	type ProviderSink,
+	Registry,
+	registerFamilyProviders,
+} from "../src/core/registry/index.ts";
 import { FAMILIES } from "../src/families/index.ts";
 
 const repo = resolve(import.meta.dir, "..");
@@ -82,29 +87,57 @@ function resolvedModel(env: NodeJS.ProcessEnv, ref: string): Promise<string> {
 	});
 }
 
+async function registeredProviders(registry: Registry): Promise<string[]> {
+	const ids = new Set<string>();
+	const sink: ProviderSink = {
+		registerProvider: ((first: unknown, second?: unknown) => {
+			const provider = second === undefined ? first : second;
+			if (typeof first === "string") ids.add(first);
+			else if (typeof provider === "object" && provider !== null && "id" in provider)
+				ids.add(String(provider.id));
+		}) as ProviderSink["registerProvider"],
+	};
+	const store = new Map<string, unknown>();
+	const settings = {
+		get: (key: keyof typeof SETTINGS) => {
+			if (store.has(key)) return store.get(key);
+			const field = SETTINGS[key] as { default?: unknown };
+			return field.default;
+		},
+	};
+	await registerFamilyProviders(sink, registry, {
+		settings: () => settings,
+	} as Parameters<typeof registerFamilyProviders>[2]);
+	return [...ids].sort();
+}
+
 async function main(): Promise<number> {
 	const registry = new Registry(FAMILIES);
-	const providers = registry.providers().map((entry) => entry.provider.id);
+	const owned = await registeredProviders(registry);
+	const all = registry.providers().map((entry) => entry.provider.id);
+	const quotaOnly = all.filter((id) => !owned.includes(id));
 	const agentDir = await mkdtemp(join(tmpdir(), "parity-verify-"));
 	const failures: string[] = [];
 	try {
 		// Pi hides OAuth-only providers behind an API-key credential, so those get a dummy login.
 		const dummyOAuth = { type: "oauth", access: "dummy", refresh: "dummy", expires: 4e12 };
 		const auth = Object.fromEntries(
-			providers.map((id) => [
-				id,
-				OAUTH_ONLY.has(id) ? dummyOAuth : { type: "api_key", key: "dummy" },
-			]),
+			all.map((id) => [id, OAUTH_ONLY.has(id) ? dummyOAuth : { type: "api_key", key: "dummy" }]),
 		);
 		await writeFile(join(agentDir, "auth.json"), JSON.stringify(auth), { mode: 0o600 });
 		const env = { ...process.env, PI_CODING_AGENT_DIR: agentDir };
 
 		const listed = listModels(env);
 		const total = [...listed.values()].reduce((sum, models) => sum + models.length, 0);
-		console.log(`parity-verify: Pi listed ${total} models; checking ${providers.length} providers`);
-		for (const id of providers) {
+		console.log(`parity-verify: Pi listed ${total} models; checking ${all.length} providers`);
+		for (const id of all) {
 			const first = listed.get(id)?.[0];
 			if (!first) {
+				// Quota-only ids name a credential source, not a Pi provider (e.g. codex).
+				if (quotaOnly.includes(id)) {
+					console.log(`  --  ${id}: quota-only, no Pi provider to list`);
+					continue;
+				}
 				failures.push(`${id}: not listed by --list-models`);
 				continue;
 			}
@@ -112,6 +145,9 @@ async function main(): Promise<number> {
 			const got = await resolvedModel(env, ref).catch((error: Error) => error.message);
 			if (got === ref) console.log(`  ok  ${id}: ${listed.get(id)?.length} models, --model ${ref}`);
 			else failures.push(`${id}: --model ${ref} resolved to ${got}`);
+		}
+		for (const id of owned) {
+			if (!listed.has(id)) failures.push(`${id}: registered by us but not listed`);
 		}
 	} finally {
 		await rm(agentDir, { recursive: true, force: true });

@@ -30,13 +30,20 @@ function isNativeUserInput(value: unknown): boolean {
 	});
 }
 
-function repairNative(contents: unknown[]): { contents: unknown[]; repaired: number } | undefined {
-	const lastUser = contents.findLastIndex(isNativeUserInput);
+function repairNative(
+	contents: unknown[],
+	end: number,
+	history: boolean,
+): { contents: unknown[]; repaired: number } | undefined {
+	const lastUser = history
+		? contents.slice(0, end).findIndex(isNativeUserInput)
+		: contents.slice(0, end).findLastIndex(isNativeUserInput);
 	if (lastUser < 0) return undefined;
 	let repaired = 0;
 	const result = contents.map((content: unknown, index: number) => {
 		if (
 			index <= lastUser ||
+			index >= end ||
 			!isRecord(content) ||
 			content["role"] !== "model" ||
 			!Array.isArray(content["parts"])
@@ -93,13 +100,20 @@ function hasEncryptedSignature(value: unknown): boolean {
 	);
 }
 
-function repairChat(messages: unknown[]): { messages: unknown[]; repaired: number } | undefined {
-	const lastUser = messages.findLastIndex(isChatUserInput);
+function repairChat(
+	messages: unknown[],
+	end: number,
+	history: boolean,
+): { messages: unknown[]; repaired: number } | undefined {
+	const lastUser = history
+		? messages.slice(0, end).findIndex(isChatUserInput)
+		: messages.slice(0, end).findLastIndex(isChatUserInput);
 	if (lastUser < 0) return undefined;
 	let repaired = 0;
 	const result = messages.map((message: unknown, index: number) => {
 		if (
 			index <= lastUser ||
+			index >= end ||
 			!isRecord(message) ||
 			(message["role"] !== "assistant" && message["role"] !== "model") ||
 			!Array.isArray(message["tool_calls"]) ||
@@ -124,8 +138,11 @@ function repairChat(messages: unknown[]): { messages: unknown[]; repaired: numbe
 	return repaired ? { messages: result, repaired } : undefined;
 }
 
-/** Return an immutable repair of eligible calls in the current user turn. */
-export function repairThoughtSignaturePayload(payload: unknown): Repair | undefined {
+/** Repair eligible calls in the latest turn or the requested history prefix. */
+export function repairThoughtSignaturePayload(
+	payload: unknown,
+	options: { readonly prefixLength?: number; readonly history?: boolean } = {},
+): Repair | undefined {
 	let parsed: unknown = payload;
 	if (typeof payload === "string") {
 		try {
@@ -137,21 +154,33 @@ export function repairThoughtSignaturePayload(payload: unknown): Repair | undefi
 	if (!isRecord(parsed)) return undefined;
 	let result: Repair | undefined;
 	if (Array.isArray(parsed["contents"])) {
-		const repaired = repairNative(parsed["contents"]);
+		const repaired = repairNative(
+			parsed["contents"],
+			options.prefixLength ?? parsed["contents"].length,
+			options.history ?? false,
+		);
 		if (repaired)
 			result = { payload: { ...parsed, contents: repaired.contents }, repaired: repaired.repaired };
 	} else if (isRecord(parsed["request"]) && Array.isArray(parsed["request"]["contents"])) {
 		const request = parsed["request"];
 		const contents = request["contents"];
 		if (!Array.isArray(contents)) return undefined;
-		const repaired = repairNative(contents);
+		const repaired = repairNative(
+			contents,
+			options.prefixLength ?? contents.length,
+			options.history ?? false,
+		);
 		if (repaired)
 			result = {
 				payload: { ...parsed, request: { ...request, contents: repaired.contents } },
 				repaired: repaired.repaired,
 			};
 	} else if (Array.isArray(parsed["messages"])) {
-		const repaired = repairChat(parsed["messages"]);
+		const repaired = repairChat(
+			parsed["messages"],
+			options.prefixLength ?? parsed["messages"].length,
+			options.history ?? false,
+		);
 		if (repaired)
 			result = { payload: { ...parsed, messages: repaired.messages }, repaired: repaired.repaired };
 	}

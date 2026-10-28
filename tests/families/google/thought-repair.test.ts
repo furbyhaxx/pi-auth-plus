@@ -41,6 +41,28 @@ describe("repairThoughtSignaturePayload", () => {
 		expect(payload).toEqual(before);
 	});
 
+	test("history mode repairs missing earlier calls without altering genuine signatures or later messages", () => {
+		const payload = {
+			contents: [
+				{ role: "user", parts: [{ text: "first" }] },
+				{ role: "model", parts: [{ functionCall: { name: "first" } }] },
+				{ role: "user", parts: [{ text: "second" }] },
+				{
+					role: "model",
+					parts: [{ functionCall: { name: "signed" }, thoughtSignature: "genuine" }],
+				},
+				{ role: "user", parts: [{ text: "later" }] },
+				{ role: "model", parts: [{ functionCall: { name: "later" } }] },
+			],
+		};
+		const expected = structuredClone(payload);
+		Object.assign(expected.contents[1]?.parts[0] ?? {}, { thoughtSignature: dummy });
+		expect(repairThoughtSignaturePayload(payload, { history: true, prefixLength: 4 })).toEqual({
+			payload: expected,
+			repaired: 1,
+		});
+	});
+
 	test("repairs nested envelopes and JSON payload strings", () => {
 		const payload = {
 			model: "example",

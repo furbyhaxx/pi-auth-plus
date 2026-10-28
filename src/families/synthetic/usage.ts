@@ -33,6 +33,7 @@ export function correctSyntheticRequestUsage(
 	message: AssistantMessage,
 	payload: unknown,
 	tokenizers?: TokenizerStore,
+	sourceModel = message.model,
 ): AssistantMessage | undefined {
 	if (message.provider !== PROVIDER || message.stopReason === "error") return undefined;
 	const deduped = correctSyntheticUsage(message);
@@ -41,7 +42,7 @@ export function correctSyntheticRequestUsage(
 	const prompt = usage.input + usage.cacheRead + usage.cacheWrite;
 	if (prompt <= 0) return deduped;
 	try {
-		const repo = syntheticTokenizerRepo(message.model);
+		const repo = syntheticTokenizerRepo(sourceModel);
 		if (!repo || requestModel(payload) !== message.model) return deduped;
 		const tokenizer = tokenizers?.peek(repo);
 		if (!tokenizer) return deduped;

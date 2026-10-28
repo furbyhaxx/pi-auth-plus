@@ -6,6 +6,7 @@ import type {
 	ExtensionEvent,
 	MessageEndEventResult,
 } from "@earendil-works/pi-coding-agent";
+import type { FamilyHost } from "../../../src/core/registry/index.ts";
 import { bundledModels } from "../../../src/families/synthetic/catalog.ts";
 import { createSyntheticFamily } from "../../../src/families/synthetic/index.ts";
 import { countSyntheticRequest } from "../../../src/families/synthetic/request-tokens.ts";
@@ -138,7 +139,7 @@ function store(loaded = true): TokenizerStore {
 	return { peek: () => (loaded ? tokenizer : undefined), load: async () => tokenizer };
 }
 
-async function registered(tokenizers?: TokenizerStore) {
+async function registered(tokenizers?: TokenizerStore, host?: FamilyHost) {
 	type Handler = (event: ExtensionEvent, ctx: ExtensionContext) => unknown;
 	const handlers = new Map<string, Handler>();
 	const pi = {
@@ -147,7 +148,7 @@ async function registered(tokenizers?: TokenizerStore) {
 		on: (name: string, handler: Handler) => handlers.set(name, handler),
 	} as unknown as ExtensionAPI;
 	const family = createSyntheticFamily({}, undefined, undefined, undefined, tokenizers);
-	await family.register?.(pi, await testHost());
+	await family.register?.(pi, host ?? (await testHost()));
 	const model = { provider: "synthetic", id: payload.model };
 	function emit(event: ExtensionEvent, selected = model) {
 		return handlers.get(event.type)?.(event, { model: selected } as ExtensionContext);
@@ -155,7 +156,7 @@ async function registered(tokenizers?: TokenizerStore) {
 	function end(message: AssistantMessage) {
 		return emit({ type: "message_end", message }) as MessageEndEventResult | undefined;
 	}
-	return { emit, end };
+	return { emit, end, family };
 }
 
 describe("Synthetic tokenizer usage", () => {
@@ -275,6 +276,61 @@ describe("Synthetic tokenizer usage", () => {
 			usage: { input: expectedPrompt, totalTokens: expectedPrompt + message.usage.output },
 		});
 		expect(family.end(message)?.message).toEqual(correctSyntheticUsage(message));
+	});
+
+	test("configured aliases preload and count their source while retaining request identity", async () => {
+		const alias = "my-synthetic-model";
+		const repo = payload.model.slice(3);
+		const loads: string[] = [];
+		const tokenizers: TokenizerStore = {
+			peek: (id) => (id === repo ? { id: `${id}@test`, count } : undefined),
+			load: async (id) => {
+				loads.push(id);
+				return undefined;
+			},
+		};
+		const host = await testHost({
+			"models.aliases": [{ provider: "synthetic", id: alias, source: payload.model }],
+		});
+		const { emit, end, family } = await registered(tokenizers, host);
+		const model = { provider: "synthetic", id: alias };
+		emit({ type: "session_start", reason: "startup" }, model);
+		const source = bundledModels().find((candidate) => candidate.id === payload.model);
+		if (!source) throw new Error("Missing bundled Synthetic model");
+		emit({
+			type: "model_select",
+			model: { ...source, id: alias },
+			previousModel: undefined,
+			source: "set",
+		});
+		expect(loads).toEqual([repo, repo]);
+		const deps = { auth: async () => undefined, fetch: async () => new Response(), tokenizers };
+		expect(createSyntheticFamily().tokens?.(model, deps)?.id).toBe("estimate:synthetic:4/3");
+		const counter = family.tokens?.(model, deps);
+		expect(counter?.id).toBe(`${repo}@test`);
+		expect(counter?.anchorSource).toBe("tokenizer");
+		const message = { ...assistant(capturedUsage(0)), model: alias };
+		emit({ type: "before_provider_request", payload: { ...payload, model: alias } }, model);
+		expect(end(message)?.message).toMatchObject({
+			model: alias,
+			usage: { input: expectedPrompt, totalTokens: expectedPrompt + message.usage.output },
+		});
+		expect(end(message)?.message).toEqual(correctSyntheticUsage(message));
+		emit({ type: "before_provider_request", payload: { ...payload, model: payload.model } }, model);
+		expect(end(message)?.message).toEqual(correctSyntheticUsage(message));
+		emit({ type: "before_provider_request", payload: { ...payload, model: alias } }, model);
+		expect(end({ ...message, model: payload.model })?.message).toEqual(
+			correctSyntheticUsage({ ...message, model: payload.model }),
+		);
+		await host.settings().save("runtime", {
+			"models.aliases": [{ provider: "other", id: alias, source: payload.model }],
+		});
+		expect(family.tokens?.(model, deps)?.id).toBe("estimate:synthetic:4/3");
+		await host.settings().save("runtime", {
+			"models.aliases": [{ provider: "synthetic", id: alias, source: "hf:other/model" }],
+		});
+		await family.tokens?.(model, deps)?.count("text", "prose");
+		expect(loads).toContain("other/model");
 	});
 
 	test("does not capture foreign requests or reuse requests after session changes", async () => {

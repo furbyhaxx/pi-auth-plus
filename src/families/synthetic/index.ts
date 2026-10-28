@@ -2,7 +2,7 @@
 import { tmpdir } from "node:os";
 import type { FetchFn } from "../../core/http/index.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
-import type { FamilyAdapter } from "../../core/registry/index.ts";
+import type { FamilyAdapter, FamilyHost } from "../../core/registry/index.ts";
 import { estimateCounter, tokenizerCounter } from "../../tokens/estimate/index.ts";
 import type { TokenCounter, TokenizerStore } from "../../tokens/types.ts";
 import { BASE_URL, bundledModels, PROVIDER, refreshCatalog } from "./catalog.ts";
@@ -23,6 +23,12 @@ export function createSyntheticFamily(
 	tokenizers?: TokenizerStore,
 ): FamilyAdapter {
 	const counters = new Map<string, TokenCounter>();
+	let host: FamilyHost | undefined;
+	const sourceModel = (id: string): string =>
+		host
+			?.settings()
+			.get("models.aliases")
+			.find((alias) => alias.provider === PROVIDER && alias.id === id)?.source ?? id;
 	return {
 		id: PROVIDER,
 		label: "Synthetic",
@@ -38,13 +44,14 @@ export function createSyntheticFamily(
 		],
 		tokens: (model, deps) => {
 			if (model.provider !== PROVIDER) return undefined;
-			const cached = counters.get(model.id);
+			const source = sourceModel(model.id);
+			const cached = counters.get(source);
 			if (cached) return cached;
-			const repo = syntheticTokenizerRepo(model.id);
+			const repo = syntheticTokenizerRepo(source);
 			const counter = repo
 				? tokenizerCounter(repo, deps.tokenizers, estimateCounter("synthetic"), true)
 				: estimateCounter("synthetic");
-			counters.set(model.id, counter);
+			counters.set(source, counter);
 			return counter;
 		},
 		providerRegistrations: () => [
@@ -60,7 +67,8 @@ export function createSyntheticFamily(
 				},
 			},
 		],
-		register: (pi, host) => {
+		register: (pi, familyHost) => {
+			host = familyHost;
 			pi.registerFlag(WEB_SEARCH_FLAG, {
 				description: "Offer the Synthetic web search tool for this run",
 				type: "boolean",
@@ -69,7 +77,7 @@ export function createSyntheticFamily(
 			const preload = (model: { provider: string; id: string } | undefined): void => {
 				payload = undefined;
 				if (model?.provider !== PROVIDER) return;
-				const repo = syntheticTokenizerRepo(model.id);
+				const repo = syntheticTokenizerRepo(sourceModel(model.id));
 				if (repo) void tokenizers?.load(repo);
 			};
 			pi.on("model_select", ({ model }) => preload(model));
@@ -83,7 +91,12 @@ export function createSyntheticFamily(
 				if (message.role !== "assistant") return;
 				const request = payload;
 				payload = undefined;
-				const corrected = correctSyntheticRequestUsage(message, request, tokenizers);
+				const corrected = correctSyntheticRequestUsage(
+					message,
+					request,
+					tokenizers,
+					sourceModel(message.model),
+				);
 				return corrected && { message: corrected };
 			});
 			let searchRegistered = false;
@@ -92,7 +105,7 @@ export function createSyntheticFamily(
 				if (tokenizers) preload(ctx.model);
 				if (searchRegistered) return;
 				const enabled =
-					pi.getFlag(WEB_SEARCH_FLAG) === true || host.settings().get("synthetic.webSearch");
+					pi.getFlag(WEB_SEARCH_FLAG) === true || familyHost.settings().get("synthetic.webSearch");
 				if (!enabled) return;
 				registerWebSearch(pi, { fetch: fetchFn, outputDir });
 				searchRegistered = true;

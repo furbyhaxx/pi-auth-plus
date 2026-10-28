@@ -105,8 +105,11 @@ members. Within the chosen tier:
 - `failover` picks the first member in group order.
 - `random` picks a member randomly.
 - `balance` estimates remaining requests using recent token usage, model rates and
-  available USD credits when all candidates have comparable data. Otherwise it compares
-  quota headroom when all candidates have comparable fractions, or rotates in order.
+  available USD credits when all candidates have comparable data. It estimates switched
+  models without cache reuse. Otherwise it compares plan-wide quota headroom when all
+  candidates have comparable fractions, or rotates in order. Credit fractions and usage
+  window fractions are not compared with each other. Model-group-specific windows and
+  reset times are not used in this fallback.
 
 Cost labels (`included`, `free`, `paid`) are informational and do not exclude a member.
 Optional thinking maps translate a group thinking level for a member, for example

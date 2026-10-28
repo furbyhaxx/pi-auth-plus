@@ -18,9 +18,9 @@ export interface GroupRegistrationDeps {
 }
 
 /** The latest assistant usage, which prices the next request for balance selection. */
-function lastUsage(messages: readonly Message[]): AssistantMessage["usage"] | undefined {
+function lastAssistant(messages: readonly Message[]): AssistantMessage | undefined {
 	const last = messages.findLast((message) => message.role === "assistant");
-	return last?.role === "assistant" ? last.usage : undefined;
+	return last?.role === "assistant" ? last : undefined;
 }
 
 function balanced(
@@ -29,7 +29,7 @@ function balanced(
 	messages: readonly Message[],
 	random: () => number,
 ): GroupMember | undefined {
-	const usage = lastUsage(messages);
+	const last = lastAssistant(messages);
 	const ranked: BalanceCandidate[] = candidates.map(({ member, model, quota }) => ({
 		member,
 		model,
@@ -38,7 +38,7 @@ function balanced(
 	const chosen = selectBalancedMember({
 		candidates: ranked,
 		...(previous ? { previous } : {}),
-		...(usage ? { usage } : {}),
+		...(last ? { usage: last.usage, usageModel: { provider: last.provider, id: last.model } } : {}),
 	});
 	if (chosen) return chosen;
 	if (candidates.length === 0) return undefined;

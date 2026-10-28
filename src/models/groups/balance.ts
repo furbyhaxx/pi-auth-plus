@@ -22,6 +22,7 @@ export interface BalanceOptions {
 	readonly candidates: readonly BalanceCandidate[];
 	readonly previous?: ModelIdentity;
 	readonly usage?: BalanceUsage;
+	readonly usageModel?: ModelIdentity;
 }
 
 function nonnegative(value: number | undefined): value is number {
@@ -31,6 +32,7 @@ function nonnegative(value: number | undefined): value is number {
 function capacity(
 	candidate: BalanceCandidate,
 	usage: BalanceUsage | undefined,
+	usageModel: ModelIdentity | undefined,
 ): number | undefined {
 	const credits = candidate.quota?.credits;
 	if (!credits || (credits.currency !== "$" && credits.currency !== "USD")) return undefined;
@@ -51,7 +53,12 @@ function capacity(
 		}
 	}
 	if (keys.some((key) => !nonnegative(rates[key]))) return undefined;
-	const cost = keys.reduce((sum, key) => sum + (usage[key] * rates[key]) / 1_000_000, 0);
+	const sameModel =
+		candidate.member.provider === usageModel?.provider && candidate.member.id === usageModel.id;
+	const pricedUsage = sameModel
+		? usage
+		: { ...usage, input: inputTokens, cacheRead: 0, cacheWrite: 0 };
+	const cost = keys.reduce((sum, key) => sum + (pricedUsage[key] * rates[key]) / 1_000_000, 0);
 	if (!Number.isFinite(cost) || cost <= 0) return undefined;
 	const result = credits.remaining / cost;
 	return Number.isFinite(result) ? result : undefined;
@@ -69,7 +76,13 @@ function headroom(candidate: BalanceCandidate): number | undefined {
 	let result: number | undefined;
 	for (const window of quota.windows) {
 		const fraction = window.usedFraction;
-		if (window.scope !== undefined || !nonnegative(fraction) || fraction > 1) continue;
+		if (
+			window.scope !== undefined ||
+			window.group !== undefined ||
+			!nonnegative(fraction) ||
+			fraction > 1
+		)
+			continue;
 		const remaining = 1 - fraction;
 		result = result === undefined ? remaining : Math.min(result, remaining);
 	}
@@ -78,17 +91,21 @@ function headroom(candidate: BalanceCandidate): number | undefined {
 
 /** Select the greatest comparable capacity or headroom, rotating ties and unknowns in order. */
 export function selectBalancedMember(options: BalanceOptions): GroupMember | undefined {
-	const { candidates, previous, usage } = options;
+	const { candidates, previous, usage, usageModel } = options;
 	if (candidates.length === 0) return undefined;
 	const previousIndex = previous
 		? candidates.findIndex(
 				({ member }) => member.provider === previous.provider && member.id === previous.id,
 			)
 		: -1;
-	const capacities = candidates.map((candidate) => capacity(candidate, usage));
+	const capacities = candidates.map((candidate) => capacity(candidate, usage, usageModel));
+	const creditCounts = candidates.filter((candidate) => candidate.quota?.credits).length;
+	const sameHeadroomKind = creditCounts === 0 || creditCounts === candidates.length;
 	const values = capacities.every((value) => value !== undefined)
 		? capacities
-		: candidates.map(headroom);
+		: sameHeadroomKind
+			? candidates.map(headroom)
+			: candidates.map(() => undefined);
 	const comparable = values.every((value) => value !== undefined);
 	const best = comparable ? Math.max(...values.filter((value) => value !== undefined)) : undefined;
 	for (let offset = 1; offset <= candidates.length; offset++) {

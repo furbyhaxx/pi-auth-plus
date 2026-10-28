@@ -8,6 +8,7 @@ import {
 	mkdirSync,
 	openSync,
 	readFileSync,
+	realpathSync,
 	renameSync,
 	unlinkSync,
 	writeFileSync,
@@ -40,13 +41,43 @@ type Snapshot =
 function missing(error: unknown): boolean {
 	return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
+function targetPath(path: string): string {
+	const absolute = resolve(path);
+	try {
+		return realpathSync(absolute);
+	} catch (error) {
+		if (!missing(error)) throw error;
+		try {
+			if (lstatSync(absolute).isSymbolicLink())
+				throw new Error(
+					`models.json symlink ${absolute} has a missing target; restore the target or fix the symlink before retrying`,
+				);
+		} catch (statError) {
+			if (!missing(statError)) throw statError;
+		}
+		try {
+			return join(realpathSync(dirname(absolute)), basename(absolute));
+		} catch (parentError) {
+			if (!missing(parentError)) throw parentError;
+			return absolute;
+		}
+	}
+}
 function snapshot(path: string): Snapshot {
 	try {
 		const info = lstatSync(path, { bigint: true });
 		if (!info.isFile())
 			throw new Error("models.json must be a regular file; resolve the path before editing");
 		const bytes = readFileSync(path);
-		const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+		let text: string;
+		try {
+			text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+		} catch (error) {
+			throw new Error(
+				`models.json at ${path} contains invalid UTF-8; correct the encoding before retrying`,
+				{ cause: error },
+			);
+		}
 		return {
 			text,
 			mode: Number(info.mode & 0o777n),
@@ -79,7 +110,7 @@ export async function readOverride(
 	providerId: string,
 	modelId: string,
 ): Promise<Record<string, unknown> | undefined> {
-	const source = snapshot(resolve(path));
+	const source = snapshot(targetPath(path));
 	if (!source) return undefined;
 	let value: unknown = parsed(source.text).value;
 	for (const key of ["providers", providerId, "modelOverrides", modelId]) {
@@ -114,6 +145,12 @@ function encode(value: JsonValue): string {
 	check(value);
 	return JSON.stringify(value);
 }
+function comments(text: string): string {
+	const newline = text.includes("\r\n") ? "\r\n" : "\n";
+	return Array.from(text.matchAll(/"(?:\\.|[^"\\])*"|\/\/[^\r\n]*/g), ([token]) =>
+		token.startsWith("//") ? `${token}${newline}` : "",
+	).join("");
+}
 function changed(text: string, keys: readonly string[], edit: OverrideEdit): string {
 	const doc = parsed(text);
 	let current = doc.root;
@@ -134,8 +171,29 @@ function changed(text: string, keys: readonly string[], edit: OverrideEdit): str
 				insertion = `{${JSON.stringify(keys[j])}:${insertion}}`;
 			const prior = current.members.at(-1);
 			const comma = prior && prior.comma === undefined ? "," : "";
-			const at = current.end - 1;
-			const property = `\n${JSON.stringify(key)}: ${insertion}\n`;
+			const brace = current.end - 1;
+			const lineStart = text.lastIndexOf("\n", brace - 1) + 1;
+			const braceIndent = text.slice(lineStart, brace);
+			const ownLine = /^[\t ]*$/.test(braceIndent);
+			const priorLine = prior ? text.lastIndexOf("\n", prior.start - 1) + 1 : 0;
+			const priorIndent = prior ? text.slice(priorLine, prior.start) : "";
+			let unit = "  ";
+			if (ownLine && braceIndent) {
+				for (const line of text.slice(0, lineStart).split("\n").reverse()) {
+					const indent = line.match(/^[\t ]*/)?.[0] ?? "";
+					if (line.trim() && indent.length < braceIndent.length && braceIndent.startsWith(indent)) {
+						unit = braceIndent.slice(indent.length);
+						break;
+					}
+				}
+			}
+			const indentation =
+				prior && /^[\t ]*$/.test(priorIndent)
+					? priorIndent
+					: `${ownLine ? braceIndent : ""}${unit}`;
+			const newline = text.includes("\r\n") ? "\r\n" : "\n";
+			const at = ownLine && lineStart > current.start ? lineStart : brace;
+			const property = `${at === brace ? newline : ""}${indentation}${JSON.stringify(key)}: ${insertion}${newline}`;
 			if (!comma || !prior) return text.slice(0, at) + property + text.slice(at);
 			return (
 				text.slice(0, prior.value.end) +
@@ -150,9 +208,11 @@ function changed(text: string, keys: readonly string[], edit: OverrideEdit): str
 				return (
 					text.slice(0, member.value.start) + encode(edit.value) + text.slice(member.value.end)
 				);
+			const retained = comments(text.slice(member.start, member.value.end));
 			if (member.comma !== undefined)
 				return (
 					text.slice(0, member.start) +
+					retained +
 					text.slice(member.value.end, member.comma) +
 					text.slice(member.comma + 1)
 				);
@@ -161,9 +221,10 @@ function changed(text: string, keys: readonly string[], edit: OverrideEdit): str
 				return (
 					text.slice(0, previous.comma) +
 					text.slice(previous.comma + 1, member.start) +
+					retained +
 					text.slice(member.value.end)
 				);
-			return text.slice(0, member.start) + text.slice(member.value.end);
+			return text.slice(0, member.start) + retained + text.slice(member.value.end);
 		}
 		value = getChild(value, key);
 		current = member.value;
@@ -191,18 +252,28 @@ export async function updateOverrides(
 	if (changes.length === 0) return;
 	if (changes.some(({ field }) => field.length === 0 || field.some((key) => key.length === 0)))
 		throw new Error("An override field path is required");
-	const target = resolve(path);
+	const absolute = resolve(path);
+	mkdirSync(dirname(absolute), { recursive: true, mode: 0o700 });
+	const target = targetPath(absolute);
 	const dir = dirname(target);
-	mkdirSync(dir, { recursive: true, mode: 0o700 });
 	let compromised = false;
-	const release = await lockfile.lock(target, {
-		realpath: false,
-		stale: 30_000,
-		retries: { retries: 20, minTimeout: 20, maxTimeout: 50 },
-		onCompromised: () => {
-			compromised = true;
-		},
-	});
+	let release: () => Promise<void>;
+	try {
+		release = await lockfile.lock(target, {
+			realpath: false,
+			stale: 30_000,
+			retries: { retries: 20, minTimeout: 20, maxTimeout: 50 },
+			onCompromised: () => {
+				compromised = true;
+			},
+		});
+	} catch (error) {
+		if (error instanceof Error && "code" in error && error.code === "ELOCKED")
+			throw new Error(`models.json at ${target} is locked; wait for the other editor and retry`, {
+				cause: error,
+			});
+		throw error;
+	}
 	try {
 		const before = snapshot(target);
 		const source = before?.text ?? '{"providers":{}}\n';
@@ -232,11 +303,24 @@ export async function updateOverrides(
 				throw new Error("models.json changed during the edit; reload and retry");
 			renameSync(temp, target);
 			created = false;
-			const dirFd = openSync(dir, "r");
 			try {
-				fsyncSync(dirFd);
-			} finally {
-				closeSync(dirFd);
+				const dirFd = openSync(dir, "r");
+				try {
+					fsyncSync(dirFd);
+				} finally {
+					closeSync(dirFd);
+				}
+			} catch (error) {
+				if (
+					!(error instanceof Error) ||
+					!("code" in error) ||
+					!(
+						["EINVAL", "ENOTSUP", "EOPNOTSUPP", "ENOSYS"].includes(String(error.code)) ||
+						(process.platform === "win32" &&
+							["EPERM", "EACCES", "EISDIR"].includes(String(error.code)))
+					)
+				)
+					throw error;
 			}
 		} finally {
 			if (created) unlinkSync(temp);

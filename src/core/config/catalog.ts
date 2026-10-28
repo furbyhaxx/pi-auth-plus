@@ -1,5 +1,6 @@
 /** The one pi-auth-plus settings catalog; `auth-plus.json` keys are its dotted names. */
 import { type ModelAlias, parseAliases } from "../../models/aliases/index.ts";
+import { type ModelGroup, parseGroups } from "../../models/groups/config.ts";
 import {
 	booleanField,
 	enumField,
@@ -113,6 +114,13 @@ export const SETTINGS = {
 		description: "Provider, source and alias IDs with optional name and limits",
 		default: [] as readonly ModelAlias[],
 		parse: parseAliases,
+	},
+	"models.groups": {
+		kind: "rules",
+		label: "Model groups",
+		description: "Virtual models with prioritized physical members and routing policies",
+		default: [] as readonly ModelGroup[],
+		parse: parseGroups,
 	},
 	"openai.verbosity": enumField({
 		label: "Response verbosity",

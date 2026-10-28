@@ -57,6 +57,23 @@ beforeEach(() => {
 });
 
 describe("core/config", () => {
+	test("loads groups by scope and rejects an invalid project group list", async () => {
+		const groups = [{ id: "models", members: [{ provider: "claude", id: "example" }] }];
+		write(user, { models: { groups } });
+		write(project, { models: { groups: [{ id: "bad", members: [] }] } });
+		const store = new SettingsStore(SETTINGS, { user, project });
+		const problems = await store.load();
+		expect(problems.map((problem) => problem.key)).toEqual(["models.groups"]);
+		expect(store.get("models.groups")).toEqual([
+			{
+				id: "models",
+				strategy: "sticky",
+				triggers: ["rate-limit", "quota", "auth"],
+				members: [{ provider: "claude", id: "example", tier: 1 }],
+			},
+		]);
+	});
+
 	test("loads validated aliases and rejects a malformed project alias list", async () => {
 		const aliases = [{ provider: "claude", source: "source", id: "short", contextWindow: 10000 }];
 		write(user, { models: { aliases } });

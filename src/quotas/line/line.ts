@@ -50,6 +50,7 @@ export function createQuotaLineRenderer(resolve: (token: string) => string | und
 		views: readonly QuotaView[],
 		config: QuotaLineConfig,
 		now: number,
+		inUse?: readonly string[],
 	): string[] => {
 		if (width < 1) return [];
 		if (compiled?.source !== config.lineTemplate)
@@ -58,7 +59,15 @@ export function createQuotaLineRenderer(resolve: (token: string) => string | und
 				template: compileLineTemplate(config.lineTemplate, resolve),
 			};
 		const shortIds = config.alwaysShortIds || width < config.compactWidthCols;
-		const segments = renderLineTemplate(theme, compiled.template, views, config, now, shortIds);
+		const segments = renderLineTemplate(
+			theme,
+			compiled.template,
+			views,
+			config,
+			now,
+			shortIds,
+			inUse,
+		);
 		const separator = theme.fg("dim", " · ");
 		const rows: string[] = [];
 		let row = "";

@@ -94,6 +94,21 @@ describe("quota line rows", () => {
 	});
 
 	for (const width of [36, 57, 80, 140]) {
+		test(`packs in-use expansion at ${width} columns`, () => {
+			const rows = createQuotaLineRenderer(resolve)(
+				width,
+				theme,
+				views(),
+				{ ...config, lineTemplate: "{in-use:short}" },
+				0,
+				["openai-codex"],
+			);
+			for (const row of rows) expect(visibleWidth(row)).toBeLessThanOrEqual(width);
+			const text = rows.join(" ");
+			expect(text).toContain("27%");
+			expect(text).toContain("100%");
+			expect(text).toContain("+5");
+		});
 		test(`wraps every provider segment without losing data at ${width} columns`, () => {
 			const rows = createQuotaLineRenderer(resolve)(width, theme, views(), config, 0);
 			for (const row of rows) {

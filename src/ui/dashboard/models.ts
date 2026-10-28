@@ -1,6 +1,7 @@
 /** Staged model visibility rules and their catalog preview. */
 import { Input, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../core/config/index.ts";
+import type { ModelAlias } from "../../models/aliases/index.ts";
 import type { OverrideEdit } from "../../models/overrides/index.ts";
 import { exactModelRule } from "../../models/rules/match.ts";
 import { sanitize } from "../frame/index.ts";
@@ -33,6 +34,11 @@ export interface ModelsTabDeps {
 	evaluate(rules: readonly string[], provider: string, id: string): RuleOutcome;
 	save(rules: readonly string[], scope: SaveScope): Promise<void>;
 	details?: {
+		aliases?: {
+			list(): readonly ModelAlias[];
+			supported(provider: string): boolean;
+			save(aliases: readonly ModelAlias[], scope: SaveScope): Promise<void>;
+		};
 		read(provider: string, id: string): Promise<Record<string, unknown> | undefined>;
 		current?(provider: string, id: string): ModelCatalogItem | undefined;
 		save(

@@ -2,6 +2,7 @@
 import { Input, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import type { OverrideEdit } from "../../models/overrides/index.ts";
 import { sanitize } from "../frame/index.ts";
+import { AliasDetail } from "./alias-detail.ts";
 import type { ModelCatalogItem, ModelsTabDeps } from "./models.ts";
 import type { TabBody, TabViewHost } from "./view.ts";
 
@@ -36,6 +37,7 @@ export class ModelDetail {
 	#saving = false;
 	#unavailable = false;
 	#disposed = false;
+	#aliasDetail: AliasDetail | undefined;
 
 	constructor(
 		host: TabViewHost,
@@ -122,15 +124,40 @@ export class ModelDetail {
 		if (edit?.kind === "remove") return undefined;
 		return at(this.#override, field.path) ?? field.value;
 	}
+	#aliases() {
+		return (
+			this.#deps.aliases
+				?.list()
+				.filter(
+					(alias) => alias.provider === this.#item.provider && alias.source === this.#item.id,
+				) ?? []
+		);
+	}
+	#aliasAvailable(): boolean {
+		const aliases = this.#deps.aliases;
+		return (
+			!!aliases &&
+			aliases.supported(this.#item.provider) &&
+			!aliases
+				.list()
+				.some((alias) => alias.provider === this.#item.provider && alias.id === this.#item.id)
+		);
+	}
 	/** Returns false only when Escape should return to the catalog. */
 	handleInput(data: string): boolean {
+		if (this.#aliasDetail) {
+			if (!this.#aliasDetail.handleInput(data)) {
+				this.#aliasDetail.dispose();
+				this.#aliasDetail = undefined;
+			}
+			return true;
+		}
 		if (this.#saving || this.#mode === "loading") return true;
 		const { keys } = this.#host;
 		const cancel = keys.matches(data, "tui.select.cancel");
 		const enter = keys.matches(data, "tui.select.confirm");
 		const field = this.#fields[this.#selected];
-		if (!field) return true;
-		if (this.#mode === "edit") {
+		if (this.#mode === "edit" && field) {
 			if (cancel) {
 				this.#mode = "list";
 				this.#message = "";
@@ -172,7 +199,28 @@ export class ModelDetail {
 			return true;
 		}
 		if (keys.matches(data, "tui.select.down") || data === "j") {
-			this.#selected = Math.min(this.#fields.length - 1, this.#selected + 1);
+			this.#selected = Math.min(
+				this.#fields.length - 1 + (this.#aliasAvailable() ? this.#aliases().length + 1 : 0),
+				this.#selected + 1,
+			);
+			return true;
+		}
+		if (!field) {
+			const aliases = this.#deps.aliases;
+			if (enter && aliases && this.#aliasAvailable()) {
+				const original = this.#aliases()[this.#selected - this.#fields.length];
+				this.#aliasDetail = new AliasDetail(
+					this.#host,
+					aliases,
+					this.#item.provider,
+					this.#item.id,
+					original,
+					() => {
+						this.#aliasDetail = undefined;
+						this.#selected = Math.min(this.#selected, this.#fields.length + this.#aliases().length);
+					},
+				);
+			}
 			return true;
 		}
 		if (matchesKey(data, "backspace") || data === "d") {
@@ -223,6 +271,7 @@ export class ModelDetail {
 	}
 	/** Render a scrollable body using the shared dashboard frame. */
 	render(width: number, bodyRows: number): TabBody {
+		if (this.#aliasDetail) return this.#aliasDetail.render(width, bodyRows);
 		const { theme } = this.#host;
 		const rows = [
 			` ${clean(this.#item.provider)}/${clean(this.#item.id)}${this.#changes.size ? " · staged" : ""}`,
@@ -255,6 +304,24 @@ export class ModelDetail {
 				` ${index === this.#selected ? theme.fg("accent", "❯") : " "} ${field.label} · ${display} · ${source}`,
 			);
 		}
+		rows.push(" Aliases");
+		const aliases = this.#aliases();
+		const availableAliases = this.#aliasAvailable();
+		const aliasReason = !this.#deps.aliases
+			? "Alias management is unavailable"
+			: !this.#deps.aliases.supported(this.#item.provider)
+				? "Aliases are not supported for this provider"
+				: "Aliases require a physical source model";
+		for (const [index, alias] of aliases.entries()) {
+			rows.push(
+				` ${availableAliases && this.#selected === this.#fields.length + index ? theme.fg("accent", "❯") : " "} ${clean(alias.id)}${alias.name ? ` · ${clean(alias.name)}` : ""}`,
+			);
+		}
+		if (availableAliases) {
+			rows.push(
+				` ${this.#selected === this.#fields.length + aliases.length ? theme.fg("accent", "❯") : " "} + new alias`,
+			);
+		} else rows.push(` ${aliasReason}`);
 		const details = this.#message
 			? [` ${theme.fg("warning", clean(this.#message))}`]
 			: this.#mode === "loading"
@@ -262,7 +329,7 @@ export class ModelDetail {
 				: [];
 		const reserved = Math.min(details.length, Math.max(0, bodyRows - 1));
 		const available = Math.max(0, bodyRows - reserved);
-		const selectedRow = this.#selected + 1;
+		const selectedRow = this.#selected + 1 + (this.#selected >= this.#fields.length ? 1 : 0);
 		this.#offset = Math.max(0, Math.min(this.#offset, selectedRow));
 		this.#offset = Math.max(this.#offset, selectedRow - available + 1);
 		this.#offset = Math.max(0, Math.min(this.#offset, rows.length - available));
@@ -281,7 +348,10 @@ export class ModelDetail {
 				"…",
 			),
 			description: truncateToWidth(
-				theme.fg("muted", "Overrides are saved to user models.json."),
+				theme.fg(
+					"muted",
+					availableAliases ? "Overrides are saved to user models.json." : aliasReason,
+				),
 				Math.max(0, width - 1),
 				"…",
 			),
@@ -291,17 +361,23 @@ export class ModelDetail {
 							{ key: binding("tui.select.confirm"), action: "stage", priority: 0 },
 							{ key: binding("tui.select.cancel"), action: "cancel", priority: 0 },
 						]
-					: [
-							{ key: binding("tui.select.confirm"), action: "edit", priority: 0 },
-							{ key: "←/→", action: "change", priority: 1 },
-							{ key: "backspace", action: "inherit", priority: 1 },
-							{ key: "ctrl+s", action: "save", priority: 0 },
-							{ key: binding("tui.select.cancel"), action: "discard/back", priority: 0 },
-						],
+					: this.#selected >= this.#fields.length
+						? [
+								{ key: binding("tui.select.confirm"), action: "open alias", priority: 0 },
+								{ key: binding("tui.select.cancel"), action: "discard/back", priority: 0 },
+							]
+						: [
+								{ key: binding("tui.select.confirm"), action: "edit", priority: 0 },
+								{ key: "←/→", action: "change", priority: 1 },
+								{ key: "backspace", action: "inherit", priority: 1 },
+								{ key: "ctrl+s", action: "save", priority: 0 },
+								{ key: binding("tui.select.cancel"), action: "discard/back", priority: 0 },
+							],
 		};
 	}
 	/** Ignore late async results after navigation. */
 	dispose(): void {
 		this.#disposed = true;
+		this.#aliasDetail?.dispose();
 	}
 }

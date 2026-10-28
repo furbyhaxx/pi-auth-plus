@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
 import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../src/core/config/index.ts";
+import type { ModelAlias } from "../../src/models/aliases/index.ts";
 import { compileModelRules, evaluateModelRules } from "../../src/models/rules/match.ts";
 import {
 	type ModelCatalogItem,
@@ -77,6 +78,144 @@ async function save(rig: ReturnType<typeof open>, target: string) {
 }
 
 describe("models tab", () => {
+	test("creates, edits and removes aliases with scoped validation while preserving overrides", async () => {
+		let aliases: readonly ModelAlias[] = [
+			{ provider: "other", source: "three", id: "other-alias" },
+		];
+		const saves: { aliases: readonly ModelAlias[]; scope: SaveScope }[] = [];
+		const overrides: unknown[] = [];
+		const rig = open([], false, [], {
+			read: async () => undefined,
+			save: async (_provider, _id, changes) => {
+				overrides.push(changes);
+			},
+			aliases: {
+				list: () => aliases,
+				supported: (provider) => provider === "vendor",
+				save: async (next, scope) => {
+					aliases = next;
+					saves.push({ aliases: next, scope });
+				},
+			},
+		});
+		rig.view.handleInput("v");
+		let refreshed = rig.nextRefresh();
+		rig.view.handleInput("\r");
+		await refreshed;
+		// Stage an override before entering the alias editor.
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x01");
+		rig.view.handleInput("\x0b");
+		rig.view.handleInput("Edited");
+		rig.view.handleInput("\r");
+		for (let i = 0; i < 9; i++) rig.view.handleInput("j");
+		expect(rig.text()).toContain("+ new alias");
+		rig.view.handleInput("\r");
+		const edit = (value: string) => {
+			rig.view.handleInput("\r");
+			rig.view.handleInput("\x01");
+			rig.view.handleInput("\x0b");
+			rig.view.handleInput(value);
+			rig.view.handleInput("\r");
+		};
+		edit("copy");
+		rig.view.handleInput("j");
+		rig.view.handleInput("j");
+		edit("0");
+		rig.view.handleInput("\x13");
+		expect(rig.text()).toContain("positive integer");
+		expect(saves).toEqual([]);
+		edit("4096");
+		rig.view.handleInput("j");
+		edit("512");
+		for (const width of [36, 57, 80, 140]) {
+			const body = rig.view.render(width, 3);
+			for (const line of [...body.lines, body.description ?? "", body.state ?? ""])
+				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+		rig.view.handleInput("\x13");
+		refreshed = rig.nextRefresh();
+		rig.view.handleInput("r");
+		await refreshed;
+		expect(saves[0]).toEqual({
+			scope: "runtime",
+			aliases: [
+				{ provider: "other", source: "three", id: "other-alias" },
+				{ provider: "vendor", source: "one", id: "copy", contextWindow: 4096, maxTokens: 512 },
+			],
+		});
+		expect(rig.text()).toContain("staged");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("j");
+		edit("Alias name");
+		rig.view.handleInput("\x13");
+		refreshed = rig.nextRefresh();
+		rig.view.handleInput("r");
+		await refreshed;
+		expect(saves[1]?.aliases).toEqual([
+			{ provider: "other", source: "three", id: "other-alias" },
+			{
+				provider: "vendor",
+				source: "one",
+				id: "copy",
+				name: "Alias name",
+				contextWindow: 4096,
+				maxTokens: 512,
+			},
+		]);
+		rig.view.handleInput("\r");
+		rig.view.handleInput("d");
+		rig.view.handleInput("\x13");
+		refreshed = rig.nextRefresh();
+		rig.view.handleInput("r");
+		await refreshed;
+		expect(saves[2]).toEqual({
+			scope: "runtime",
+			aliases: [{ provider: "other", source: "three", id: "other-alias" }],
+		});
+		refreshed = rig.nextRefresh();
+		rig.view.handleInput("\x13");
+		await refreshed;
+		expect(overrides).toEqual([[{ field: ["name"], edit: { kind: "set", value: "Edited" } }]]);
+	});
+
+	test("refuses duplicate aliases and explains unsupported providers", async () => {
+		const saves: unknown[] = [];
+		const rig = open([], false, [], {
+			read: async () => undefined,
+			save: async () => {},
+			aliases: {
+				list: () => [{ provider: "vendor", source: "two", id: "duplicate" }],
+				supported: (provider) => provider === "vendor",
+				save: async (aliases) => {
+					saves.push(aliases);
+				},
+			},
+		});
+		rig.view.handleInput("v");
+		let refreshed = rig.nextRefresh();
+		rig.view.handleInput("\r");
+		await refreshed;
+		for (let i = 0; i < 9; i++) rig.view.handleInput("j");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("duplicate");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x13");
+		expect(rig.text()).toContain("duplicate IDs");
+		expect(saves).toEqual([]);
+		rig.view.handleInput("\x1b");
+		expect(rig.text()).toContain("Discarded");
+		rig.view.handleInput("\x1b");
+		rig.view.handleInput("\x1b");
+		rig.view.handleInput("j");
+		rig.view.handleInput("j");
+		refreshed = rig.nextRefresh();
+		rig.view.handleInput("\r");
+		await refreshed;
+		expect(rig.text()).toContain("not supported");
+		expect(rig.text()).not.toContain("+ new alias");
+	});
 	test("detail stages patches, validates, removes and discards", async () => {
 		const saves: unknown[] = [];
 		const details: NonNullable<ModelsTabDeps["details"]> = {

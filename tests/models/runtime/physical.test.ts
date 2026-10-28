@@ -202,7 +202,44 @@ describe("physical request hooks", () => {
 		runtime.streamSimple(model("b"), context);
 		const failingHook = requests[3]?.options?.onResponse;
 		if (!failingHook) throw new Error("missing callback");
-		await expect(failingHook(responseB, actualB)).rejects.toBe(hookFailure);
+		await expect(failingHook(responseB, actualB)).resolves.toBeUndefined();
+	});
+
+	test("falls back when an extension-owned factory or hook throws", async () => {
+		const { runtime, requests } = runtimeFixture();
+		installPhysicalRequestHooks({ runtime }, () => {
+			throw new Error("factory");
+		});
+		const untouched = runtime.stream(model("a"), context);
+		const first = requests[0];
+		if (!first) throw new Error("missing request");
+		expect(untouched).toBe(first.stream);
+
+		installPhysicalRequestHooks({ runtime }, () => ({
+			headers: () => {
+				throw new Error("headers");
+			},
+			payload: () => {
+				throw new Error("payload");
+			},
+			message: () => {
+				throw new Error("message");
+			},
+		}));
+		const wrapped = runtime.streamSimple(model("b"), context, {
+			transformHeaders: (headers) => ({ ...headers, original: "yes" }),
+			onPayload: (payload) => `${payload}:original`,
+		});
+		const request = requests[1];
+		if (!request?.options?.transformHeaders || !request.options.onPayload)
+			throw new Error("missing callbacks");
+		expect(await request.options.transformHeaders({})).toEqual({ original: "yes" });
+		expect(await request.options.onPayload("body", request.model)).toBe("body:original");
+		const original = message("b");
+		const event: AssistantMessageEvent = { type: "done", reason: "stop", message: original };
+		request.stream.push(event);
+		expect(await collect(wrapped)).toEqual([event]);
+		expect(await wrapped.result()).toBe(original);
 	});
 
 	test("passes virtual and unmatched calls through and updates factory on reload", async () => {

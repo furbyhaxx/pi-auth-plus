@@ -43,7 +43,12 @@ function mapMessages(
 	const correct = (message: AssistantMessage): AssistantMessage => {
 		const existing = cache.get(message);
 		if (existing) return existing;
-		const result = map(message) ?? message;
+		let result = message;
+		try {
+			result = map(message) ?? message;
+		} catch {
+			// A failed observer must not turn a provider response into a failed turn.
+		}
 		cache.set(message, result);
 		return result;
 	};
@@ -85,14 +90,25 @@ function wrap(original: Dispatch, state: State): Dispatch {
 	return function (this: Runtime, ...args: Parameters<Dispatch>) {
 		const [model, context, options] = args;
 		if (model.api === "pi-virtual") return Reflect.apply(original, this, args);
-		const hooks = state.factory(model, context);
+		let hooks: PhysicalRequestHooks | undefined;
+		try {
+			hooks = state.factory(model, context);
+		} catch {
+			return Reflect.apply(original, this, args);
+		}
 		if (!hooks) return Reflect.apply(original, this, args);
 		const transformed = { ...options };
 		if (hooks.headers) {
 			const handler = hooks.headers;
 			const previous = options?.transformHeaders;
-			transformed.transformHeaders = async (headers) =>
-				handler(previous ? await previous(headers) : headers);
+			transformed.transformHeaders = async (headers) => {
+				const value = previous ? await previous(headers) : headers;
+				try {
+					return await handler(value);
+				} catch {
+					return value;
+				}
+			};
 		}
 		if (hooks.payload) {
 			const handler = hooks.payload;
@@ -100,8 +116,12 @@ function wrap(original: Dispatch, state: State): Dispatch {
 			transformed.onPayload = async (payload, actualModel) => {
 				const prior = previous ? await previous(payload, actualModel) : undefined;
 				const value = prior === undefined ? payload : prior;
-				const result = await handler(value, actualModel);
-				return result === undefined ? value : result;
+				try {
+					const result = await handler(value, actualModel);
+					return result === undefined ? value : result;
+				} catch {
+					return value;
+				}
 			};
 		}
 		if (hooks.response) {
@@ -109,7 +129,11 @@ function wrap(original: Dispatch, state: State): Dispatch {
 			const previous = options?.onResponse;
 			transformed.onResponse = async (response, actualModel) => {
 				if (previous) await previous(response, actualModel);
-				await handler(response, actualModel);
+				try {
+					await handler(response, actualModel);
+				} catch {
+					// Response observation is best effort.
+				}
 			};
 		}
 		if (hooks.headers || hooks.payload || hooks.response) args[2] = transformed;

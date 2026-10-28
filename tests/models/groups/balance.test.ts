@@ -173,6 +173,14 @@ describe("balance group selection", () => {
 		expect(selectBalancedMember({ candidates: [a, c], usage, previous: c.member })).toBe(c.member);
 	});
 
+	test("does not assume zero credit exhausts a zero-cost model", () => {
+		const free = candidate("free", 0, credits("free", 0, 10));
+		const paid = candidate("paid", 1, credits("paid", 10, 10));
+		expect(selectBalancedMember({ candidates: [free, paid], previous: paid.member, usage })).toBe(
+			free.member,
+		);
+	});
+
 	test("invalid counts, rates and fractions remain unknown", () => {
 		const a = candidate("a", 1, credits("a", 10));
 		const b = candidate("b", 1, credits("b", 20));

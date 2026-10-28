@@ -10,6 +10,7 @@ import type {
 import { clampThinkingLevel, getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import type { ExtensionVirtualModel } from "@earendil-works/pi-coding-agent";
 import type { ProviderQuotaSnapshot } from "../../quotas/types.ts";
+import { hasZeroModelRates } from "./balance.ts";
 import type { GroupMember, ModelGroup } from "./config.ts";
 import { eligiblePriorityCandidates, type ModelIdentity } from "./priority.ts";
 
@@ -88,11 +89,16 @@ function positiveMinimum(values: readonly number[]): number | undefined {
 }
 
 function healthy(candidate: GroupRouteCandidate, available: readonly Model<Api>[]): boolean {
+	const free = hasZeroModelRates(candidate.model);
 	return (
 		available.some((model) => same(model, candidate.member)) &&
 		!candidate.quota?.needsAuth &&
 		!candidate.quota?.windows.some(
-			(window) => !window.scope && !window.group && (window.usedFraction ?? 0) >= 1,
+			(window) =>
+				!window.scope &&
+				!window.group &&
+				(window.usedFraction ?? 0) >= 1 &&
+				!(free && window.id === "credits" && candidate.quota?.credits),
 		)
 	);
 }

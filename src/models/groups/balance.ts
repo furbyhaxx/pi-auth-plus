@@ -25,6 +25,14 @@ export interface BalanceOptions {
 	readonly usageModel?: ModelIdentity;
 }
 
+/** Whether every published rate, including all tiers, is zero. */
+export function hasZeroModelRates(model: Model<Api>): boolean {
+	return [model.cost, ...(model.cost.tiers ?? [])].every(
+		(cost) =>
+			cost.input === 0 && cost.output === 0 && cost.cacheRead === 0 && cost.cacheWrite === 0,
+	);
+}
+
 function nonnegative(value: number | undefined): value is number {
 	return value !== undefined && Number.isFinite(value) && value >= 0;
 }
@@ -37,7 +45,7 @@ function capacity(
 	const credits = candidate.quota?.credits;
 	if (!credits || (credits.currency !== "$" && credits.currency !== "USD")) return undefined;
 	if (!nonnegative(credits.remaining)) return undefined;
-	if (credits.remaining === 0) return 0;
+	if (credits.remaining === 0) return hasZeroModelRates(candidate.model) ? undefined : 0;
 	if (!usage) return undefined;
 	const keys = ["input", "output", "cacheRead", "cacheWrite"] as const;
 	if (keys.some((key) => !nonnegative(usage[key]))) return undefined;
@@ -68,6 +76,7 @@ function headroom(candidate: BalanceCandidate): number | undefined {
 	const quota = candidate.quota;
 	if (!quota) return undefined;
 	if (quota.credits) {
+		if (hasZeroModelRates(candidate.model)) return undefined;
 		const { remaining, total } = quota.credits;
 		if (!nonnegative(remaining) || !nonnegative(total) || total === 0 || remaining > total)
 			return undefined;

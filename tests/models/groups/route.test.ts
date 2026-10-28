@@ -281,6 +281,29 @@ describe("group routes", () => {
 			{ provider: "b", id: "same" },
 		]);
 	});
+	test("keeps a zero-cost model eligible when its provider's credit balance is empty", async () => {
+		const creditWindow = snapshot("a", {
+			credits: { remaining: 0, total: 10, currency: "$" },
+			windows: [{ id: "credits", shortLabel: "cred", label: "Credits", usedFraction: 1 }],
+		});
+		const result = await setup({
+			available: [a, c],
+			quota: (provider) => (provider === "a" ? creditWindow : undefined),
+		}).route();
+		expect(result.model).toEqual(a);
+		const paid = model("a", "same", {
+			cost: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1 },
+		});
+		expect(
+			(
+				await setup({
+					models: [paid, c],
+					quota: (provider) => (provider === "a" ? creditWindow : undefined),
+				}).route()
+			).model,
+		).toEqual(c);
+	});
+
 	test("best effort when auth or plan quota exhausts all, and ignore scoped quota", async () => {
 		const quota = (provider: string) => snapshot(provider, { needsAuth: true });
 		expect((await setup({ available: [], quota }).route()).model).toEqual(a);

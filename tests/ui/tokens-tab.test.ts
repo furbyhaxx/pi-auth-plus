@@ -71,13 +71,13 @@ const text = (view: TokensView) => view.render(140, 100).lines.join("\n");
 test("live context totals, sources, Pi delta and asynchronous contributions fit every width", async () => {
 	const f = open();
 	const initial = text(f.view);
-	expect(tokensText(f.tracker)).toContain("Total: 1.2K · exact (provider)");
+	expect(tokensText(f.tracker)).toContain("Total: 1.2K · exact (usage)");
 	expect(tokensText(f.tracker)).toContain("Delta: +100 vs Pi");
 	for (const value of [
 		"test-provider",
 		"test-model",
 		"1.2K",
-		"exact (provider)",
+		"exact (usage)",
 		"12.0%",
 		"+100 vs Pi",
 		"2 messages",
@@ -87,7 +87,7 @@ test("live context totals, sources, Pi delta and asynchronous contributions fit 
 		expect(initial).toContain(value);
 	f.resolve([{ kind: "system", count: { tokens: 200, source: "count-endpoint" }, items: 1 }]);
 	await Promise.resolve();
-	expect(text(f.view)).toContain("200 · exact (count-endpoint) · 1 items");
+	expect(text(f.view)).toContain("200 · exact (count API) · 1 item");
 	for (const width of [36, 57, 80, 140]) {
 		for (const line of f.view.render(width, 100).lines)
 			expect(visibleWidth(line)).toBeLessThanOrEqual(width);

@@ -14,10 +14,14 @@ function number(value: number): string {
 	return numberFormat.format(value);
 }
 
+function plural(value: number, noun: string): string {
+	return `${number(value)} ${noun}${value === 1 ? "" : "s"}`;
+}
+
 function count(value: TokenCount): string {
 	const source =
 		value.source === "provider" || value.source === "count-endpoint"
-			? `exact (${value.source})`
+			? `exact (${value.source === "provider" ? "usage" : "count API"})`
 			: value.source === "tokenizer"
 				? "tokenizer estimate"
 				: "estimate";
@@ -48,7 +52,12 @@ function content(report: ContextReport | undefined, available: boolean): TabCont
 				delta === undefined ? "unknown" : `${delta >= 0 ? "+" : ""}${number(delta)} vs Pi`,
 			),
 			row("Anchor", report.anchor ? count(report.anchor) : "No provider usage yet"),
-			row("Tail", `${report.tailMessages} messages · ${count(report.tail)}`),
+			row(
+				"Tail",
+				report.tailMessages === 0
+					? "none"
+					: `${plural(report.tailMessages, "message")} · ${count(report.tail)}`,
+			),
 		],
 		empty: "",
 	};
@@ -130,7 +139,7 @@ export class TokensView implements TabView {
 			for (const part of this.#parts ?? [])
 				rows.push({
 					label: part.kind,
-					value: `${count(part.count)} · ${part.items} items`,
+					value: `${count(part.count)} · ${plural(part.items, "item")}`,
 					tone: "muted",
 				});
 		}

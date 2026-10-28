@@ -5,7 +5,7 @@ title: "pi-auth-plus roadmap"
 description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
 type: "plan"
 created: "2026-10-27T09:43:00+01:00"
-updated: "2026-10-28T11:05:48+01:00"
+updated: "2026-10-28T18:49:34+01:00"
 createdBy: "pi"
 updatedBy: "pi"
 document:
@@ -14,12 +14,15 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 22
+  revision: 23
   created_at: "2026-10-27T09:43:00+01:00"
   updated_at: "2026-10-28T11:05:48+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
+    - revision: 23
+      reason: "M4 implementation and release"
+      changes: ["Model management and bounded signature recovery verified for v0.5.0"]
     - revision: 22
       reason: "M4 verified and planned"
       changes: ["M4 = model management; probes done; plan 0005 and design with wireframes linked"]
@@ -132,13 +135,14 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 2 usage fix     Synthetic duplicate count removed
     [x] 3 counts        HF tokenizers, Synthetic correction and count engine
     [x] 4 surface       /tokens tab, bus, fallback footer and documentation
-[>] M4 Models       verbosity, rules, overrides, aliases, groups
-    plan: plans/0005-m4-model-management/plan.md (draft, all slices unblocked; web_search moved to a separate extension)
+[x] M4 Models       verbosity, rules, overrides, aliases, groups; v0.5.0
+    plan: plans/0005-m4-model-management/plan.md
     design: designs/model-management/ (design.md, wireframes/index.html)
     [x] 0 verify     probes in analyses/model-management/ (filter, verbosity,
                      search, routing, alias limits, attribution)
-    [ ] 1 verbosity  [ ] 2 rules+catalog  [ ] 3 overrides  [ ] 4 aliases
-    [-] 5 web_search [ ] 6 groups         no upstream Pi hook requests
+    [x] 1 verbosity  [x] 2 rules+catalog  [x] 3 overrides  [x] 4 aliases
+    [-] 5 web_search [x] 6 groups         web_search moved to a separate extension
+    [x] Bounded Gemini thought-signature recovery; RPC startup coordination on verified builds
 [.] Later           codex/grok providers?, Pi estimator hook upstream
 ```
 

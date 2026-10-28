@@ -1,16 +1,28 @@
 ---
+version: 1
+id: "0005-m4-model-management"
+title: "M4 model management"
+description: "Verbosity, model rules, overrides, aliases and quota-aware model groups"
+type: "plan"
+created: "2026-10-28T11:55:00+01:00"
+updated: "2026-10-28T18:49:34+01:00"
+createdBy: "pi"
+updatedBy: "pi"
 document:
   type: "plan"
   id: "0005-m4-model-management"
   title: "M4 model management"
   description: "Verbosity, model rules, overrides, aliases, unified web search and quota-aware model groups, grounded in the 2026-10-28 probes"
-  status: "draft"
-  revision: 4
+  status: "published"
+  revision: 5
   created_at: "2026-10-28T11:55:00+01:00"
   updated_at: "2026-10-28T11:29:26+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
+    - revision: 5
+      reason: "M4 implementation and release"
+      changes: ["Mark completed slices and note bounded recovery and catalog coordination"]
     - revision: 1
       reason: "document creation"
       changes: ["Probe-backed slice order; slices 1-2 detailed, later slices sparse; upstream asks; open decisions"]
@@ -35,12 +47,13 @@ limitations without filing upstream hook requests.
 ## Order and why
 
 ```
-[ ] S1 OpenAI verbosity          verified live, smallest, no Pi seam needed
-[ ] S2 Models tab: rules+catalog  engine + editor; enforce owned + re-registered built-ins
-[ ] S3 Overrides editor          Pi's modelOverrides, works for every provider
-[ ] S4 Aliases (owned families)   stream-level id rewrite; built-ins wait for Pi
+[x] S1 OpenAI verbosity          verified live
+[x] S2 Models tab: rules+catalog  owned and built-in enforcement
+[x] S3 Overrides editor          Pi modelOverrides
+[x] S4 Aliases                   provider-local aliases
 [-] S5 web_search               moved to a separate extension (2026-10-28)
-[ ] S6 Model groups               tiers, router, failover recovery, attribution, guards
+[x] S6 Model groups              tiers, routing, failover, attribution and balancing
+[x] Gemini thought-signature recovery and guarded RPC startup coordination
 ```
 
 S1 and S2 are independent; S3 reuses S2's catalog view; S4 extends S3's detail view; S6

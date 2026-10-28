@@ -86,6 +86,11 @@ Choose `quotas.linePlacement` in `/auth settings`, or press `p` in the Quotas ta
 | `below-editor-last` | Last/footer rows; integrates with pi-workbench's footer when available, otherwise uses its own footer |
 | `off` | Hidden; refresh and reporting continue |
 
+With pi-workbench loaded, the quotas become one segment (`pi-auth-plus:quotas`) in its
+configurable statusline, and every placement above stays dormant: the statusline decides
+where and how the line appears. Enable it in `/workbench statusline`; removing the item
+hides the line without changing this setting.
+
 One template applies at every width. Below `quotas.compactWidthCols` (default 100),
 `id` fields and automatic summaries shorten; `quotas.alwaysShortIds` forces that at all widths. The line
 wraps at ` · ` or `{sep}` boundaries, then inside oversized segments. It reserves eight
@@ -123,6 +128,12 @@ remaining fields ignore `percentDisplay`. Named percentages round to whole perce
 `{claude:short,wins,rst}`. Identity plus metrics automatically adds `: `.
 `{all}` renders enabled providers not explicitly placed elsewhere; `{all:short}` forces
 short summaries. `{sep}` inserts a preferred break, displayed as ` · ` within a row.
+
+`{in-use}` renders like `{all}`, but only providers the session actually uses: the current
+model's provider, providers of running subagents, and any provider under quota pressure
+(a window at 90% used or a balance below the critical threshold). `{in-use:short}` forces
+short summaries. Use `{provider:in-use}` as a gate: the segment renders only when that
+provider is in use, so `[{codex:in-use,id,pct}]` disappears for a session without Codex.
 
 Square brackets make a conditional segment: its directly referenced values must all
 be available. Real usage zero and balance zero count as available; zero reset credits

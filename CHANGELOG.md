@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Workbench statusline segment.** With pi-workbench loaded, the quota template is
+  registered as `pi-auth-plus:quotas` and rendered inside Workbench's configurable
+  statusline, with the same template, coloring and coloring thresholds. Every
+  `quotas.linePlacement` stays dormant while that segment owns the row, so the line never
+  appears twice. Configure it in `/workbench statusline`.
+- **`{in-use}` template gate.** `{in-use}`, `{in-use:short}` and `{provider:in-use}` render
+  and hide output by what the session uses: the current model's provider, running
+  subagents, and providers under quota pressure.
+
 - **OpenAI response verbosity.** `/auth settings` can set low, medium or high verbosity for
   OpenAI Responses and Codex, with configurable provider scope. The default leaves requests
   unchanged.

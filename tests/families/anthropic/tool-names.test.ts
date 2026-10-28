@@ -45,4 +45,19 @@ describe("families/anthropic/tool-names", () => {
 		expect(() => toolNameRestorer(["web_search", "webSearch"])).toThrow(ToolNameCollisionError);
 		expect(() => toolNameRestorer(["read", "read"])).not.toThrow();
 	});
+
+	test("an earlier transcript name that folds onto a live tool never blocks the request", () => {
+		const restore = toolNameRestorer(
+			["agent", "read"],
+			["Agent", "get_subagent_result", "Read", "Agent"],
+		);
+		expect(restore("Agent")).toBe("agent");
+		expect(restore("Read")).toBe("read");
+		expect(restore("GetSubagentResult")).toBe("get_subagent_result");
+		expect(restore("BoltAgent")).toBe("BoltAgent");
+	});
+
+	test("live tools still refuse a shared wire name when earlier names are present", () => {
+		expect(() => toolNameRestorer(["agent", "Agent"], ["Agent"])).toThrow(ToolNameCollisionError);
+	});
 });

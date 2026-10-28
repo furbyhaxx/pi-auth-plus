@@ -24,6 +24,14 @@ All notable changes to this project are documented here. The format follows
   OpenAI Responses and Codex, with configurable provider scope. The default leaves requests
   unchanged.
 
+### Fixed
+
+- **Removed tool names in a Claude transcript.** A session that still carries tool calls to a
+  tool Pi no longer registers (for example the old `Agent` subagent tool) failed every request
+  with `tools "…" and "…" share a wire name`. Earlier transcript names now only fill free wire
+  slots, so the live tool wins and the session continues; a collision between two live tools is
+  still refused.
+
 ## [0.4.1] - 2026-10-28
 
 ### Fixed

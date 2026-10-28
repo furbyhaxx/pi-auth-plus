@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { AssistantMessage, Tool } from "@earendil-works/pi-ai";
+import type { AssistantMessage, Message, Tool } from "@earendil-works/pi-ai";
 import { normalizeContext, Type } from "@earendil-works/pi-ai";
 import { claudeAuth } from "../../../src/families/anthropic/oauth.ts";
 import { claudeProvider } from "../../../src/families/anthropic/provider.ts";
@@ -9,40 +9,44 @@ const VERSION = "2.1.400";
 const OAUTH = "sk-ant-oat01-test-token";
 const API_KEY = "sk-ant-api03-test-key";
 
-const SSE = [
-	{
-		type: "message_start",
-		message: {
-			id: "msg_1",
-			type: "message",
-			role: "assistant",
-			content: [],
-			model: "claude-sonnet-5-5",
-			stop_reason: null,
-			stop_sequence: null,
-			usage: { input_tokens: 10, output_tokens: 1 },
+const SSE = sseResponse("Bash", '{"command":"ls"}');
+
+function sseResponse(toolName: string, input: string): string {
+	return [
+		{
+			type: "message_start",
+			message: {
+				id: "msg_1",
+				type: "message",
+				role: "assistant",
+				content: [],
+				model: "claude-sonnet-5-5",
+				stop_reason: null,
+				stop_sequence: null,
+				usage: { input_tokens: 10, output_tokens: 1 },
+			},
 		},
-	},
-	{
-		type: "content_block_start",
-		index: 0,
-		content_block: { type: "tool_use", id: "toolu_1", name: "Bash", input: {} },
-	},
-	{
-		type: "content_block_delta",
-		index: 0,
-		delta: { type: "input_json_delta", partial_json: '{"command":"ls"}' },
-	},
-	{ type: "content_block_stop", index: 0 },
-	{
-		type: "message_delta",
-		delta: { stop_reason: "tool_use", stop_sequence: null },
-		usage: { output_tokens: 5 },
-	},
-	{ type: "message_stop" },
-]
-	.map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
-	.join("");
+		{
+			type: "content_block_start",
+			index: 0,
+			content_block: { type: "tool_use", id: "toolu_1", name: toolName, input: {} },
+		},
+		{
+			type: "content_block_delta",
+			index: 0,
+			delta: { type: "input_json_delta", partial_json: input },
+		},
+		{ type: "content_block_stop", index: 0 },
+		{
+			type: "message_delta",
+			delta: { stop_reason: "tool_use", stop_sequence: null },
+			usage: { output_tokens: 5 },
+		},
+		{ type: "message_stop" },
+	]
+		.map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
+		.join("");
+}
 
 interface Captured {
 	url: string;
@@ -54,12 +58,12 @@ interface Captured {
 	};
 }
 
-function capture(sink: Captured[]): typeof fetch {
+function capture(sink: Captured[], sse: string = SSE): typeof fetch {
 	const fake = async (input: string | URL | Request, init?: RequestInit) => {
 		const url = input instanceof Request ? input.url : String(input);
 		if (init?.method === "HEAD") return new Response(null);
 		sink.push({ url, headers: new Headers(init?.headers), body: JSON.parse(String(init?.body)) });
-		return new Response(SSE, { headers: { "content-type": "text/event-stream" } });
+		return new Response(sse, { headers: { "content-type": "text/event-stream" } });
 	};
 	return Object.assign(fake, { preconnect: () => {} }) as typeof fetch;
 }
@@ -70,7 +74,13 @@ const bash: Tool = {
 	parameters: Type.Object({ command: Type.String() }),
 };
 
-function setup() {
+const agent: Tool = {
+	name: "agent",
+	description: "Spawn a subagent",
+	parameters: Type.Object({ action: Type.String() }),
+};
+
+function setup(overrides: { messages?: Message[]; tools?: Tool[] } = {}) {
 	const provider = claudeProvider({
 		auth: claudeAuth(),
 		version: async () => VERSION,
@@ -81,8 +91,8 @@ function setup() {
 	if (!model) throw new Error("claude-sonnet-5-5 missing from Pi's anthropic catalog");
 	const context = normalizeContext({
 		systemPrompt: "You are an expert coding assistant operating inside pi.",
-		messages: [{ role: "user", content: "list files", timestamp: 0 }],
-		tools: [bash],
+		messages: overrides.messages ?? [{ role: "user", content: "list files", timestamp: 0 }],
+		tools: overrides.tools ?? [bash],
 	});
 	return { provider, model, context };
 }
@@ -140,6 +150,60 @@ describe("families/anthropic/provider", () => {
 		expect(request?.body.tools?.[0]?.name).toBe("bash");
 		expect(JSON.stringify(request?.body.system)).not.toContain(CLAUDE_CODE_IDENTITY);
 		expect(message.usage.cost.total).toBeGreaterThan(0);
+	});
+
+	test("a transcript that still names a removed tool neither blocks the request nor wins the response", async () => {
+		const { provider, model, context } = setup({
+			messages: [
+				{ role: "user", content: "spawn a subagent", timestamp: 0 },
+				{
+					role: "assistant",
+					content: [
+						{ type: "toolCall", id: "call_1", name: "Agent", arguments: { prompt: "scout" } },
+					],
+					api: "anthropic-messages",
+					provider: "claude",
+					model: "claude-sonnet-5-5",
+					usage: {
+						input: 1,
+						output: 1,
+						cacheRead: 0,
+						cacheWrite: 0,
+						totalTokens: 2,
+						cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+					},
+					stopReason: "toolUse",
+					timestamp: 0,
+				},
+				{
+					role: "toolResult",
+					toolCallId: "call_1",
+					toolName: "Agent",
+					content: [{ type: "text", text: "Agent started." }],
+					isError: false,
+					timestamp: 0,
+				},
+			],
+			tools: [agent, bash],
+		});
+		const sent: Captured[] = [];
+		const message: AssistantMessage = await provider
+			.stream(model, context, {
+				headers: { Authorization: `Bearer ${OAUTH}` },
+				fetch: capture(sent, sseResponse("Agent", '{"action":"list"}')),
+				maxRetries: 0,
+			})
+			.result();
+
+		const [request] = sent;
+		const wireNames = (request?.body.tools ?? [])
+			.map((tool) => tool.name)
+			.filter((name) => name !== "DeferredToolPlaceholder");
+		expect(wireNames).toEqual(["Agent", "Bash"]);
+		expect(message.content.find((block) => block.type === "toolCall")).toMatchObject({
+			name: "agent",
+			arguments: { action: "list" },
+		});
 	});
 
 	test("OAuth credentials list the catalog at zero cost, API keys at list price", () => {

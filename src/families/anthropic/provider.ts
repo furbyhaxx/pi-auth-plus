@@ -36,14 +36,21 @@ export interface ClaudeProviderDeps {
 	readonly env: PathEnv;
 }
 
-/** Every tool name the transcript can reference: current tools and earlier calls. */
-function transcriptToolNames(context: TranscriptContext): string[] {
-	const names = getCurrentTools(context.messages).map((tool) => tool.name);
+/**
+ * Wire names the request refers to: the live tools, and the earlier calls the transcript still
+ * carries. A tool that a session called and Pi no longer registers is only a historical name:
+ * a response never dispatches it, so it must not be able to collide with a live tool.
+ */
+function transcriptToolNames(context: TranscriptContext): { current: string[]; earlier: string[] } {
+	const current = getCurrentTools(context.messages).map((tool) => tool.name);
+	const live = new Set(current);
+	const earlier: string[] = [];
 	for (const message of context.messages) {
 		if (message.role !== "assistant") continue;
-		for (const block of message.content) if (block.type === "toolCall") names.push(block.name);
+		for (const block of message.content)
+			if (block.type === "toolCall" && !live.has(block.name)) earlier.push(block.name);
 	}
-	return names;
+	return { current, earlier };
 }
 
 /** Subscription turns are prepaid, so their cost reads zero. */
@@ -73,13 +80,14 @@ export function claudeProvider(deps: ClaudeProviderDeps): Provider<"anthropic-me
 			accountUuid = headers[key] ?? "";
 			delete headers[key];
 		}
+		const names = transcriptToolNames(context);
 		const fetch = claudeFetch({
 			token,
 			accountUuid,
 			...(options?.sessionId ? { sessionId: options.sessionId } : {}),
 			version: deps.version,
 			rules: deps.rules(),
-			restore: toolNameRestorer(transcriptToolNames(context)),
+			restore: toolNameRestorer(names.current, names.earlier),
 			env: { ...deps.env, ...options?.env },
 			...(options?.fetch ? { underlying: options.fetch } : {}),
 		});

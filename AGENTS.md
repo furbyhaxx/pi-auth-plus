@@ -195,7 +195,9 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
   `cch`): identity and billing system blocks, the CLI's beta order and user agent, session
   header and `metadata.user_id`, the `/api/hello` preflight, and bare PascalCase tool names
   (`DeferredToolPlaceholder` for Pi's placeholder) rewritten in both directions, including
-  streamed responses. Deviations and evidence: `.project/analyses/claude-code-cli/tracking.md`. Version
+  streamed responses. A name from an earlier transcript that Pi no longer registers may only
+  fill a free wire slot; a live tool always wins, and two live tools with one wire name stay
+  refused. Deviations and evidence: `.project/analyses/claude-code-cli/tracking.md`. Version
   precedence: env override > installed `claude --version` (if newer) > pinned. Subscription
   models carry zero cost.
 - **antigravity:** agy 1.4.8 identity (`google/transport.ts`): user agent and the CLI's header

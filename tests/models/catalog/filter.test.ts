@@ -49,7 +49,10 @@ describe("model catalog filtering", () => {
 		const mirror = await create();
 		const runtime = await create();
 		const visible = (model: { id: string }) => !model.id.includes("hidden");
-		runtime.registerProvider("openrouter", filteredProviderConfig(mirror, "openrouter", visible));
+		runtime.registerProvider(
+			"openrouter",
+			filteredProviderConfig(mirror, "openrouter", visible, modelsPath),
+		);
 		await runtime.refresh({ allowNetwork: false, providers: ["openrouter"] });
 		expect(
 			runtime
@@ -80,5 +83,60 @@ describe("model catalog filtering", () => {
 				.map((model) => model.id)
 				.sort(),
 		).toEqual(["custom/kept", "vendor/new", "vendor/personal"]);
+	});
+
+	test("preserves literal catalog headers and user model-header precedence", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "model-filter-headers-"));
+		paths.push(dir);
+		const modelsPath = join(dir, "models.json");
+		writeFileSync(
+			modelsPath,
+			JSON.stringify({
+				providers: {
+					openrouter: {
+						modelOverrides: {
+							"vendor/header-test": {
+								headers: { "X-Precedence": "user-value" },
+							},
+						},
+					},
+				},
+			}),
+		);
+		const modelsStore = new InMemoryModelsStore();
+		const credentials = new InMemoryCredentialStore();
+		await credentials.modify("openrouter", async () => ({ type: "api_key", key: "test" }));
+		const create = () =>
+			ModelRuntime.create({ modelsPath, modelsStore, credentials, allowModelNetwork: false });
+		const seed = await create();
+		const source = seed.getModels("openrouter")[0];
+		if (!source) throw new Error("Expected an OpenRouter fixture model");
+		await modelsStore.write("openrouter", {
+			models: [
+				{
+					...source,
+					id: "vendor/header-test",
+					headers: {
+						"X-Precedence": "base-value",
+						"X-Literal": "!printf wrong",
+						"X-Dollar": "$MISSING_LITERAL",
+					},
+				},
+			],
+		});
+		const mirror = await create();
+		const runtime = await create();
+		const original = mirror.getModel("openrouter", "vendor/header-test");
+		if (!original) throw new Error("Expected the fixture model");
+		const baseline = await new ModelRegistry(mirror).getApiKeyAndHeaders(original);
+		runtime.registerProvider(
+			"openrouter",
+			filteredProviderConfig(mirror, "openrouter", () => true, modelsPath),
+		);
+		await runtime.refresh({ allowNetwork: false, providers: ["openrouter"] });
+		const filtered = runtime.getModel("openrouter", original.id);
+		if (!filtered) throw new Error("Expected the filtered fixture model");
+		const actual = await new ModelRegistry(runtime).getApiKeyAndHeaders(filtered);
+		expect(actual).toEqual(baseline);
 	});
 });

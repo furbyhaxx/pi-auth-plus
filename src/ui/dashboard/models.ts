@@ -1,8 +1,10 @@
 /** Staged model visibility rules and their catalog preview. */
 import { Input, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../core/config/index.ts";
+import type { OverrideEdit } from "../../models/overrides/index.ts";
 import { exactModelRule } from "../../models/rules/match.ts";
 import { sanitize } from "../frame/index.ts";
+import { ModelDetail } from "./model-detail.ts";
 import type { TabBody, TabView, TabViewHost } from "./view.ts";
 
 /** A model available to the visibility preview. */
@@ -11,6 +13,11 @@ export interface ModelCatalogItem {
 	id: string;
 	name: string;
 	contextWindow: number;
+	maxTokens?: number;
+	reasoning?: boolean;
+	input?: readonly ("text" | "image")[];
+	cost?: { input: number; output: number; cacheRead: number; cacheWrite: number };
+	api?: string;
 }
 
 /** The final visibility and the last matching rule, if any. */
@@ -25,6 +32,14 @@ export interface ModelsTabDeps {
 	catalog(): readonly ModelCatalogItem[];
 	evaluate(rules: readonly string[], provider: string, id: string): RuleOutcome;
 	save(rules: readonly string[], scope: SaveScope): Promise<void>;
+	details?: {
+		read(provider: string, id: string): Promise<Record<string, unknown> | undefined>;
+		save(
+			provider: string,
+			id: string,
+			changes: readonly { field: readonly string[]; edit: OverrideEdit }[],
+		): Promise<void>;
+	};
 }
 
 function text(value: string): string {
@@ -46,6 +61,7 @@ export class ModelsView implements TabView {
 	#message = "";
 	#saving = false;
 	#disposed = false;
+	#detail: ModelDetail | undefined;
 
 	constructor(host: TabViewHost, deps: ModelsTabDeps) {
 		this.#host = host;
@@ -102,6 +118,13 @@ export class ModelsView implements TabView {
 
 	/** Handles inline editing, staged actions and the scope prompt before frame keys. */
 	handleInput(data: string): boolean {
+		if (this.#detail) {
+			if (!this.#detail.handleInput(data)) {
+				this.#detail.dispose();
+				this.#detail = undefined;
+			}
+			return true;
+		}
 		if (this.#saving) return true;
 		const { keys } = this.#host;
 		const cancel = keys.matches(data, "tui.select.cancel");
@@ -192,6 +215,10 @@ export class ModelsView implements TabView {
 		}
 		if (this.#view === "catalog") {
 			const item = catalog[this.#modelSelected];
+			if (enter && item && this.#deps.details) {
+				this.#detail = new ModelDetail(this.#host, this.#deps.details, item);
+				return true;
+			}
 			if (data !== "h" || !item) return false;
 			const visible = this.#deps.evaluate(rules, item.provider, item.id).visible;
 			this.#stage([...rules, `${visible ? "" : "!"}${exactModelRule(item.provider, item.id)}`]);
@@ -215,6 +242,7 @@ export class ModelsView implements TabView {
 
 	/** Returns a clipped, scrollable body with status and binding-aware hints. */
 	render(width: number, bodyRows: number): TabBody {
+		if (this.#detail) return this.#detail.render(width, bodyRows);
 		const { theme } = this.#host;
 		const rules = this.#rules();
 		const catalog = this.#catalog();
@@ -329,7 +357,12 @@ export class ModelsView implements TabView {
 											{ key: "space/d", action: "toggle/delete", priority: 2 },
 											{ key: "shift+↑/↓", action: "reorder", priority: 3 },
 										]
-									: [{ key: "h", action: "hide/show", priority: 1 }]),
+									: [
+											{ key: "h", action: "hide/show", priority: 1 },
+											...(this.#deps.details
+												? [{ key: binding("tui.select.confirm"), action: "detail", priority: 0 }]
+												: []),
+										]),
 							],
 		};
 	}
@@ -337,5 +370,6 @@ export class ModelsView implements TabView {
 	/** Prevents late save completions from redrawing a closed dashboard. */
 	dispose(): void {
 		this.#disposed = true;
+		this.#detail?.dispose();
 	}
 }

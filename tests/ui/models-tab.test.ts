@@ -15,6 +15,7 @@ function open(
 	initial: readonly string[] = ["vendor/*", "!vendor/one"],
 	fail = false,
 	extra: readonly ModelCatalogItem[] = [],
+	details?: ModelsTabDeps["details"],
 ) {
 	let stored = [...initial];
 	const saves: { rules: readonly string[]; scope: SaveScope }[] = [];
@@ -54,6 +55,7 @@ function open(
 			saves.push({ rules: [...rules], scope });
 		},
 	};
+	if (details) deps.details = details;
 	const view = new ModelsView(host, deps);
 	return {
 		view,
@@ -75,6 +77,171 @@ async function save(rig: ReturnType<typeof open>, target: string) {
 }
 
 describe("models tab", () => {
+	test("detail stages patches, validates, removes and discards", async () => {
+		const saves: unknown[] = [];
+		const details: NonNullable<ModelsTabDeps["details"]> = {
+			read: async () => ({ contextWindow: 1200, cost: { input: 2 } }),
+			save: async (provider, id, changes) => {
+				saves.push({ provider, id, changes });
+			},
+		};
+		const rig = open([], false, [], details);
+		rig.view.handleInput("v");
+		let refreshed = rig.nextRefresh();
+		rig.view.handleInput("\r");
+		await refreshed;
+		expect(rig.text()).toContain("override");
+		for (let selected = 0; selected < 9; selected++) {
+			for (const width of [36, 57, 80, 140]) {
+				const body = rig.view.render(width, 3);
+				for (const line of [...body.lines, body.description ?? "", body.state ?? ""]) {
+					expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+					expect(stripVTControlCharacters(line)).not.toContain("evil");
+				}
+			}
+			rig.view.handleInput("j");
+		}
+		for (let selected = 0; selected < 8; selected++) rig.view.handleInput("k");
+		rig.view.handleInput("j");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x01");
+		rig.view.handleInput("\x0b");
+		rig.view.handleInput("0");
+		rig.view.handleInput("\r");
+		expect(rig.text()).toContain("positive integer");
+		rig.view.handleInput("\x13");
+		expect(saves).toEqual([]);
+		rig.view.handleInput("\x01");
+		rig.view.handleInput("\x0b");
+		rig.view.handleInput("4096");
+		rig.view.handleInput("\r");
+		for (let i = 0; i < 4; i++) rig.view.handleInput("j");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x01");
+		rig.view.handleInput("\x0b");
+		rig.view.handleInput("-1");
+		rig.view.handleInput("\r");
+		expect(rig.text()).toContain("non-negative cost");
+		rig.view.handleInput("\x13");
+		expect(saves).toEqual([]);
+		rig.view.handleInput("\x01");
+		rig.view.handleInput("\x0b");
+		rig.view.handleInput("0");
+		rig.view.handleInput("\r");
+		refreshed = rig.nextRefresh();
+		rig.view.handleInput("\x13");
+		await refreshed;
+		expect(saves).toEqual([
+			{
+				provider: "vendor",
+				id: "one",
+				changes: [
+					{ field: ["contextWindow"], edit: { kind: "set", value: 4096 } },
+					{ field: ["cost", "input"], edit: { kind: "set", value: 0 } },
+				],
+			},
+		]);
+		rig.view.handleInput("k");
+		rig.view.handleInput("k");
+		rig.view.handleInput("k");
+		rig.view.handleInput("k");
+		rig.view.handleInput("\x7f");
+		refreshed = rig.nextRefresh();
+		rig.view.handleInput("\x13");
+		await refreshed;
+		expect(saves[1]).toEqual({
+			provider: "vendor",
+			id: "one",
+			changes: [{ field: ["contextWindow"], edit: { kind: "remove" } }],
+		});
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x01");
+		rig.view.handleInput("\x0b");
+		rig.view.handleInput("5000");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x1b");
+		refreshed = rig.nextRefresh();
+		rig.view.handleInput("\r");
+		await refreshed;
+		rig.view.handleInput("\x13");
+		expect(saves).toHaveLength(2);
+	});
+	test("detail cycles typed fields and removes default verbosity", async () => {
+		const saves: unknown[] = [];
+		const details: NonNullable<ModelsTabDeps["details"]> = {
+			read: async () => ({ samplingParams: { text: { verbosity: "high" } } }),
+			save: async (_provider, _id, changes) => {
+				saves.push(changes);
+			},
+		};
+		const rig = open(
+			[],
+			false,
+			[
+				{
+					provider: "vendor",
+					id: "responses",
+					name: "Responses",
+					contextWindow: 100,
+					api: "openai-responses",
+					reasoning: false,
+					input: ["text"],
+				},
+			],
+			details,
+		);
+		rig.view.handleInput("v");
+		rig.view.handleInput("j");
+		rig.view.handleInput("j");
+		const opened = rig.nextRefresh();
+		rig.view.handleInput("\r");
+		await opened;
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x01");
+		rig.view.handleInput("\x0b");
+		rig.view.handleInput(" ");
+		rig.view.handleInput("\r");
+		expect(rig.text()).toContain("Name cannot be empty");
+		rig.view.handleInput("\x1b");
+		for (let i = 0; i < 3; i++) rig.view.handleInput("j");
+		rig.view.handleInput(" ");
+		rig.view.handleInput("j");
+		rig.view.handleInput(" ");
+		for (let i = 0; i < 5; i++) rig.view.handleInput("j");
+		expect(rig.text()).toContain("Response verbosity · high · override");
+		rig.view.handleInput(" ");
+		const saved = rig.nextRefresh();
+		rig.view.handleInput("\x13");
+		await saved;
+		expect(saves).toEqual([
+			[
+				{ field: ["reasoning"], edit: { kind: "set", value: true } },
+				{ field: ["input"], edit: { kind: "set", value: ["text", "image"] } },
+				{ field: ["samplingParams", "text", "verbosity"], edit: { kind: "remove" } },
+			],
+		]);
+	});
+
+	test("detail read failure blocks changes and save", async () => {
+		let saved = false;
+		const rig = open([], false, [], {
+			read: async () => {
+				throw new Error("bad file");
+			},
+			save: async () => {
+				saved = true;
+			},
+		});
+		rig.view.handleInput("v");
+		const opened = rig.nextRefresh();
+		rig.view.handleInput("\r");
+		await opened;
+		expect(rig.text()).toContain("Read failed");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x13");
+		expect(saved).toBe(false);
+	});
+
 	test("edits and reorders rules, previews immediately, and saves only to the selected scope", async () => {
 		for (const [target, scope] of [
 			["u", "user"],

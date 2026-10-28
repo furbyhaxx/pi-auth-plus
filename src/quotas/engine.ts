@@ -176,7 +176,11 @@ export class QuotaEngine {
 	}
 
 	/** Stores the first enabled parser's claim without refreshing endpoint freshness. */
-	async ingestHeaders(headers: Record<string, string>, hint?: string): Promise<string | undefined> {
+	async ingestHeaders(
+		headers: Record<string, string>,
+		hint?: string,
+		options?: { readonly strict?: boolean },
+	): Promise<string | undefined> {
 		const signal = this.controller.signal;
 		if (signal.aborted) return undefined;
 		const normalized = Object.fromEntries(
@@ -185,9 +189,13 @@ export class QuotaEngine {
 		const providers = this.providers();
 		const hintedId = hint ? this.options.registry.resolve(hint)?.provider.id : undefined;
 		const hinted = providers.find((provider) => provider.id === hintedId);
-		const ordered = hinted
-			? [hinted, ...providers.filter((provider) => provider !== hinted)]
-			: providers;
+		const ordered = options?.strict
+			? hinted
+				? [hinted]
+				: []
+			: hinted
+				? [hinted, ...providers.filter((provider) => provider !== hinted)]
+				: providers;
 		const now = this.options.now();
 		for (const provider of ordered) {
 			const parser = provider.quota?.headers;

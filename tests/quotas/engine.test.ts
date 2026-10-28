@@ -261,6 +261,37 @@ describe("quota engine", () => {
 		expect(order).toEqual(["other", "fake"]);
 	});
 
+	test("physical attribution never assigns headers to another provider", async () => {
+		const order: string[] = [];
+		const { engine } = setup(() => {
+			order.push("fake");
+			return { ...snapshot(), source: "headers" };
+		}, [
+			{
+				id: "other",
+				label: "Other",
+				aliases: [],
+				quota: {
+					kind: "windows",
+					shortLabel: "o",
+					parserVersion: 1,
+					fetch: async () => snapshot(),
+					headers: () => {
+						order.push("other");
+						return undefined;
+					},
+				},
+			},
+		]);
+		expect(await engine.ingestHeaders({}, "other", { strict: true })).toBeUndefined();
+		expect(order).toEqual(["other"]);
+		order.length = 0;
+		expect(
+			await engine.ingestHeaders({}, "not-a-quota-provider", { strict: true }),
+		).toBeUndefined();
+		expect(order).toEqual([]);
+	});
+
 	test("a throwing hint falls through for both canonical ids and aliases", async () => {
 		const order: string[] = [];
 		const { engine } = setup(() => {

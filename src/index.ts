@@ -1,15 +1,30 @@
 /** Pi entrypoint: awaits family registration and wires commands, flags and events. */
 
 import { join } from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { isModelType, type Provider } from "@earendil-works/pi-ai";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+	ProviderConfig,
+	ProviderModelConfig,
+} from "@earendil-works/pi-coding-agent";
 import { handleQuotaCli, registerQuotaCliFlags } from "./cli/index.ts";
 import { credentialStatus, readCredential } from "./core/auth/index.ts";
 import { type AppSettings, SETTINGS } from "./core/config/catalog.ts";
 import { SettingsStore } from "./core/config/index.ts";
 import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts/index.ts";
-import { cacheDir, projectSettingsPath, userSettingsPath } from "./core/paths/index.ts";
-import { Registry, registerFamilyProviders } from "./core/registry/index.ts";
+import { cacheDir, modelsPath, projectSettingsPath, userSettingsPath } from "./core/paths/index.ts";
+import { type ProviderSink, Registry, registerFamilyProviders } from "./core/registry/index.ts";
+import { registerCompatibleThoughtSignatures } from "./families/google/compatible-signatures.ts";
+import { registerThoughtSignatureRecovery } from "./families/google/signature-recovery.ts";
 import { FAMILIES } from "./families/index.ts";
+import { wrapNamedAliases } from "./models/aliases/named.ts";
+import { wrapNativeAliases } from "./models/aliases/native.ts";
+import { filterNativeProvider, filterOwnedConfig } from "./models/catalog/owned-filter.ts";
+import { CatalogVisibility } from "./models/catalog/runtime.ts";
+import { readOverride, updateOverrides } from "./models/overrides/index.ts";
+import { compileModelRules, evaluateModelRules } from "./models/rules/match.ts";
+import { effectiveModelRules } from "./models/rules/settings.ts";
 import { quotaAuthFor } from "./quotas/auth.ts";
 import { registerQuotaBus } from "./quotas/bus.ts";
 import { QuotaEngine } from "./quotas/engine.ts";
@@ -24,6 +39,7 @@ import { defaultTokenizerStore } from "./tokens/tokenizer/index.ts";
 import { createTokenTracker } from "./tokens/tracker/index.ts";
 import { registerAuthCommands } from "./ui/commands/index.ts";
 import { confirmReset } from "./ui/commands/resets.ts";
+import type { ModelCatalogItem } from "./ui/dashboard/models.ts";
 
 const NO_EXTENSIONS = process.argv.some((arg) => arg === "--no-extensions" || arg === "-ne");
 
@@ -32,6 +48,105 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	await handleQuotaCli(process.argv.slice(2));
 	const registry = new Registry(FAMILIES);
 	let settings: AppSettings = new SettingsStore(SETTINGS, { user: userSettingsPath() });
+	await settings.load();
+	let lastRules: readonly string[] | undefined;
+	let compiledRules = compileModelRules([]);
+	const isVisible = (provider: string, model: { readonly id: string }): boolean => {
+		const rules = effectiveModelRules(settings);
+		if (rules !== lastRules) {
+			lastRules = rules;
+			compiledRules = compileModelRules(rules);
+		}
+		return !evaluateModelRules(compiledRules, provider, model.id).hidden;
+	};
+	const ownedProviders = new Set<string>();
+	const ownedCatalog = new Map<string, () => readonly ModelCatalogItem[]>();
+	const providerSink: ProviderSink = {
+		registerProvider(providerOrName: Provider | string, config?: ProviderConfig) {
+			if (typeof providerOrName !== "string") {
+				ownedProviders.add(providerOrName.id);
+				const aliased = wrapNativeAliases(providerOrName, () => settings.get("models.aliases"));
+				ownedCatalog.set(providerOrName.id, () => aliased.getModels());
+				pi.registerProvider(
+					filterNativeProvider(aliased, (model) => isVisible(providerOrName.id, model)),
+				);
+			} else if (config) {
+				if (providerOrName === "synthetic") {
+					ownedProviders.add(providerOrName);
+					const aliased = wrapNamedAliases(providerOrName, config, () =>
+						settings.get("models.aliases"),
+					);
+					let original: readonly ProviderModelConfig[] = [];
+					ownedCatalog.set(providerOrName, () =>
+						original.flatMap((model) =>
+							model.type === undefined || model.type === "chat"
+								? [
+										{
+											provider: providerOrName,
+											id: model.id,
+											name: model.name,
+											contextWindow: model.contextWindow,
+											maxTokens: model.maxTokens,
+											reasoning: model.reasoning,
+											input: model.input,
+											cost: model.cost,
+											api: model.api ?? config.api ?? "",
+										},
+									]
+								: [],
+						),
+					);
+					pi.registerProvider(
+						providerOrName,
+						filterOwnedConfig(
+							aliased,
+							(model) => isVisible(providerOrName, model),
+							(models) => {
+								original = models;
+							},
+						),
+					);
+				} else pi.registerProvider(providerOrName, config);
+			}
+		},
+	};
+	const catalogVisibility = new CatalogVisibility(
+		pi,
+		() => settings,
+		ownedProviders,
+		(model) => isVisible(model.provider, model),
+	);
+	const applyModelRules = async (
+		ctx: ExtensionContext,
+		changedProviders: readonly string[] = [],
+	): Promise<void> => {
+		await catalogVisibility.apply(ctx, changedProviders);
+		const selected = ctx.model;
+		if (
+			!selected ||
+			!catalogVisibility.handles(selected.provider) ||
+			isVisible(selected.provider, selected)
+		)
+			return;
+		const identity = `${selected.provider}/${selected.id}`;
+		if (settings.get("models.hiddenDefault") === "fallback") {
+			const available = ctx.modelRegistry
+				.getAvailable()
+				.filter((model) => isVisible(model.provider, model));
+			const next = available.find((model) => model.provider === selected.provider) ?? available[0];
+			if (next && (await pi.setModel(next))) {
+				ctx.ui.notify(
+					`${identity} is hidden by model rules; switched to ${next.provider}/${next.id}.`,
+					"info",
+				);
+				return;
+			}
+		}
+		ctx.ui.notify(
+			`${identity} is hidden by model rules; the current selection was kept.`,
+			"warning",
+		);
+	};
 	// Registered before the families so their session_start handlers see this session's settings.
 	pi.on("session_start", async (_event, ctx) => {
 		const project = ctx.isProjectTrusted() ? projectSettingsPath(ctx.cwd) : undefined;
@@ -40,6 +155,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			project ? { user: userSettingsPath(), project } : { user: userSettingsPath() },
 		);
 		const problems = await settings.load();
+		await applyModelRules(ctx);
 		if (problems.length > 0) {
 			const lines = problems.map((p) => `${p.path}${p.key ? ` ${p.key}` : ""}: ${p.reason}`);
 			ctx.ui.notify(`pi-auth-plus settings:\n${lines.join("\n")}`, "warning");
@@ -156,10 +272,75 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		if (provider?.quota) void quotas.refresh(provider.id, { minAgeMs: 2000 });
 	});
 	const host = { settings: () => settings };
-	await registerFamilyProviders(pi, registry, host);
+	await registerFamilyProviders(providerSink, registry, host);
+	await catalogVisibility.apply();
 	for (const family of registry.families) await family.register?.(pi, host);
+	registerCompatibleThoughtSignatures(pi);
+	registerThoughtSignatureRecovery(pi);
+	let previewRules: readonly string[] | undefined;
+	let previewCompiled = compileModelRules([]);
+	const modelCatalog = (): ModelCatalogItem[] => {
+		const rows = new Map<string, ModelCatalogItem>();
+		const add = (models: readonly ModelCatalogItem[]) => {
+			for (const model of models) rows.set(`${model.provider}\0${model.id}`, model);
+		};
+		for (const models of ownedCatalog.values()) add(models());
+		add(catalogVisibility.catalog().filter((model) => isModelType(model, "chat")));
+		add(quotaContext?.modelRegistry.getAll() ?? []);
+		return [...rows.values()];
+	};
 	registerAuthCommands(pi, {
 		registry,
+		models: {
+			rules: () => effectiveModelRules(settings),
+			catalog: modelCatalog,
+			evaluate: (rules, provider, id) => {
+				if (rules !== previewRules) {
+					previewRules = rules;
+					previewCompiled = compileModelRules(rules);
+				}
+				const result = evaluateModelRules(previewCompiled, provider, id);
+				return {
+					visible: !result.hidden,
+					...(result.ruleIndex === undefined ? {} : { ruleIndex: result.ruleIndex }),
+				};
+			},
+			save: async (rules, scope) => {
+				await settings.save(scope, { "models.rules": rules });
+				if (quotaContext) await applyModelRules(quotaContext);
+			},
+			details: {
+				aliases: {
+					list: () => settings.get("models.aliases"),
+					supported: (provider) => ownedProviders.has(provider),
+					save: async (aliases, scope) => {
+						await settings.save(scope, { "models.aliases": aliases });
+						if (quotaContext) await applyModelRules(quotaContext, [...ownedProviders]);
+					},
+				},
+				read: (provider, id) => readOverride(modelsPath(), provider, id),
+				current: (provider, id) =>
+					modelCatalog().find((model) => model.provider === provider && model.id === id),
+				save: async (provider, id, changes) => {
+					await updateOverrides(modelsPath(), provider, id, changes);
+					const ctx = quotaContext;
+					if (!ctx) return;
+					try {
+						await applyModelRules(ctx, [provider]);
+						if (ctx.model?.provider === provider && ctx.model.id === id) {
+							const model = ctx.modelRegistry.find(provider, id);
+							if (model && !(await pi.setModel(model)))
+								ctx.ui.notify("Model override saved; reselect the model to apply it.", "warning");
+						}
+					} catch (error) {
+						ctx.ui.notify(
+							`Model override saved, but catalog refresh failed: ${error instanceof Error ? error.message : String(error)}`,
+							"warning",
+						);
+					}
+				},
+			},
+		},
 		status: (providerId) => {
 			const custom = registry.resolve(providerId)?.provider.login?.status;
 			if (custom) return custom(Date.now());
@@ -199,7 +380,19 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				: "pi-quotas is loaded and still owns quotas. Remove it from your Pi settings to use these.",
 		settings: {
 			store: () => settings,
-			onSaved: () => quotaLine.settingsChanged(),
+			onSaved: (keys) => {
+				quotaLine.settingsChanged();
+				if (quotaContext && keys.some((key) => key.startsWith("models."))) {
+					const ctx = quotaContext;
+					const changed = keys.includes("models.aliases") ? [...ownedProviders] : [];
+					void applyModelRules(ctx, changed).catch((error: unknown) =>
+						ctx.ui.notify(
+							`Model rules could not be refreshed: ${error instanceof Error ? error.message : String(error)}`,
+							"warning",
+						),
+					);
+				}
+			},
 			preview: (source, width, theme) => quotaLine.preview(source, width, theme),
 		},
 	});

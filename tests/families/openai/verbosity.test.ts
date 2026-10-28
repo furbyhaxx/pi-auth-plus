@@ -43,6 +43,15 @@ describe("OpenAI response verbosity", () => {
 		).toBeUndefined();
 	});
 
+	test("per-model verbosity overrides the global setting and preserves other text fields", () => {
+		const model = { ...openai, samplingParams: { text: { verbosity: "high" } } };
+		const payload = { model: "sample", input: [], text: { format: { type: "json_object" } } };
+		expect(applyOpenaiVerbosity(payload, model, "low", providers)).toEqual({
+			...payload,
+			text: { format: { type: "json_object" }, verbosity: "high" },
+		});
+	});
+
 	test("family hook uses the current scoped setting on every request", async () => {
 		const host = await testHost({ "openai.verbosity": "high" });
 		let handler:

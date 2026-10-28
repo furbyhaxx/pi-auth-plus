@@ -11,6 +11,7 @@ function rig(packages: string[]) {
 	const ctx = {
 		cwd: process.env["HOME"],
 		model: { provider: "openai-codex" },
+		modelRegistry: { refresh: async () => ({ errors: new Map(), aborted: false }) },
 		mode: "rpc",
 		hasUI: true,
 		isProjectTrusted: () => false,

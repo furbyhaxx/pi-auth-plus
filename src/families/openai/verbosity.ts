@@ -4,6 +4,7 @@ interface SelectedModel {
 	readonly provider: string;
 	readonly id: string;
 	readonly api: string;
+	readonly samplingParams?: Readonly<Record<string, unknown>> | undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -17,8 +18,13 @@ export function applyOpenaiVerbosity(
 	verbosity: Verbosity,
 	providers: readonly string[],
 ): Record<string, unknown> | undefined {
+	const override = isRecord(model?.samplingParams?.["text"])
+		? model?.samplingParams?.["text"]["verbosity"]
+		: undefined;
+	const effective =
+		override === "low" || override === "medium" || override === "high" ? override : verbosity;
 	if (
-		verbosity === "default" ||
+		effective === "default" ||
 		!model ||
 		!providers.includes(model.provider) ||
 		(model.api !== "openai-responses" && model.api !== "openai-codex-responses") ||
@@ -31,6 +37,6 @@ export function applyOpenaiVerbosity(
 	}
 	return {
 		...payload,
-		text: { ...(isRecord(payload["text"]) ? payload["text"] : {}), verbosity },
+		text: { ...(isRecord(payload["text"]) ? payload["text"] : {}), verbosity: effective },
 	};
 }

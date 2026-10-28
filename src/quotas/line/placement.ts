@@ -25,6 +25,8 @@ export function createFooterPlacement(
 	pi: Pick<ExtensionAPI, "events" | "getThinkingLevel">,
 	rows: FooterRows,
 	tokens?: () => ContextReport | undefined,
+	/** True while another surface (the workbench statusline segment) already shows the quotas. */
+	suppressed: () => boolean = () => false,
 ): FooterPlacement {
 	let ctx: FooterPlacementContext | undefined;
 	let enabled = false;
@@ -46,7 +48,8 @@ export function createFooterPlacement(
 	}
 
 	function sync(): void {
-		const desired = enabled && ctx?.mode === "tui" && ctx.hasUI ? (host ?? "own") : undefined;
+		const desired =
+			!suppressed() && enabled && ctx?.mode === "tui" && ctx.hasUI ? (host ?? "own") : undefined;
 		if (owner === desired) {
 			requestRender();
 			return;

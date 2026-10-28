@@ -125,9 +125,23 @@ describe("OpenAI quota headers", () => {
 });
 
 describe("OpenAI quota", () => {
-	test("contributes Pi ids and aliases without provider registration", () => {
+	test("contributes Pi ids and aliases without registering a model provider", () => {
 		const family = createOpenaiFamily();
-		expect(family.register).toBeUndefined();
+		// The family hooks request shaping; it never registers a model provider of its own.
+		let providerRegistrations = 0;
+		const pi = {
+			on: () => () => {},
+			registerProvider: () => {
+				providerRegistrations++;
+			},
+		};
+		family.register?.(
+			pi as never,
+			{
+				settings: () => ({ get: () => undefined }),
+			} as never,
+		);
+		expect(providerRegistrations).toBe(0);
 		const registry = new Registry([family]);
 		for (const name of ["codex", "openai", "openai-codex", "chatgpt", "cx", "cox", "oai"]) {
 			expect(registry.resolve(name)?.provider.id).toBe("codex");

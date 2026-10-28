@@ -51,22 +51,24 @@ function headerKey(headers: Headers, name: string): string | undefined {
 }
 
 function setHeader(headers: Headers, name: string, value: string): void {
-	const existing = headerKey(headers, name);
-	if (existing !== undefined) delete headers[existing];
+	const lower = name.toLowerCase();
+	for (const key of Object.keys(headers)) {
+		if (key.toLowerCase() === lower) delete headers[key];
+	}
 	headers[name] = value;
 }
 
 /**
  * Rewrites Pi's OpenCode attribution (`x-opencode-client: pi`, Pi's session id) into the CLI's
  * identity, in place. Pi's own `x-opencode-*` stamp is the only marker of an OpenCode request in
- * `before_provider_headers`, so headers without it are left alone. Zen's free tier requires the
- * `opencode/` agent, client `cli` and a `ses_` session-affinity id. Returns whether it rewrote.
+ * `before_provider_headers`, so headers without it are left alone unless the provider is verified.
+ * Zen requires the `opencode/` agent, client `cli` and a `ses_` session-affinity id.
  */
-export function applyCliIdentity(headers: Headers, sessionId: string): boolean {
+export function applyCliIdentity(headers: Headers, sessionId: string, force = false): boolean {
 	const stamped =
 		headerKey(headers, "x-opencode-client") !== undefined ||
 		headerKey(headers, "x-opencode-session") !== undefined;
-	if (!stamped) return false;
+	if (!stamped && !force) return false;
 	setHeader(headers, "User-Agent", CLI_USER_AGENT);
 	setHeader(headers, "x-opencode-client", "cli");
 	setHeader(headers, "x-opencode-project", CLI_PROJECT);

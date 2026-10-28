@@ -125,7 +125,7 @@ This file describes the target state.
 
 - `families/index.ts` registers `opencode`, `synthetic`, `claude`, `antigravity`, `openai`,
   `xai`, `openrouter` and `deepseek`. Quotas (M2) own `/quota` and `/quotas`, and
-  `core/conflicts` lists `pi-quotas`. `/tokens` is not registered until the M3 surface lands.
+  `core/conflicts` lists `pi-quotas`.
 - Pi 1.4 gives extensions no credential-store write. `core/auth/store.ts` is the one exception
   to "`/login` owns writes": a fill-only slot write to `auth.json` under Pi's own proper-lockfile
   lock (stale 30 s, file 0600), used by `google/migration.ts` once per process on the first
@@ -135,9 +135,6 @@ This file describes the target state.
 - No legacy migration exists yet: pi-synthetic-auth's `websearch.synthetic` in Pi's
   `settings.json` and its `SYNTHETIC_WEB_SEARCH` variable, and pi-claude-auth's replace
   patterns in Pi's `settings.json`, are not read.
-- `tokens/` has the source contracts (`types.ts`) and the Hugging Face tokenizer store
-  (`tokenizer/`: first-use download, pinned revision, hash check, offline cache under
-  `$XDG_CACHE_HOME/pi-auth-plus/tokenizers/`). No count engine or `FamilyAdapter.tokens` yet.
 - `core/auth` has slot reads, PKCE and code paste; the local callback server arrives with the
   first provider that needs one.
 - Absorption follows `.project/plans/roadmap.md`; delete each line here when its part lands.

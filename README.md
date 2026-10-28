@@ -12,8 +12,8 @@ and a shared `/auth` dashboard.
 - `/auth` provider status and staged settings; `/quotas` and `/quota` open quota detail.
 - ChatGPT reset credits with explicit approval, read-only quota CLI, and an extension bus.
 - Optional Synthetic web search with highlights and full-page text files.
-
-Token counting is not available in the Tokens tab.
+- Context token counts from the best source per model (provider usage, Claude's count
+  endpoint, offline Hugging Face tokenizers), with the source shown: `/tokens`.
 
 ## Install
 
@@ -29,6 +29,7 @@ quota engine. Anonymous OpenCode Zen requires Pi-Bolt.
 
 - [Getting started and migration](docs/getting-started.md)
 - [Quotas: providers, line templates, resets and CLI](docs/quotas.md)
+- [Token counts: sources, tokenizers and the Tokens tab](docs/tokens.md)
 - [Commands and keys](docs/commands.md)
 - [Settings, files and environment](docs/configuration.md)
 - [Event bus for extensions](docs/events.md)

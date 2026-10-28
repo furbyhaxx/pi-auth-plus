@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Context token counts.** Each session's context is counted for the selected model:
+  the last reply's provider usage plus everything after it, with the source of every
+  number shown. Claude uses its `count_tokens` endpoint; Synthetic `hf:` models and
+  Antigravity gpt-oss use the model's tokenizer when available. Other routes and
+  unavailable counters use character estimates. Before the first reply, the request's
+  contributions are counted separately.
+- **Tokens tab and `/tokens`** (alias `/token`): total, context percentage, Pi's own count
+  and the difference, anchor and tail, and a full-request breakdown by contribution.
+- **Footer context percentage.** With `quotas.linePlacement = "below-editor-last"`, the
+  fallback footer shows the counted percentage; a leading `~` marks a character estimate.
+- **Token bus.** `pi-auth-plus:v1:tokens:{ready,context,query}` and the `queryTokens`,
+  `onTokenContext` and `onTokensReady` helpers in `@furbyhaxx/pi-auth-plus/bus`.
+
 ### Fixed
 
 - **Synthetic context size no longer doubles.** Synthetic repeats the uncached input as a

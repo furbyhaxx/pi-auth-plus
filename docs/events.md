@@ -1,13 +1,16 @@
-# Quota event bus
+# Event bus
 
-Other Pi extensions use `pi.events` to read, refresh and observe quotas. The namespace
-is `pi-auth-plus:v1:quotas:`. Payload changes within v1 are additive; consumers should
+Other Pi extensions use `pi.events` to read, refresh and observe quotas and to read the
+session's token counts. Quota channels use the namespace `pi-auth-plus:v1:quotas:`;
+token channels use `pi-auth-plus:v1:tokens:` (see [Token channels](#token-channels)).
+Payload changes within v1 are additive; consumers should
 ignore unknown fields. Provider inputs accept [registry aliases](quotas.md#providers);
 outputs use Pi ids. Payloads contain no credentials or account/project identifiers.
 
 The service belongs to the current session. It is registered at session start and
-removed on shutdown; in-flight replies are suppressed after disposal. It is unavailable
-while pi-quotas is loaded. Do not treat a missing reply as zero usage or approval.
+removed on shutdown; in-flight replies are suppressed after disposal. The quota service
+is unavailable while pi-quotas is loaded; the token service is not affected by it. Do not
+treat a missing reply as zero usage or approval.
 Pi emits synchronously without awaiting listeners: always subscribe before emitting and
 wait for a correlated reply, not the return value of `emit`.
 
@@ -280,3 +283,64 @@ interface ResetOutcome {
 
 These channels replace pi-quotas's namespace and its wire envelope. Update raw bus
 consumers rather than changing only the channel prefix; prefer the client helpers.
+
+## Token channels
+
+The token service counts the current session for its selected model; see
+[Token counts](tokens.md). It is registered at every session start, also while pi-quotas
+is loaded.
+
+```typescript
+import { queryTokens, onTokenContext, onTokensReady } from "@furbyhaxx/pi-auth-plus/bus";
+```
+
+| Helper | Arguments after `pi.events` | Result |
+|---|---|---|
+| `queryTokens` | Optional `{ refresh?: boolean, breakdown?: boolean }`, optional request options | `TokenQueryResult` |
+| `onTokenContext` | Listener for `TokenContextPayload` | Unsubscribe function |
+| `onTokensReady` | Listener for `TokenReadyPayload` | Unsubscribe function |
+
+`queryTokens` uses the same `QuotaRequestOptions` (15 second default) and rejects with
+`QuotaBusError`. Without flags it returns the latest cached count. `refresh: true`
+recounts first; `breakdown: true` also counts the full request per contribution, which
+can take several provider count calls on Claude. `TOKEN_CHANNELS` exports the full
+channel names.
+
+| Channel | Kind | Payload |
+|---|---|---|
+| `pi-auth-plus:v1:tokens:ready` | broadcast | `{ v: 1, capabilities: ["query", "context"] }` |
+| `pi-auth-plus:v1:tokens:context` | broadcast | `{ v: 1, reason: TrackerReason, report: ContextReport \| null }` |
+| `pi-auth-plus:v1:tokens:query` | request | `{ refresh?: boolean, breakdown?: boolean }` |
+
+The query uses the nonce envelope described under [Wire request/reply](#wire-requestreply);
+its success payload is `{ v: 1, ok: true, report: ContextReport | null, breakdown? }`.
+`report` is `null` when no report is available, including before a model is selected.
+`context` is emitted when a recount completes or the report is cleared.
+
+`reason` is one of `session_start`, `session_shutdown`, `model_select`, `message_end`,
+`turn_end`, `session_compact`, `session_tree` and `request`.
+
+```typescript
+type TokenSource = "provider" | "count-endpoint" | "tokenizer" | "estimate";
+interface TokenCount {
+  tokens: number;
+  source: TokenSource;
+}
+interface ContextReport {
+  provider: string;
+  model: string;
+  tokens: TokenCount;        // anchor + tail, weakest source of both
+  contextWindow?: number;
+  percent?: number;          // tokens / contextWindow * 100
+  anchor?: TokenCount;       // last valid reply's total usage, including output
+  tail: TokenCount;          // messages after the anchor
+  tailMessages: number;
+  pi?: number | null;        // Pi's own count, for comparison
+  computedAt: number;
+}
+interface BreakdownPart {
+  kind: "system" | "tools" | "user" | "assistant" | "toolResult" | "other";
+  count: TokenCount;
+  items: number;
+}
+```

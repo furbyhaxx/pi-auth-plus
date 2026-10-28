@@ -10,10 +10,12 @@ logs in or out; it reports status and points to the appropriate login.
 | `/auth` | Open Providers |
 | `/auth providers` | Credential status, source and OAuth expiry |
 | `/auth quotas [provider]` | Live quota detail; optional solo provider |
-| `/auth tokens` | Open Tokens; this tab reports that token counting is unavailable |
+| `/auth tokens` | Live context count, sources and full-request breakdown; see [Token counts](tokens.md) |
 | `/auth settings [key]` | All settings; optional dotted key selects that row |
 | `/quotas [provider]` | Open Quotas, optionally solo |
 | `/quota [provider]` | Same handler as `/quotas` |
+| `/tokens` | Open Tokens |
+| `/token` | Same handler as `/tokens` |
 | `/quotas reset [provider]` | List reset credits, then ask before spending one; default is first enabled reset-capable provider (`codex`) |
 | `/quota reset [provider]` | Same reset flow |
 | `/quota codex login [--device\|--browser]` | Codex OAuth login for the `codex` quota source; writes `<agentDir>/quotas-codex-auth.json`. See [Codex login](quotas.md#codex-login) |
@@ -33,12 +35,13 @@ quota provider currently opens the unfiltered view; it does not validate as stri
 the CLI or bus. Reset arguments reject unsupported/unknown providers and extra words.
 
 Commands offer argument completion for dashboard sections and quota provider ids/reset.
-There is no standalone `/tokens` command. There are no `/quota settings`, `show`,
+`/tokens` takes no arguments. There are no `/quota settings`, `show`,
 `refresh` or `line` subcommands: use `/auth settings` and Quotas keys instead. The only
 login subcommand is `/quota codex login`; every other provider uses Pi's `/login`.
 
 Outside an interactive TUI, read-only dashboard commands render text. Quotas print
-cached state without fetching on open. Settings print effective values and source scopes.
+cached state without fetching on open; Tokens prints the latest count without recounting.
+Settings print effective values and source scopes.
 A reset without an interactive UI lists credits and spends nothing.
 
 ## Dashboard keys

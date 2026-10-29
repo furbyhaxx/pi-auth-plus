@@ -83,6 +83,10 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		object,
 		{ signal: AbortSignal; groupWarnings: Set<string>; store?: AppSettings }
 	>();
+	const ownsStartup = (event: object) => {
+		const startup = startupOwners.get(event);
+		return startup !== undefined && !startup.signal.aborted;
+	};
 	const physicalResponseProviders = new Set<string>();
 	let stopTokenTracker: ((event: SessionStartEvent, ctx: ExtensionContext) => void) | undefined;
 	const sessionBus = (signal: AbortSignal): EventBus => ({
@@ -395,10 +399,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		return Reflect.apply(pi.on, pi, [
 			event,
 			(payload: object, ctx: ExtensionContext) => {
-				if (event === "session_start") {
-					const startup = startupOwners.get(payload);
-					if (!startup || startup.signal.aborted) return;
-				}
+				if (event === "session_start" && !ownsStartup(payload)) return;
 				if (event === "session_shutdown" && !ownsShutdown(ctx)) return;
 				return Reflect.apply(handler, undefined, [payload, ctx]);
 			},
@@ -570,7 +571,18 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	};
 	await registerFamilyProviders(providerSink, registry, host);
 	await catalogVisibility.apply();
-	for (const family of registry.families) await family.register?.(pi, host);
+	const familyOn: ExtensionAPI["on"] = (event: string, handler: (...args: never[]) => unknown) => {
+		if (event !== "session_start") return Reflect.apply(pi.on, pi, [event, handler]);
+		return Reflect.apply(pi.on, pi, [
+			event,
+			(...args: [object, ...unknown[]]) => {
+				if (!ownsStartup(args[0])) return;
+				return Reflect.apply(handler, undefined, args);
+			},
+		]);
+	};
+	const familyPi: ExtensionAPI = { ...pi, on: familyOn };
+	for (const family of registry.families) await family.register?.(familyPi, host);
 	registerCompatibleThoughtSignatures(pi);
 	const recovery = registerThoughtSignatureRecovery(pi);
 	const settlement = registerGroupSettlement(pi, () => settings.get("models.groups"));

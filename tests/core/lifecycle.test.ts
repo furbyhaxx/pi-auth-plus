@@ -192,8 +192,11 @@ function lifecycleFixture(activeModel?: {
 		},
 	};
 	let shutdownWaiting: (() => void) | undefined;
-	const run = async (event: string, context = ctx) => {
-		const payload = { type: event, reason: "switch" };
+	const run = async (
+		event: string,
+		context = ctx,
+		payload: Record<string, unknown> = { type: event, reason: "switch" },
+	) => {
 		for (const handler of handlers.get(event) ?? []) {
 			const result = handler(payload, context);
 			if (event === "session_shutdown" && result instanceof Promise) shutdownWaiting?.();
@@ -417,6 +420,16 @@ test("session replacement fences physical responses, resets and shutdown work", 
 		windowsReset: 1,
 		code: "reset",
 	});
+	const family = FAMILIES.find((entry) => entry.id === "opencode");
+	const originalRegister = family?.register;
+	if (!family || !originalRegister) throw new Error("Missing OpenCode family registration");
+	const shutdowns: { event: object; ctx: unknown }[] = [];
+	const register = spyOn(family, "register").mockImplementation((familyPi, host) => {
+		familyPi.on("session_shutdown", (event, context) => {
+			shutdowns.push({ event, ctx: context });
+		});
+		return originalRegister(familyPi, host);
+	});
 	try {
 		await piAuthPlus(pi);
 		const auth = commands.get("auth")?.handler;
@@ -471,11 +484,16 @@ test("session replacement fences physical responses, resets and shutdown work", 
 		await beforeShutdown({ status: 200, headers: { owner: "pending" } }, model);
 		const waiting = Promise.withResolvers<void>();
 		setShutdownWaiting(waiting.resolve);
-		const shutdown = run("session_shutdown");
+		const shutdownEvent = { type: "session_shutdown", reason: "switch" };
+		const previousShutdowns = shutdowns.length;
+		const shutdown = run("session_shutdown", ctx, shutdownEvent);
 		await waiting.promise;
 		await run("session_start");
 		pending.resolve(undefined);
 		await shutdown;
+		expect(shutdowns).toHaveLength(previousShutdowns + 1);
+		expect(shutdowns.at(-1)?.event).toBe(shutdownEvent);
+		expect(shutdowns.at(-1)?.ctx).toBe(ctx);
 		runtime.stream(model, { messages: [] });
 		const afterShutdown = requests[4]?.onResponse;
 		if (!afterShutdown) throw new Error("Missing post-shutdown response hook");
@@ -491,6 +509,7 @@ test("session replacement fences physical responses, resets and shutdown work", 
 		ingest.mockRestore();
 		list.mockRestore();
 		consume.mockRestore();
+		register.mockRestore();
 	}
 });
 
@@ -1162,6 +1181,92 @@ test("overlapping startup keeps token, quota and physical resources with the rep
 		engineStop.mockRestore();
 		engineStart.mockRestore();
 		line.mockRestore();
+	}
+});
+
+test("superseded family startup cannot replace the current session identity or activate again", async () => {
+	const fixture = lifecycleFixture();
+	const old = { ...fixture.ctx, cwd: "/old-session" };
+	const fresh = { ...fixture.ctx, cwd: "/fresh-session" };
+	const entered = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	const familyEntered = Promise.withResolvers<void>();
+	const familyRelease = Promise.withResolvers<void>();
+	const activations: { event: object; ctx: unknown }[] = [];
+	const switches: { event: object; ctx: unknown }[] = [];
+	let followingStarts = 0;
+	const family = FAMILIES.find((entry) => entry.id === "opencode");
+	const originalRegister = family?.register;
+	if (!family || !originalRegister) throw new Error("Missing OpenCode family registration");
+	const register = spyOn(family, "register").mockImplementation((pi, host) => {
+		pi.on("session_start", async (event, ctx) => {
+			activations.push({ event, ctx });
+			familyEntered.resolve();
+			await familyRelease.promise;
+		});
+		pi.on("session_start", () => {
+			followingStarts++;
+		});
+		pi.on("session_before_switch", (event, ctx) => {
+			switches.push({ event, ctx });
+		});
+		return originalRegister(pi, host);
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	let restoreLoad = () => {};
+	let oldStartup: Promise<void> | undefined;
+	let freshStartup: Promise<void> | undefined;
+	const opencodeSession = async () => {
+		fixture.runtime.stream({ ...fixture.model, provider: "opencode" }, { messages: [] });
+		const transform = fixture.requests.at(-1)?.transformHeaders;
+		if (!transform) throw new Error("Missing OpenCode header transform");
+		return (await transform({}))["x-opencode-session"];
+	};
+	try {
+		await piAuthPlus(fixture.pi);
+		const originalLoad = SettingsStore.prototype.load;
+		const load = spyOn(SettingsStore.prototype, "load").mockImplementationOnce(async function (
+			this: AppSettings,
+		) {
+			entered.resolve();
+			await release.promise;
+			return originalLoad.call(this);
+		});
+		restoreLoad = () => load.mockRestore();
+		oldStartup = fixture.run("session_start", old);
+		await entered.promise;
+		const freshEvent = { type: "session_start", reason: "switch" };
+		freshStartup = fixture.run("session_start", fresh, freshEvent);
+		await familyEntered.promise;
+		await Promise.resolve();
+		expect(followingStarts).toBe(0);
+		familyRelease.resolve();
+		await freshStartup;
+		expect(followingStarts).toBe(1);
+		const freshSession = await opencodeSession();
+		expect(freshSession).toMatch(/^ses_/);
+		expect(activations).toHaveLength(1);
+		expect(activations[0]?.event).toBe(freshEvent);
+		expect(activations[0]?.ctx).toBe(fresh);
+		release.resolve();
+		await oldStartup;
+		expect(await opencodeSession()).toBe(freshSession);
+		expect(activations).toHaveLength(1);
+		expect(followingStarts).toBe(1);
+		const switchEvent = { type: "session_before_switch", reason: "switch" };
+		await fixture.run("session_before_switch", fresh, switchEvent);
+		expect(switches).toHaveLength(1);
+		expect(switches[0]?.event).toBe(switchEvent);
+		expect(switches[0]?.ctx).toBe(fresh);
+	} finally {
+		release.resolve();
+		familyRelease.resolve();
+		await oldStartup;
+		await freshStartup;
+		await fixture.run("session_shutdown", fresh);
+		restoreLoad();
+		start.mockRestore();
+		register.mockRestore();
 	}
 });
 

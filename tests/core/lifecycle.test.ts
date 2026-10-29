@@ -7,6 +7,7 @@ import {
 	type Context,
 	createAssistantMessageEventStream,
 	type Model,
+	type ModelsRefreshOptions,
 	type ModelsSimpleStreamOptions,
 } from "@earendil-works/pi-ai";
 import {
@@ -81,7 +82,7 @@ function lifecycleFixture(activeModel?: {
 		model: activeModel ? { ...model, ...activeModel } : undefined,
 		modelRegistry: {
 			runtime,
-			refresh: async () => {
+			refresh: async (_options?: ModelsRefreshOptions) => {
 				onRefresh?.();
 				return { errors: new Map(), aborted: false };
 			},
@@ -529,13 +530,14 @@ test("session settings saves run the shared effects for each setting path", asyn
 		};
 	});
 	const visibility = spyOn(CatalogVisibility.prototype, "apply").mockImplementation(
-		async (_context, providers = []) => {
+		async (_context, providers = [], owner) => {
 			events.push("visibility");
 			visibilityProviders.push([...providers]);
 			if (waitForVisibility) {
 				visibilityEntered.resolve();
 				await visibilityRelease.promise;
 			}
+			return { signal: owner ?? new AbortController().signal, warnings: [] };
 		},
 	);
 	const applyGroups = GroupRegistrations.prototype.apply;
@@ -685,12 +687,15 @@ test("committed settings report each failed effect and continue to later effects
 	}));
 	let failCatalog = false;
 	let failGroups = false;
-	const visibility = spyOn(CatalogVisibility.prototype, "apply").mockImplementation(async () => {
-		if (failCatalog) {
-			events.push("visibility");
-			throw new Error("catalog unavailable");
-		}
-	});
+	const visibility = spyOn(CatalogVisibility.prototype, "apply").mockImplementation(
+		async (_ctx, _providers, owner) => {
+			if (failCatalog) {
+				events.push("visibility");
+				throw new Error("catalog unavailable");
+			}
+			return { signal: owner ?? new AbortController().signal, warnings: [] };
+		},
+	);
 	const applyGroups = GroupRegistrations.prototype.apply;
 	const groups = spyOn(GroupRegistrations.prototype, "apply").mockImplementation(function (
 		this: GroupRegistrations,
@@ -795,12 +800,15 @@ test("old settings effects stop before touching a replacement session", async ()
 		deps = value;
 	});
 	let delay = false;
-	const visibility = spyOn(CatalogVisibility.prototype, "apply").mockImplementation(async () => {
-		if (delay) {
-			entered.resolve();
-			await release.promise;
-		}
-	});
+	const visibility = spyOn(CatalogVisibility.prototype, "apply").mockImplementation(
+		async (_ctx, _providers, owner) => {
+			if (delay) {
+				entered.resolve();
+				await release.promise;
+			}
+			return { signal: owner ?? new AbortController().signal, warnings: [] };
+		},
+	);
 	const applyGroups = GroupRegistrations.prototype.apply;
 	const groups = spyOn(GroupRegistrations.prototype, "apply").mockImplementation(function (
 		this: GroupRegistrations,
@@ -842,6 +850,171 @@ test("old settings effects stop before touching a replacement session", async ()
 		capture.mockRestore();
 		visibility.mockRestore();
 		groups.mockRestore();
+	}
+});
+
+test("committed saves report catalog and group failures and retry failed providers", async () => {
+	const cleanup = groupSettings([]);
+	const fixture = lifecycleFixture();
+	fixture.catalog.push(fixture.model);
+	const attempts: string[] = [];
+	let failGroup = false;
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	const register = fixture.pi.registerVirtualModel;
+	const groups = spyOn(fixture.pi, "registerVirtualModel").mockImplementation((definition) => {
+		attempts.push(definition.id);
+		if (failGroup && definition.id === "alpha") throw new Error("group collision");
+		register(definition);
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		if (!deps?.saveSettings || !deps.settings) throw new Error("Missing settings integration");
+		const calls: string[][] = [];
+		fixture.ctx.modelRegistry.refresh = async (options) => {
+			calls.push([...(options?.providers ?? [])]);
+			return {
+				errors:
+					calls.length === 1
+						? new Map([["synthetic", new Error("catalog unavailable")]])
+						: new Map(),
+				aborted: false,
+			};
+		};
+		failGroup = true;
+		attempts.length = 0;
+		fixture.notices.length = 0;
+		const changes = { "models.rules": ["!synthetic/*"] };
+		const first = await deps.saveSettings("runtime", changes);
+		if (!first.committed) throw new Error("Settings were not committed");
+		expect(deps.settings.store().get("models.rules")).toEqual(changes["models.rules"]);
+		expect(first.warnings).toEqual([
+			expect.stringContaining("Model refresh for synthetic failed: catalog unavailable"),
+			expect.stringContaining("Could not register group/alpha: group collision"),
+		]);
+		expect(attempts).toEqual(["alpha", "beta"]);
+		expect(fixture.notices).toEqual([]);
+		failGroup = false;
+		const second = await deps.saveSettings("runtime", changes);
+		expect(second).toMatchObject({ committed: true, warnings: [] });
+		expect(calls[0]).toContain("synthetic");
+		expect(calls[1]).toEqual(["synthetic"]);
+	} finally {
+		await fixture.run("session_shutdown");
+		capture.mockRestore();
+		groups.mockRestore();
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+test("startup, override and legacy save report application warnings once", async () => {
+	const cleanup = groupSettings([]);
+	const fixture = lifecycleFixture();
+	fixture.catalog.push(fixture.model);
+	const register = fixture.pi.registerVirtualModel;
+	const groups = spyOn(fixture.pi, "registerVirtualModel").mockImplementation((definition) => {
+		if (definition.id === "alpha") throw new Error("group unavailable");
+		register(definition);
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		if (!deps?.settings || !deps.models?.details) throw new Error("Missing settings integration");
+		expect(fixture.notices).toHaveLength(1);
+		expect(fixture.notices[0]).toContain("Could not register group/alpha: group unavailable");
+		fixture.ctx.modelRegistry.refresh = async () => ({
+			errors: new Map([["synthetic", new Error("catalog unavailable")]]),
+			aborted: false,
+		});
+		fixture.notices.length = 0;
+		await deps.models.details.save("synthetic", "model", []);
+		expect(fixture.notices).toHaveLength(1);
+		expect(fixture.notices[0]).toContain("Model refresh for synthetic failed: catalog unavailable");
+		expect(fixture.notices[0]).toContain("Could not register group/alpha: group unavailable");
+		fixture.notices.length = 0;
+		await deps.settings.store().save("runtime", { "models.aliases": [] });
+		await deps.settings.onSaved(["models.aliases"], "runtime");
+		expect(fixture.notices).toHaveLength(1);
+		expect(fixture.notices[0]).toContain("Model refresh for synthetic failed: catalog unavailable");
+		expect(fixture.notices[0]).toContain("Could not register group/alpha: group unavailable");
+	} finally {
+		await fixture.run("session_shutdown");
+		capture.mockRestore();
+		groups.mockRestore();
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+test("supersession discards collected catalog and group warnings while later effects run", async () => {
+	const cleanup = groupSettings([]);
+	const fixture = lifecycleFixture();
+	fixture.catalog.push(fixture.model);
+	const entered = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	let blockTokens = false;
+	let failGroup = false;
+	const createTracker = tokenTracker.createTokenTracker;
+	const tracker = spyOn(tokenTracker, "createTokenTracker").mockImplementation((...args) => ({
+		...createTracker(...args),
+		refresh: async () => {
+			if (blockTokens) {
+				entered.resolve();
+				await release.promise;
+			}
+			return undefined;
+		},
+	}));
+	const register = fixture.pi.registerVirtualModel;
+	const groups = spyOn(fixture.pi, "registerVirtualModel").mockImplementation((definition) => {
+		if (failGroup && definition.id === "alpha") throw new Error("old group failure");
+		register(definition);
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		if (!deps?.saveSettings || !deps.models?.details)
+			throw new Error("Missing settings integration");
+		let calls = 0;
+		fixture.ctx.modelRegistry.refresh = async () => ({
+			errors:
+				++calls === 1 ? new Map([["synthetic", new Error("old catalog failure")]]) : new Map(),
+			aborted: false,
+		});
+		blockTokens = true;
+		failGroup = true;
+		fixture.notices.length = 0;
+		const pending = deps.saveSettings("runtime", { "models.rules": ["!synthetic/*"] });
+		await entered.promise;
+		failGroup = false;
+		await deps.models.details.save("test-provider", "model", []);
+		release.resolve();
+		const outcome = await pending;
+		expect(outcome).toMatchObject({ committed: true, warnings: [] });
+		expect(fixture.notices).toEqual([]);
+	} finally {
+		release.resolve();
+		await fixture.run("session_shutdown");
+		capture.mockRestore();
+		tracker.mockRestore();
+		groups.mockRestore();
+		start.mockRestore();
+		cleanup();
 	}
 });
 
@@ -1023,7 +1196,11 @@ test("in-flight catalog warnings do not reach a replacement session", async () =
 		await run("session_start", replacement);
 		notices.length = 0;
 		release.resolve();
-		await pending;
+		const outcome = await pending;
+		expect(outcome).toMatchObject({
+			committed: true,
+			warnings: [expect.stringMatching(/session/i)],
+		});
 		expect(notices).toEqual([]);
 	} finally {
 		release.resolve();

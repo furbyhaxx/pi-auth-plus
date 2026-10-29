@@ -289,11 +289,13 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	): Promise<AbortSignal | false> => {
 		if (signal.aborted) return false;
 		const applied = await catalogVisibility.apply(ctx, changedProviders, signal, store);
-		if (signal.aborted || applied === false || applied?.aborted) return false;
-		const lifetime = applied ?? signal;
+		if (signal.aborted || applied === false || applied.signal.aborted) return false;
+		const lifetime = applied.signal;
 		try {
-			groups.apply(ctx.modelRegistry.getAll());
+			const warnings = [...applied.warnings, ...groups.apply(ctx.modelRegistry.getAll())];
 			await reconcileSelectedModel(ctx, store, lifetime);
+			if (lifetime.aborted) return false;
+			if (warnings.length > 0) ctx.ui.notify(warnings.join("\n"), "warning");
 		} catch (error) {
 			if (lifetime.aborted) return false;
 			throw error;
@@ -608,16 +610,24 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				const modelsChanged = keys.some((key) => key.startsWith("models."));
 				const aliasesChanged = keys.includes("models.aliases");
 				let catalogLifetime: AbortSignal | undefined | false;
+				const modelWarnings: string[] = [];
+				const modelWarningIndex = warnings.length;
 				let catalogRefreshed = false;
 				let groupsRefreshed = false;
 				if (modelsChanged && ctx) {
 					await effect("Model catalog refresh", async () => {
-						catalogLifetime = await catalogVisibility.apply(
+						const applied = await catalogVisibility.apply(
 							ctx,
 							aliasesChanged ? [...ownedProviders] : [],
 							signal,
 							store,
 						);
+						if (applied === false) {
+							catalogLifetime = false;
+							return;
+						}
+						catalogLifetime = applied.signal;
+						modelWarnings.push(...applied.warnings);
 						catalogRefreshed = true;
 					});
 					if (aliasesChanged && catalogLifetime !== false && !catalogLifetime?.aborted)
@@ -631,7 +641,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 					await effect(
 						"Model group refresh",
 						() => {
-							groups.apply(ctx?.modelRegistry.getAll() ?? []);
+							modelWarnings.push(...groups.apply(ctx?.modelRegistry.getAll() ?? []));
 							groupsRefreshed = true;
 						},
 						catalogLifetime ?? signal,
@@ -651,6 +661,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 					if (family.settingsChanged)
 						await effect(`${family.label} settings`, () => family.settingsChanged?.(keys, signal));
 				}
+				if (!signal.aborted && catalogLifetime !== false && !catalogLifetime?.aborted)
+					warnings.splice(modelWarningIndex, 0, ...modelWarnings);
 				return warnings;
 			},
 		};

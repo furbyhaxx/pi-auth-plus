@@ -73,8 +73,10 @@ test("stops re-registering a catalog when another extension changes its provider
 		const original = registrations.get("openai");
 		expect(original).toBeDefined();
 		registrations.set("openai", { ...original, baseUrl: "https://proxy.invalid" });
-		await visibility.apply(ctx);
-		expect(warnings.join("\n")).toContain("another extension changed");
+		const applied = await visibility.apply(ctx);
+		if (!applied) throw new Error("Expected the current application");
+		expect(applied.warnings.join("\n")).toContain("another extension changed");
+		expect(warnings).toEqual([]);
 		expect(visibility.handles("openai")).toBe(false);
 		const previousCount = count;
 		await settings.save("runtime", { "models.rules": ["openai/*", "!openai/example"] });
@@ -250,6 +252,280 @@ test("an already aborted owner cannot change catalog state", async () => {
 	}
 });
 
+test("failed provider refreshes remain pending for an identical rules application", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "pi-rules-failed-refresh-"));
+	try {
+		const settings = new SettingsStore(SETTINGS, { user: join(dir, "auth-plus.json") });
+		await settings.load();
+		const calls: string[][] = [];
+		const pi = { registerProvider: () => {} } as unknown as ExtensionAPI;
+		const ctx = {
+			modelRegistry: {
+				getRegisteredProviderConfig: () => undefined,
+				getRegisteredNativeProvider: () => undefined,
+				refresh: async (options: { providers: readonly string[] }) => {
+					calls.push([...options.providers]);
+					return {
+						errors: calls.length === 1 ? new Map([["owned", new Error("unavailable")]]) : new Map(),
+						aborted: false,
+					};
+				},
+			},
+			ui: { notify: () => {} },
+		} as unknown as ExtensionContext;
+		const visibility = new CatalogVisibility(pi, () => settings, new Set(["owned", "other"]));
+		await visibility.apply();
+		await settings.save("runtime", { "models.rules": ["!owned/*"] });
+		const owner = new AbortController();
+		const first = await visibility.apply(ctx, [], owner.signal, settings);
+		if (!first) throw new Error("Expected the current application");
+		expect(first.warnings).toEqual([
+			"Model refresh for owned failed: unavailable; retry or reopen the session",
+		]);
+		const retry = await visibility.apply(ctx, [], owner.signal, settings);
+		if (!retry) throw new Error("Expected the retry application");
+		expect(retry.warnings).toEqual([]);
+		await visibility.apply(ctx, [], owner.signal, settings);
+		expect(calls).toEqual([["owned", "other"], ["owned"]]);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("a failed mirror provider is retried without refreshing successful providers", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "pi-rules-mirror-retry-"));
+	const previous = process.env["PI_CODING_AGENT_DIR"];
+	process.env["PI_CODING_AGENT_DIR"] = dir;
+	let mirrorRefresh: ReturnType<typeof spyOn<typeof ModelRuntime.prototype, "refresh">> | undefined;
+	try {
+		const settings = new SettingsStore(SETTINGS, { user: join(dir, "auth-plus.json") });
+		await settings.load();
+		await settings.save("runtime", { "models.rules": ["openai/*"] });
+		const registrations = new Map<string, ProviderConfig>();
+		const pi = {
+			registerProvider: (id: string, config: ProviderConfig) => registrations.set(id, config),
+		} as unknown as ExtensionAPI;
+		const registryCalls: string[][] = [];
+		const ctx = {
+			modelRegistry: {
+				getRegisteredProviderConfig: (id: string) => registrations.get(id),
+				getRegisteredNativeProvider: () => undefined,
+				refresh: async (options: { providers: readonly string[] }) => {
+					registryCalls.push([...options.providers]);
+					return { errors: new Map(), aborted: false };
+				},
+			},
+			ui: { notify: () => {} },
+		} as unknown as ExtensionContext;
+		const visibility = visibilityFor(pi, () => settings);
+		await visibility.apply();
+		const mirrorCalls: (readonly string[] | undefined)[] = [];
+		mirrorRefresh = spyOn(ModelRuntime.prototype, "refresh").mockImplementation(async (options) => {
+			mirrorCalls.push(options?.providers);
+			return {
+				errors:
+					mirrorCalls.length === 1
+						? new Map([["openai", new Error("mirror unavailable")]])
+						: new Map(),
+				aborted: false,
+			};
+		});
+		await settings.save("runtime", { "models.rules": ["openai/*", "!openai/example"] });
+		const owner = new AbortController();
+		const first = await visibility.apply(ctx, [], owner.signal, settings);
+		if (!first) throw new Error("Expected the current application");
+		expect(first.warnings).toEqual([
+			"Catalog mirror for openai failed: mirror unavailable; retry or reopen the session",
+		]);
+		const retry = await visibility.apply(ctx, [], owner.signal, settings);
+		if (!retry) throw new Error("Expected the retry application");
+		expect(retry.warnings).toEqual([]);
+		await visibility.apply(ctx, [], owner.signal, settings);
+		expect(mirrorCalls).toEqual([undefined, ["openai"]]);
+		expect(registryCalls).toEqual([["owned", "openai"], ["openai"]]);
+	} finally {
+		mirrorRefresh?.mockRestore();
+		if (previous === undefined) delete process.env["PI_CODING_AGENT_DIR"];
+		else process.env["PI_CODING_AGENT_DIR"] = previous;
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("a failed mirror creation leaves the rules retryable", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "pi-rules-mirror-create-retry-"));
+	const previous = process.env["PI_CODING_AGENT_DIR"];
+	process.env["PI_CODING_AGENT_DIR"] = dir;
+	const create = ModelRuntime.create.bind(ModelRuntime);
+	let creations = 0;
+	const createSpy = spyOn(ModelRuntime, "create").mockImplementation(async (options) => {
+		if (++creations === 1) throw new Error("mirror unavailable");
+		return create(options);
+	});
+	try {
+		const settings = new SettingsStore(SETTINGS, { user: join(dir, "auth-plus.json") });
+		await settings.load();
+		const registrations = new Map<string, ProviderConfig>();
+		const pi = {
+			registerProvider: (id: string, config: ProviderConfig) => registrations.set(id, config),
+		} as unknown as ExtensionAPI;
+		const calls: string[][] = [];
+		const ctx = {
+			modelRegistry: {
+				getRegisteredProviderConfig: (id: string) => registrations.get(id),
+				getRegisteredNativeProvider: () => undefined,
+				refresh: async (options: { providers: readonly string[] }) => {
+					calls.push([...options.providers]);
+					return { errors: new Map(), aborted: false };
+				},
+			},
+			ui: { notify: () => {} },
+		} as unknown as ExtensionContext;
+		const visibility = visibilityFor(pi, () => settings);
+		await visibility.apply();
+		await settings.save("runtime", { "models.rules": ["openai/*"] });
+		const owner = new AbortController();
+		const first = await visibility.apply(ctx, [], owner.signal, settings);
+		if (!first) throw new Error("Expected the current application");
+		expect(first.warnings).toEqual([
+			"Model rules could not be applied: mirror unavailable; retry or reopen the session",
+		]);
+		const retry = await visibility.apply(ctx, [], owner.signal, settings);
+		if (!retry) throw new Error("Expected the retry application");
+		expect(retry.warnings).toEqual([]);
+		expect(registrations.has("openai")).toBe(true);
+		expect(calls).toEqual([["owned"], ["openai"]]);
+		expect(creations).toBe(2);
+	} finally {
+		createSpy.mockRestore();
+		if (previous === undefined) delete process.env["PI_CODING_AGENT_DIR"];
+		else process.env["PI_CODING_AGENT_DIR"] = previous;
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("factory warnings do not follow superseded rules into a session", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "pi-rules-factory-warning-"));
+	const createSpy = spyOn(ModelRuntime, "create").mockRejectedValue(
+		new Error("old mirror failure"),
+	);
+	try {
+		const settings = new SettingsStore(SETTINGS, { user: join(dir, "auth-plus.json") });
+		await settings.load();
+		await settings.save("runtime", { "models.rules": ["openai/*"] });
+		const pi = { registerProvider: () => {} } as unknown as ExtensionAPI;
+		const ctx = {
+			modelRegistry: {
+				getRegisteredProviderConfig: () => undefined,
+				getRegisteredNativeProvider: () => undefined,
+				refresh: async () => ({ errors: new Map(), aborted: false }),
+			},
+			ui: { notify: () => {} },
+		} as unknown as ExtensionContext;
+		const visibility = visibilityFor(pi, () => settings);
+		const factory = await visibility.apply();
+		if (!factory) throw new Error("Expected the factory application");
+		expect(factory.warnings).toEqual([
+			"Model rules could not be applied: old mirror failure; retry or reopen the session",
+		]);
+		await settings.save("runtime", { "models.rules": ["!openai/*"] });
+		const current = await visibility.apply(ctx, [], new AbortController().signal, settings);
+		if (!current) throw new Error("Expected the current application");
+		expect(current.warnings).toEqual([]);
+		expect(createSpy).toHaveBeenCalledTimes(1);
+	} finally {
+		createSpy.mockRestore();
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("a failed catalog registration is reported and retried", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "pi-rules-registration-retry-"));
+	const previous = process.env["PI_CODING_AGENT_DIR"];
+	process.env["PI_CODING_AGENT_DIR"] = dir;
+	try {
+		const settings = new SettingsStore(SETTINGS, { user: join(dir, "auth-plus.json") });
+		await settings.load();
+		const registrations = new Map<string, ProviderConfig>();
+		let failed = false;
+		const pi = {
+			registerProvider: (id: string, config: ProviderConfig) => {
+				if (id === "openai" && !failed) {
+					failed = true;
+					throw new Error("registration unavailable");
+				}
+				registrations.set(id, config);
+			},
+		} as unknown as ExtensionAPI;
+		const calls: string[][] = [];
+		const ctx = {
+			modelRegistry: {
+				getRegisteredProviderConfig: (id: string) => registrations.get(id),
+				getRegisteredNativeProvider: () => undefined,
+				refresh: async (options: { providers: readonly string[] }) => {
+					calls.push([...options.providers]);
+					return { errors: new Map(), aborted: false };
+				},
+			},
+			ui: { notify: () => {} },
+		} as unknown as ExtensionContext;
+		const visibility = visibilityFor(pi, () => settings);
+		await visibility.apply();
+		await settings.save("runtime", { "models.rules": ["openai/*"] });
+		const owner = new AbortController();
+		const first = await visibility.apply(ctx, [], owner.signal, settings);
+		if (!first) throw new Error("Expected the current application");
+		expect(first.warnings).toEqual([
+			"Model rules could not be applied to openai: registration unavailable; retry or reopen the session",
+		]);
+		expect(registrations.has("openai")).toBe(false);
+		const retry = await visibility.apply(ctx, [], owner.signal, settings);
+		if (!retry) throw new Error("Expected the retry application");
+		expect(retry.warnings).toEqual([]);
+		expect(registrations.has("openai")).toBe(true);
+		expect(calls).toEqual([["owned"], ["openai"]]);
+	} finally {
+		if (previous === undefined) delete process.env["PI_CODING_AGENT_DIR"];
+		else process.env["PI_CODING_AGENT_DIR"] = previous;
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("a thrown registry refresh stays retryable after session replacement", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "pi-rules-rejected-refresh-"));
+	try {
+		const settings = new SettingsStore(SETTINGS, { user: join(dir, "auth-plus.json") });
+		await settings.load();
+		const calls: string[][] = [];
+		const pi = { registerProvider: () => {} } as unknown as ExtensionAPI;
+		const ctx = {
+			modelRegistry: {
+				getRegisteredProviderConfig: () => undefined,
+				getRegisteredNativeProvider: () => undefined,
+				refresh: async (options: { providers: readonly string[] }) => {
+					calls.push([...options.providers]);
+					if (calls.length === 1)
+						throw new Error("refresh unavailable \u001b[31mBearer example-token\u001b[0m");
+					return { errors: new Map(), aborted: false };
+				},
+			},
+			ui: { notify: () => {} },
+		} as unknown as ExtensionContext;
+		const visibility = visibilityFor(pi, () => settings);
+		await visibility.apply();
+		const owner = new AbortController();
+		const first = await visibility.apply(ctx, ["external"], owner.signal, settings);
+		if (!first) throw new Error("Expected the current application");
+		expect(first.warnings).toEqual([
+			"Model catalog refresh failed: refresh unavailable [redacted]; retry or reopen the session",
+		]);
+		owner.abort();
+		await visibility.apply(ctx, [], new AbortController().signal, settings);
+		expect(calls).toEqual([["external"], ["external"]]);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 test("a superseding apply retries unfinished provider refreshes in the same session", async () => {
 	const dir = mkdtempSync(join(tmpdir(), "pi-rules-pending-"));
 	const release = Promise.withResolvers<void>();
@@ -288,9 +564,9 @@ test("a superseding apply retries unfinished provider refreshes in the same sess
 		expect(calls[0]?.signal?.aborted).toBe(true);
 		expect(warnings).toEqual([]);
 		if (!latest) throw new Error("Expected the current application lifetime");
-		expect(latest.aborted).toBe(false);
+		expect(latest.signal.aborted).toBe(false);
 		await visibility.apply(ctx, [], owner.signal, settings);
-		expect(latest.aborted).toBe(true);
+		expect(latest.signal.aborted).toBe(true);
 		expect(calls.length).toBe(2);
 	} finally {
 		release.resolve();

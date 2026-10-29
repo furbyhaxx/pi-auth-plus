@@ -30,6 +30,7 @@ export interface EngineContext {
 		"buildSessionProjection" | "getBranch"
 	>;
 	readonly modelRegistry?: Pick<ExtensionContext["modelRegistry"], "find">;
+	readonly thinkingLevel?: ExtensionContext["thinkingLevel"];
 	getSystemPrompt(): string;
 	getContextUsage(): { readonly tokens: number | null } | undefined;
 }
@@ -153,7 +154,12 @@ export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 			return undefined;
 		const context = nativeContext(messages, () => ctx.getSystemPrompt(), options.tools);
 		if (!context) return undefined;
-		const input: TokenContextInput = { model, context };
+		const thinkingLevel = ctx.thinkingLevel;
+		const input: TokenContextInput = {
+			model,
+			context,
+			...(thinkingLevel === undefined ? {} : { thinkingLevel }),
+		};
 		try {
 			const count = await native.call(counter, input, signal);
 			return signal?.aborted ? undefined : count;

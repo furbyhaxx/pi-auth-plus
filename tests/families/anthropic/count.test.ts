@@ -1,5 +1,6 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import type { Context, Model } from "@earendil-works/pi-ai";
+import { type Context, type Model, normalizeContext } from "@earendil-works/pi-ai";
+import { anthropicMessagesApi, getModels } from "@earendil-works/pi-ai/compat";
 import type { SessionProjection } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { claudeTokenCounter } from "../../../src/families/anthropic/count.ts";
@@ -42,6 +43,43 @@ const usage = {
 const tokenizers = { peek: () => undefined, load: async () => undefined };
 function deps(fetch: CounterDeps["fetch"], token = "sk-ant-oat-test"): CounterDeps {
 	return { fetch, auth: async () => ({ token, extra: {} }), tokenizers };
+}
+
+async function sdkCountBody(
+	model: Model<"anthropic-messages">,
+	context: Context,
+	level: "low" | "high" | "off",
+): Promise<Record<string, unknown>> {
+	const capturedError = new Error("SDK payload captured");
+	const denyNetwork = Object.assign(
+		async () => {
+			throw new Error("generation network forbidden");
+		},
+		{
+			preconnect: () => {
+				throw new Error("generation network forbidden");
+			},
+		},
+	);
+	let captured: unknown;
+	const response = await anthropicMessagesApi()
+		.streamSimple(model, normalizeContext(context), {
+			headers: { "x-api-key": "test-api-key" },
+			fetch: denyNetwork,
+			...(level === "off" ? {} : { reasoning: level }),
+			onPayload: (payload) => {
+				captured = payload;
+				throw capturedError;
+			},
+		})
+		.result();
+	expect(response.errorMessage).toBe(capturedError.message);
+	if (typeof captured !== "object" || captured === null || Array.isArray(captured))
+		throw new Error("SDK did not capture a request body");
+	const body: Record<string, unknown> = { ...captured };
+	for (const key of ["betas", "metadata", "max_tokens", "stream", "temperature", "fallbacks"])
+		delete body[key];
+	return body;
 }
 
 describe("families/anthropic/count", () => {
@@ -820,6 +858,116 @@ describe("families/anthropic/count", () => {
 		expect(JSON.stringify(body)).toContain('"name":"read_file"');
 	});
 
+	for (const [kind, first, second] of [
+		["managed effort", "low", "high"],
+		["disableable effort", "low", "off"],
+		["budget thinking", "low", "off"],
+	] as const) {
+		test(`engine count bodies match SDK ${kind} requests and memoize each shape`, async () => {
+			const selected = getModels("anthropic").find((candidate) => {
+				if (!candidate.reasoning) return false;
+				if (kind === "budget thinking") return candidate.compat?.forceAdaptiveThinking !== true;
+				return (
+					candidate.compat?.supportsMidConvoEffort === true &&
+					candidate.compat.forceAdaptiveThinking === true &&
+					(kind === "managed effort"
+						? candidate.thinkingLevelMap?.off === null
+						: candidate.thinkingLevelMap?.off !== null)
+				);
+			});
+			if (!selected) throw new Error(`SDK has no ${kind} fixture`);
+			const requestModel = { ...selected, provider: "claude" };
+			const sent: Record<string, unknown>[] = [];
+			const services = deps(async (_url, init) => {
+				const body: unknown = JSON.parse(String(init?.body));
+				if (typeof body !== "object" || body === null || Array.isArray(body))
+					throw new Error("expected a count request body");
+				sent.push({ ...body });
+				return Response.json({ input_tokens: sent.length });
+			}, "test-api-key");
+			const counter = claudeTokenCounter(requestModel, services, options);
+			const engine = createTokenEngine({
+				families: [{ id: "anthropic", label: "Anthropic", providers: [], tokens: () => counter }],
+				deps: services,
+				tools: () => [],
+			});
+			const projection: SessionProjection = {
+				entries: [],
+				messages: hello.messages,
+				thinkingLevel: "medium",
+				model: null,
+			};
+			const ctx: EngineContext = {
+				model: requestModel,
+				modelRegistry: { find: () => requestModel },
+				sessionManager: { buildSessionProjection: () => projection, getBranch: () => [] },
+				getSystemPrompt: () => "Be concise.",
+				getContextUsage: () => undefined,
+			};
+			const generation = spyOn(globalThis, "fetch").mockImplementation(
+				Object.assign(
+					async () => {
+						throw new Error("generation network forbidden");
+					},
+					{
+						preconnect: () => {
+							throw new Error("generation network forbidden");
+						},
+					},
+				),
+			);
+			try {
+				const context = { ...hello, systemPrompt: "Be concise.", tools: [] };
+				const firstBody = await sdkCountBody(requestModel, context, first);
+				const secondBody = await sdkCountBody(requestModel, context, second);
+				expect(firstBody).not.toEqual(secondBody);
+				for (const [level, tokens] of [
+					[first, 1],
+					[first, 1],
+					[second, 2],
+					[second, 2],
+					[first, 1],
+				] as const) {
+					expect((await engine.context({ ...ctx, thinkingLevel: level }))?.tokens).toEqual({
+						tokens,
+						source: "count-endpoint",
+					});
+				}
+				expect(sent).toEqual([firstBody, secondBody]);
+				if (kind === "managed effort") {
+					expect(await sdkCountBody(requestModel, context, "off")).toEqual(secondBody);
+					expect((await engine.context({ ...ctx, thinkingLevel: "off" }))?.tokens).toEqual({
+						tokens: 2,
+						source: "count-endpoint",
+					});
+					expect(sent).toHaveLength(2);
+				}
+				expect((await engine.context(ctx))?.tokens.source).toBe("estimate");
+				expect(sent.length).toBeGreaterThan(2);
+				expect(generation).not.toHaveBeenCalled();
+			} finally {
+				generation.mockRestore();
+			}
+		});
+	}
+
+	test("unknown reasoning does not reuse a known full-request memo", async () => {
+		const selected = getModels("anthropic").find((candidate) => candidate.reasoning);
+		if (!selected) throw new Error("SDK has no reasoning fixture");
+		const requestModel = { ...selected, provider: "claude" };
+		let calls = 0;
+		const counter = claudeTokenCounter(
+			requestModel,
+			deps(async () => Response.json({ input_tokens: ++calls }), "test-api-key"),
+			options,
+		);
+		expect(
+			await counter.countContext?.({ model: requestModel, context: hello, thinkingLevel: "off" }),
+		).toEqual({ tokens: 1, source: "count-endpoint" });
+		expect(await counter.countContext?.({ model: requestModel, context: hello })).toBeUndefined();
+		expect(calls).toBe(1);
+	});
+
 	test("keeps supported SDK thinking and output configuration in the count recipe", async () => {
 		let body: Record<string, unknown> = {};
 		let betas = "";
@@ -841,6 +989,7 @@ describe("families/anthropic/count", () => {
 					compat: { supportsMidConvoEffort: true, supportsMidConvoSystemMessages: true },
 				},
 				context: hello,
+				thinkingLevel: "off",
 			}),
 		).toEqual({ tokens: 45, source: "count-endpoint" });
 		expect(body["thinking"]).toEqual({

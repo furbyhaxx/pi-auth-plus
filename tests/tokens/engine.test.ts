@@ -167,6 +167,21 @@ test("unanchored native totals include the whole request rather than additive de
 	expect(segments).toEqual([]);
 });
 
+test("native counts receive the effective session thinking level rather than the projection", async () => {
+	const inputs: TokenContextInput[] = [];
+	const { engine } = nativeEngine(async (input) => {
+		inputs.push(input);
+		return { tokens: 1, source: "count-endpoint" };
+	});
+	const { ctx } = session([{ role: "user", content: "Hello.", timestamp: 0 }]);
+	const registered = withRegistry(ctx);
+	for (const thinkingLevel of ["low", "high", "off"] as const) {
+		await engine.context({ ...registered, thinkingLevel });
+	}
+	await engine.context(registered);
+	expect(inputs.map((input) => input.thinkingLevel)).toEqual(["low", "high", "off", undefined]);
+});
+
 test("provider usage is authoritative until an edit invalidates it", async () => {
 	let calls = 0;
 	const { engine } = nativeEngine(async () => {

@@ -14,6 +14,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function supported(input: TokenContextInput): boolean {
+	if (input.model.reasoning && input.thinkingLevel === undefined) return false;
 	for (const message of input.context.messages) {
 		if (message.role === "system") continue;
 		if (message.role === "user") {
@@ -74,6 +75,9 @@ export async function countPayload(
 		let captured: unknown;
 		const stream = anthropicMessagesApi().streamSimple(input.model, context, {
 			headers: oauth ? { Authorization: "Bearer count-capture" } : { "x-api-key": "count-capture" },
+			...(input.thinkingLevel && input.thinkingLevel !== "off"
+				? { reasoning: input.thinkingLevel }
+				: {}),
 			fetch: Object.assign(
 				async () => {
 					throw new Error("Anthropic generation network denied during count");

@@ -15,6 +15,37 @@ const DEFAULT_LINE_TEMPLATE =
 	"{openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {codex:id}: {codex:window-7d-used-percent}[ ({codex:resets-available}r)] · {claude:id}: 5h/{claude:window-5h-used-percent} 7d/{claude:window-7d-used-percent}[ ({claude:resets-available}r)] · {antigravity:id}: gem/{antigravity:window-7d-gemini-used-percent} arg/{antigravity:window-7d-gemini-4-argon-used-percent} · {synthetic:id}: {synthetic:window-7d-used-percent}[ ({synthetic:resets-available}r)] · {xai:id}: {xai:window-7d-used-percent}[ ({xai:resets-available}r)]";
 
 export const SETTINGS = {
+	"dashboard.density": enumField({
+		label: "Dashboard density",
+		description: "Row spacing in the dashboard; compact uses less vertical space than comfortable",
+		default: "comfortable",
+		options: [
+			{ value: "comfortable", label: "Comfortable" },
+			{ value: "compact", label: "Compact" },
+		],
+	}),
+	"dashboard.maxBodyRows": numberField({
+		label: "Maximum dashboard body rows",
+		description:
+			"Maximum additional body rows; 0 automatically fits available space, while primary identity and state remain visible",
+		default: 0,
+		min: 0,
+		max: 60,
+		step: 1,
+		integer: true,
+	}),
+	"dashboard.showProvenance": booleanField({
+		label: "Show dashboard provenance",
+		description:
+			"Show the source or provider for dashboard entries; primary identity and state remain visible",
+		default: false,
+	}),
+	"dashboard.showMatchedRule": booleanField({
+		label: "Show matched dashboard rule",
+		description:
+			"Show the model visibility rule matched by dashboard entries; primary identity and state remain visible",
+		default: false,
+	}),
 	"quotas.refreshIntervalSec": numberField({
 		label: "Quota refresh interval",
 		description: "Seconds between endpoint refreshes; provider polling floors still apply",
@@ -159,6 +190,34 @@ export const SETTINGS = {
 		description:
 			"Offer the synthetic_web_search tool; it needs a Synthetic login or SYNTHETIC_API_KEY",
 		default: false,
+	}),
+	"tokens.warningPercent": numberField({
+		label: "Token warning threshold",
+		description:
+			"Token usage at or above this percentage is colored warning; it must stay below the error threshold",
+		default: 70,
+		min: 0,
+		max: 100,
+		step: 5,
+		integer: true,
+		validateRelation: (warning, lookup) => {
+			const error = lookup("tokens.errorPercent");
+			return typeof error === "number" && warning < error
+				? undefined
+				: {
+						keys: ["tokens.warningPercent", "tokens.errorPercent"],
+						reason: "warning must be strictly less than error",
+					};
+		},
+	}),
+	"tokens.errorPercent": numberField({
+		label: "Token error threshold",
+		description: "Token usage at or above this percentage is colored error",
+		default: 90,
+		min: 0,
+		max: 100,
+		step: 5,
+		integer: true,
 	}),
 } as const;
 

@@ -241,6 +241,94 @@ describe("core/config", () => {
 		expect(await store.load()).toEqual([]);
 	});
 
+	test("dashboard settings expose their defaults and null edits inherit them", async () => {
+		const store = new SettingsStore(SETTINGS, { user });
+		expect(await store.load()).toEqual([]);
+		expect(store.get("dashboard.density")).toBe("comfortable");
+		expect(store.get("dashboard.maxBodyRows")).toBe(0);
+		expect(store.get("dashboard.showProvenance")).toBe(false);
+		expect(store.get("dashboard.showMatchedRule")).toBe(false);
+		expect(store.get("tokens.warningPercent")).toBe(70);
+		expect(store.get("tokens.errorPercent")).toBe(90);
+
+		await store.save("user", {
+			"dashboard.density": "compact",
+			"dashboard.maxBodyRows": 20,
+			"dashboard.showProvenance": true,
+			"dashboard.showMatchedRule": true,
+			"tokens.warningPercent": 75,
+			"tokens.errorPercent": 95,
+		});
+		expect(store.get("dashboard.density")).toBe("compact");
+		expect(store.get("dashboard.maxBodyRows")).toBe(20);
+		expect(store.get("dashboard.showProvenance")).toBe(true);
+		expect(store.get("dashboard.showMatchedRule")).toBe(true);
+		expect(store.get("tokens.warningPercent")).toBe(75);
+		expect(store.get("tokens.errorPercent")).toBe(95);
+
+		await store.save("user", {
+			"dashboard.density": null,
+			"dashboard.maxBodyRows": null,
+			"dashboard.showProvenance": null,
+			"dashboard.showMatchedRule": null,
+			"tokens.warningPercent": null,
+			"tokens.errorPercent": null,
+		});
+		expect(store.get("dashboard.density")).toBe("comfortable");
+		expect(store.get("dashboard.maxBodyRows")).toBe(0);
+		expect(store.get("dashboard.showProvenance")).toBe(false);
+		expect(store.get("dashboard.showMatchedRule")).toBe(false);
+		expect(store.get("tokens.warningPercent")).toBe(70);
+		expect(store.get("tokens.errorPercent")).toBe(90);
+		expect(JSON.parse(readFileSync(user, "utf8"))).toEqual({});
+	});
+
+	test("token thresholds reject contradictions before writing and save together", async () => {
+		write(user, { other: { keep: true } });
+		const before = readFileSync(user, "utf8");
+		const store = new SettingsStore(SETTINGS, { user });
+		expect(await store.load()).toEqual([]);
+
+		await expect(store.save("user", { "tokens.warningPercent": 95 })).rejects.toThrow(
+			"tokens.warningPercent, tokens.errorPercent",
+		);
+		expect(readFileSync(user, "utf8")).toBe(before);
+		expect(store.get("tokens.warningPercent")).toBe(70);
+		expect(store.get("tokens.errorPercent")).toBe(90);
+
+		await store.save("user", {
+			"tokens.warningPercent": 80,
+			"tokens.errorPercent": 90,
+		});
+		expect(JSON.parse(readFileSync(user, "utf8"))).toEqual({
+			other: { keep: true },
+			tokens: { warningPercent: 80, errorPercent: 90 },
+		});
+		expect(store.get("tokens.warningPercent")).toBe(80);
+		expect(store.get("tokens.errorPercent")).toBe(90);
+	});
+
+	test("loading a hand-edited contradictory token threshold reports and inherits", async () => {
+		write(user, { tokens: { warningPercent: 95, errorPercent: 90 }, other: true });
+		const store = new SettingsStore(SETTINGS, { user });
+		const problems = await store.load();
+
+		expect(problems.map((problem) => [problem.path, problem.key])).toEqual([
+			[user, "tokens.warningPercent"],
+		]);
+		expect(problems[0]?.reason).toContain("tokens.warningPercent, tokens.errorPercent");
+		expect(problems[0]?.reason).toContain("warning must be strictly less than error");
+		expect(problems[0]?.reason).toContain("using inherited values");
+		expect(store.get("tokens.warningPercent")).toBe(70);
+		expect(store.get("tokens.errorPercent")).toBe(90);
+		expect(store.sourceOf("tokens.warningPercent")).toBe("default");
+		expect(store.sourceOf("tokens.errorPercent")).toBe("default");
+		expect(JSON.parse(readFileSync(user, "utf8"))).toEqual({
+			tokens: { warningPercent: 95, errorPercent: 90 },
+			other: true,
+		});
+	});
+
 	test("rejects contradictory credit thresholds in every scope without writing", async () => {
 		write(user, { other: { keep: true } });
 		write(project, { other: { keep: true } });

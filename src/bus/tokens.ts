@@ -67,6 +67,8 @@ export type {
 export type {
 	/** A token count tagged with its authority. */
 	TokenCount,
+	/** A user-actionable explanation for a token count that needs authentication. */
+	TokenDiagnostic,
 	/** The origin of a token count. */
 	TokenSource,
 } from "../tokens/types.ts";

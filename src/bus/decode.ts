@@ -6,7 +6,7 @@ import type { ResetCredit, ResetCreditList, ResetOutcome } from "../quotas/types
 import type { TokenContextPayload, TokenQueryResult, TokenReadyPayload } from "../tokens/bus.ts";
 import type { BreakdownPart, ContextReport } from "../tokens/engine/index.ts";
 import type { TrackerReason } from "../tokens/tracker/types.ts";
-import type { TokenCount } from "../tokens/types.ts";
+import type { TokenCount, TokenDiagnostic } from "../tokens/types.ts";
 
 type RecordValue = Record<string, unknown>;
 function record(raw: unknown): raw is RecordValue {
@@ -222,12 +222,22 @@ export function decodeEvent(raw: unknown): QuotaEventPayload | undefined {
 	return undefined;
 }
 
+function tokenDiagnostic(raw: unknown): raw is TokenDiagnostic {
+	return (
+		record(raw) && raw["code"] === "needs-auth" && string(raw["provider"]) && string(raw["message"])
+	);
+}
 function tokenCount(raw: unknown): raw is TokenCount {
 	return (
 		record(raw) &&
 		finite(raw["tokens"]) &&
 		["provider", "count-endpoint", "tokenizer", "estimate"].some(
 			(source) => raw["source"] === source,
+		) &&
+		optionalFields(
+			raw,
+			["diagnostics"],
+			(diagnostics) => Array.isArray(diagnostics) && diagnostics.every(tokenDiagnostic),
 		)
 	);
 }

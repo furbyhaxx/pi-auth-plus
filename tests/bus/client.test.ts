@@ -3,16 +3,20 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEventBus } from "@earendil-works/pi-coding-agent";
+import type { TokenDiagnostic } from "@furbyhaxx/pi-auth-plus/bus";
 import {
 	listQuotaResets,
+	onTokenContext,
 	QUOTA_CHANNELS,
 	QuotaBusError,
 	queryQuotas,
+	queryTokens,
 	refreshQuotas,
 	requestQuotaReset,
 	subscribeQuotaEvent,
 	subscribeQuotaReady,
 	subscribeQuotaSnapshot,
+	TOKEN_CHANNELS,
 } from "@furbyhaxx/pi-auth-plus/bus";
 import { serve } from "../../src/core/bus/index.ts";
 import { SETTINGS } from "../../src/core/config/catalog.ts";
@@ -21,6 +25,7 @@ import { Registry } from "../../src/core/registry/index.ts";
 import { type QuotaBusOptions, registerQuotaBus } from "../../src/quotas/bus.ts";
 import { QuotaEngine } from "../../src/quotas/engine.ts";
 import type { ProviderQuotaSnapshot, QuotaResets } from "../../src/quotas/types.ts";
+import type { ContextReport } from "../../src/tokens/engine/index.ts";
 
 let dir: string;
 let clock: number;
@@ -226,6 +231,86 @@ describe("quota bus client", () => {
 			await expect(pending).rejects.toMatchObject({ reason: "timeout" });
 			off();
 		}
+	});
+	test("token client retains valid diagnostics and validates legacy-compatible counts", async () => {
+		const bus = createEventBus();
+		const diagnostic: TokenDiagnostic = {
+			code: "needs-auth",
+			provider: "claude",
+			message: "Sign in to count this request.",
+		};
+		const diagnosticWithExtra = { ...diagnostic, futureField: true };
+		const withDiagnostic: ContextReport = {
+			provider: "claude",
+			model: "claude-sonnet",
+			contextWindow: 100_000,
+			tokens: {
+				tokens: 12,
+				source: "estimate",
+				diagnostics: [diagnosticWithExtra],
+			},
+			percent: 0.012,
+			anchor: { tokens: 8, source: "count-endpoint" },
+			tail: { tokens: 4, source: "estimate", diagnostics: [] },
+			tailMessages: 1,
+			pi: null,
+			computedAt: clock,
+		};
+		const legacy: ContextReport = {
+			...withDiagnostic,
+			tokens: { tokens: 12, source: "estimate" },
+		};
+		const contexts: unknown[] = [];
+		const offContext = onTokenContext(bus, (payload) => contexts.push(payload));
+
+		for (const report of [withDiagnostic, legacy]) {
+			const off = serve(
+				bus,
+				"tokens",
+				"query",
+				() => ({}),
+				() => ({ v: 1, ok: true, report }),
+			);
+			expect(await queryTokens(bus)).toEqual({ report });
+			off();
+			bus.emit(TOKEN_CHANNELS.context, { v: 1, reason: "request", report });
+		}
+		expect(contexts).toEqual([
+			{ v: 1, reason: "request", report: withDiagnostic },
+			{ v: 1, reason: "request", report: legacy },
+		]);
+
+		for (const diagnostics of [
+			null,
+			{},
+			"invalid",
+			["invalid"],
+			[null],
+			[{}],
+			[{ code: "other", provider: "claude", message: "message" }],
+			[{ code: "needs-auth", provider: "claude" }],
+			[{ code: "needs-auth", provider: 1, message: "message" }],
+			[{ code: "needs-auth", provider: "claude", message: false }],
+		]) {
+			const report = {
+				...legacy,
+				tokens: { tokens: 12, source: "estimate", diagnostics },
+			};
+			const off = serve(
+				bus,
+				"tokens",
+				"query",
+				() => ({}),
+				() => ({ v: 1, ok: true, report }),
+			);
+			await expect(queryTokens(bus, {}, { timeoutMs: 5 })).rejects.toMatchObject({
+				reason: "timeout",
+			});
+			off();
+			bus.emit(TOKEN_CHANNELS.context, { v: 1, reason: "request", report });
+		}
+		expect(contexts).toHaveLength(2);
+		offContext();
 	});
 	test("subscriptions validate broadcasts and unsubscribe", () => {
 		const bus = createEventBus();

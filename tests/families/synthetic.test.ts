@@ -4,14 +4,36 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
-import type { Model, ModelsPublication, RefreshModelsContext } from "@earendil-works/pi-ai";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import {
+	type Api,
+	type AssistantMessage,
+	type Context,
+	createAssistantMessageEventStream,
+	type Model,
+	type ModelsPublication,
+	type ModelsSimpleStreamOptions,
+	type RefreshModelsContext,
+} from "@earendil-works/pi-ai";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+	ExtensionEvent,
+	MessageEndEventResult,
+} from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import type { FetchFn } from "../../src/core/http/index.ts";
-import { Registry, registerFamilyProviders } from "../../src/core/registry/index.ts";
+import {
+	type FamilyAdapter,
+	type FamilyHost,
+	Registry,
+	registerFamilyProviders,
+} from "../../src/core/registry/index.ts";
 import { CATALOG_TTL_MS, parseCatalog } from "../../src/families/synthetic/catalog.ts";
 import { createSyntheticFamily, WEB_SEARCH_FLAG } from "../../src/families/synthetic/index.ts";
 import { parseResults, TOOL_NAME, truncateHead } from "../../src/families/synthetic/web-search.ts";
+import { AliasCatalog } from "../../src/models/aliases/runtime.ts";
+import { installPhysicalRequestHooks } from "../../src/models/runtime/physical.ts";
+import type { TokenizerStore } from "../../src/tokens/types.ts";
 import fixture from "../fixtures/synthetic/models.json";
 import search from "../fixtures/synthetic/search.json";
 import { testHost } from "../host.ts";
@@ -74,7 +96,197 @@ function context(overrides: Partial<RefreshModelsContext> = {}) {
 	return { ctx, publications };
 }
 
+const physicalA = "hf:example/physical-a";
+const physicalB = "hf:example/physical-b";
+const acceptedAlias = { provider: "synthetic", id: "short-name", source: physicalA };
+const collidingAlias = { provider: "synthetic", id: physicalB, source: physicalA };
+
+function aliasModel(id: string): Model<Api> {
+	return {
+		id,
+		name: id,
+		provider: "synthetic",
+		api: "anthropic-messages",
+		baseUrl: "https://example.test",
+		input: ["text"],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		reasoning: false,
+		contextWindow: 1000,
+		maxTokens: 100,
+	};
+}
+
+function aliasMessage(id: string): AssistantMessage {
+	return {
+		role: "assistant",
+		content: [],
+		api: "anthropic-messages",
+		provider: "synthetic",
+		model: id,
+		stopReason: "stop",
+		timestamp: 0,
+		usage: {
+			input: 4,
+			output: 2,
+			cacheRead: 4,
+			cacheWrite: 4,
+			totalTokens: 14,
+			cost: { input: 1, output: 2, cacheRead: 3, cacheWrite: 0, total: 6 },
+		},
+	};
+}
+
+const aliasPayload = (id: string) => ({
+	model: id,
+	messages: [{ role: "user", content: "abcdef" }],
+});
+
+async function aliasHarness(options: { aliases?: boolean; resolveModel?: boolean } = {}) {
+	const base = await testHost({ "models.aliases": [collidingAlias, acceptedAlias] });
+	const catalog = new AliasCatalog(() => base.settings().get("models.aliases"));
+	catalog.register("synthetic", () => [aliasModel(physicalA), aliasModel(physicalB)]);
+	const host: FamilyHost = {
+		...base,
+		...(options.aliases === false ? {} : { aliases: () => catalog.aliases() }),
+		...(options.resolveModel === false ? {} : { resolveModel: catalog.resolve.bind(catalog) }),
+	};
+	const loads: string[] = [];
+	const tokenizers: TokenizerStore = {
+		peek: (repo) => {
+			if (repo === "example/physical-a") return { id: repo, count: (text) => text.length };
+			if (repo === "example/physical-b") return { id: repo, count: (text) => text.length * 2 };
+			return undefined;
+		},
+		load: async (repo) => {
+			loads.push(repo);
+			return undefined;
+		},
+	};
+	type Handler = (event: ExtensionEvent, ctx: ExtensionContext) => unknown;
+	const handlers = new Map<string, Handler>();
+	const pi = {
+		registerFlag: () => {},
+		getFlag: () => false,
+		on: (name: string, handler: Handler) => handlers.set(name, handler),
+	} as unknown as ExtensionAPI;
+	const family = createSyntheticFamily({}, undefined, undefined, undefined, tokenizers);
+	await family.register?.(pi, host);
+	const emit = (event: ExtensionEvent, model: Model<Api>) =>
+		handlers.get(event.type)?.(event, { model } as ExtensionContext);
+	const preload = (model: Model<Api>) => {
+		emit({ type: "session_start", reason: "startup" }, model);
+		emit({ type: "model_select", model, previousModel: undefined, source: "set" }, model);
+	};
+	const fallback = (model: Model<Api>) => {
+		emit({ type: "before_provider_request", payload: aliasPayload(model.id) }, model);
+		return emit({ type: "message_end", message: aliasMessage(model.id) }, model) as
+			| MessageEndEventResult
+			| undefined;
+	};
+	const deps = { auth: async () => undefined, fetch: async () => new Response(), tokenizers };
+	return { family, host, catalog, loads, deps, preload, fallback };
+}
+
+async function aliasPhysicalRequest(family: FamilyAdapter, host: FamilyHost, model: Model<Api>) {
+	const requests: { options: ModelsSimpleStreamOptions | undefined }[] = [];
+	const source = createAssistantMessageEventStream();
+	const runtime = {
+		stream(_model: Model<Api>, _context: Context, options?: ModelsSimpleStreamOptions) {
+			requests.push({ options });
+			return source;
+		},
+		streamSimple(
+			selected: Model<Api>,
+			context: Context,
+			requestOptions?: ModelsSimpleStreamOptions,
+		) {
+			return this.stream(selected, context, requestOptions);
+		},
+	};
+	expect(
+		installPhysicalRequestHooks({ runtime }, (selected) =>
+			family.physical?.(selected, { ...host, cwd: "/" }),
+		),
+	).toBe(true);
+	const stream = runtime.stream(model, { messages: [] });
+	const request = requests[0];
+	if (!request?.options?.onPayload) throw new Error("missing physical payload hook");
+	const payload = aliasPayload(model.id);
+	const wire = await request.options.onPayload(payload, model);
+	source.push({ type: "done", reason: "stop", message: aliasMessage(model.id) });
+	return { payload, wire, message: await stream.result() };
+}
+
 describe("families/synthetic", () => {
+	test("rejected physical-id collisions do not rewrite physical requests", async () => {
+		const { family, host, catalog } = await aliasHarness();
+		expect(catalog.issues()).toEqual([{ kind: "collision", alias: collidingAlias }]);
+		expect(catalog.aliases()).toEqual([acceptedAlias]);
+		const result = await aliasPhysicalRequest(family, host, aliasModel(physicalB));
+		expect(result.wire).toBe(result.payload);
+		expect(result.message).toMatchObject({
+			model: physicalB,
+			usage: { input: 6, cacheRead: 6, cacheWrite: 0, totalTokens: 14 },
+		});
+	});
+
+	test("rejected identities keep their physical tokenizer in counts, preload and fallback", async () => {
+		const { family, deps, loads, preload, fallback } = await aliasHarness();
+		const model = aliasModel(physicalB);
+		const counter = family.tokens?.(model, deps);
+		expect(counter?.id).toBe("example/physical-b");
+		expect(await counter?.count("abcdef", "prose")).toEqual({ tokens: 12, source: "tokenizer" });
+		preload(model);
+		expect(loads).toEqual(["example/physical-b", "example/physical-b"]);
+		expect(fallback(model)?.message).toMatchObject({
+			model: physicalB,
+			usage: { input: 6, cacheRead: 6, cacheWrite: 0, totalTokens: 14 },
+		});
+	});
+
+	test("accepted aliases use their physical source while retaining logical response identity", async () => {
+		const { family, host, deps, loads, preload, fallback } = await aliasHarness();
+		const model = aliasModel(acceptedAlias.id);
+		const result = await aliasPhysicalRequest(family, host, model);
+		expect(result.wire).toEqual({ ...result.payload, model: physicalA });
+		expect(result.message).toMatchObject({
+			model: acceptedAlias.id,
+			usage: { input: 3, cacheRead: 3, cacheWrite: 0, totalTokens: 8 },
+		});
+		const counter = family.tokens?.(model, deps);
+		expect(counter?.id).toBe("example/physical-a");
+		expect(await counter?.count("abcdef", "prose")).toEqual({ tokens: 6, source: "tokenizer" });
+		preload(model);
+		expect(loads).toEqual(["example/physical-a", "example/physical-a", "example/physical-a"]);
+		expect(fallback(model)?.message).toMatchObject({
+			model: acceptedAlias.id,
+			usage: { input: 3, cacheRead: 3, cacheWrite: 0, totalTokens: 8 },
+		});
+	});
+
+	test.each([true, false])(
+		"missing accepted-alias seam never rewrites from raw settings (resolver %s)",
+		async (resolveModel) => {
+			const { family, host } = await aliasHarness({ aliases: false, resolveModel });
+			const result = await aliasPhysicalRequest(family, host, aliasModel(acceptedAlias.id));
+			expect(result.wire).toBe(result.payload);
+		},
+	);
+
+	test("missing resolver never uses raw aliases for counts, preload or fallback", async () => {
+		const { family, deps, loads, preload, fallback } = await aliasHarness({ resolveModel: false });
+		const model = aliasModel(acceptedAlias.id);
+		const counter = family.tokens?.(model, deps);
+		expect(counter?.id).toBe("estimate:synthetic:4/3");
+		expect(await counter?.count("abcdef", "prose")).toEqual({ tokens: 2, source: "estimate" });
+		preload(model);
+		expect(loads).toEqual([]);
+		expect(fallback(model)?.message).toMatchObject({
+			model: acceptedAlias.id,
+			usage: { input: 4, cacheRead: 4, cacheWrite: 0, totalTokens: 10 },
+		});
+	});
+
 	test("maps the live catalog with real prices, limits and modalities", () => {
 		const models = parseCatalog(fixture);
 		expect(models).toHaveLength(14);

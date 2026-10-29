@@ -14,6 +14,7 @@ import {
 	correctSyntheticRequestUsage,
 	correctSyntheticUsage,
 } from "../../../src/families/synthetic/usage.ts";
+import { AliasCatalog } from "../../../src/models/aliases/runtime.ts";
 import type { TextTokenizer, TokenizerStore } from "../../../src/tokens/types.ts";
 import { testHost } from "../../host.ts";
 
@@ -298,9 +299,19 @@ describe("Synthetic tokenizer usage", () => {
 				return undefined;
 			},
 		};
-		const host = await testHost({
+		const base = await testHost({
 			"models.aliases": [{ provider: "synthetic", id: alias, source: payload.model }],
 		});
+		const catalog = new AliasCatalog(() => base.settings().get("models.aliases"));
+		catalog.register("synthetic", () => [
+			{ provider: "synthetic", id: payload.model },
+			{ provider: "synthetic", id: "hf:other/model" },
+		]);
+		const host = {
+			...base,
+			aliases: () => catalog.aliases(),
+			resolveModel: catalog.resolve.bind(catalog),
+		};
 		const { emit, end, family } = await registered(tokenizers, host);
 		const model = { provider: "synthetic", id: alias };
 		emit({ type: "session_start", reason: "startup" }, model);

@@ -26,10 +26,7 @@ export function createSyntheticFamily(
 	const counters = new Map<string, TokenCounter>();
 	let host: FamilyHost | undefined;
 	const sourceModel = (id: string): string =>
-		host
-			?.settings()
-			.get("models.aliases")
-			.find((alias) => alias.provider === PROVIDER && alias.id === id)?.source ?? id;
+		host?.resolveModel?.({ provider: PROVIDER, id }).id ?? id;
 	return {
 		id: PROVIDER,
 		label: "Synthetic",
@@ -69,7 +66,7 @@ export function createSyntheticFamily(
 			},
 		],
 		physical: (model, familyHost) =>
-			syntheticPhysicalHooks(model, familyHost.settings().get("models.aliases"), tokenizers),
+			syntheticPhysicalHooks(model, familyHost.aliases?.() ?? [], tokenizers),
 		register: (pi, familyHost) => {
 			host = familyHost;
 			pi.registerFlag(WEB_SEARCH_FLAG, {

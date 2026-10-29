@@ -7,7 +7,7 @@ import {
 	visibleWidth,
 } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../core/config/index.ts";
-import type { SaveOutcome } from "../../core/config/save.ts";
+import { formatSaveOutcome, type SaveOutcome } from "../../core/config/save.ts";
 import type { ModelAlias } from "../../models/aliases/index.ts";
 import type { OverrideEdit } from "../../models/overrides/index.ts";
 import { exactModelRule } from "../../models/rules/match.ts";
@@ -40,7 +40,7 @@ export interface ModelsTabDeps {
 	rules(): readonly string[];
 	catalog(): readonly ModelCatalogItem[];
 	evaluate(rules: readonly string[], provider: string, id: string): RuleOutcome;
-	save(rules: readonly string[], scope: SaveScope): Promise<void>;
+	save(rules: readonly string[], scope: SaveScope): Promise<SaveOutcome>;
 	details?: {
 		aliases?: {
 			list(): readonly ModelAlias[];
@@ -294,10 +294,14 @@ export class ModelsView implements TabView {
 		if (!rules) return;
 		this.#saving = true;
 		try {
-			await this.#deps.save([...rules], scope);
+			const outcome = await this.#deps.save([...rules], scope);
 			if (this.#disposed) return;
-			this.#staged = undefined;
-			this.#message = `Saved to ${scope} scope`;
+			if (outcome.committed) {
+				this.#staged = undefined;
+				this.#message = formatSaveOutcome(outcome);
+			} else {
+				this.#message = `Save failed: ${formatSaveOutcome(outcome)}`;
+			}
 		} catch (error) {
 			if (!this.#disposed)
 				this.#message = `Save failed: ${error instanceof Error ? error.message : String(error)}`;

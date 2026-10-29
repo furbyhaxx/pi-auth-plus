@@ -25,6 +25,7 @@ function open(
 	extra: readonly ModelCatalogItem[] = [],
 	details?: ModelsTabDeps["details"],
 	bindings: KeybindingsConfig = {},
+	outcome?: (rules: readonly string[], scope: SaveScope) => SaveOutcome,
 ) {
 	let stored = [...initial];
 	const saves: { rules: readonly string[]; scope: SaveScope }[] = [];
@@ -63,9 +64,16 @@ function open(
 				: { visible: !outcome.hidden, ruleIndex: outcome.ruleIndex };
 		},
 		save: async (rules, scope) => {
-			if (fail) throw new Error("save failed; retry");
-			stored = [...rules];
-			saves.push({ rules: [...rules], scope });
+			const result =
+				outcome?.(rules, scope) ??
+				(fail
+					? { committed: false, error: "save failed; retry" }
+					: { committed: true, scope, shadowed: [], warnings: [] });
+			if (result.committed) {
+				stored = [...rules];
+				saves.push({ rules: [...rules], scope });
+			}
+			return result;
 		},
 	};
 	if (details) deps.details = details;
@@ -103,7 +111,10 @@ function dashboard(
 		scope,
 	) => ({ committed: true, scope, shadowed: [], warnings: [] }),
 	saveOverride: () => Promise<void> = async () => {},
-	saveRules: () => Promise<void> = async () => {},
+	saveRules: (rules: readonly string[], scope: SaveScope) => Promise<SaveOutcome> = async (
+		_rules,
+		scope,
+	) => ({ committed: true, scope, shadowed: [], warnings: [] }),
 	rows = 40,
 ) {
 	let modelHost: TabViewHost | undefined;
@@ -206,6 +217,7 @@ describe("models tab", () => {
 				save: async (rules, scope) => {
 					expect(scope).toBe("runtime");
 					stored = [...rules];
+					return { committed: true, scope, shadowed: [], warnings: [] };
 				},
 				details: {
 					read: async (itemProvider, id) => {
@@ -512,7 +524,7 @@ describe("models tab", () => {
 	});
 
 	test("pending rule save also blocks dashboard navigation and exit", async () => {
-		const pending = Promise.withResolvers<void>();
+		const pending = Promise.withResolvers<SaveOutcome>();
 		const rig = dashboard(undefined, undefined, () => pending.promise);
 		rig.panel.handleInput("a");
 		rig.panel.handleInput("vendor/one");
@@ -526,7 +538,7 @@ describe("models tab", () => {
 		expect(rig.panel.tab).toBe("models");
 		expect(rig.closed()).toBe(0);
 		expect(rig.view().hasDrafts()).toBe(true);
-		pending.resolve();
+		pending.resolve({ committed: true, scope: "runtime", shadowed: [], warnings: [] });
 		await Promise.resolve();
 		expect(rig.view().isSaving()).toBe(false);
 		expect(rig.view().hasDrafts()).toBe(false);
@@ -588,7 +600,12 @@ describe("models tab", () => {
 					const result = evaluateModelRules(compiled, provider, id);
 					return { visible: !result.hidden };
 				},
-				save: async () => {},
+				save: async (_rules, scope) => ({
+					committed: true,
+					scope,
+					shadowed: [],
+					warnings: [],
+				}),
 			},
 		);
 		const render = () => view.render(140, 30);
@@ -1100,18 +1117,47 @@ describe("models tab", () => {
 		expect(rig.stored()).toEqual(["vendor/star\\*id"]);
 	});
 
-	test("failed save retains staged rules and retry prompt can be cancelled", async () => {
-		const rig = open([], true);
-		rig.view.handleInput("a");
-		rig.view.handleInput("vendor/one");
-		rig.view.handleInput("\r");
-		await save(rig, "p");
-		expect(rig.text()).toContain("save failed; retry");
-		expect(rig.text()).toContain("vendor/one");
-		expect(rig.stored()).toEqual([]);
-		rig.view.handleInput("\x13");
-		rig.view.handleInput("\x1b");
-		expect(rig.text()).toContain("vendor/one");
+	test("uncommitted rules can retry and committed outcomes report each selected scope", async () => {
+		for (const [target, scope] of [
+			["u", "user"],
+			["p", "project"],
+			["r", "runtime"],
+		] as const) {
+			const attempts: { rules: readonly string[]; scope: SaveScope }[] = [];
+			const rig = open([], false, [], undefined, {}, (rules, attemptedScope) => {
+				attempts.push({ rules: [...rules], scope: attemptedScope });
+				return attempts.length === 1
+					? { committed: false, error: "write failed; retry" }
+					: {
+							committed: true,
+							scope: attemptedScope,
+							shadowed: ["models.rules"],
+							warnings: ["refresh failed"],
+						};
+			});
+			rig.view.handleInput("a");
+			rig.view.handleInput("vendor/one");
+			rig.view.handleInput("\r");
+			const rules = ["vendor/one"];
+
+			await save(rig, target);
+			expect(rig.view.hasDrafts()).toBe(true);
+			expect(rig.text()).toContain("Save failed: write failed; retry");
+			expect(rig.text()).toContain("vendor/one");
+			expect(rig.stored()).toEqual([]);
+
+			await save(rig, target);
+			expect(attempts).toEqual([
+				{ rules, scope },
+				{ rules, scope },
+			]);
+			expect(rig.saves).toEqual([{ rules, scope }]);
+			expect(rig.view.hasDrafts()).toBe(false);
+			expect(rig.stored()).toEqual(rules);
+			expect(rig.text()).toContain(
+				`Saved to ${scope} scope; shadowed by higher scope: models.rules; warning: refresh failed`,
+			);
+		}
 	});
 
 	test("catalog, rules, edit and save screens fit widths, sanitize names and clamp scroll", () => {

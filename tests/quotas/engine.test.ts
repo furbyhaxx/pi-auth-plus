@@ -10,6 +10,7 @@ import { ProviderHttpError } from "../../src/core/http/index.ts";
 import { type ProviderEntry, Registry } from "../../src/core/registry/index.ts";
 import { quotaAuthFor } from "../../src/quotas/auth.ts";
 import { QuotaEngine } from "../../src/quotas/engine.ts";
+import { engineReport } from "../../src/quotas/report.ts";
 import { enabledQuotaProviders } from "../../src/quotas/settings.ts";
 import { parseQuotaState } from "../../src/quotas/state.ts";
 import type {
@@ -41,6 +42,7 @@ function setup(
 	headers?: QuotaSource["headers"],
 	others: ProviderEntry[] = [],
 	resets?: QuotaResets,
+	backgroundNetwork?: boolean,
 ) {
 	const settings = new SettingsStore(SETTINGS, { user: join(dir, "settings.json") });
 	const registry = new Registry([
@@ -79,6 +81,7 @@ function setup(
 			throw new Error("Unexpected network call");
 		},
 		authFor: async () => ({ token: "test-token", extra: { account: "test" } }),
+		...(backgroundNetwork === undefined ? {} : { backgroundNetwork }),
 	});
 	engines.push(engine);
 	return { engine, settings, registry };
@@ -335,6 +338,41 @@ describe("quota engine", () => {
 		stopped.stop();
 		expect(await stopped.ingestHeaders({})).toBeUndefined();
 		expect(existsSync(path)).toBe(false);
+	});
+
+	test("offline startup and repeated ticks sync shared reports without automatic fetches", async () => {
+		const writer = setup().engine;
+		const cached = snapshot();
+		await writer.cache.put("fake", { snapshot: cached, drainage: [] });
+		utimesSync(path, new Date(0), new Date(1_000));
+		clock += 120_000;
+
+		const { engine, settings } = setup(undefined, [], undefined, false);
+		await engine.start();
+		expect(engine.view()[0]?.snapshot).toEqual(cached);
+		expect(engineReport(engine, settings, clock).providers[0]?.windows[0]?.usedPercent).toBe(25);
+		await engine.tick();
+		await engine.tick();
+		expect(calls).toBe(0);
+
+		const updated = {
+			...snapshot(),
+			windows: cached.windows.map((window) => ({ ...window, usedFraction: 0.5 })),
+		};
+		await writer.cache.put("fake", { snapshot: updated, drainage: [] });
+		utimesSync(path, new Date(0), new Date(2_000));
+		await engine.tick();
+		expect(engine.view()[0]?.snapshot).toEqual(updated);
+		expect(calls).toBe(0);
+
+		await engine.refresh("fake", { force: true });
+		expect(calls).toBe(1);
+		expect(engine.view()[0]?.snapshot).toEqual(snapshot());
+		clock += 120_000;
+		await engine.tick();
+		await engine.start();
+		await engine.tick();
+		expect(calls).toBe(1);
 	});
 
 	test("sessions share snapshots and fetch only once per interval", async () => {
@@ -597,6 +635,42 @@ describe("quota engine", () => {
 			await engine.refresh("fake");
 		});
 	}
+
+	test("offline restart retains one timer when an older startup sync finishes late", async () => {
+		const cached = snapshot();
+		await setup().engine.cache.put("fake", { snapshot: cached, drainage: [] });
+		const engine = setup(undefined, [], undefined, false).engine;
+		const entered = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		const sync = engine.cache.sync.bind(engine.cache);
+		let first = true;
+		const syncSpy = spyOn(engine.cache, "sync").mockImplementation(async (...args) => {
+			if (first) {
+				first = false;
+				entered.resolve();
+				await release.promise;
+			}
+			return sync(...args);
+		});
+		const timer = spyOn(globalThis, "setInterval");
+		try {
+			const previous = engine.start();
+			await entered.promise;
+			engine.stop();
+			await engine.start();
+			expect(timer).toHaveBeenCalledTimes(1);
+			expect(engine.view()[0]?.snapshot).toEqual(cached);
+			release.resolve();
+			await previous;
+			expect(timer).toHaveBeenCalledTimes(1);
+			await engine.tick();
+			expect(calls).toBe(0);
+		} finally {
+			release.resolve();
+			syncSpy.mockRestore();
+			timer.mockRestore();
+		}
+	});
 
 	test("a stopped startup refresh does not report a late storage error", async () => {
 		const engine = setup().engine;

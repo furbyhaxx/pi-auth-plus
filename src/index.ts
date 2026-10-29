@@ -235,8 +235,14 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		engine: createTokenEngine({
 			families: registry.families,
 			deps: {
-				auth: (id) => quotaAuthFor(id, quotaContext?.modelRegistry),
-				fetch,
+				auth: offline
+					? async () => undefined
+					: (id) => quotaAuthFor(id, quotaContext?.modelRegistry),
+				fetch: offline
+					? async () => {
+							throw new Error("Native token counting is unavailable offline; retry online.");
+						}
+					: fetch,
 				tokenizers: defaultTokenizerStore(),
 			},
 			tools: () => {
@@ -266,6 +272,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		now: Date.now,
 		fetch,
 		authFor: (id) => quotaAuthFor(id, quotaContext?.modelRegistry),
+		backgroundNetwork: !offline,
 	});
 	const quotaLine = createQuotaLine(pi, {
 		engine: quotas,
@@ -342,7 +349,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		void ingest.finally(() => pendingIngests.delete(ingest));
 	});
 	pi.on("agent_end", (_event, ctx) => {
-		if (!quotasEnabled || !settings.get("quotas.refreshOnRequest")) return;
+		if (offline || !quotasEnabled || !settings.get("quotas.refreshOnRequest")) return;
 		quotaContext = ctx;
 		const id = ctx.model?.provider;
 		const provider = id ? registry.resolve(id)?.provider : undefined;

@@ -11,11 +11,14 @@ import {
 	type ExtensionAPI,
 	type ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
-import { channelName } from "../../src/core/bus/index.ts";
+import { channelName, request } from "../../src/core/bus/index.ts";
+import { FAMILIES } from "../../src/families/index.ts";
 import piAuthPlus from "../../src/index.ts";
 import { QuotaEngine } from "../../src/quotas/engine.ts";
+import { defaultTokenizerStore } from "../../src/tokens/tokenizer/index.ts";
+import type { CounterDeps } from "../../src/tokens/types.ts";
 
-test("session replacement fences physical responses, resets and shutdown work", async () => {
+function lifecycleFixture(activeModel?: { readonly provider: string; readonly id: string }) {
 	const requests: (ModelsSimpleStreamOptions | undefined)[] = [];
 	const runtime = {
 		stream(_model: Model<Api>, _context: Context, options?: ModelsSimpleStreamOptions) {
@@ -45,14 +48,28 @@ test("session replacement fences physical responses, resets and shutdown work", 
 	const bus = createEventBus();
 	const prompted = Promise.withResolvers<void>();
 	const approval = Promise.withResolvers<string | undefined>();
+	const authLookups: string[] = [];
 	const ctx = {
 		cwd: process.env["HOME"],
+		model: activeModel ? { ...model, ...activeModel } : undefined,
 		modelRegistry: {
 			runtime,
 			refresh: async () => ({ errors: new Map(), aborted: false }),
 			getAll: () => [],
 			getAvailable: () => [],
+			getProviderAuth: async (provider: string) => {
+				authLookups.push(provider);
+				return { auth: { apiKey: "test-key" } };
+			},
 		},
+		sessionManager: {
+			getSessionId: () => "session",
+			getLeafId: () => null,
+			getBranch: () => [],
+			buildSessionProjection: () => ({ messages: [] }),
+		},
+		getSystemPrompt: () => "A test prompt for token counting.",
+		getContextUsage: () => undefined,
 		mode: "rpc",
 		hasUI: true,
 		isProjectTrusted: () => false,
@@ -97,8 +114,8 @@ test("session replacement fences physical responses, resets and shutdown work", 
 		getSessionName: unexpected,
 		setLabel: unexpected,
 		exec: unexpected,
-		getActiveTools: unexpected,
-		getAllTools: unexpected,
+		getActiveTools: () => [],
+		getAllTools: () => [],
 		setActiveTools: unexpected,
 		setModel: unexpected,
 		getThinkingLevel: unexpected,
@@ -118,6 +135,40 @@ test("session replacement fences physical responses, resets and shutdown work", 
 			await result;
 		}
 	};
+	return {
+		requests,
+		runtime,
+		model,
+		commands,
+		notices,
+		bus,
+		prompted,
+		approval,
+		ctx,
+		pi,
+		run,
+		authLookups,
+		setShutdownWaiting: (notify: () => void) => {
+			shutdownWaiting = notify;
+		},
+	};
+}
+
+test("session replacement fences physical responses, resets and shutdown work", async () => {
+	const {
+		requests,
+		runtime,
+		model,
+		commands,
+		notices,
+		bus,
+		prompted,
+		approval,
+		ctx,
+		pi,
+		run,
+		setShutdownWaiting,
+	} = lifecycleFixture();
 	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
 	const ingest = spyOn(QuotaEngine.prototype, "ingestHeaders").mockResolvedValue(undefined);
 	const list = spyOn(QuotaEngine.prototype, "listResets").mockResolvedValue({
@@ -185,7 +236,7 @@ test("session replacement fences physical responses, resets and shutdown work", 
 		if (!beforeShutdown) throw new Error("Missing pre-shutdown response hook");
 		await beforeShutdown({ status: 200, headers: { owner: "pending" } }, model);
 		const waiting = Promise.withResolvers<void>();
-		shutdownWaiting = waiting.resolve;
+		setShutdownWaiting(waiting.resolve);
 		const shutdown = run("session_shutdown");
 		await waiting.promise;
 		await run("session_start");
@@ -206,5 +257,124 @@ test("session replacement fences physical responses, resets and shutdown work", 
 		ingest.mockRestore();
 		list.mockRestore();
 		consume.mockRestore();
+	}
+});
+
+for (const mode of ["environment", "flag", "online"] as const) {
+	test(`${mode} startup applies quota and native-count network policy`, async () => {
+		const originalArgv = [...process.argv];
+		const originalOffline = process.env["PI_OFFLINE"];
+		process.env["PI_OFFLINE"] = mode === "environment" ? "YeS" : "0";
+		if (mode === "flag") process.argv.push("--offline");
+		const offline = mode !== "online";
+		const { pi, run, bus, authLookups } = lifecycleFixture({
+			provider: "claude",
+			id: `test-${mode}`,
+		});
+		const family = FAMILIES.find((entry) => entry.id === "anthropic");
+		if (!family?.tokens) throw new Error("Missing native counter family");
+		const originalTokens = family.tokens;
+		const counterDeps: CounterDeps[] = [];
+		const counter = spyOn(family, "tokens").mockImplementation((model, deps) => {
+			counterDeps.push(deps);
+			return originalTokens(model, deps);
+		});
+		const fakeFetch = Object.assign(async () => Response.json({ input_tokens: 3 }), {
+			preconnect: globalThis.fetch.preconnect,
+		});
+		const transport = spyOn(globalThis, "fetch").mockImplementation(fakeFetch);
+		const originalStart = QuotaEngine.prototype.start;
+		let engine: QuotaEngine | undefined;
+		const start = spyOn(QuotaEngine.prototype, "start").mockImplementation(function (
+			this: QuotaEngine,
+		) {
+			engine = this;
+			return originalStart.call(this);
+		});
+		const refresh = spyOn(QuotaEngine.prototype, "refresh").mockResolvedValue(undefined);
+		try {
+			await piAuthPlus(pi);
+			await run("session_start");
+			expect(start).toHaveBeenCalledTimes(1);
+			if (!engine) throw new Error("Quota engine did not start");
+			await engine.tick();
+			const scheduledRefreshes = refresh.mock.calls.length;
+
+			const report = await request(bus, "tokens", "query", { refresh: true }, (value) => value);
+			expect(report).toMatchObject({
+				ok: true,
+				report: { tokens: { source: offline ? "estimate" : "count-endpoint" } },
+			});
+			const deps = counterDeps.at(-1);
+			if (!deps) throw new Error("Missing counter dependencies");
+			if (offline) {
+				expect(authLookups).toEqual([]);
+				expect(await deps.auth("claude")).toBeUndefined();
+				await expect(deps.fetch("https://example.test/count")).rejects.toThrow("offline");
+				expect(transport).not.toHaveBeenCalled();
+				expect(scheduledRefreshes).toBe(0);
+			} else {
+				expect(authLookups.length).toBeGreaterThan(0);
+				expect(await deps.auth("claude")).toMatchObject({ token: "test-key" });
+				expect((await deps.fetch("https://example.test/count")).ok).toBe(true);
+				expect(transport).toHaveBeenCalled();
+				expect(scheduledRefreshes).toBeGreaterThan(0);
+			}
+
+			refresh.mockClear();
+			await run("agent_end");
+			if (offline) expect(refresh).not.toHaveBeenCalled();
+			else expect(refresh).toHaveBeenCalledWith("claude", { minAgeMs: 2000 });
+
+			refresh.mockClear();
+			const response = await request(
+				bus,
+				"quotas",
+				"refresh",
+				{ providers: ["claude"], force: true },
+				(value) => value,
+			);
+			expect(response).toMatchObject({ ok: true });
+			expect(refresh).toHaveBeenCalledWith("claude", { force: true, minAgeMs: 0 });
+		} finally {
+			await run("session_shutdown");
+			counter.mockRestore();
+			transport.mockRestore();
+			start.mockRestore();
+			refresh.mockRestore();
+			process.argv.splice(0, process.argv.length, ...originalArgv);
+			if (originalOffline === undefined) delete process.env["PI_OFFLINE"];
+			else process.env["PI_OFFLINE"] = originalOffline;
+		}
+	});
+}
+
+test("offline token reports use a locally loaded tokenizer", async () => {
+	const originalOffline = process.env["PI_OFFLINE"];
+	process.env["PI_OFFLINE"] = "1";
+	const { pi, run, bus } = lifecycleFixture({ provider: "synthetic", id: "hf:example/local" });
+	const store = defaultTokenizerStore();
+	const tokenizer = { id: "example/local@cached", count: () => 7 };
+	const peek = spyOn(store, "peek").mockImplementation((repo) =>
+		repo === "example/local" ? tokenizer : undefined,
+	);
+	const load = spyOn(store, "load").mockResolvedValue(tokenizer);
+	const refresh = spyOn(QuotaEngine.prototype, "refresh").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(pi);
+		await run("session_start");
+		const report = await request(bus, "tokens", "query", { refresh: true }, (value) => value);
+		expect(report).toMatchObject({
+			ok: true,
+			report: { tokens: { source: "tokenizer", tokens: 7 } },
+		});
+		expect(load).toHaveBeenCalledWith("example/local");
+	} finally {
+		await run("session_shutdown");
+		peek.mockRestore();
+		load.mockRestore();
+		refresh.mockRestore();
+		if (originalOffline === undefined) delete process.env["PI_OFFLINE"];
+		else process.env["PI_OFFLINE"] = originalOffline;
 	}
 });

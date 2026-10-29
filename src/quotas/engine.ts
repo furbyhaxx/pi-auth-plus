@@ -25,6 +25,8 @@ export interface QuotaEngineOptions {
 	readonly now: () => number;
 	readonly fetch: FetchFn;
 	readonly authFor: (providerId: string) => Promise<QuotaAuth | undefined>;
+	/** Defaults to true; false suppresses automatic refreshes but permits explicit refreshes. */
+	readonly backgroundNetwork?: boolean;
 }
 
 export interface QuotaView {
@@ -252,7 +254,7 @@ export class QuotaEngine {
 		const signal = this.controller.signal;
 		if (signal.aborted) return;
 		await this.cache.sync(false, signal);
-		if (signal.aborted) return;
+		if (signal.aborted || this.options.backgroundNetwork === false) return;
 		await Promise.all(
 			this.providers().flatMap((provider) => {
 				const entry = this.cache.get(provider.id);
@@ -264,7 +266,7 @@ export class QuotaEngine {
 		);
 	}
 
-	/** Starts a new session's sync, initial refresh and unreferenced poll timer. */
+	/** Starts a new session's sync, optional initial refresh and unreferenced poll timer. */
 	async start(): Promise<void> {
 		this.stop();
 		this.controller = new AbortController();
@@ -272,8 +274,10 @@ export class QuotaEngine {
 		await this.cache.sync(false, signal);
 		if (signal.aborted) return;
 		// Fire and forget: Pi awaits session_start, and endpoints can take seconds.
-		for (const provider of this.providers())
-			void this.refresh(provider.id).catch(() => this.notify(signal));
+		if (this.options.backgroundNetwork !== false) {
+			for (const provider of this.providers())
+				void this.refresh(provider.id).catch(() => this.notify(signal));
+		}
 		if (signal.aborted) return;
 		this.timer = setInterval(() => {
 			void this.tick().catch(() => this.notify(signal));

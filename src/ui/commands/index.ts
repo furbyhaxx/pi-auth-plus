@@ -23,7 +23,7 @@ import {
 } from "../dashboard/index.ts";
 import { type ModelsTabDeps, ModelsView } from "../dashboard/models.ts";
 import { type QuotasTabDeps, QuotasView } from "../dashboard/quotas.ts";
-import { SettingsView } from "../dashboard/settings.ts";
+import { type SettingsTabDeps, SettingsView } from "../dashboard/settings.ts";
 import { TokensView, tokensText } from "../dashboard/tokens.ts";
 import { sanitize } from "../frame/index.ts";
 import { type ResetFlowDeps, runResetFlow } from "./resets.ts";
@@ -39,6 +39,7 @@ export interface QuotaPanelDeps extends QuotasTabDeps, ResetFlowDeps {
 export interface SettingsPanelDeps {
 	store(): AppSettings;
 	readonly save: SettingsSaver;
+	providerOptions?: SettingsTabDeps["providerOptions"];
 	preview?(
 		source: string,
 		width: number,
@@ -524,6 +525,12 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 						store: () => store,
 						save: (scope, changes) =>
 							signal?.aborted ? Promise.resolve(cancelledSave()) : source.save(scope, changes),
+						...(source.providerOptions
+							? {
+									providerOptions: (key) =>
+										signal?.aborted ? [] : (source.providerOptions?.(key) ?? []),
+								}
+							: {}),
 						...(source.preview
 							? {
 									preview: (template, width, theme) =>
@@ -581,6 +588,9 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 								{
 									store: settings.store,
 									save: settings.save,
+									...(settings.providerOptions
+										? { providerOptions: settings.providerOptions }
+										: {}),
 									...(settings.preview
 										? {
 												previewTemplate: (source: string, width: number) =>
@@ -598,6 +608,10 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 						views,
 						opened.tab,
 						model.providers.length,
+						() => ({
+							density: store?.get("dashboard.density") ?? "comfortable",
+							maxBodyRows: store?.get("dashboard.maxBodyRows") ?? 0,
+						}),
 					);
 					if (signal?.aborted) panel.dispose();
 					return panel;

@@ -721,11 +721,13 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				save: async (provider, id, changes) => {
 					const ctx = quotaContext;
 					const signal = sessionController.signal;
-					await updateOverrides(modelsPath(), provider, id, changes);
+					const store = settings;
+					const path = modelsPath();
+					await updateOverrides(path, provider, id, changes);
 					if (!ctx || signal.aborted) return;
 					let lifetime: AbortSignal | undefined;
 					try {
-						const applied = await applyModelRules(ctx, [provider], settings, signal);
+						const applied = await applyModelRules(ctx, [provider], store, signal);
 						if (applied === false || applied.aborted) return;
 						lifetime = applied;
 						if (ctx.model?.provider === provider && ctx.model.id === id) {
@@ -781,6 +783,19 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		settings: {
 			store: () => settings,
 			save: saveSettings,
+			providerOptions: (key) => {
+				const options = new Map(
+					registry
+						.providers()
+						.filter(({ provider }) => key !== "quotas.providers" || provider.quota)
+						.map(({ provider }) => [provider.id, { value: provider.id, label: provider.label }]),
+				);
+				if (key === "openai.verbosityProviders")
+					for (const model of modelCatalog())
+						if (!options.has(model.provider))
+							options.set(model.provider, { value: model.provider, label: model.provider });
+				return [...options.values()];
+			},
 			preview: (source, width, theme) => quotaLine.preview(source, width, theme),
 		},
 	});

@@ -10,7 +10,7 @@ import { syntheticPhysicalHooks } from "./physical.ts";
 import { syntheticQuota } from "./quota.ts";
 import { requestModel, syntheticTokenizerRepo } from "./request-tokens.ts";
 import { correctSyntheticRequestUsage } from "./usage.ts";
-import { registerWebSearch } from "./web-search.ts";
+import { registerWebSearch, TOOL_NAME } from "./web-search.ts";
 
 /** Enables the web-search tool for one run, next to the `synthetic.webSearch` setting. */
 export const WEB_SEARCH_FLAG = "synthetic-web-search";
@@ -25,6 +25,7 @@ export function createSyntheticFamily(
 ): FamilyAdapter {
 	const counters = new Map<string, TokenCounter>();
 	let host: FamilyHost | undefined;
+	let syncWebSearch: (() => void) | undefined;
 	const sourceModel = (id: string): string =>
 		host?.resolveModel?.({ provider: PROVIDER, id }).id ?? id;
 	return {
@@ -67,12 +68,31 @@ export function createSyntheticFamily(
 		],
 		physical: (model, familyHost) =>
 			syntheticPhysicalHooks(model, familyHost.aliases?.() ?? [], tokenizers),
+		settingsChanged: (keys, signal) => {
+			if (!signal.aborted && keys.includes("synthetic.webSearch")) syncWebSearch?.();
+		},
 		register: (pi, familyHost) => {
 			host = familyHost;
 			pi.registerFlag(WEB_SEARCH_FLAG, {
 				description: "Offer the Synthetic web search tool for this run",
 				type: "boolean",
 			});
+			const searchEnabled = () =>
+				pi.getFlag(WEB_SEARCH_FLAG) === true || familyHost.settings().get("synthetic.webSearch");
+			registerWebSearch(pi, { fetch: fetchFn, outputDir, enabled: searchEnabled });
+			syncWebSearch = () => {
+				const enabled = searchEnabled();
+				const active = pi.getActiveTools();
+				let found = false;
+				const next = active.filter((name) => {
+					if (name !== TOOL_NAME) return true;
+					if (!enabled || found) return false;
+					found = true;
+					return true;
+				});
+				if (enabled && !found) next.push(TOOL_NAME);
+				if (next.length !== active.length) pi.setActiveTools(next);
+			};
 			let payload: unknown;
 			const preload = (model: { provider: string; id: string } | undefined): void => {
 				payload = undefined;
@@ -100,16 +120,9 @@ export function createSyntheticFamily(
 				);
 				return corrected && { message: corrected };
 			});
-			let searchRegistered = false;
-			// The project setting needs the session's cwd and trust before tool registration.
 			pi.on("session_start", (_event, ctx) => {
 				if (tokenizers) preload(ctx.model);
-				if (searchRegistered) return;
-				const enabled =
-					pi.getFlag(WEB_SEARCH_FLAG) === true || familyHost.settings().get("synthetic.webSearch");
-				if (!enabled) return;
-				registerWebSearch(pi, { fetch: fetchFn, outputDir });
-				searchRegistered = true;
+				syncWebSearch?.();
 			});
 		},
 	};

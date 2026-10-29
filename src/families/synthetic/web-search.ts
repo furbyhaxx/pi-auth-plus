@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import { missingEnvironmentAuth } from "../../core/auth/missing.ts";
 import { atomicWriteFile } from "../../core/fs/index.ts";
 import {
@@ -31,6 +32,9 @@ const MAX_LINES = 2000;
 const SEARCH_PARAMS = Type.Object({
 	query: Type.String({ minLength: 1, description: "Focused web search query" }),
 });
+type SearchToolDetails =
+	| SearchDetails
+	| { readonly kind: "error"; readonly code: "disabled"; readonly message: string };
 
 class SearchParseError extends Error {}
 
@@ -81,14 +85,16 @@ export function formatResults(results: readonly SearchResult[], full: boolean): 
 
 export interface SearchDeps {
 	readonly fetch: FetchFn;
+	readonly enabled: () => boolean;
 	/** Directory for the full page text of each search. */
 	readonly outputDir: () => string;
 }
 
 export function registerWebSearch(pi: ExtensionAPI, deps: SearchDeps): void {
-	pi.registerTool<typeof SEARCH_PARAMS, SearchDetails, SearchRowState>({
+	pi.registerTool<typeof SEARCH_PARAMS, SearchToolDetails, SearchRowState>({
 		name: TOOL_NAME,
 		label: "Synthetic Web Search",
+		defaultActive: false,
 		description:
 			"Search the public web through Synthetic's zero-data-retention search API. Returns titles, URLs, publication dates and the relevant passages of each page; the full page text is saved to a file whose path the result names.",
 		promptSnippet: "Search the public web through Synthetic's zero-data-retention API",
@@ -100,9 +106,34 @@ export function registerWebSearch(pi: ExtensionAPI, deps: SearchDeps): void {
 		parameters: SEARCH_PARAMS,
 		renderShell: "self",
 		renderCall: (_args, theme, context) => renderSearchCall(TOOL_NAME, theme, context),
-		renderResult: renderSearchResult,
+		renderResult: (result, options, theme, context) => {
+			const component = renderSearchResult(result, options, theme, context);
+			if (
+				options.isPartial ||
+				result.details?.kind !== "error" ||
+				result.details.code !== "disabled"
+			)
+				return component;
+			return {
+				render(width) {
+					const pad = Math.max(
+						0,
+						Math.min(Math.floor(context.outputPad), Math.floor((width - 1) / 2)),
+					);
+					const available = Math.max(0, width - 2 * pad);
+					const prefix = " ".repeat(pad);
+					return [
+						`  ${theme.fg("dim", "⎿")}  ${theme.fg("error", "search disabled")}`,
+						`     ${theme.fg("muted", "Enable synthetic.webSearch")}`,
+						`     ${theme.fg("muted", "or --synthetic-web-search")}`,
+					].map((line) => prefix + truncateToWidth(line, available, "…"));
+				},
+				invalidate: () => component.invalidate(),
+			};
+		},
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			if (signal?.aborted) return aborted();
+			if (!deps.enabled()) return disabled();
 			let apiKey: string | undefined;
 			try {
 				apiKey = (await waitForAbort(ctx.modelRegistry.getProviderAuth(PROVIDER), signal))?.auth
@@ -113,12 +144,14 @@ export function registerWebSearch(pi: ExtensionAPI, deps: SearchDeps): void {
 				throw error;
 			}
 			if (signal?.aborted) return aborted();
+			if (!deps.enabled()) return disabled();
 			if (!apiKey) return failure("auth");
 			onUpdate?.({
 				content: [{ type: "text", text: "Searching Synthetic…" }],
 				details: { kind: "progress", query: previewText(params.query, 160, apiKey) },
 			});
 			if (signal?.aborted) return aborted();
+			if (!deps.enabled()) return disabled();
 			let response: Response;
 			try {
 				response = await waitForAbort(
@@ -148,6 +181,7 @@ export function registerWebSearch(pi: ExtensionAPI, deps: SearchDeps): void {
 				return failure(error instanceof SyntaxError ? "parse" : "network");
 			}
 			if (signal?.aborted) return aborted();
+			if (!deps.enabled()) return disabled();
 			let results: SearchResult[];
 			try {
 				results = parseResults(payload);
@@ -205,6 +239,16 @@ function failure(
 	return {
 		content: [{ type: "text", text: message }],
 		details: { kind: "error", code, message, ...(status === undefined ? {} : { status }) },
+		isError: true,
+	};
+}
+
+function disabled(): AgentToolResult<SearchToolDetails> {
+	const message =
+		"Synthetic web search is disabled. Enable synthetic.webSearch or --synthetic-web-search.";
+	return {
+		content: [{ type: "text", text: message }],
+		details: { kind: "error", code: "disabled", message },
 		isError: true,
 	};
 }

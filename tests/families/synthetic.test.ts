@@ -48,16 +48,21 @@ type Tool = Parameters<ExtensionAPI["registerTool"]>[0];
 
 async function registered(
 	fetchFn: FetchFn = async () => Response.json(fixture),
-	options: { setting?: boolean; flag?: boolean; outputDir?: string } = {},
+	options: { setting?: boolean; flag?: boolean; outputDir?: string; onOutputDir?: () => void } = {},
 ) {
 	let config: Config | undefined;
 	const tools: Tool[] = [];
 	const sessionStart: Array<() => void> = [];
+	let activeTools = ["read", "bash"];
+	const changes: string[][] = [];
 	const family = createSyntheticFamily(
 		{ SYNTHETIC_API_KEY: "test" },
 		fetchFn,
 		() => now,
-		() => options.outputDir ?? outputDir,
+		() => {
+			options.onOutputDir?.();
+			return options.outputDir ?? outputDir;
+		},
 	);
 	const host = await testHost(
 		options.setting === undefined ? {} : { "synthetic.webSearch": options.setting },
@@ -68,7 +73,15 @@ async function registered(
 		},
 		registerFlag: () => {},
 		getFlag: (name: string) => (name === WEB_SEARCH_FLAG ? options.flag : undefined),
-		registerTool: (tool: Tool) => tools.push(tool),
+		registerTool: (tool: Tool) => {
+			tools.push(tool);
+			if (tool.defaultActive !== false) activeTools.push(tool.name);
+		},
+		getActiveTools: () => [...activeTools],
+		setActiveTools: (names: string[]) => {
+			activeTools = [...names];
+			changes.push([...names]);
+		},
 		on: (event: string, handler: () => void) => {
 			if (event === "session_start") sessionStart.push(handler);
 		},
@@ -79,7 +92,17 @@ async function registered(
 	const startSession = () => {
 		for (const handler of sessionStart) handler();
 	};
-	return { family, config, refresh: config.refreshModels, tools, startSession };
+	return {
+		family,
+		host,
+		config,
+		refresh: config.refreshModels,
+		tools,
+		startSession,
+		active: pi.getActiveTools,
+		setActive: pi.setActiveTools,
+		changes,
+	};
 }
 
 function context(overrides: Partial<RefreshModelsContext> = {}) {
@@ -167,6 +190,9 @@ async function aliasHarness(options: { aliases?: boolean; resolveModel?: boolean
 	const pi = {
 		registerFlag: () => {},
 		getFlag: () => false,
+		registerTool: () => {},
+		getActiveTools: () => [],
+		setActiveTools: () => {},
 		on: (name: string, handler: Handler) => handlers.set(name, handler),
 	} as unknown as ExtensionAPI;
 	const family = createSyntheticFamily({}, undefined, undefined, undefined, tokenizers);
@@ -438,19 +464,195 @@ describe("families/synthetic", () => {
 		);
 	});
 
-	test("the web-search tool registers only when the setting or the flag enables it, once", async () => {
-		const off = await registered();
-		off.startSession();
-		expect(off.tools).toEqual([]);
+	test("registers once and synchronizes live settings without changing unrelated tools", async () => {
+		const { family, host, tools, active, setActive, changes, startSession } = await registered();
+		const signal = new AbortController().signal;
+		expect(tools.map((tool) => tool.name)).toEqual([TOOL_NAME]);
+		expect(tools[0]?.defaultActive).toBe(false);
+		expect(active()).toEqual(["read", "bash"]);
+		startSession();
+		startSession();
+		expect(active()).toEqual(["read", "bash"]);
+		expect(changes).toEqual([]);
 
-		const setting = await registered(undefined, { setting: true });
-		setting.startSession();
-		setting.startSession();
-		expect(setting.tools.map((tool) => tool.name)).toEqual([TOOL_NAME]);
+		await host.settings().save("runtime", { "synthetic.webSearch": true });
+		await family.settingsChanged?.(["unrelated.setting"], signal);
+		expect(active()).toEqual(["read", "bash"]);
+		const aborted = new AbortController();
+		aborted.abort();
+		await family.settingsChanged?.(["synthetic.webSearch"], aborted.signal);
+		expect(active()).toEqual(["read", "bash"]);
+		await family.settingsChanged?.(["synthetic.webSearch"], signal);
+		expect(active()).toEqual(["read", "bash", TOOL_NAME]);
+		await family.settingsChanged?.(["synthetic.webSearch"], signal);
+		startSession();
+		expect(active()).toEqual(["read", "bash", TOOL_NAME]);
+		setActive(["other", TOOL_NAME, "read", TOOL_NAME, "bash"]);
+		await family.settingsChanged?.(["synthetic.webSearch"], signal);
+		expect(active()).toEqual(["other", TOOL_NAME, "read", "bash"]);
+		setActive(["other", "read", TOOL_NAME, "bash"]);
+		await host.settings().save("runtime", { "synthetic.webSearch": false });
+		await family.settingsChanged?.(["synthetic.webSearch"], signal);
+		expect(active()).toEqual(["other", "read", "bash"]);
+		setActive(["other", TOOL_NAME, "read", "bash"]);
+		startSession();
+		startSession();
+		expect(active()).toEqual(["other", "read", "bash"]);
+		expect(tools).toHaveLength(1);
+	});
 
-		const flag = await registered(undefined, { flag: true });
-		flag.startSession();
-		expect(flag.tools.map((tool) => tool.name)).toEqual([TOOL_NAME]);
+	test("the search flag keeps the tool active and executable when settings are disabled", async () => {
+		let fetches = 0;
+		let authentications = 0;
+		const search = await registered(
+			async () => {
+				fetches++;
+				return Response.json({ results: [] });
+			},
+			{ flag: true },
+		);
+		search.startSession();
+		await search.host.settings().save("runtime", { "synthetic.webSearch": false });
+		await search.family.settingsChanged?.(["synthetic.webSearch"], new AbortController().signal);
+		search.startSession();
+		expect(search.tools).toHaveLength(1);
+		expect(search.active()).toEqual(["read", "bash", TOOL_NAME]);
+		const tool = search.tools[0];
+		if (!tool) throw new Error("tool missing");
+		const result = await tool.execute("call", { query: "hello" }, undefined, undefined, {
+			modelRegistry: {
+				getProviderAuth: async () => {
+					authentications++;
+					return { auth: { apiKey: "test-key" } };
+				},
+			},
+		} as never);
+		expect(result.details).toMatchObject({ kind: "success", resultCount: 0 });
+		expect([authentications, fetches]).toEqual([1, 1]);
+	});
+
+	test("a disabled stale tool returns actionable failure before auth, network or files", async () => {
+		let authentications = 0;
+		let fetches = 0;
+		let outputDirs = 0;
+		const search = await registered(
+			async () => {
+				fetches++;
+				return Response.json({ results: [] });
+			},
+			{ setting: true, onOutputDir: () => outputDirs++ },
+		);
+		search.startSession();
+		await search.host.settings().save("runtime", { "synthetic.webSearch": false });
+		await search.family.settingsChanged?.(["synthetic.webSearch"], new AbortController().signal);
+		search.setActive(["read", TOOL_NAME, "bash"]);
+		const tool = search.tools[0];
+		if (!tool?.renderResult) throw new Error("tool or renderer missing");
+		const updates: AgentToolResult<unknown>[] = [];
+		const result = await tool.execute(
+			"call",
+			{ query: "hello" },
+			undefined,
+			(update) => updates.push(update),
+			{
+				modelRegistry: {
+					getProviderAuth: async () => {
+						authentications++;
+						return { auth: { apiKey: "test-key" } };
+					},
+				},
+			} as never,
+		);
+		expect(result).toMatchObject({ isError: true, details: { kind: "error", code: "disabled" } });
+		expect(JSON.stringify(result)).toContain("synthetic.webSearch");
+		expect(JSON.stringify(result)).toContain("--synthetic-web-search");
+		expect([authentications, fetches, outputDirs, updates.length]).toEqual([0, 0, 0, 0]);
+		const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text };
+		for (const width of [36, 57, 80, 140]) {
+			const context = { state: {}, outputPad: 1, isError: true };
+			const component = tool.renderResult(
+				result,
+				{ expanded: false, isPartial: false },
+				theme as never,
+				context as never,
+			);
+			const lines = component.render(width);
+			for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			const text = stripVTControlCharacters(lines.join("\n"));
+			expect(text).toContain("disabled");
+			expect(text).toContain("synthetic.webSearch");
+			expect(text).toContain("--synthetic-web-search");
+			expect(text).not.toContain("/login synthetic");
+		}
+	});
+
+	test("disabling during authentication prevents the search request", async () => {
+		let finishAuth: ((value: { auth: { apiKey: string } }) => void) | undefined;
+		const auth = new Promise<{ auth: { apiKey: string } }>((resolve) => {
+			finishAuth = resolve;
+		});
+		let fetches = 0;
+		const search = await registered(
+			async () => {
+				fetches++;
+				return Response.json({ results: [] });
+			},
+			{ setting: true },
+		);
+		search.startSession();
+		const tool = search.tools[0];
+		if (!tool) throw new Error("tool missing");
+		const pending = tool.execute("call", { query: "hello" }, undefined, undefined, {
+			modelRegistry: { getProviderAuth: () => auth },
+		} as never);
+		await search.host.settings().save("runtime", { "synthetic.webSearch": false });
+		await search.family.settingsChanged?.(["synthetic.webSearch"], new AbortController().signal);
+		if (!finishAuth) throw new Error("auth resolver missing");
+		finishAuth({ auth: { apiKey: "test-key" } });
+		expect(await pending).toMatchObject({ isError: true, details: { code: "disabled" } });
+		expect(fetches).toBe(0);
+	});
+
+	test("disabling during response parsing prevents a full-text file write", async () => {
+		let bodyStarted: (() => void) | undefined;
+		let finishBody: (() => void) | undefined;
+		const started = new Promise<void>((resolve) => {
+			bodyStarted = resolve;
+		});
+		const gate = new Promise<void>((resolve) => {
+			finishBody = resolve;
+		});
+		let outputDirs = 0;
+		const search = await registered(
+			async () => {
+				const response = Response.json({
+					results: [{ url: "https://example.test", text: "full page", highlights: ["passage"] }],
+				});
+				const json = response.json.bind(response);
+				Object.defineProperty(response, "json", {
+					value: async () => {
+						bodyStarted?.();
+						await gate;
+						return await json();
+					},
+				});
+				return response;
+			},
+			{ setting: true, onOutputDir: () => outputDirs++ },
+		);
+		search.startSession();
+		const tool = search.tools[0];
+		if (!tool) throw new Error("tool missing");
+		const pending = tool.execute("call", { query: "hello" }, undefined, undefined, {
+			modelRegistry: { getProviderAuth: async () => ({ auth: { apiKey: "test-key" } }) },
+		} as never);
+		await started;
+		await search.host.settings().save("runtime", { "synthetic.webSearch": false });
+		await search.family.settingsChanged?.(["synthetic.webSearch"], new AbortController().signal);
+		if (!finishBody) throw new Error("body resolver missing");
+		finishBody();
+		expect(await pending).toMatchObject({ isError: true, details: { code: "disabled" } });
+		expect(outputDirs).toBe(0);
 	});
 
 	test("head truncation keeps whole lines within 50 KB and 2000 lines", () => {

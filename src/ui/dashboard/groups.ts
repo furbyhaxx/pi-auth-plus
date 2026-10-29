@@ -209,6 +209,10 @@ export class GroupsView implements TabView {
 						"…",
 					),
 				],
+				fullFeedback: [
+					...(body.fullFeedback ?? []),
+					this.#host.theme.fg("warning", sanitize(this.#detailMessage)),
+				],
 			};
 		}
 		const { theme } = this.#host;
@@ -216,6 +220,7 @@ export class GroupsView implements TabView {
 		this.#selected = Math.max(0, Math.min(this.#selected, groups.length - 1));
 		const rows: string[] = [];
 		const ranges: GroupRange[] = [];
+		let selectedHelp: string | undefined;
 		for (const [index, group] of groups.entries()) {
 			const first = rows.length;
 			const memberHealth = group.members.map((member) => ({
@@ -239,19 +244,19 @@ export class GroupsView implements TabView {
 				` ${index === this.#selected ? theme.fg("accent", "❯") : " "} ${clean(group.id)} · ${summary}${group.name ? ` · ${clean(group.name)}` : ""} · ${group.strategy} · ${group.members.length} members`,
 			);
 			const current = this.#deps.current?.(group.id);
-			rows.push(
-				` Selected route: ${current ? `${clean(current.provider)}/${clean(current.id)}` : "unknown"}`,
-			);
-			for (const { member, health } of memberHealth) {
+			const selectedRoute = current ? `${clean(current.provider)}/${clean(current.id)}` : "unknown";
+			rows.push(` Selected route: ${selectedRoute}`);
+			const memberDetails = memberHealth.map(({ member, health }) => {
 				const eligibility = health.routable
 					? health.state === "unknown"
 						? "best-effort"
 						: "routable"
 					: "not routable";
-				rows.push(
-					` ${health.state} · ${eligibility} ${clean(member.provider)}/${clean(member.id)}`,
-				);
-			}
+				return `${health.state} · ${eligibility} ${clean(member.provider)}/${clean(member.id)}`;
+			});
+			rows.push(...memberDetails.map((detail) => ` ${detail}`));
+			if (index === this.#selected)
+				selectedHelp = [`Selected route: ${selectedRoute}`, ...memberDetails].join("\n");
 			ranges.push({ first, last: rows.length - 1 });
 		}
 		if (!rows.length) rows.push(" No groups configured.");
@@ -273,7 +278,25 @@ export class GroupsView implements TabView {
 			: 0;
 		this.#offset = Math.max(selectedRange?.first ?? 0, Math.min(this.#offset, maxOffset));
 		this.#offset = Math.max(0, Math.min(this.#offset, rows.length - available));
-		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
+		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => sanitize(this.#host.binding(id));
+		const hints =
+			this.#mode === "save"
+				? [
+						{ key: "r", action: "runtime", priority: 0 },
+						{ key: "u", action: "user", priority: 0 },
+						{ key: "p", action: "project", priority: 0 },
+						{ key: binding("tui.select.cancel"), action: "cancel", priority: 0 },
+					]
+				: [
+						{ key: `a/${binding("tui.select.confirm")}`, action: "add/edit", priority: 0 },
+						{ key: "d", action: "delete", priority: 1 },
+						{ key: "ctrl+s", action: "save", priority: 0 },
+						{
+							key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
+							action: "move",
+							priority: 2,
+						},
+					];
 		return {
 			lines: [
 				...rows.slice(this.#offset, this.#offset + available),
@@ -292,24 +315,10 @@ export class GroupsView implements TabView {
 				Math.max(0, width),
 				"…",
 			),
-			hints:
-				this.#mode === "save"
-					? [
-							{ key: "r", action: "runtime", priority: 0 },
-							{ key: "u", action: "user", priority: 0 },
-							{ key: "p", action: "project", priority: 0 },
-							{ key: binding("tui.select.cancel"), action: "cancel", priority: 0 },
-						]
-					: [
-							{ key: `a/${binding("tui.select.confirm")}`, action: "add/edit", priority: 0 },
-							{ key: "d", action: "delete", priority: 1 },
-							{ key: "ctrl+s", action: "save", priority: 0 },
-							{
-								key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
-								action: "move",
-								priority: 2,
-							},
-						],
+			...(selectedHelp ? { fullDescription: theme.fg("muted", sanitize(selectedHelp)) } : {}),
+			fullFeedback: this.#message ? [theme.fg("warning", sanitize(this.#message))] : [],
+			hints,
+			fullHints: hints,
 		};
 	}
 

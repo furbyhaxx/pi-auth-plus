@@ -220,6 +220,51 @@ describe("groups tab", () => {
 		}
 	});
 
+	test("full help retains the selected route, member health, save warning and rebound hint", async () => {
+		const routeId = "long-physical-model-route-identity-for-help";
+		const warning =
+			"effects failed; reopen this session to apply the saved settings \x1b]0;evil\x07";
+		const r = open(
+			[group("team")],
+			undefined,
+			{
+				"tui.select.up": "ctrl+shift+alt+up",
+				"tui.select.down": "ctrl+shift+alt+down",
+			},
+			undefined,
+			() => ({ provider: "long-provider-name", id: routeId }),
+		);
+		const selected = r.view.render(36, 1);
+		const description = stripVTControlCharacters(selected.fullDescription ?? "");
+		expect(description).toContain(`Selected route: long-provider-name/${routeId}`);
+		expect(description).toContain("healthy · routable vendor/one");
+		expect(
+			selected.fullHints?.some(
+				(hint) => hint.action === "move" && hint.key.includes("ctrl+shift+alt"),
+			),
+		).toBe(true);
+		for (const line of [...selected.lines, selected.description ?? "", selected.state ?? ""])
+			expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+
+		r.press("d");
+		r.setSaveBehavior(async (_groups, scope) => ({
+			committed: true,
+			scope,
+			shadowed: [],
+			warnings: [warning],
+		}));
+		r.press("\x13");
+		await r.save("u");
+		const saved = r.view.render(36, 1);
+		const feedback = saved.fullFeedback?.map(stripVTControlCharacters).join("\n") ?? "";
+		expect(feedback).toContain(
+			"Saved to user scope; warning: effects failed; reopen this session to apply the saved settings",
+		);
+		expect(feedback).not.toContain("evil");
+		for (const line of [...saved.lines, saved.description ?? "", saved.state ?? ""])
+			expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+	});
+
 	test("creates through detail, saves to each scope, and discards staged list", async () => {
 		for (const [key, scope] of [
 			["r", "runtime"],

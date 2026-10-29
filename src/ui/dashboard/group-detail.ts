@@ -63,6 +63,34 @@ function draft(group: ModelGroup | undefined): Draft {
 function integer(raw: string): number {
 	return /^\d+$/.test(raw.trim()) && Number.isSafeInteger(Number(raw)) ? Number(raw) : NaN;
 }
+function fieldDescription(row: Row, value: Draft): string {
+	switch (row.kind) {
+		case "id":
+			return "Unique group ID; it cannot contain a slash.";
+		case "name":
+			return "Optional display name shown for this model group.";
+		case "strategy":
+			return "Routing strategy used within the lowest eligible priority tier.";
+		case "cap":
+			return "Optional context window cap; it cannot exceed the smallest available member window.";
+		case "trigger":
+			return `Controls whether ${triggers[row.index ?? 0] ?? "group"} errors can switch members before output.`;
+		case "member": {
+			const member = row.index === undefined ? undefined : value.members[row.index];
+			return member
+				? `Physical catalog identity: ${clean(member.provider)}/${clean(member.id)}.`
+				: "Physical model identity in provider/id form.";
+		}
+		case "tier":
+			return "Positive priority tier; lower values are considered before higher tiers.";
+		case "cost":
+			return "Informational cost label; it does not exclude a member.";
+		case "thinking":
+			return "Optional thinking-level translations as comma-separated pairs, for example low=high.";
+		case "add":
+			return "Add a physical model from the catalog.";
+	}
+}
 
 /** An editor whose validated result is handed to the owning Groups view. */
 export class GroupDetail {
@@ -400,7 +428,40 @@ export class GroupDetail {
 		this.#offset = Math.max(0, Math.min(this.#offset, this.#selected));
 		this.#offset = Math.max(this.#offset, this.#selected - available + 1);
 		this.#offset = Math.max(0, Math.min(this.#offset, lines.length - available));
-		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
+		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => sanitize(this.#host.binding(id));
+		const hints = this.#editing
+			? [
+					{ key: binding("tui.select.confirm"), action: "stage", priority: 0 },
+					{ key: binding("tui.select.cancel"), action: "cancel edit", priority: 0 },
+				]
+			: [
+					{ key: binding("tui.select.confirm"), action: "edit/toggle", priority: 0 },
+					{
+						key: `${binding("tui.editor.cursorLeft")}/${binding("tui.editor.cursorRight")}`,
+						action: "change",
+						priority: 1,
+					},
+					{ key: "d", action: "delete member", priority: 1 },
+					{ key: "shift+↑/↓", action: "reorder member", priority: 1 },
+					{ key: "ctrl+s", action: "stage group", priority: 0 },
+					{ key: binding("tui.select.cancel"), action: "discard/back", priority: 0 },
+				];
+		const up = binding("tui.select.up");
+		const down = binding("tui.select.down");
+		const movement = up && down ? `${up}/${down}` : "k/j";
+		const fullHints = this.#editing
+			? [...hints, { key: "ctrl+s", action: "stage group", priority: 0 }]
+			: [
+					...hints,
+					{ key: movement, action: "move", priority: 2 },
+					{ key: "k/j", action: "move", priority: 2 },
+				];
+		const selectedRow = rows[this.#selected];
+		const fullDescription = theme.fg(
+			"muted",
+			sanitize(selectedRow ? fieldDescription(selectedRow, this.#draft) : "Group member editor."),
+		);
+		const fullFeedback = this.#message ? [theme.fg("warning", sanitize(this.#message))] : [];
 		return {
 			lines: [
 				...lines.slice(this.#offset, this.#offset + available),
@@ -414,33 +475,11 @@ export class GroupDetail {
 				Math.max(0, width),
 				"…",
 			),
-			description: truncateToWidth(
-				theme.fg(
-					"muted",
-					this.#editing && rows[this.#selected]?.kind === "thinking"
-						? "Mappings: low=high, medium=max"
-						: "Cost labels are informational.",
-				),
-				Math.max(0, width - 1),
-				"…",
-			),
-			hints: this.#editing
-				? [
-						{ key: binding("tui.select.confirm"), action: "stage", priority: 0 },
-						{ key: binding("tui.select.cancel"), action: "cancel edit", priority: 0 },
-					]
-				: [
-						{ key: binding("tui.select.confirm"), action: "edit/toggle", priority: 0 },
-						{
-							key: `${binding("tui.editor.cursorLeft")}/${binding("tui.editor.cursorRight")}`,
-							action: "change",
-							priority: 1,
-						},
-						{ key: "d", action: "delete member", priority: 1 },
-						{ key: "shift+↑/↓", action: "reorder member", priority: 1 },
-						{ key: "ctrl+s", action: "stage group", priority: 0 },
-						{ key: binding("tui.select.cancel"), action: "discard/back", priority: 0 },
-					],
+			description: truncateToWidth(fullDescription, Math.max(0, width - 1), "…"),
+			fullDescription,
+			fullFeedback,
+			hints,
+			fullHints,
 		};
 	}
 	/** Release editor resources when the owner closes the view. */

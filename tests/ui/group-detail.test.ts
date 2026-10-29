@@ -298,8 +298,85 @@ describe("group detail", () => {
 			action: "change",
 			priority: 1,
 		});
+		expect(r.view.render(80, 60).fullHints).toContainEqual({
+			key: "ctrl+b/ctrl+f",
+			action: "change",
+			priority: 1,
+		});
 		r.press("\x06");
 		expect(r.text()).toContain("Strategy · failover");
+	});
+
+	test("full help preserves field descriptions and long rebound hints at narrow widths", () => {
+		const r = open(undefined, undefined, {
+			"tui.editor.cursorLeft": "ctrl+shift+alt+left",
+			"tui.editor.cursorRight": "ctrl+shift+alt+right",
+			"tui.select.up": "ctrl+shift+alt+up",
+			"tui.select.down": "ctrl+shift+alt+down",
+		});
+		r.select("Strategy");
+		const body = r.view.render(36, 1);
+		expect(stripVTControlCharacters(body.fullDescription ?? "")).toBe(
+			"Routing strategy used within the lowest eligible priority tier.",
+		);
+		expect(
+			body.fullHints?.some(
+				(hint) => hint.action === "change" && hint.key.includes("ctrl+shift+alt"),
+			),
+		).toBe(true);
+		expect(
+			body.fullHints?.some((hint) => hint.action === "move" && hint.key.includes("ctrl+shift+alt")),
+		).toBe(true);
+		for (const line of [...body.lines, body.description ?? "", body.state ?? ""])
+			expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+	});
+
+	test.each([
+		["Group ID", "Unique group ID; it cannot contain a slash."],
+		["Display name", "Optional display name shown for this model group."],
+		["Strategy", "Routing strategy used within the lowest eligible priority tier."],
+		[
+			"Context window",
+			"Optional context window cap; it cannot exceed the smallest available member window.",
+		],
+		["Trigger quota", "Controls whether quota errors can switch members before output."],
+		["Member 1", "Physical catalog identity: vendor/org/model."],
+		["Priority tier", "Positive priority tier; lower values are considered before higher tiers."],
+		["Cost label", "Informational cost label; it does not exclude a member."],
+		[
+			"Thinking map",
+			"Optional thinking-level translations as comma-separated pairs, for example low=high.",
+		],
+		["+ Add member", "Add a physical model from the catalog."],
+	])("full help describes the selected %s field", (label, expected) => {
+		const initial: ModelGroup = {
+			id: "team",
+			strategy: "sticky",
+			triggers: ["rate-limit", "quota", "auth"],
+			members: [{ provider: "vendor", id: "org/model", tier: 1 }],
+		};
+		const r = open(initial);
+		r.select(label);
+		expect(stripVTControlCharacters(r.view.render(36, 1).fullDescription ?? "")).toBe(expected);
+	});
+
+	test("full feedback retains sanitized validation errors at narrow widths", () => {
+		const provider = "vendor\x1b]0;evil\x07";
+		const id = "very-long-virtual-member-id-that-does-not-fit-a-narrow-line";
+		const initial: ModelGroup = {
+			id: "team",
+			strategy: "sticky",
+			triggers: [],
+			members: [{ provider, id, tier: 1 }],
+		};
+		const r = open(initial, () => [{ provider, id, api: "pi-virtual" }]);
+		r.press("\x13");
+		const body = r.view.render(36, 1);
+		const feedback = body.fullFeedback?.map(stripVTControlCharacters).join("\n") ?? "";
+		expect(feedback).toContain(`Delete nonphysical member; choose a physical model (vendor/${id})`);
+		expect(feedback).not.toContain("evil");
+		for (const line of [...body.lines, body.description ?? "", body.state ?? ""])
+			expect(visibleWidth(line)).toBeLessThanOrEqual(36);
 	});
 	test("saves member reordering and deletion", () => {
 		const initial: ModelGroup = {

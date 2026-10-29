@@ -621,7 +621,7 @@ describe("groups tab", () => {
 			id,
 			tier: index + 1,
 		}));
-		const r = open([{ ...group("many"), members }, group("next")], (member) => {
+		const r = open([{ ...group("many"), members }, group("next")], undefined, {}, (member) => {
 			const index = memberIds.indexOf(member.id);
 			const state = memberStates[Math.max(index, 0) % memberStates.length] ?? "unknown";
 			return {

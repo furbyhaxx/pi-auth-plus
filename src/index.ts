@@ -34,6 +34,7 @@ import { filterNativeProvider, filterOwnedConfig } from "./models/catalog/owned-
 import { CatalogVisibility } from "./models/catalog/runtime.ts";
 import { installStartupCoordinator } from "./models/catalog/startup.ts";
 import { installGroupContextCap } from "./models/groups/context-cap.ts";
+import { groupMemberHealth } from "./models/groups/member.ts";
 import { GroupRegistrations } from "./models/groups/registration.ts";
 import { registerGroupSettlement } from "./models/groups/settlement.ts";
 import { readOverride, updateOverrides } from "./models/overrides/index.ts";
@@ -486,10 +487,14 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	registerCompatibleThoughtSignatures(pi);
 	const recovery = registerThoughtSignatureRecovery(pi);
 	const settlement = registerGroupSettlement(pi, () => settings.get("models.groups"));
+	const groupQuota = (provider: string) => {
+		const id = registry.resolve(provider)?.provider.id ?? provider;
+		return quotas.view().find((view) => view.provider.id === id)?.snapshot;
+	};
 	const groups = new GroupRegistrations(pi, {
 		groups: () => settings.get("models.groups"),
 		visible: (id) => isVisible("group", { id }),
-		quota: (provider) => quotas.view().find((view) => view.provider.id === provider)?.snapshot,
+		quota: groupQuota,
 		takeFailed: (groupId) => settlement.takeFailed(groupId),
 		onSwitch: (group, from, to) =>
 			quotaContext?.ui.notify(
@@ -685,12 +690,11 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			catalog: () => modelCatalog(),
 			health: (member) => {
 				const model = quotaContext?.modelRegistry.find(member.provider, member.id);
-				if (!model || model.api === "pi-virtual") return "unavailable";
-				const available = quotaContext?.modelRegistry
-					.getAvailable()
-					.some((item) => item.provider === member.provider && item.id === member.id);
-				if (available === undefined) return "unknown";
-				return available ? "healthy" : "unavailable";
+				const available =
+					quotaContext?.modelRegistry
+						.getAvailable()
+						.some((item) => item.provider === member.provider && item.id === member.id) ?? false;
+				return groupMemberHealth(model, available, groupQuota(member.provider));
 			},
 			save: (next, scope) => saveSettings(scope, { "models.groups": next }),
 		},

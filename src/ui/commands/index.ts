@@ -279,7 +279,9 @@ function sessionGroups(source: GroupsTabDeps, signal: AbortSignal | undefined): 
 		...(source.health
 			? {
 					health: (member) =>
-						signal?.aborted ? "unknown" : (source.health?.(member) ?? "unknown"),
+						signal?.aborted
+							? { state: "unknown", routable: false }
+							: (source.health?.(member) ?? { state: "unknown", routable: false }),
 				}
 			: {}),
 		save: (groups, scope) =>

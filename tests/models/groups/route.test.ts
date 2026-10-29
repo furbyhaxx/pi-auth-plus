@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Api, AssistantMessage, Model } from "@earendil-works/pi-ai";
 import type { ExtensionContext, ModelRouteRequest } from "@earendil-works/pi-coding-agent";
 import type { ModelGroup } from "../../../src/models/groups/config.ts";
+import * as member from "../../../src/models/groups/member.ts";
 import {
 	classifyGroupFailure,
 	createGroupDefinition,
@@ -100,6 +101,131 @@ const snapshot = (
 	provider: string,
 	opts: Partial<ProviderQuotaSnapshot>,
 ): ProviderQuotaSnapshot => ({ provider, fetchedAt: 0, source: "endpoint", windows: [], ...opts });
+
+describe("group member health", () => {
+	const paid = model("paid", "same", {
+		cost: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1 },
+	});
+	const plan = { id: "plan", shortLabel: "plan", label: "Plan" };
+
+	test("distinguishes missing, virtual, unavailable, and needs-auth members", () => {
+		const auth = snapshot("a", { needsAuth: true, error: "login required" });
+		for (const unavailable of [
+			member.groupMemberHealth(undefined, true),
+			member.groupMemberHealth(model("group"), true),
+			member.groupMemberHealth(model("foreign", "v", { api: "pi-virtual" }), true),
+			member.groupMemberHealth(a, false, auth),
+		])
+			expect(unavailable).toEqual({ state: "unavailable", routable: false });
+		expect(member.groupMemberHealth(a, true, auth)).toEqual({
+			state: "needs-auth",
+			routable: false,
+		});
+	});
+
+	test("reports unknown quota without excluding an otherwise available member", () => {
+		const cases = [
+			undefined,
+			snapshot("paid", {}),
+			snapshot("paid", { error: "quota request failed", windows: [{ ...plan, usedFraction: 0 }] }),
+			snapshot("paid", { windows: [plan] }),
+			snapshot("paid", { windows: [{ ...plan, scope: "search", usedFraction: 1 }] }),
+			snapshot("paid", { windows: [{ ...plan, group: "other", usedFraction: 1 }] }),
+			snapshot("paid", { credits: { currency: "$" } }),
+			snapshot("paid", { credits: { currency: "$", remaining: 0 } }),
+		];
+		for (const quota of cases)
+			expect(member.groupMemberHealth(paid, true, quota)).toEqual({
+				state: "unknown",
+				routable: true,
+			});
+	});
+
+	test("does not demote unknown quota below a known healthy lower-priority member", async () => {
+		const ranked: ModelGroup = {
+			...group,
+			members: [
+				{ provider: "a", id: "same", tier: 1 },
+				{ provider: "b", id: "same", tier: 2 },
+			],
+		};
+		const known = snapshot("b", { windows: [{ ...plan, usedFraction: 0.2 }] });
+		const { route } = setup({
+			group: ranked,
+			quota: (provider) => (provider === "b" ? known : undefined),
+		});
+		expect((await route()).model).toEqual(a);
+	});
+
+	test("reports a usable nonexhausted plan or positive paid credit balance as healthy", () => {
+		for (const quota of [
+			snapshot("paid", { windows: [{ ...plan, usedFraction: 0 }] }),
+			snapshot("paid", { windows: [{ ...plan, usedFraction: 0.9 }] }),
+			snapshot("paid", { credits: { currency: "$", remaining: 5 } }),
+		])
+			expect(member.groupMemberHealth(paid, true, quota)).toEqual({
+				state: "healthy",
+				routable: true,
+			});
+	});
+
+	test("keeps exhaustion and quota-error routing decisions separate", async () => {
+		const exhausted = snapshot("a", { windows: [{ ...plan, usedFraction: 1 }] });
+		expect(member.groupMemberHealth(a, true, exhausted)).toEqual({
+			state: "exhausted",
+			routable: false,
+		});
+		const incomplete = { ...exhausted, error: "quota request failed" };
+		expect(member.groupMemberHealth(a, true, incomplete)).toEqual({
+			state: "unknown",
+			routable: false,
+		});
+		expect(
+			(await setup({ quota: (provider) => (provider === "a" ? incomplete : undefined) }).route())
+				.model,
+		).toEqual(b);
+	});
+
+	test("ignores an empty credit balance for a free model without inventing quota health", () => {
+		const credits = snapshot("paid", {
+			credits: { remaining: 0, total: 10, currency: "$" },
+			windows: [{ id: "credits", shortLabel: "cred", label: "Credits", usedFraction: 1 }],
+		});
+		expect(member.groupMemberHealth(a, true, credits)).toEqual({
+			state: "unknown",
+			routable: true,
+		});
+		expect(
+			member.groupMemberHealth(a, true, {
+				...credits,
+				windows: [...credits.windows, { ...plan, usedFraction: 0.2 }],
+			}),
+		).toEqual({ state: "healthy", routable: true });
+		expect(
+			member.groupMemberHealth(a, true, {
+				...credits,
+				windows: [...credits.windows, { ...plan, usedFraction: 1 }],
+			}),
+		).toEqual({ state: "exhausted", routable: false });
+		expect(member.groupMemberHealth(paid, true, credits)).toEqual({
+			state: "exhausted",
+			routable: false,
+		});
+		const tiered = model("paid", "tiered", {
+			cost: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				tiers: [{ inputTokensAbove: 100, input: 1, output: 0, cacheRead: 0, cacheWrite: 0 }],
+			},
+		});
+		expect(member.groupMemberHealth(tiered, true, credits)).toEqual({
+			state: "exhausted",
+			routable: false,
+		});
+	});
+});
 
 describe("group routes", () => {
 	test("matches complete identities, honors lowest tier and falls back", async () => {

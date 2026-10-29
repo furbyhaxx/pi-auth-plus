@@ -25,7 +25,8 @@ type Scenario =
 	| "hidden"
 	| "draft"
 	| "retry"
-	| "unavailable";
+	| "unavailable"
+	| "logical";
 async function run(scenario: Scenario, count = 2) {
 	const scratch = mkdtempSync(join(tmpdir(), "pi-group-settlement-"));
 	let session: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
@@ -121,7 +122,10 @@ async function run(scenario: Scenario, count = 2) {
 			id: "test",
 			strategy: "failover",
 			triggers: ["auth", "quota", "rate-limit"],
-			members: providers.map((provider) => ({ provider, id: "test", tier: 1 })),
+			members: [
+				...providers.map((provider) => ({ provider, id: "test", tier: 1 })),
+				...(scenario === "logical" ? [{ provider: "group", id: "nested", tier: 1 }] : []),
+			],
 		};
 		const loader = new DefaultResourceLoader({
 			cwd: scratch,
@@ -172,6 +176,19 @@ async function run(scenario: Scenario, count = 2) {
 						]
 					: []),
 				(pi: ExtensionAPI) => {
+					if (scenario === "logical") {
+						pi.on("turn_end", (_event, ctx) => {
+							const originalFind = ctx.modelRegistry.find.bind(ctx.modelRegistry);
+							const originalAvailable = ctx.modelRegistry.getAvailable.bind(ctx.modelRegistry);
+							const physical = originalFind("a", "test");
+							if (!physical) throw new Error("physical model missing");
+							const logical = { ...physical, provider: "group", id: "nested" };
+							Reflect.deleteProperty(logical, "api");
+							ctx.modelRegistry.find = (provider, id) =>
+								provider === "group" && id === "nested" ? logical : originalFind(provider, id);
+							ctx.modelRegistry.getAvailable = () => [...originalAvailable(), logical];
+						});
+					}
 					const settlement = registerGroupSettlement(pi, () => [group]);
 					pi.registerVirtualModel(
 						createGroupDefinition(group, {
@@ -253,6 +270,13 @@ describe("group settlement", () => {
 	});
 	test("leaves the error visible when no alternative has credentials", async () => {
 		const result = await run("unavailable");
+		expect(result.requests).toEqual(["a"]);
+		expect(result.messages.at(-1)).toMatchObject({ role: "assistant", stopReason: "error" });
+		expect(result.branch.filter((entry) => entry.type === "context_edit")).toHaveLength(0);
+	});
+	test("does not retry when the only alternative is a group without API metadata", async () => {
+		const result = await run("logical", 1);
+		expect(result.errors).toEqual([]);
 		expect(result.requests).toEqual(["a"]);
 		expect(result.messages.at(-1)).toMatchObject({ role: "assistant", stopReason: "error" });
 		expect(result.branch.filter((entry) => entry.type === "context_edit")).toHaveLength(0);

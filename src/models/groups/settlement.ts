@@ -3,6 +3,7 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ModelGroup } from "./config.ts";
+import { isPhysicalGroupMember } from "./member.ts";
 import type { ModelIdentity } from "./priority.ts";
 import { classifyGroupFailure } from "./route.ts";
 
@@ -73,7 +74,7 @@ export function registerGroupSettlement(
 			const model = ctx.modelRegistry.find(member.provider, member.id);
 			return (
 				model !== undefined &&
-				model.api !== "pi-virtual" &&
+				isPhysicalGroupMember(model) &&
 				available.some((item) => same(item, member))
 			);
 		});

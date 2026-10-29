@@ -1,13 +1,21 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import type { Context, Model } from "@earendil-works/pi-ai";
+import type { SessionProjection } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { claudeTokenCounter } from "../../../src/families/anthropic/count.ts";
 import { createAnthropicFamily } from "../../../src/families/anthropic/index.ts";
 import { CLAUDE_CODE_IDENTITY } from "../../../src/families/anthropic/sanitize.ts";
-import type { CounterDeps } from "../../../src/tokens/types.ts";
+import { createTokenEngine, type EngineContext } from "../../../src/tokens/engine/index.ts";
+import type { CounterDeps, TokenDiagnostic } from "../../../src/tokens/types.ts";
 
 const model = { provider: "claude", id: "claude-test" };
 const options = { version: async () => "2.1.311", env: {} };
+const needsAuth = {
+	code: "needs-auth",
+	provider: "claude",
+	message:
+		"Claude token counting at https://api.anthropic.com/v1/messages/count_tokens needs authentication; run /login claude.",
+} satisfies TokenDiagnostic;
 const fullModel: Model<"anthropic-messages"> = {
 	id: "claude-test",
 	name: "Test",
@@ -124,23 +132,244 @@ describe("families/anthropic/count", () => {
 				}),
 				options,
 			);
-			expect((await counter.count("abc", "json")).source).toBe("estimate");
+			expect(await counter.count("abc", "json")).toEqual({ tokens: 2, source: "estimate" });
 		});
 	}
 
-	test("no credential never fetches", async () => {
+	test("missing credentials explain segment and tool estimates and recover immediately", async () => {
+		let signedIn = false;
+		let calls = 0;
+		const tools = [{ name: "read", description: "Read", parameters: { type: "object" } }];
 		const counter = claudeTokenCounter(
 			model,
 			{
-				auth: async () => undefined,
+				auth: async () => (signedIn ? { token: "test-api-key", extra: {} } : undefined),
 				fetch: async () => {
-					throw new Error("unexpected fetch");
+					calls++;
+					return Response.json({ input_tokens: calls === 1 ? 36 : calls === 2 ? 33 : 42 });
 				},
 				tokenizers,
 			},
 			options,
 		);
-		expect(await counter.count("abc", "prose")).toEqual({ tokens: 2, source: "estimate" });
+		const estimatedTools = Math.ceil(JSON.stringify(tools).length / 2.7);
+		expect(await counter.countContext?.({ model: fullModel, context: hello })).toBeUndefined();
+		expect(await counter.count("hello world", "prose")).toEqual({
+			tokens: 5,
+			source: "estimate",
+			diagnostics: [needsAuth],
+		});
+		expect(await counter.countTools?.(tools)).toEqual({
+			tokens: estimatedTools,
+			source: "estimate",
+			diagnostics: [needsAuth],
+		});
+		expect(calls).toBe(0);
+
+		signedIn = true;
+		expect(await counter.countContext?.({ model: fullModel, context: hello })).toEqual({
+			tokens: 36,
+			source: "count-endpoint",
+		});
+		expect(await counter.count("hello world", "prose")).toEqual({ tokens: 10, source: "estimate" });
+		expect(await counter.countTools?.(tools)).toEqual({ tokens: 9, source: "estimate" });
+		expect(calls).toBe(4);
+
+		signedIn = false;
+		expect(await counter.count("hello world", "prose")).toEqual({
+			tokens: 5,
+			source: "estimate",
+			diagnostics: [needsAuth],
+		});
+		expect(await counter.countTools?.(tools)).toEqual({
+			tokens: estimatedTools,
+			source: "estimate",
+			diagnostics: [needsAuth],
+		});
+		expect(calls).toBe(4);
+		signedIn = true;
+		expect(await counter.count("hello world", "prose")).toEqual({ tokens: 10, source: "estimate" });
+		expect(await counter.countTools?.(tools)).toEqual({ tokens: 9, source: "estimate" });
+		expect(calls).toBe(6);
+	});
+
+	test("engine preserves one missing-auth reason across fallback segments and recovers", async () => {
+		let signedIn = false;
+		let calls = 0;
+		const tools = [{ name: "read", description: "Read", parameters: { type: "object" } }];
+		const engine = createTokenEngine({
+			families: [createAnthropicFamily({}, async () => undefined)],
+			deps: {
+				auth: async () => (signedIn ? { token: "test-api-key", extra: {} } : undefined),
+				fetch: async () => {
+					calls++;
+					return Response.json({ input_tokens: 36 });
+				},
+				tokenizers,
+			},
+			tools: () => tools,
+		});
+		const projection: SessionProjection = {
+			entries: [],
+			messages: [{ role: "user", content: "hello", timestamp: 0 }],
+			thinkingLevel: "off",
+			model: null,
+		};
+		const ctx: EngineContext = {
+			model: fullModel,
+			modelRegistry: { find: () => fullModel },
+			sessionManager: { buildSessionProjection: () => projection, getBranch: () => [] },
+			getSystemPrompt: () => "system",
+			getContextUsage: () => undefined,
+		};
+		expect((await engine.context(ctx))?.tokens).toEqual({
+			tokens: 3 + 2 + Math.ceil(JSON.stringify(tools).length / 2.7),
+			source: "estimate",
+			diagnostics: [needsAuth],
+		});
+		const parts = await engine.breakdown(ctx);
+		expect(parts?.map((part) => [part.kind, part.count.diagnostics])).toEqual([
+			["system", [needsAuth]],
+			["tools", [needsAuth]],
+			["user", [needsAuth]],
+		]);
+		expect(calls).toBe(0);
+		signedIn = true;
+		expect((await engine.context(ctx))?.tokens).toEqual({
+			tokens: 36,
+			source: "count-endpoint",
+		});
+		expect(calls).toBe(1);
+		expect((await engine.breakdown(ctx))?.map((part) => [part.kind, part.count])).toEqual([
+			["system", { tokens: 1, source: "estimate" }],
+			["tools", { tokens: 0, source: "estimate" }],
+			["user", { tokens: 1, source: "estimate" }],
+		]);
+		expect(calls).toBe(5);
+	});
+
+	test("cancelled baseline waiters do not receive or poison missing-auth guidance", async () => {
+		const started = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		let signedIn = false;
+		let calls = 0;
+		const counter = claudeTokenCounter(
+			model,
+			{
+				auth: async () => {
+					if (signedIn) return { token: "test-api-key", extra: {} };
+					started.resolve();
+					await release.promise;
+					return undefined;
+				},
+				fetch: async () => {
+					calls++;
+					return Response.json({ input_tokens: 33 });
+				},
+				tokenizers,
+			},
+			options,
+		);
+		const abort = new AbortController();
+		const first = counter.count("x", "prose", abort.signal);
+		await started.promise;
+		const second = counter.count("x", "prose");
+		abort.abort();
+		try {
+			expect(await first).toEqual({ tokens: 1, source: "estimate" });
+			release.resolve();
+			expect(await second).toEqual({ tokens: 1, source: "estimate", diagnostics: [needsAuth] });
+			expect(calls).toBe(0);
+			signedIn = true;
+			expect(await counter.count("x", "prose")).toEqual({ tokens: 1, source: "estimate" });
+			expect(calls).toBe(2);
+		} finally {
+			release.resolve();
+			await second;
+		}
+	});
+
+	test("a cancelled auth lookup after a cached baseline does not invent guidance", async () => {
+		const started = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		let authCalls = 0;
+		let calls = 0;
+		const counter = claudeTokenCounter(
+			model,
+			{
+				auth: async () => {
+					authCalls++;
+					if (authCalls === 3) {
+						started.resolve();
+						await release.promise;
+						return undefined;
+					}
+					return { token: "test-api-key", extra: {} };
+				},
+				fetch: async () => {
+					calls++;
+					return Response.json({ input_tokens: 33 });
+				},
+				tokenizers,
+			},
+			options,
+		);
+		expect(await counter.count("x", "prose")).toEqual({ tokens: 1, source: "estimate" });
+		const abort = new AbortController();
+		const cancelled = counter.count("x", "prose", abort.signal);
+		await started.promise;
+		abort.abort();
+		try {
+			expect(await cancelled).toEqual({ tokens: 1, source: "estimate" });
+			release.resolve();
+			expect(await counter.count("x", "prose")).toEqual({ tokens: 1, source: "estimate" });
+			expect(calls).toBe(3);
+		} finally {
+			release.resolve();
+			await cancelled;
+		}
+	});
+
+	test("late missing authentication cannot contaminate a concurrent successful count", async () => {
+		const started = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		let authCalls = 0;
+		let calls = 0;
+		const counter = claudeTokenCounter(
+			model,
+			{
+				auth: async () => {
+					authCalls++;
+					if (authCalls === 1) {
+						started.resolve();
+						await release.promise;
+						return undefined;
+					}
+					return { token: "test-api-key", extra: {} };
+				},
+				fetch: async () => {
+					calls++;
+					return Response.json({ input_tokens: 36 });
+				},
+				tokenizers,
+			},
+			options,
+		);
+		const missing = counter.count("x", "prose");
+		await started.promise;
+		try {
+			expect(await counter.countContext?.({ model: fullModel, context: hello })).toEqual({
+				tokens: 36,
+				source: "count-endpoint",
+			});
+			release.resolve();
+			expect(await missing).toEqual({ tokens: 1, source: "estimate", diagnostics: [needsAuth] });
+			expect(await counter.count("x", "prose")).toEqual({ tokens: 1, source: "estimate" });
+			expect(calls).toBe(3);
+		} finally {
+			release.resolve();
+			await missing;
+		}
 	});
 
 	test("queues calls beyond two in flight and shares the baseline", async () => {
@@ -453,6 +682,8 @@ describe("families/anthropic/count", () => {
 			}),
 		).toBeUndefined();
 		expect(calls).toBe(0);
+		expect(await counter.count("x", "prose")).toEqual({ tokens: 1, source: "estimate" });
+		expect(calls).toBe(2);
 	});
 
 	test("full-count failures back off and missing credentials make no requests", async () => {

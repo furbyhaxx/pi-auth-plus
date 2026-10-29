@@ -6,8 +6,11 @@ import type { PathEnv } from "../../core/paths/index.ts";
 import { estimateCounter } from "../../tokens/estimate/index.ts";
 import type {
 	CounterDeps,
+	TextKind,
 	TokenContextInput,
+	TokenCount,
 	TokenCounter,
+	TokenDiagnostic,
 	TokenModel,
 	ToolSchema,
 } from "../../tokens/types.ts";
@@ -19,6 +22,17 @@ import { oauthToken } from "./transport.ts";
 
 const ENDPOINT = "https://api.anthropic.com/v1/messages/count_tokens";
 const MINIMAL_TEXT = "x";
+const NEEDS_AUTH_DIAGNOSTIC: TokenDiagnostic = {
+	code: "needs-auth",
+	provider: "claude",
+	message: `Claude token counting at ${ENDPOINT} needs authentication; run /login claude.`,
+};
+type NativeCount =
+	| { readonly status: "counted"; readonly tokens: number }
+	| { readonly status: "needs-auth" }
+	| { readonly status: "unavailable" };
+const UNAVAILABLE: NativeCount = { status: "unavailable" };
+const NEEDS_AUTH: NativeCount = { status: "needs-auth" };
 let active = 0;
 const waiting: (() => void)[] = [];
 
@@ -81,7 +95,7 @@ export function claudeTokenCounter(
 	let backoffUntil = 0;
 	const session = crypto.randomUUID();
 	let baseline: number | undefined;
-	let baselinePending: Promise<number | undefined> | undefined;
+	let baselinePending: Promise<NativeCount> | undefined;
 
 	type RequestBody = {
 		readonly body: string;
@@ -98,19 +112,20 @@ export function claudeTokenCounter(
 			signal: AbortSignal,
 		) => Promise<RequestBody | undefined>,
 		signal?: AbortSignal,
-	): Promise<number | undefined> {
+	): Promise<NativeCount> {
 		const deadline = AbortSignal.timeout(10_000);
 		const activeSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
-		if (!(await acquire(activeSignal))) return undefined;
+		if (!(await acquire(activeSignal))) return UNAVAILABLE;
 		try {
-			if (Date.now() < backoffUntil || activeSignal.aborted) return undefined;
+			if (Date.now() < backoffUntil || activeSignal.aborted) return UNAVAILABLE;
 			const auth = await waitFor(deps.auth("claude"), activeSignal);
-			if (!auth?.token || activeSignal.aborted) return undefined;
+			if (activeSignal.aborted) return UNAVAILABLE;
+			if (!auth?.token) return NEEDS_AUTH;
 			const oauth = auth.extra["type"] === "oauth" || Boolean(oauthToken({ apiKey: auth.token }));
 			const version = oauth ? await waitFor(options.version(), activeSignal) : "";
-			if (version === undefined || activeSignal.aborted) return undefined;
+			if (version === undefined || activeSignal.aborted) return UNAVAILABLE;
 			const payload = await waitFor(build(oauth, version, activeSignal), activeSignal);
-			if (!payload || activeSignal.aborted) return undefined;
+			if (!payload || activeSignal.aborted) return UNAVAILABLE;
 			let headers = new Headers(payload.headers);
 			if (!headers.has("anthropic-version")) headers.set("anthropic-version", "2023-06-01");
 			headers.set("content-type", "application/json");
@@ -137,9 +152,9 @@ export function claudeTokenCounter(
 				}),
 				activeSignal,
 			);
-			if (!response || activeSignal.aborted) return undefined;
+			if (!response || activeSignal.aborted) return UNAVAILABLE;
 			const body: unknown = await waitFor(response.json(), activeSignal);
-			if (activeSignal.aborted) return undefined;
+			if (activeSignal.aborted) return UNAVAILABLE;
 			if (
 				typeof body === "object" &&
 				body !== null &&
@@ -148,14 +163,14 @@ export function claudeTokenCounter(
 				Number.isSafeInteger(body.input_tokens) &&
 				body.input_tokens >= 0
 			)
-				return body.input_tokens;
+				return { status: "counted", tokens: body.input_tokens };
 			backoffUntil = Date.now() + 60_000;
-			return undefined;
+			return UNAVAILABLE;
 		} catch (error) {
 			const unauthorized =
 				error instanceof ProviderHttpError && (error.status === 401 || error.status === 403);
 			if (!signal?.aborted) backoffUntil = Date.now() + (unauthorized ? 600_000 : 60_000);
-			return undefined;
+			return UNAVAILABLE;
 		} finally {
 			release();
 		}
@@ -165,7 +180,7 @@ export function claudeTokenCounter(
 		text: string,
 		tools?: readonly ToolSchema[],
 		signal?: AbortSignal,
-	): Promise<number | undefined> {
+	): Promise<NativeCount> {
 		return performCount(
 			async () => ({
 				target: String(shapeUrl(ENDPOINT, options.env ?? process.env)),
@@ -189,19 +204,31 @@ export function claudeTokenCounter(
 		);
 	}
 
-	async function getBaseline(signal?: AbortSignal): Promise<number | undefined> {
-		if (signal?.aborted) return undefined;
-		if (baseline !== undefined) return baseline;
+	async function getBaseline(signal?: AbortSignal): Promise<NativeCount> {
+		if (signal?.aborted) return UNAVAILABLE;
+		if (baseline !== undefined) return { status: "counted", tokens: baseline };
 		baselinePending ??= (async () => {
 			try {
 				const result = await rawCount(MINIMAL_TEXT);
-				if (result !== undefined) baseline = result;
+				if (result.status === "counted") baseline = result.tokens;
 				return result;
 			} finally {
 				baselinePending = undefined;
 			}
 		})();
-		return waitFor(baselinePending, signal);
+		return (await waitFor(baselinePending, signal)) ?? UNAVAILABLE;
+	}
+
+	async function estimated(
+		text: string,
+		kind: TextKind,
+		result: NativeCount,
+		signal?: AbortSignal,
+	): Promise<TokenCount> {
+		const count = await fallback.count(text, kind, signal);
+		return result.status === "needs-auth" && !signal?.aborted
+			? { ...count, diagnostics: [NEEDS_AUTH_DIAGNOSTIC] }
+			: count;
 	}
 
 	return {
@@ -210,10 +237,11 @@ export function claudeTokenCounter(
 		async count(text, kind, signal) {
 			if (!text) return { tokens: 0, source: "estimate" };
 			const base = await getBaseline(signal);
-			const total = base === undefined ? undefined : await rawCount(text, undefined, signal);
-			if (base === undefined || total === undefined) return fallback.count(text, kind, signal);
+			if (base.status !== "counted") return estimated(text, kind, base, signal);
+			const total = await rawCount(text, undefined, signal);
+			if (total.status !== "counted") return estimated(text, kind, total, signal);
 			// Live x/x x/x x x = 33/34/35 (x = 1); prose A+B subtraction residual was -1 token.
-			return { tokens: Math.max(0, total - base + 1), source: "estimate" };
+			return { tokens: Math.max(0, total.tokens - base.tokens + 1), source: "estimate" };
 		},
 		async countContext(input, signal) {
 			if (
@@ -247,9 +275,9 @@ export function claudeTokenCounter(
 						...(snapshot.model.headers ? { headers: snapshot.model.headers } : {}),
 					};
 				}, signal);
-				return total === undefined || signal?.aborted
+				return total.status !== "counted" || signal?.aborted
 					? undefined
-					: { tokens: total, source: "count-endpoint" };
+					: { tokens: total.tokens, source: "count-endpoint" };
 			} catch {
 				return undefined;
 			}
@@ -258,11 +286,11 @@ export function claudeTokenCounter(
 		async countTools(tools, signal) {
 			if (!tools.length) return { tokens: 0, source: "estimate" };
 			const base = await getBaseline(signal);
-			const total = base === undefined ? undefined : await rawCount(MINIMAL_TEXT, tools, signal);
-			if (base === undefined || total === undefined) {
-				return fallback.count(JSON.stringify(tools), "json", signal);
-			}
-			return { tokens: Math.max(0, total - base), source: "estimate" };
+			if (base.status !== "counted") return estimated(JSON.stringify(tools), "json", base, signal);
+			const total = await rawCount(MINIMAL_TEXT, tools, signal);
+			if (total.status !== "counted")
+				return estimated(JSON.stringify(tools), "json", total, signal);
+			return { tokens: Math.max(0, total.tokens - base.tokens), source: "estimate" };
 		},
 	};
 }

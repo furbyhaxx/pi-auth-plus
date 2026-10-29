@@ -78,6 +78,150 @@ async function save(rig: ReturnType<typeof open>, target: string) {
 }
 
 describe("models tab", () => {
+	test("batches and caches full-catalog previews until relevant state changes", () => {
+		const rules = [
+			"vendor/*",
+			"!vendor/model-1",
+			...Array.from({ length: 48 }, (_, index) => `unmatched/rule-${index}`),
+		];
+		const catalog: ModelCatalogItem[] = Array.from({ length: 555 }, (_, index) => ({
+			provider: index % 111 === 0 ? "other" : "vendor",
+			id: `model-${index}`,
+			name: `Model ${index}`,
+			contextWindow: 100000,
+		}));
+		catalog[1] = {
+			provider: "vendor",
+			id: "model-1",
+			name: "Model 1",
+			contextWindow: 100000,
+			input: ["text"],
+			cost: { input: 1, output: 2, cacheRead: 3, cacheWrite: 4 },
+		};
+		let previous: readonly string[] | undefined;
+		let compiled = compileModelRules([]);
+		let compilations = 0;
+		let evaluations = 0;
+		const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+		const view = new ModelsView(
+			{
+				theme: {
+					fg: (_color, value) => value,
+					bg: (_color, value) => value,
+					bold: (value) => value,
+				},
+				keys,
+				binding: (id) => bindingLabel(keys, id),
+				refresh: () => {},
+				finish: () => {},
+			},
+			{
+				rules: () => [...rules],
+				catalog: () =>
+					catalog.map((item) => ({
+						...item,
+						...(item.input ? { input: [...item.input] } : {}),
+						...(item.cost ? { cost: { ...item.cost } } : {}),
+					})),
+				evaluate: (input, provider, id) => {
+					evaluations++;
+					if (input !== previous) {
+						previous = input;
+						compiled = compileModelRules(input);
+						compilations++;
+					}
+					const result = evaluateModelRules(compiled, provider, id);
+					return { visible: !result.hidden };
+				},
+				save: async () => {},
+			},
+		);
+		const render = () => view.render(140, 30);
+		for (let index = 1; index < rules.length; index++) view.handleInput("j");
+		let body = render();
+		expect(body.state).toContain("549 hidden");
+		expect(body.description).toContain("changes 0 models");
+		expect(compilations).toBeLessThanOrEqual(3);
+		expect(evaluations).toBeGreaterThan(0);
+		const initialEvaluations = evaluations;
+		render();
+		expect(evaluations).toBe(initialEvaluations);
+
+		for (let index = 1; index < rules.length; index++) view.handleInput("k");
+		let before = compilations;
+		body = render();
+		expect(body.state).toContain("549 hidden");
+		expect(body.description).toContain("changes 550 models");
+		expect(compilations - before).toBeLessThanOrEqual(3);
+		view.handleInput("j");
+		body = render();
+		expect(body.description).toContain("changes 1 model;");
+
+		view.handleInput(" ");
+		before = compilations;
+		body = render();
+		expect(body.state).toContain("550 hidden");
+		expect(body.description).toContain("changes 0 models");
+		expect(compilations - before).toBeLessThanOrEqual(3);
+		view.handleInput("\x1b");
+		body = render();
+		expect(body.state).toContain("549 hidden");
+		expect(body.description).toContain("changes 1 model;");
+
+		rules[0] = "#vendor/*";
+		rules[1] = "vendor/model-1";
+		body = render();
+		expect(body.state).toContain("1 hidden");
+		expect(body.description).toContain("changes 1 model;");
+		const renamed: ModelCatalogItem = {
+			provider: "vendor",
+			id: "renamed",
+			name: "Renamed",
+			contextWindow: 100000,
+		};
+		catalog[1] = renamed;
+		body = render();
+		expect(body.state).toContain("0 hidden");
+		expect(body.description).toContain("changes 0 models");
+		renamed.id = "model-1";
+		expect(render().state).toContain("1 hidden");
+		renamed.id = "renamed";
+		expect(render().state).toContain("0 hidden");
+		catalog.push({ provider: "vendor", id: "model-1", name: "Added", contextWindow: 100000 });
+		body = render();
+		expect(body.state).toContain("1 hidden");
+		expect(body.description).toContain("changes 1 model;");
+		catalog.pop();
+		expect(render().state).toContain("0 hidden");
+		catalog.push({ provider: "vendor", id: "model-1", name: "Added", contextWindow: 100000 });
+		expect(render().state).toContain("1 hidden");
+		view.handleInput("v");
+		body = view.render(140, 600);
+		let lines = body.lines.join("\n");
+		expect(lines).toContain("listed renamed · Renamed");
+		expect(lines).toContain("hidden model-1 · Added");
+		expect(lines.indexOf("listed model-111")).toBeLessThan(lines.indexOf("listed renamed"));
+		renamed.name = "Updated name";
+		const beforeMetadataChange = evaluations;
+		body = view.render(140, 600);
+		expect(body.lines.join("\n")).toContain("listed renamed · Updated name");
+		expect(evaluations).toBeGreaterThan(beforeMetadataChange);
+		catalog.reverse();
+		body = view.render(140, 600);
+		lines = body.lines.join("\n");
+		expect(lines.indexOf("hidden model-1 · Added")).toBeLessThan(lines.indexOf("listed model-111"));
+		view.handleInput("h");
+		expect(render().state).toContain("0 hidden");
+	});
+
+	test("selected-rule effect uses its prefix even when a later rule overrides it", () => {
+		const rig = open(["vendor/*", "!vendor/one", "vendor/one"]);
+		rig.view.handleInput("j");
+		const body = rig.view.render(140, 30);
+		expect(body.state).toContain("2 hidden");
+		expect(body.description).toContain("changes 1 model;");
+	});
+
 	test("creates, edits and removes aliases with scoped validation while preserving overrides", async () => {
 		let aliases: readonly ModelAlias[] = [
 			{ provider: "other", source: "three", id: "other-alias" },

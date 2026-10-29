@@ -53,6 +53,40 @@ function text(value: string): string {
 	return sanitize(value).replace(/\n/g, " ");
 }
 
+interface Preview {
+	rules: readonly string[];
+	catalogVersion: number;
+	outcomes: readonly RuleOutcome[];
+	hidden: number;
+	selection: number | undefined;
+	effect: number | undefined;
+}
+
+function sameCatalogItem(left: ModelCatalogItem, right: ModelCatalogItem): boolean {
+	return (
+		left.provider === right.provider &&
+		left.id === right.id &&
+		left.name === right.name &&
+		left.contextWindow === right.contextWindow &&
+		left.maxTokens === right.maxTokens &&
+		left.reasoning === right.reasoning &&
+		left.api === right.api &&
+		left.cost?.input === right.cost?.input &&
+		left.cost?.output === right.cost?.output &&
+		left.cost?.cacheRead === right.cost?.cacheRead &&
+		left.cost?.cacheWrite === right.cost?.cacheWrite &&
+		(left.input === right.input ||
+			(left.input !== undefined &&
+				right.input !== undefined &&
+				left.input.length === right.input.length &&
+				left.input.every((value, index) => value === right.input?.[index])))
+	);
+}
+
+function sameRules(left: readonly string[], right: readonly string[]): boolean {
+	return left.length === right.length && left.every((rule, index) => rule === right[index]);
+}
+
 /** A rules editor with a live catalog preview and explicit scoped saves. */
 export class ModelsView implements TabView {
 	readonly #host: TabViewHost;
@@ -69,6 +103,11 @@ export class ModelsView implements TabView {
 	#saving = false;
 	#disposed = false;
 	#detail: ModelDetail | undefined;
+	#catalogSnapshot: readonly ModelCatalogItem[] = [];
+	#catalogOrder: number[] = [];
+	#catalogItems: ModelCatalogItem[] = [];
+	#catalogVersion = 0;
+	#preview: Preview | undefined;
 
 	constructor(host: TabViewHost, deps: ModelsTabDeps) {
 		this.#host = host;
@@ -85,13 +124,76 @@ export class ModelsView implements TabView {
 	}
 
 	#catalog(): ModelCatalogItem[] {
-		const groups = new Map<string, ModelCatalogItem[]>();
-		for (const item of this.#deps.catalog()) {
-			const group = groups.get(item.provider);
-			if (group) group.push(item);
-			else groups.set(item.provider, [item]);
+		const items = this.#deps.catalog();
+		if (
+			items.length !== this.#catalogSnapshot.length ||
+			items.some((item, index) => {
+				const previous = this.#catalogSnapshot[index];
+				return previous === undefined || !sameCatalogItem(item, previous);
+			})
+		) {
+			this.#catalogSnapshot = items.map((item) => ({
+				...item,
+				...(item.input ? { input: [...item.input] } : {}),
+				...(item.cost ? { cost: { ...item.cost } } : {}),
+			}));
+			const groups = new Map<string, number[]>();
+			for (const [index, item] of items.entries()) {
+				const group = groups.get(item.provider);
+				if (group) group.push(index);
+				else groups.set(item.provider, [index]);
+			}
+			this.#catalogOrder = [...groups.values()].flat();
+			this.#catalogItems.length = this.#catalogOrder.length;
+			this.#catalogVersion++;
 		}
-		return [...groups.values()].flat();
+		for (const [position, index] of this.#catalogOrder.entries()) {
+			const item = items[index];
+			if (item) this.#catalogItems[position] = item;
+		}
+		return this.#catalogItems;
+	}
+
+	#previewFor(rules: readonly string[], catalog: readonly ModelCatalogItem[]): Preview {
+		let preview = this.#preview;
+		const unchanged = preview !== undefined && sameRules(rules, preview.rules);
+		if (!preview || !unchanged || preview.catalogVersion !== this.#catalogVersion) {
+			const stableRules = unchanged && preview ? preview.rules : [...rules];
+			let hidden = 0;
+			const outcomes = catalog.map((item) => {
+				const outcome = this.#deps.evaluate(stableRules, item.provider, item.id);
+				if (!outcome.visible) hidden++;
+				return outcome;
+			});
+			preview = {
+				rules: stableRules,
+				catalogVersion: this.#catalogVersion,
+				outcomes,
+				hidden,
+				selection: undefined,
+				effect: undefined,
+			};
+			this.#preview = preview;
+		}
+		if (
+			this.#view === "rules" &&
+			rules[this.#ruleSelected] !== undefined &&
+			preview.selection !== this.#ruleSelected
+		) {
+			const beforeRule = preview.rules.slice(0, this.#ruleSelected);
+			const throughRule = preview.rules.slice(0, this.#ruleSelected + 1);
+			const before = catalog.map(
+				(item) => this.#deps.evaluate(beforeRule, item.provider, item.id).visible,
+			);
+			let effect = 0;
+			for (const [index, item] of catalog.entries()) {
+				if (before[index] !== this.#deps.evaluate(throughRule, item.provider, item.id).visible)
+					effect++;
+			}
+			preview.selection = this.#ruleSelected;
+			preview.effect = effect;
+		}
+		return preview;
 	}
 
 	#edit(adding: boolean): void {
@@ -253,19 +355,9 @@ export class ModelsView implements TabView {
 		const { theme } = this.#host;
 		const rules = this.#rules();
 		const catalog = this.#catalog();
-		const outcomes = catalog.map((item) => this.#deps.evaluate(rules, item.provider, item.id));
-		const hidden = outcomes.filter((outcome) => !outcome.visible).length;
 		this.#ruleSelected = Math.max(0, Math.min(this.#ruleSelected, rules.length - 1));
-		const beforeRule = rules.slice(0, this.#ruleSelected);
-		const throughRule = rules.slice(0, this.#ruleSelected + 1);
-		const effect =
-			this.#view === "rules" && rules[this.#ruleSelected] !== undefined
-				? catalog.filter((item) => {
-						const before = this.#deps.evaluate(beforeRule, item.provider, item.id);
-						const after = this.#deps.evaluate(throughRule, item.provider, item.id);
-						return before.visible !== after.visible;
-					}).length
-				: undefined;
+		const { outcomes, hidden, effect: selectedEffect } = this.#previewFor(rules, catalog);
+		const effect = this.#view === "rules" ? selectedEffect : undefined;
 		const rows: string[] = [
 			` ${this.#view === "rules" ? "Rules" : "Catalog"} · ${hidden} hidden${this.#staged ? " · ● staged" : ""}`,
 		];

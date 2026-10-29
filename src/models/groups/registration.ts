@@ -1,6 +1,8 @@
 /** Registers configured groups as Pi virtual models and keeps that registration current. */
 import type { Api, AssistantMessage, Message, Model } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { redactText } from "../../core/redact/index.ts";
+import { plainText } from "../../quotas/line/values.ts";
 import type { ProviderQuotaSnapshot } from "../../quotas/types.ts";
 import { type BalanceCandidate, selectBalancedMember } from "./balance.ts";
 import type { GroupMember, ModelGroup } from "./config.ts";
@@ -47,6 +49,16 @@ function balanced(
 		?.member;
 }
 
+function warning(action: "register" | "unregister", id: string, error: unknown): string {
+	const reason =
+		error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error";
+	const recovery =
+		action === "register"
+			? "Check the group configuration and model conflicts, then retry."
+			: "Retry applying the group settings.";
+	return redactText(plainText(`Could not ${action} group/${id}: ${reason}. ${recovery}`));
+}
+
 /**
  * Registers, replaces and removes virtual models so that `models.groups` is the only source.
  * Registration is safe to repeat: Pi replaces a virtual model registered under the same ids.
@@ -61,16 +73,22 @@ export class GroupRegistrations {
 		this.#deps = deps;
 	}
 
-	/** Registers visible groups, optionally sizing each one from the current catalog. */
-	apply(catalog: readonly Model<Api>[] = []): void {
+	/** Registers visible groups and returns per-group warnings for operations that failed. */
+	apply(catalog: readonly Model<Api>[] = []): readonly string[] {
 		const groups = this.#deps.groups().filter((group) => this.#deps.visible?.(group.id) ?? true);
 		const ids = new Set(groups.map((group) => group.id));
-		for (const id of this.#registered.keys()) {
+		const warnings: string[] = [];
+		const next = new Map<string, ModelGroup>();
+		for (const [id, previous] of this.#registered) {
 			if (ids.has(id)) continue;
-			this.#pi.unregisterVirtualModel("group", id);
+			try {
+				this.#pi.unregisterVirtualModel("group", id);
+			} catch (error) {
+				next.set(id, previous);
+				warnings.push(warning("unregister", id, error));
+			}
 		}
 		const random = this.#deps.random ?? Math.random;
-		const next = new Map<string, ModelGroup>();
 		for (const group of groups) {
 			try {
 				this.#pi.registerVirtualModel(
@@ -81,22 +99,20 @@ export class GroupRegistrations {
 							balanced(candidates, previous, messages, random),
 						takeFailed: (id) => this.#deps.takeFailed(id),
 						...(this.#deps.onSwitch
-							? {
-									onSwitch: (from, to) => {
-										const current = next.get(group.id) ?? group;
-										this.#deps.onSwitch?.(current, from, to);
-									},
-								}
+							? { onSwitch: (from, to) => this.#deps.onSwitch?.(group, from, to) }
 							: {}),
 						random,
 					}),
 				);
 				next.set(group.id, group);
-			} catch {
-				// A malformed group must not prevent the others from registering.
+			} catch (error) {
+				const previous = this.#registered.get(group.id);
+				if (previous) next.set(group.id, previous);
+				warnings.push(warning("register", group.id, error));
 			}
 		}
 		this.#registered = next;
+		return warnings;
 	}
 
 	/** The group ids currently registered as virtual models. */

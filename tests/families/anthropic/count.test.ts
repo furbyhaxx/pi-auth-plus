@@ -248,6 +248,62 @@ describe("families/anthropic/count", () => {
 		expect(calls).toBe(5);
 	});
 
+	test("engine resolves authentication before reusing shaped native request totals", async () => {
+		let mode: "oauth" | "api" | "missing" = "oauth";
+		const systems: number[] = [];
+		const services: CounterDeps = {
+			auth: async () =>
+				mode === "missing"
+					? undefined
+					: { token: "test-credential", extra: { type: mode === "oauth" ? "oauth" : "api_key" } },
+			fetch: async (_url, init) => {
+				const body: unknown = JSON.parse(String(init?.body));
+				if (typeof body !== "object" || body === null || !("messages" in body))
+					throw new Error("expected native request");
+				const system = "system" in body && Array.isArray(body.system) ? body.system.length : 0;
+				systems.push(system);
+				return Response.json({ input_tokens: system });
+			},
+			tokenizers,
+		};
+		const counter = claudeTokenCounter(model, services, options);
+		const engine = createTokenEngine({
+			families: [{ id: "anthropic", label: "Anthropic", providers: [], tokens: () => counter }],
+			deps: services,
+			tools: () => [],
+		});
+		const projection: SessionProjection = {
+			entries: [],
+			messages: [{ role: "user", content: "Hello.", timestamp: 0 }],
+			thinkingLevel: "off",
+			model: null,
+		};
+		const ctx: EngineContext = {
+			model: fullModel,
+			modelRegistry: { find: () => fullModel },
+			sessionManager: { buildSessionProjection: () => projection, getBranch: () => [] },
+			getSystemPrompt: () => "",
+			getContextUsage: () => undefined,
+		};
+		expect((await engine.context(ctx))?.tokens).toEqual({ tokens: 1, source: "count-endpoint" });
+		expect((await engine.context(ctx))?.tokens).toEqual({ tokens: 1, source: "count-endpoint" });
+		expect(systems).toEqual([1]);
+		mode = "api";
+		expect((await engine.context(ctx))?.tokens).toEqual({ tokens: 0, source: "count-endpoint" });
+		expect((await engine.context(ctx))?.tokens).toEqual({ tokens: 0, source: "count-endpoint" });
+		expect(systems).toEqual([1, 0]);
+		mode = "missing";
+		expect((await engine.context(ctx))?.tokens).toEqual({
+			tokens: 3,
+			source: "estimate",
+			diagnostics: [needsAuth],
+		});
+		expect(systems).toEqual([1, 0]);
+		mode = "api";
+		expect((await engine.context(ctx))?.tokens).toEqual({ tokens: 0, source: "count-endpoint" });
+		expect(systems).toEqual([1, 0]);
+	});
+
 	test("cancelled baseline waiters do not receive or poison missing-auth guidance", async () => {
 		const started = Promise.withResolvers<void>();
 		const release = Promise.withResolvers<void>();
@@ -472,6 +528,169 @@ describe("families/anthropic/count", () => {
 		} finally {
 			generation.mockRestore();
 		}
+	});
+
+	test("full-request memo tracks effective rewrites, endpoints and protocol headers", async () => {
+		let rules = [{ match: "secret", replacement: "first" }];
+		const env: Record<string, string> = { ANTHROPIC_BASE_URL: "https://first.example" };
+		const sent: { url: string; body: string; headers: Headers }[] = [];
+		const counter = claudeTokenCounter(
+			model,
+			deps(async (url, init) => {
+				sent.push({
+					url: String(url),
+					body: String(init?.body),
+					headers: new Headers(init?.headers),
+				});
+				return Response.json({ input_tokens: sent.length });
+			}),
+			{ ...options, env, rules: () => rules },
+		);
+		const context: Context = { ...hello, systemPrompt: "secret" };
+		let requestModel = {
+			...fullModel,
+			baseUrl: "https://upstream.example/first",
+			headers: { "anthropic-version": "2023-06-01", "anthropic-beta": "example-beta" },
+		};
+		const count = () => counter.countContext?.({ model: requestModel, context });
+		expect(await count()).toEqual({ tokens: 1, source: "count-endpoint" });
+		expect(await count()).toEqual({ tokens: 1, source: "count-endpoint" });
+		rules = [{ match: "secret", replacement: "second" }];
+		expect(await count()).toEqual({ tokens: 2, source: "count-endpoint" });
+		env["ANTHROPIC_BASE_URL"] = "https://second.example";
+		expect(await count()).toEqual({ tokens: 3, source: "count-endpoint" });
+		requestModel = { ...requestModel, baseUrl: "https://upstream.example/second" };
+		expect(await count()).toEqual({ tokens: 4, source: "count-endpoint" });
+		requestModel = {
+			...requestModel,
+			headers: { "anthropic-version": "2023-06-01", "anthropic-beta": "another-beta" },
+		};
+		expect(await count()).toEqual({ tokens: 5, source: "count-endpoint" });
+		requestModel = {
+			...requestModel,
+			headers: { "anthropic-version": "2024-01-01", "anthropic-beta": "another-beta" },
+		};
+		expect(await count()).toEqual({ tokens: 6, source: "count-endpoint" });
+		requestModel = { ...requestModel, name: "Other display name" };
+		expect(await count()).toEqual({ tokens: 6, source: "count-endpoint" });
+		expect(sent).toHaveLength(6);
+		expect(sent[0]?.body).toContain('"text":"first"');
+		expect(sent[1]?.body).toContain('"text":"second"');
+		expect(sent.map(({ url }) => url)).toEqual([
+			"https://first.example/first/v1/messages/count_tokens",
+			"https://first.example/first/v1/messages/count_tokens",
+			"https://second.example/first/v1/messages/count_tokens",
+			"https://second.example/second/v1/messages/count_tokens",
+			"https://second.example/second/v1/messages/count_tokens",
+			"https://second.example/second/v1/messages/count_tokens",
+		]);
+		expect(sent[4]?.headers.get("anthropic-beta")).toContain("another-beta");
+		expect(sent[5]?.headers.get("anthropic-version")).toBe("2024-01-01");
+	});
+
+	test("engine retains distinct full-request counts for different models", async () => {
+		const otherModel = { ...fullModel, id: "other" };
+		const models = [fullModel, otherModel];
+		const sent: string[] = [];
+		const services = deps(async (_url, init) => {
+			const body: unknown = JSON.parse(String(init?.body));
+			if (typeof body !== "object" || body === null || !("model" in body))
+				throw new Error("expected native request model");
+			sent.push(String(body.model));
+			return Response.json({ input_tokens: body.model === otherModel.id ? 2 : 1 });
+		}, "test-api-key");
+		const engine = createTokenEngine({
+			families: [createAnthropicFamily({}, async () => undefined)],
+			deps: services,
+			tools: () => [],
+		});
+		const projection: SessionProjection = {
+			entries: [],
+			messages: [{ role: "user", content: "Hello.", timestamp: 0 }],
+			thinkingLevel: "off",
+			model: null,
+		};
+		const ctx: EngineContext = {
+			model: fullModel,
+			modelRegistry: {
+				find: (provider, id) => models.find((m) => m.provider === provider && m.id === id),
+			},
+			sessionManager: { buildSessionProjection: () => projection, getBranch: () => [] },
+			getSystemPrompt: () => "",
+			getContextUsage: () => undefined,
+		};
+		expect((await engine.context(ctx))?.tokens.tokens).toBe(1);
+		expect((await engine.context({ ...ctx, model: otherModel }))?.tokens.tokens).toBe(2);
+		expect((await engine.context(ctx))?.tokens.tokens).toBe(1);
+		expect(sent).toEqual([fullModel.id, otherModel.id]);
+	});
+
+	test("full-request memo excludes credentials and refuses unknown header identities", async () => {
+		let token = "test-credential-one";
+		let calls = 0;
+		const counter = claudeTokenCounter(
+			model,
+			{
+				auth: async () => ({ token, extra: { type: "api_key" } }),
+				fetch: async () => Response.json({ input_tokens: ++calls }),
+				tokenizers,
+			},
+			options,
+		);
+		let requestModel: Model<"anthropic-messages"> = {
+			...fullModel,
+			headers: { "x-api-key": "test-override-one" },
+		};
+		const count = (context = hello) => counter.countContext?.({ model: requestModel, context });
+		expect(await count()).toEqual({ tokens: 1, source: "count-endpoint" });
+		token = "test-credential-two";
+		requestModel = { ...requestModel, headers: { "x-api-key": "test-override-two" } };
+		expect(await count()).toEqual({ tokens: 1, source: "count-endpoint" });
+		requestModel = {
+			...requestModel,
+			headers: { "x-api-key": "test-override-two", "x-custom-secret": "custom" },
+		};
+		expect(await count()).toEqual({ tokens: 2, source: "count-endpoint" });
+		expect(await count()).toEqual({ tokens: 3, source: "count-endpoint" });
+		requestModel = { ...requestModel, headers: { "x-api-key": "test-override-two" } };
+		const sensitive: Context = { messages: [{ role: "user", content: token, timestamp: 0 }] };
+		expect(await count(sensitive)).toEqual({ tokens: 4, source: "count-endpoint" });
+		expect(await count(sensitive)).toEqual({ tokens: 5, source: "count-endpoint" });
+		requestModel = { ...requestModel, headers: { "anthropic-beta": token } };
+		expect(await count()).toEqual({ tokens: 6, source: "count-endpoint" });
+		expect(await count()).toEqual({ tokens: 7, source: "count-endpoint" });
+		requestModel = { ...requestModel, baseUrl: `https://proxy.example/${token}`, headers: {} };
+		expect(await count()).toEqual({ tokens: 8, source: "count-endpoint" });
+		expect(await count()).toEqual({ tokens: 9, source: "count-endpoint" });
+		requestModel = {
+			...requestModel,
+			baseUrl: fullModel.baseUrl,
+			headers: { authorization: "Bearer test-other-credential" },
+		};
+		const echoed: Context = {
+			messages: [{ role: "user", content: "test-other-credential", timestamp: 0 }],
+		};
+		expect(await count(echoed)).toEqual({ tokens: 10, source: "count-endpoint" });
+		expect(await count(echoed)).toEqual({ tokens: 11, source: "count-endpoint" });
+	});
+
+	test("full-request memo evicts the least recently used successful request", async () => {
+		let calls = 0;
+		const counter = claudeTokenCounter(
+			model,
+			deps(async () => Response.json({ input_tokens: ++calls })),
+			options,
+		);
+		const count = (index: number) =>
+			counter.countContext?.({
+				model: fullModel,
+				context: { messages: [{ role: "user", content: `message-${index}`, timestamp: 0 }] },
+			});
+		for (let i = 0; i < 256; i++) await count(i);
+		expect(await count(0)).toEqual({ tokens: 1, source: "count-endpoint" });
+		await count(256);
+		expect(await count(1)).toEqual({ tokens: 258, source: "count-endpoint" });
+		expect(calls).toBe(258);
 	});
 
 	test("preserves SDK tool calls, results and ordered native system and tool changes", async () => {
@@ -825,7 +1044,7 @@ describe("families/anthropic/count", () => {
 				tokens: 36,
 				source: "count-endpoint",
 			});
-			expect(calls).toBe(3);
+			expect(calls).toBe(2);
 		} finally {
 			late.resolve(Response.json({ input_tokens: 999 }));
 			await first;

@@ -373,8 +373,10 @@ test("unavailable and cancelled native counts are retried without coupling calle
 	expect(gates).toHaveLength(3);
 	gates[2]?.resolve({ tokens: 41, source: "count-endpoint" });
 	expect((await retry)?.tokens).toEqual({ tokens: 41, source: "count-endpoint" });
-	expect((await engine.context(ctx))?.tokens).toEqual({ tokens: 41, source: "count-endpoint" });
-	expect(gates).toHaveLength(3);
+	const repeated = engine.context(ctx);
+	expect(gates).toHaveLength(4);
+	gates[3]?.resolve({ tokens: 42, source: "count-endpoint" });
+	expect((await repeated)?.tokens).toEqual({ tokens: 42, source: "count-endpoint" });
 });
 
 test("a concurrent caller succeeds when another native count is cancelled", async () => {
@@ -417,16 +419,16 @@ test("live tool declarations retain extra SDK properties", async () => {
 	expect(received?.context.systemPrompt).toBe("system");
 });
 
-test("native memo follows effective system rewrites and request inputs", async () => {
+test("native requests reach the family with current inputs on every attempt", async () => {
 	let uppercase = false;
-	let calls = 0;
+	const inputs: TokenContextInput[] = [];
 	const counter: TokenCounter = {
 		id: "rewritable",
 		anchorSource: "provider",
 		count: async () => ({ tokens: 1, source: "estimate" }),
 		systemText: (text) => (uppercase ? text.toUpperCase() : text),
-		countContext: async () => {
-			calls++;
+		countContext: async (input) => {
+			inputs.push(input);
 			return { tokens: uppercase ? 41 : 36, source: "count-endpoint" };
 		},
 	};
@@ -440,42 +442,17 @@ test("native memo follows effective system rewrites and request inputs", async (
 	const ctx = withRegistry(raw);
 	expect((await engine.context(ctx))?.tokens.tokens).toBe(36);
 	expect((await engine.context(ctx))?.tokens.tokens).toBe(36);
-	expect(calls).toBe(1);
 	uppercase = true;
 	expect((await engine.context(ctx))?.tokens.tokens).toBe(41);
-	expect(calls).toBe(2);
 	expect((await engine.context({ ...ctx, getSystemPrompt: () => "other" }))?.tokens.tokens).toBe(
 		41,
 	);
-	expect(calls).toBe(3);
-});
-
-test("native memo evicts the oldest full request", async () => {
-	let calls = 0;
-	const { engine } = nativeEngine(async () => {
-		calls++;
-		return { tokens: 36, source: "count-endpoint" };
-	});
-	const state = session([]);
-	const ctx = withRegistry(state.ctx);
-	for (let i = 0; i < 4097; i++) {
-		state.messages.splice(0, state.messages.length, {
-			role: "user",
-			content: `message-${i}`,
-			timestamp: 0,
-		});
-		state.rebuild();
-		await engine.context(ctx);
-	}
-	expect(calls).toBe(4097);
-	state.messages.splice(0, state.messages.length, {
-		role: "user",
-		content: "message-0",
-		timestamp: 0,
-	});
-	state.rebuild();
-	await engine.context(ctx);
-	expect(calls).toBe(4098);
+	expect(inputs.map((input) => input.context.systemPrompt)).toEqual([
+		"system",
+		"system",
+		"system",
+		"other",
+	]);
 });
 
 test("missing physical registry or model retains the segment fallback", async () => {

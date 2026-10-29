@@ -1,5 +1,6 @@
 /** Counts Claude text and tool schemas through the subscription-compatible native endpoint. */
 
+import { createHash } from "node:crypto";
 import type { TextRule } from "../../core/config/fields.ts";
 import { ProviderHttpError, request } from "../../core/http/index.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
@@ -22,6 +23,18 @@ import { oauthToken } from "./transport.ts";
 
 const ENDPOINT = "https://api.anthropic.com/v1/messages/count_tokens";
 const MINIMAL_TEXT = "x";
+const FULL_MEMO_LIMIT = 256;
+const MEMO_HEADER_NAMES = new Set([
+	"anthropic-version",
+	"anthropic-beta",
+	"authorization",
+	"x-api-key",
+	"content-type",
+	"content-length",
+	"content-md5",
+	"content-digest",
+	"digest",
+]);
 const NEEDS_AUTH_DIAGNOSTIC: TokenDiagnostic = {
 	code: "needs-auth",
 	provider: "claude",
@@ -64,6 +77,46 @@ function release(): void {
 	else active--;
 }
 
+function fullRequestKey(
+	body: string,
+	target: string,
+	oauth: boolean,
+	headers: Headers,
+	suppliedHeaders: Readonly<Record<string, string>> | undefined,
+	token: string,
+): string | undefined {
+	// Unknown headers can carry credentials or affect routing, so they cannot enter a memo key.
+	if (Object.keys(suppliedHeaders ?? {}).some((name) => !MEMO_HEADER_NAMES.has(name.toLowerCase())))
+		return undefined;
+	const protocol = [headers.get("anthropic-version"), headers.get("anthropic-beta")];
+	const contents = [body, target, ...protocol];
+	const supplied = new Headers(suppliedHeaders);
+	const credentials = [
+		token,
+		headers.get("x-api-key"),
+		headers.get("authorization"),
+		supplied.get("x-api-key"),
+		supplied.get("authorization"),
+	];
+	for (const credential of credentials) {
+		if (!credential) continue;
+		const bare = credential.replace(/^\S+\s+/, "");
+		for (const value of [credential, bare]) {
+			const escaped = JSON.stringify(value).slice(1, -1);
+			const encoded = encodeURIComponent(value);
+			if (
+				contents.some(
+					(part) => part?.includes(value) || part?.includes(escaped) || part?.includes(encoded),
+				)
+			)
+				return undefined;
+		}
+	}
+	return createHash("sha256")
+		.update(JSON.stringify([body, target, oauth, protocol]))
+		.digest("hex");
+}
+
 async function waitFor<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T | undefined> {
 	if (!signal) return promise;
 	const cancelled = Promise.withResolvers<undefined>();
@@ -96,6 +149,7 @@ export function claudeTokenCounter(
 	const session = crypto.randomUUID();
 	let baseline: number | undefined;
 	let baselinePending: Promise<NativeCount> | undefined;
+	const fullMemo = new Map<string, number>();
 
 	type RequestBody = {
 		readonly body: string;
@@ -112,6 +166,7 @@ export function claudeTokenCounter(
 			signal: AbortSignal,
 		) => Promise<RequestBody | undefined>,
 		signal?: AbortSignal,
+		memoizeFull = false,
 	): Promise<NativeCount> {
 		const deadline = AbortSignal.timeout(10_000);
 		const activeSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
@@ -138,9 +193,20 @@ export function claudeTokenCounter(
 			} else if (!headers.has("x-api-key")) {
 				headers.set("x-api-key", auth.token);
 			}
-			const target = oauth ? shapeUrl(payload.target, payload.env) : payload.target;
+			const target = String(oauth ? shapeUrl(payload.target, payload.env) : payload.target);
+			const key = memoizeFull
+				? fullRequestKey(payload.body, target, oauth, headers, payload.headers, auth.token)
+				: undefined;
+			if (key !== undefined) {
+				const cached = fullMemo.get(key);
+				if (cached !== undefined) {
+					fullMemo.delete(key);
+					fullMemo.set(key, cached);
+					return { status: "counted", tokens: cached };
+				}
+			}
 			const response = await waitFor(
-				request(String(target), {
+				request(target, {
 					provider: "claude",
 					fetch: deps.fetch,
 					method: "POST",
@@ -162,8 +228,18 @@ export function claudeTokenCounter(
 				typeof body.input_tokens === "number" &&
 				Number.isSafeInteger(body.input_tokens) &&
 				body.input_tokens >= 0
-			)
-				return { status: "counted", tokens: body.input_tokens };
+			) {
+				const counted: NativeCount = { status: "counted", tokens: body.input_tokens };
+				if (key !== undefined) {
+					fullMemo.delete(key);
+					fullMemo.set(key, counted.tokens);
+					if (fullMemo.size > FULL_MEMO_LIMIT) {
+						const oldest = fullMemo.keys().next().value;
+						if (oldest !== undefined) fullMemo.delete(oldest);
+					}
+				}
+				return counted;
+			}
 			backoffUntil = Date.now() + 60_000;
 			return UNAVAILABLE;
 		} catch (error) {
@@ -265,16 +341,20 @@ export function claudeTokenCounter(
 				)
 					return undefined;
 				const target = `${base.href.replace(/\/$/, "")}/v1/messages/count_tokens`;
-				const total = await performCount(async (oauth, version, activeSignal) => {
-					const payload = await countPayload(snapshot, oauth, version, rules, activeSignal);
-					if (!payload) return undefined;
-					return {
-						...payload,
-						target,
-						env,
-						...(snapshot.model.headers ? { headers: snapshot.model.headers } : {}),
-					};
-				}, signal);
+				const total = await performCount(
+					async (oauth, version, activeSignal) => {
+						const payload = await countPayload(snapshot, oauth, version, rules, activeSignal);
+						if (!payload) return undefined;
+						return {
+							...payload,
+							target,
+							env,
+							...(snapshot.model.headers ? { headers: snapshot.model.headers } : {}),
+						};
+					},
+					signal,
+					true,
+				);
 				return total.status !== "counted" || signal?.aborted
 					? undefined
 					: { tokens: total.tokens, source: "count-endpoint" };

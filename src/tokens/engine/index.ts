@@ -1,11 +1,5 @@
 /** Counts projected context with Pi-compatible usage anchors and source-labelled segments. */
 import { createHash } from "node:crypto";
-import {
-	getCurrentSystemPrompt,
-	getSystemMessageText,
-	normalizeContext,
-	renderSystemMessageUpdate,
-} from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
 import { estimateCounter } from "../estimate/index.ts";
@@ -117,7 +111,6 @@ function breakdownKind(role: string): BreakdownKind {
 export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 	const counters = new Map<string, TokenCounter>();
 	const memo = new Map<string, TokenCount>();
-	const contextMemo = new Map<string, TokenCount>();
 	const pending = new Map<string, Promise<TokenCount>>();
 	const fallback = estimateCounter("default");
 	const now = options.now ?? Date.now;
@@ -161,46 +154,9 @@ export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 		const context = nativeContext(messages, () => ctx.getSystemPrompt(), options.tools);
 		if (!context) return undefined;
 		const input: TokenContextInput = { model, context };
-		let key: string;
-		try {
-			const transcript = normalizeContext(context);
-			const rewrite = counter.systemText?.bind(counter);
-			const rewritten = rewrite
-				? [
-						rewrite(getCurrentSystemPrompt(transcript.messages)),
-						...transcript.messages.flatMap((message) =>
-							message.role === "system"
-								? [
-										rewrite(getSystemMessageText(message)),
-										rewrite(renderSystemMessageUpdate(message)),
-									]
-								: [],
-						),
-					]
-				: undefined;
-			key = createHash("sha256")
-				.update(JSON.stringify([counter.id, input, rewritten]))
-				.digest("hex");
-		} catch {
-			return undefined;
-		}
-		const cached = contextMemo.get(key);
-		if (cached) {
-			contextMemo.delete(key);
-			contextMemo.set(key, cached);
-			return cached;
-		}
 		try {
 			const count = await native.call(counter, input, signal);
-			if (signal?.aborted || !count) return undefined;
-			if (count.source !== "estimate") {
-				contextMemo.set(key, count);
-				if (contextMemo.size > MEMO_LIMIT) {
-					const oldest = contextMemo.keys().next().value;
-					if (oldest !== undefined) contextMemo.delete(oldest);
-				}
-			}
-			return count;
+			return signal?.aborted ? undefined : count;
 		} catch {
 			return undefined;
 		}

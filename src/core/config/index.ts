@@ -35,6 +35,11 @@ export interface SettingsProblem {
 	readonly reason: string;
 }
 
+/** Warnings produced after a settings change has committed. */
+export interface SettingsSaveResult {
+	readonly warnings: readonly string[];
+}
+
 export class SettingsError extends Error {
 	override readonly name = "SettingsError";
 	readonly path: string;
@@ -163,12 +168,12 @@ export class SettingsStore<C extends Catalog> {
 	 * Apply staged changes to one scope. File scopes re-read the file first, preserve unknown
 	 * keys, and refuse to overwrite a malformed file.
 	 */
-	async save(scope: SaveScope, changes: Changes<C>): Promise<void> {
+	async save(scope: SaveScope, changes: Changes<C>): Promise<SettingsSaveResult> {
 		if (scope === "runtime") {
 			const layer = applyToLayer(this.layers.runtime, this.validate(changes, scope));
 			this.assertRelations(scope, layer, "");
 			this.layers.runtime = layer;
-			return;
+			return { warnings: [] };
 		}
 		const path = this.paths[scope];
 		if (path === undefined) {
@@ -176,11 +181,12 @@ export class SettingsStore<C extends Catalog> {
 		}
 		try {
 			await mkdir(dirname(path), { recursive: true });
-			let compromised: Error | undefined;
+			const lockStatus: { compromised: Error | undefined } = { compromised: undefined };
 			const release = await acquire(path, (error) => {
-				compromised = error;
+				lockStatus.compromised = error;
 			});
-			let releaseFailure: unknown;
+			let committed = false;
+			let releaseWarning: string | undefined;
 			try {
 				const entries = this.validate(changes, scope, path);
 				const read = await readJsonFile(path);
@@ -197,17 +203,30 @@ export class SettingsStore<C extends Catalog> {
 				}
 				const layer = this.parseLayer(doc, path, scope, []);
 				this.assertRelations(scope, layer, path);
-				if (compromised) throw compromised;
+				const beforeWrite = lockStatus.compromised;
+				if (beforeWrite) throw beforeWrite;
 				await atomicWriteFile(path, `${JSON.stringify(doc, null, "\t")}\n`);
-				if (compromised) throw compromised;
 				this.layers[scope] = layer;
+				committed = true;
 			} finally {
-				await release().catch((error: unknown) => {
-					releaseFailure = error;
-				});
+				try {
+					await release();
+				} catch (error) {
+					if (committed) {
+						const reason = error instanceof Error ? error.message : String(error);
+						releaseWarning = `Settings were saved to ${path}, but the lock could not be released: ${reason}; check for a stale lock before saving again`;
+					}
+				}
 			}
-			if (compromised) throw compromised;
-			if (releaseFailure !== undefined) throw releaseFailure;
+			const warnings: string[] = [];
+			const afterWrite = lockStatus.compromised;
+			if (afterWrite) {
+				warnings.push(
+					`Settings were saved to ${path}, but the lock was compromised: ${afterWrite.message}; check the file for concurrent changes before saving again`,
+				);
+			}
+			if (releaseWarning) warnings.push(releaseWarning);
+			return { warnings };
 		} catch (error) {
 			if (error instanceof SettingsError) throw error;
 			const reason = error instanceof Error ? error.message : String(error);

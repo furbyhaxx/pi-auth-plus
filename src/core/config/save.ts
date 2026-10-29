@@ -1,6 +1,6 @@
 /** Serializes session-owned settings persistence and its effects. */
 import { type AppSettings, SETTINGS } from "./catalog.ts";
-import type { Changes, SaveScope } from "./index.ts";
+import type { Changes, SaveScope, SettingsSaveResult } from "./index.ts";
 
 /** Staged catalog values, with null removing a scoped value. */
 export type SettingsChanges = Changes<typeof SETTINGS>;
@@ -38,8 +38,9 @@ export function createSettingsSaver(
 			if (signal.aborted) {
 				return { committed: false, error: "Settings save cancelled because the session ended" };
 			}
+			let result: SettingsSaveResult;
 			try {
-				await store.save(scope, snapshot);
+				result = await store.save(scope, snapshot);
 			} catch (error) {
 				return { committed: false, error: error instanceof Error ? error.message : String(error) };
 			}
@@ -47,7 +48,7 @@ export function createSettingsSaver(
 				Object.hasOwn(SETTINGS, key),
 			);
 			const shadowed = store.shadowed(scope, keys);
-			const warnings: string[] = [];
+			const warnings: string[] = [...result.warnings];
 			if (signal.aborted) {
 				warnings.push(
 					"Session ended before settings effects could run; reopen the session to apply them",

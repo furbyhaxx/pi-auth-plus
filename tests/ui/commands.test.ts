@@ -691,9 +691,10 @@ describe("ui/commands", () => {
 		const store = new SettingsStore(SETTINGS, { user: "unused" });
 		const save = store.save.bind(store);
 		store.save = async (...args) => {
-			await save(...args);
+			const result = await save(...args);
 			started.resolve();
 			await release.promise;
+			return result;
 		};
 		const saved: string[] = [];
 		let panels = 0;

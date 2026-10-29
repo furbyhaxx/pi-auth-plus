@@ -13,6 +13,7 @@ import {
 	SettingsStore,
 	textRulesField,
 } from "../../src/core/config/index.ts";
+import * as configFs from "../../src/core/fs/index.ts";
 import { effectiveModelRules } from "../../src/models/rules/settings.ts";
 
 const catalog = {
@@ -568,6 +569,13 @@ describe("core/config", () => {
 		expect(store.sourceOf("quotas.refreshIntervalSec")).toBe("default");
 	});
 
+	test("runtime saves return no warnings", async () => {
+		const store = new SettingsStore(SETTINGS, { user });
+		expect(await store.save("runtime", { "synthetic.webSearch": true })).toEqual({ warnings: [] });
+		expect(store.get("synthetic.webSearch")).toBe(true);
+		expect(existsSync(user)).toBe(false);
+	});
+
 	test("runtime saves stay in memory and file saves create missing parents", async () => {
 		const missingUser = join(dir, "nested", "user.json");
 		const missingProject = join(dir, "trusted", "project.json");
@@ -742,6 +750,121 @@ process.send?.("ready");
 		expect(JSON.parse(readFileSync(user, "utf8"))).toEqual(initial);
 	});
 
+	test("returns both lock warnings and updates the layer after writing", async () => {
+		write(user, { other: { keep: true } });
+		const store = new SettingsStore(SETTINGS, { user });
+		const originalLock = lockfile.lock;
+		const lock = spyOn(lockfile, "lock").mockImplementation(async (path, options) => {
+			const release = await originalLock(path, options);
+			return async () => {
+				options?.onCompromised?.(new Error("lock was lost during release"));
+				await release();
+				throw new Error("release failed");
+			};
+		});
+		try {
+			const result = await store.save("user", { "synthetic.webSearch": true });
+			expect(result.warnings).toHaveLength(2);
+			expect(result.warnings[0]).toContain("lock was lost during release");
+			expect(result.warnings[1]).toContain("release failed");
+			for (const warning of result.warnings) {
+				expect(warning).toContain(user);
+				expect(warning).toMatch(/check|retry/i);
+			}
+			expect(JSON.parse(readFileSync(user, "utf8"))).toEqual({
+				other: { keep: true },
+				synthetic: { webSearch: true },
+			});
+			expect(store.get("synthetic.webSearch")).toBe(true);
+			expect(existsSync(`${user}.lock`)).toBe(false);
+		} finally {
+			lock.mockRestore();
+		}
+	});
+
+	test("reports a lock compromised after the atomic write as committed", async () => {
+		write(user, { other: { keep: true } });
+		const store = new SettingsStore(SETTINGS, { user });
+		const originalLock = lockfile.lock;
+		const originalWrite = configFs.atomicWriteFile;
+		let onCompromised: ((error: Error) => void) | undefined;
+		const lock = spyOn(lockfile, "lock").mockImplementation(async (path, options) => {
+			onCompromised = options?.onCompromised;
+			return originalLock(path, options);
+		});
+		const writeSpy = spyOn(configFs, "atomicWriteFile").mockImplementation(async (...args) => {
+			await originalWrite(...args);
+			onCompromised?.(new Error("lock was lost after write"));
+		});
+		try {
+			const result = await store.save("user", { "synthetic.webSearch": true });
+			expect(result.warnings).toHaveLength(1);
+			expect(result.warnings[0]).toContain("lock was lost after write");
+			expect(result.warnings[0]).toContain(user);
+			expect(result.warnings[0]).toMatch(/check|retry/i);
+			expect(JSON.parse(readFileSync(user, "utf8"))).toEqual({
+				other: { keep: true },
+				synthetic: { webSearch: true },
+			});
+			expect(store.get("synthetic.webSearch")).toBe(true);
+			expect(existsSync(`${user}.lock`)).toBe(false);
+		} finally {
+			writeSpy.mockRestore();
+			lock.mockRestore();
+		}
+	});
+
+	test("preserves a pre-write failure when releasing the lock also fails", async () => {
+		write(user, { other: { keep: true } });
+		const store = new SettingsStore(SETTINGS, { user });
+		const originalLock = lockfile.lock;
+		const lock = spyOn(lockfile, "lock").mockImplementation(async (path, options) => {
+			const release = await originalLock(path, options);
+			return async () => {
+				await release();
+				throw new Error("release failed");
+			};
+		});
+		const writeSpy = spyOn(configFs, "atomicWriteFile").mockRejectedValue(new Error("disk full"));
+		try {
+			await expect(store.save("user", { "synthetic.webSearch": true })).rejects.toThrow(
+				"disk full",
+			);
+			expect(JSON.parse(readFileSync(user, "utf8"))).toEqual({ other: { keep: true } });
+			expect(store.get("synthetic.webSearch")).toBe(false);
+			expect(existsSync(`${user}.lock`)).toBe(false);
+		} finally {
+			writeSpy.mockRestore();
+			lock.mockRestore();
+		}
+	});
+
+	test("preserves a pre-write failure when lock release throws synchronously", async () => {
+		write(user, { other: { keep: true } });
+		const store = new SettingsStore(SETTINGS, { user });
+		const originalLock = lockfile.lock;
+		let originalRelease: (() => Promise<void>) | undefined;
+		const lock = spyOn(lockfile, "lock").mockImplementation(async (path, options) => {
+			originalRelease = await originalLock(path, options);
+			return () => {
+				throw new Error("release failed synchronously");
+			};
+		});
+		const writeSpy = spyOn(configFs, "atomicWriteFile").mockRejectedValue(new Error("disk full"));
+		try {
+			await expect(store.save("user", { "synthetic.webSearch": true })).rejects.toThrow(
+				"disk full",
+			);
+			expect(JSON.parse(readFileSync(user, "utf8"))).toEqual({ other: { keep: true } });
+			expect(store.get("synthetic.webSearch")).toBe(false);
+		} finally {
+			writeSpy.mockRestore();
+			lock.mockRestore();
+			await originalRelease?.();
+		}
+		expect(existsSync(`${user}.lock`)).toBe(false);
+	});
+
 	test("a compromised lock fails without writing", async () => {
 		const initial = { other: { keep: true } };
 		write(user, initial);
@@ -751,14 +874,16 @@ process.send?.("ready");
 			options?.onCompromised?.(new Error("lock was lost"));
 			return release;
 		});
+		const store = new SettingsStore(catalog, { user });
 		let caught: unknown;
 		try {
-			caught = await new SettingsStore(catalog, { user })
+			caught = await store
 				.save("user", { "quotas.refreshIntervalSec": 30 })
 				.catch((error: unknown) => error);
 		} finally {
 			lock.mockRestore();
 		}
+		expect(store.get("quotas.refreshIntervalSec")).toBe(60);
 		expect(caught).toBeInstanceOf(SettingsError);
 		expect(String(caught)).toContain("lock was lost");
 		expect(String(caught)).toContain("retry");

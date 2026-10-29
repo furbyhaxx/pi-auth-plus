@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import lockfile from "proper-lockfile";
 import { SETTINGS } from "../../src/core/config/catalog.ts";
 import { type SaveScope, SettingsStore } from "../../src/core/config/index.ts";
 import {
@@ -158,9 +159,10 @@ describe("settings saver", () => {
 		const persisted = Promise.withResolvers<void>();
 		const release = Promise.withResolvers<void>();
 		const saveSpy = spyOn(oldStore, "save").mockImplementation(async (scope, changes) => {
-			await originalSave(scope, changes);
+			const result = await originalSave(scope, changes);
 			persisted.resolve();
 			await release.promise;
+			return result;
 		});
 		const oldApply = spyOn(
 			{ apply: async (_keys: readonly string[], _scope: SaveScope) => [] },
@@ -190,6 +192,64 @@ describe("settings saver", () => {
 		expect(oldApply).not.toHaveBeenCalled();
 		expect(newApply).not.toHaveBeenCalled();
 		expect(newStore.get("synthetic.webSearch")).toBe(false);
+	});
+
+	test("commits and applies effects when lock release fails, then processes the next save", async () => {
+		const path = join(dir, "user.json");
+		const store = new SettingsStore(SETTINGS, { user: path });
+		const originalLock = lockfile.lock;
+		let lockCount = 0;
+		const lock = spyOn(lockfile, "lock").mockImplementation(async (target, options) => {
+			const release = await originalLock(target, options);
+			if (++lockCount !== 1) return release;
+			return async () => {
+				await release();
+				throw new Error("release failed");
+			};
+		});
+		const events: Array<[readonly string[], SaveScope]> = [];
+		const observed: Array<{ disk: unknown; enabled: boolean }> = [];
+		const save = createSettingsSaver(() => ({
+			store,
+			signal: new AbortController().signal,
+			apply: async (keys, scope) => {
+				events.push([keys, scope]);
+				if (keys.includes("synthetic.webSearch")) {
+					observed.push({
+						disk: JSON.parse(readFileSync(path, "utf8")),
+						enabled: store.get("synthetic.webSearch"),
+					});
+					return ["effect warning"];
+				}
+				return [];
+			},
+		}));
+		try {
+			const first = save("user", { "synthetic.webSearch": true });
+			const second = save("user", { "quotas.alwaysShortIds": true });
+			const [outcome, subsequent] = await Promise.all([first, second]);
+			expect(outcome.committed).toBe(true);
+			if (!outcome.committed) throw new Error("Expected the first save to commit");
+			expect(outcome.warnings).toHaveLength(2);
+			expect(outcome.warnings[0]).toContain("release failed");
+			expect(outcome.warnings[0]).toContain(path);
+			expect(outcome.warnings[0]).toMatch(/check|retry/i);
+			expect(outcome.warnings[1]).toBe("effect warning");
+			expect(formatSaveOutcome(outcome)).toContain("release failed");
+			expect(subsequent).toEqual({ committed: true, scope: "user", shadowed: [], warnings: [] });
+			expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({
+				synthetic: { webSearch: true },
+				quotas: { alwaysShortIds: true },
+			});
+			expect(store.get("synthetic.webSearch")).toBe(true);
+			expect(observed).toEqual([{ disk: { synthetic: { webSearch: true } }, enabled: true }]);
+			expect(events).toEqual([
+				[["synthetic.webSearch"], "user"],
+				[["quotas.alwaysShortIds"], "user"],
+			]);
+		} finally {
+			lock.mockRestore();
+		}
 	});
 
 	test("reports effect failure as committed and continues processing later saves", async () => {

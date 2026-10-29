@@ -6,8 +6,12 @@ import {
 	TUI_KEYBINDINGS,
 } from "@earendil-works/pi-tui";
 import { SETTINGS } from "../../src/core/config/catalog.ts";
-import { SettingsStore } from "../../src/core/config/index.ts";
-import { createSettingsSaver, type SettingsSaver } from "../../src/core/config/save.ts";
+import { type SaveScope, SettingsStore } from "../../src/core/config/index.ts";
+import {
+	createSettingsSaver,
+	type SaveOutcome,
+	type SettingsSaver,
+} from "../../src/core/config/save.ts";
 import { Registry } from "../../src/core/registry/index.ts";
 import {
 	type AuthCommandDeps,
@@ -18,6 +22,7 @@ import {
 } from "../../src/ui/commands/index.ts";
 
 import type { AuthDashboard } from "../../src/ui/dashboard/index.ts";
+import type { LinePlacement } from "../../src/ui/dashboard/quotas.ts";
 import type { DashboardResult } from "../../src/ui/dashboard/view.ts";
 import type { PanelHost, PanelTheme } from "../../src/ui/frame/index.ts";
 
@@ -829,6 +834,11 @@ describe("ui/commands", () => {
 						? spyOn(signal, "addEventListener").mockImplementation(() => {})
 						: undefined;
 				const calls: string[] = [];
+				const placementCalls: {
+					next: LinePlacement;
+					scope: SaveScope;
+					outcome: SaveOutcome;
+				}[] = [];
 				let staleReads = 0;
 				const read = () => {
 					if (signal.aborted) staleReads++;
@@ -863,9 +873,11 @@ describe("ui/commands", () => {
 					refresh: async () => {
 						calls.push("refresh");
 					},
-					setLinePlacement: async (_next, scope) => {
+					setLinePlacement: async (next, scope) => {
+						const outcome: SaveOutcome = { committed: true, scope, shadowed: [], warnings: [] };
 						calls.push("placement");
-						return { committed: true, scope, shadowed: [], warnings: [] };
+						placementCalls.push({ next, scope, outcome });
+						return outcome;
 					},
 					listResets: async () => {
 						calls.push("list");
@@ -935,6 +947,7 @@ describe("ui/commands", () => {
 						return { committed: true, scope, shadowed: [], warnings: [] };
 					},
 				};
+				let callsBeforeAttempt: string[] = [];
 				const f = rig(
 					"tui",
 					{ models, groups, quotas: () => quotas, signal: () => controller.signal },
@@ -951,12 +964,14 @@ describe("ui/commands", () => {
 							panel.handleInput("\x13");
 							invoke = () => panel.handleInput("r");
 						} else if (action === "quotas") {
-							invoke = () => {
-								panel.handleInput("r");
-								panel.handleInput("R");
-								panel.handleInput("p");
-								panel.handleInput("x");
-							};
+							panel.handleInput("r");
+							panel.handleInput("R");
+							panel.handleInput("p");
+							panel.handleInput("k");
+							panel.handleInput("\r");
+							panel.handleInput("j");
+							panel.handleInput("j");
+							invoke = () => panel.handleInput("\r");
 						} else {
 							panel.handleInput("v");
 							panel.handleInput("\r");
@@ -976,6 +991,7 @@ describe("ui/commands", () => {
 								invoke = () => panel.handleInput("\x13");
 							}
 						}
+						callsBeforeAttempt = [...calls];
 						if (mode !== "active") {
 							controller.abort();
 							controller = new AbortController();
@@ -1001,13 +1017,28 @@ describe("ui/commands", () => {
 				} finally {
 					listener?.mockRestore();
 				}
-				expect(calls).toEqual(
-					mode !== "active"
-						? []
-						: action === "quotas"
-							? ["refresh", "refresh", "placement"]
-							: [action],
-				);
+				if (mode !== "active") expect(calls).toEqual(callsBeforeAttempt);
+				else
+					expect(calls).toEqual(
+						action === "quotas" ? ["refresh", "refresh", "placement"] : [action],
+					);
+				if (action === "quotas")
+					expect(placementCalls).toEqual(
+						mode === "active"
+							? [
+									{
+										next: "above-editor",
+										scope: "project",
+										outcome: {
+											committed: true,
+											scope: "project",
+											shadowed: [],
+											warnings: [],
+										},
+									},
+								]
+							: [],
+					);
 				expect(staleReads).toBe(0);
 			}
 		}
@@ -1573,7 +1604,7 @@ describe("ui/commands", () => {
 		});
 		await tui.run("auth", "models");
 		const live = tui.rendered[0]?.join("\n") ?? "";
-		expect(live).toContain("Catalog");
+		expect(live).toContain("hidden vendor/private-model-one · First catalog model");
 		expect(live).toContain("2 hidden");
 		expect(live).toContain("private-model-one");
 		expect(saved).toEqual(["project:!vendor/private-model-one|vendor/private-model-one"]);

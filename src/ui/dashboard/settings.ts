@@ -7,15 +7,20 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import { type AppSettings, SETTINGS } from "../../core/config/catalog.ts";
-import type { Field, FieldValue, SaveScope } from "../../core/config/index.ts";
+import type { Field, FieldOption, FieldValue, SaveScope } from "../../core/config/index.ts";
 import { formatSaveOutcome, type SettingsSaver } from "../../core/config/save.ts";
 import { padTo, sanitize } from "../frame/index.ts";
+import { CollectionDetail } from "./collection-detail.ts";
 import type { TabBody, TabView, TabViewHost } from "./view.ts";
 
 /** Services owned by the command and the current session. */
 export interface SettingsTabDeps {
 	store(): AppSettings;
 	readonly save: SettingsSaver;
+	/** Registry choices for provider lists; omitted choices remain editable as custom IDs. */
+	providerOptions?: (
+		key: "quotas.providers" | "openai.verbosityProviders",
+	) => readonly FieldOption[];
 	previewTemplate?(
 		source: string,
 		width: number,
@@ -44,6 +49,7 @@ export class SettingsView implements TabView {
 	#messageCapacity = 0;
 	#saving = false;
 	#disposed = false;
+	#detail: CollectionDetail | undefined;
 
 	constructor(host: TabViewHost, deps: SettingsTabDeps, select?: string) {
 		this.#host = host;
@@ -55,10 +61,11 @@ export class SettingsView implements TabView {
 
 	dispose(): void {
 		this.#disposed = true;
+		this.#detail?.dispose();
 	}
 
 	isSaving(): boolean {
-		return this.#saving;
+		return this.#saving || (this.#detail?.isSaving() ?? false);
 	}
 
 	hasDrafts(): boolean {
@@ -66,12 +73,16 @@ export class SettingsView implements TabView {
 			this.#mode === "edit" || (this.#mode === "save" && this.#saveReturnMode === "edit");
 		return (
 			Object.keys(this.#staged).length > 0 ||
-			(editing && this.#input.getValue() !== this.#editInitial)
+			(editing && this.#input.getValue() !== this.#editInitial) ||
+			(this.#detail?.hasDrafts() ?? false)
 		);
 	}
 
 	discardDrafts(): void {
-		if (this.#saving) return;
+		if (this.isSaving()) return;
+		this.#detail?.discardDrafts();
+		this.#detail?.dispose();
+		this.#detail = undefined;
 		this.#staged = {};
 		this.#saveChanges = {};
 		this.#mode = "list";
@@ -100,6 +111,65 @@ export class SettingsView implements TabView {
 		this.#staged[key] = parsed;
 		this.#setMessage("");
 		return true;
+	}
+
+	#openCollection(
+		key: "quotas.providers" | "openai.verbosityProviders" | "claude.replacePatterns",
+	): void {
+		const value = this.#value(key);
+		let detail: CollectionDetail;
+		const back = () => {
+			if (this.#detail !== detail) return;
+			detail.dispose();
+			this.#detail = undefined;
+		};
+		if (key === "claude.replacePatterns") {
+			const rules = SETTINGS[key].parse(value);
+			if (rules === undefined) {
+				this.#setMessage(`Invalid value for ${SETTINGS[key].label}; edit and retry`);
+				return;
+			}
+			detail = new CollectionDetail(this.#host, key, rules, (next) => this.#stage(key, next), back);
+		} else {
+			const providers = SETTINGS[key].parse(value);
+			if (providers === undefined) {
+				this.#setMessage(`Invalid value for ${SETTINGS[key].label}; edit and retry`);
+				return;
+			}
+			detail = new CollectionDetail(
+				this.#host,
+				key,
+				providers,
+				this.#deps.providerOptions?.(key) ?? [],
+				(next) => this.#stage(key, next),
+				back,
+			);
+		}
+		this.#detail = detail;
+		this.#setMessage("");
+	}
+
+	#saveKey(): "ctrl+s" | "ctrl+g" | "ctrl+o" {
+		for (const [key, input] of [
+			["ctrl+s", "\x13"],
+			["ctrl+g", "\x07"],
+			["ctrl+o", "\x0f"],
+		] as const) {
+			if (
+				(
+					[
+						"tui.select.confirm",
+						"tui.select.cancel",
+						"tui.select.up",
+						"tui.select.down",
+						"tui.editor.cursorLeft",
+						"tui.editor.cursorRight",
+					] as const
+				).every((binding) => !this.#host.keys.matches(input, binding))
+			)
+				return key;
+		}
+		return "ctrl+o";
 	}
 
 	#beginSave(key: SettingKey, field: Field<FieldValue>): void {
@@ -157,7 +227,8 @@ export class SettingsView implements TabView {
 	}
 
 	handleInput(data: string): boolean {
-		if (this.#saving) return true;
+		if (this.#disposed || this.isSaving()) return true;
+		if (this.#detail) return this.#detail.handleInput(data);
 		const { keys } = this.#host;
 		const key = settingKeys[this.#selected];
 		if (key === undefined) return false;
@@ -179,7 +250,7 @@ export class SettingsView implements TabView {
 			);
 			return true;
 		}
-		if (this.#mode !== "save" && matchesKey(data, "ctrl+s")) {
+		if (this.#mode !== "save" && !enter && matchesKey(data, this.#saveKey())) {
 			this.#beginSave(key, field);
 			return true;
 		}
@@ -213,24 +284,33 @@ export class SettingsView implements TabView {
 		}
 		const up = keys.matches(data, "tui.select.up") || data === "k";
 		const down = keys.matches(data, "tui.select.down") || data === "j";
-		if (up || down) {
+		if (!enter && (up || down)) {
 			this.#selected = (this.#selected + (up ? -1 : 1) + settingKeys.length) % settingKeys.length;
 			return true;
 		}
-		if (matchesKey(data, "backspace")) {
+		if (!enter && matchesKey(data, "backspace")) {
 			this.#staged[key] = null;
 			this.#setMessage("");
 			return true;
 		}
-		const left = keys.matches(data, "tui.editor.cursorLeft") || data === "h";
-		const right = keys.matches(data, "tui.editor.cursorRight") || data === "l";
+		const left = !enter && (keys.matches(data, "tui.editor.cursorLeft") || data === "h");
+		const right = !enter && (keys.matches(data, "tui.editor.cursorRight") || data === "l");
 		const activate = enter || data === " ";
 		const value = this.#value(key);
-		if (enter && (field.kind === "list" || field.kind === "rules")) {
-			if (Object.keys(this.#staged).length > 0)
-				this.#setMessage("Save or discard staged edits before opening editor");
-			else this.#host.finish({ editSetting: key });
-			return true;
+		if (enter) {
+			if (key === "models.rules" || key === "models.aliases" || key === "models.groups") {
+				if (this.#host.navigate) this.#host.navigate(key === "models.groups" ? "groups" : "models");
+				else this.#setMessage("The destination tab is unavailable");
+				return true;
+			}
+			if (
+				key === "quotas.providers" ||
+				key === "openai.verbosityProviders" ||
+				key === "claude.replacePatterns"
+			) {
+				this.#openCollection(key);
+				return true;
+			}
 		}
 		if (enter && (field.kind === "string" || field.kind === "number")) {
 			this.#mode = "edit";
@@ -258,6 +338,7 @@ export class SettingsView implements TabView {
 	}
 
 	render(width: number, bodyRows: number): TabBody {
+		if (this.#detail) return this.#detail.render(width, bodyRows);
 		const { theme } = this.#host;
 		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
 		const selected = settingKeys[this.#selected];
@@ -341,8 +422,6 @@ export class SettingsView implements TabView {
 		this.#offset = Math.max(this.#offset, selectedRow - available + 1);
 		this.#offset = Math.min(this.#offset, Math.max(0, rows.length - available));
 		const field = selected === undefined ? undefined : SETTINGS[selected];
-		const blocked =
-			(field?.kind === "rules" || field?.kind === "list") && Object.keys(this.#staged).length > 0;
 		return {
 			lines: [...rows.slice(this.#offset, this.#offset + available), ...details.slice(0, reserved)]
 				.slice(0, bodyRows)
@@ -359,7 +438,7 @@ export class SettingsView implements TabView {
 				this.#mode === "edit"
 					? [
 							{ key: binding("tui.select.confirm"), action: "stage", priority: 0 },
-							{ key: "ctrl+s", action: "save", priority: 1 },
+							{ key: this.#saveKey(), action: "save", priority: 1 },
 							{ key: binding("tui.select.cancel"), action: "cancel edit", priority: 0 },
 						]
 					: this.#mode === "save"
@@ -376,10 +455,15 @@ export class SettingsView implements TabView {
 						: [
 								{
 									key: binding("tui.select.confirm"),
-									action: blocked ? "save/discard edits first" : "edit",
+									action:
+										selected === "models.groups"
+											? "open Groups"
+											: selected === "models.rules" || selected === "models.aliases"
+												? "open Models"
+												: "edit",
 									priority: 1,
 								},
-								{ key: "ctrl+s", action: "save", priority: 1 },
+								{ key: this.#saveKey(), action: "save", priority: 1 },
 								{ key: "Backspace", action: "default", priority: 3 },
 								{
 									key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,

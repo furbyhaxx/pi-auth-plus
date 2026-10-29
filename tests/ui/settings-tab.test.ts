@@ -7,6 +7,7 @@ import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-wor
 import { SETTINGS } from "../../src/core/config/catalog.ts";
 import { type SaveScope, SettingsStore } from "../../src/core/config/index.ts";
 import { createSettingsSaver, type SettingsSaver } from "../../src/core/config/save.ts";
+import { AuthDashboard, staticViews } from "../../src/ui/dashboard/index.ts";
 import { type SettingsTabDeps, SettingsView } from "../../src/ui/dashboard/settings.ts";
 import type { DashboardResult, TabViewHost } from "../../src/ui/dashboard/view.ts";
 import { bindingLabel } from "../../src/ui/frame/index.ts";
@@ -23,6 +24,10 @@ function open(
 	select = "quotas.refreshOnRequest",
 	previewTemplate?: SettingsTabDeps["previewTemplate"],
 	trusted = true,
+	options?: {
+		providerOptions?: SettingsTabDeps["providerOptions"];
+		keys?: KeybindingsManager;
+	},
 ) {
 	const user = join(dir, "user.json");
 	const project = join(dir, "project.json");
@@ -38,7 +43,8 @@ function open(
 	}));
 	const finished: DashboardResult[] = [];
 	let onRefresh: (() => void) | undefined;
-	const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+	let pendingDiscard: (() => void) | undefined;
+	const keys = options?.keys ?? new KeybindingsManager(TUI_KEYBINDINGS);
 	const host: TabViewHost = {
 		theme: {
 			fg: (_color, text) => `\x1b[90m${text}\x1b[39m`,
@@ -54,6 +60,9 @@ function open(
 		finish: (result) => {
 			finished.push(result);
 		},
+		confirmDiscard: (discard) => {
+			pendingDiscard = discard;
+		},
 	};
 	const view = new SettingsView(
 		host,
@@ -61,18 +70,34 @@ function open(
 			store: () => store,
 			save: (scope, changes) => save(scope, changes),
 			...(previewTemplate ? { previewTemplate } : {}),
+			...(options?.providerOptions ? { providerOptions: options.providerOptions } : {}),
 		},
 		select,
 	);
 	const text = () => view.render(140, 30).lines.map(stripVTControlCharacters).join("\n");
 	return {
 		view,
+		host,
 		store,
 		saved,
 		finished,
 		text,
 		user,
 		project,
+		confirmDiscard: () => {
+			const discard = pendingDiscard;
+			pendingDiscard = undefined;
+			discard?.();
+		},
+		hasConfirmation: () => pendingDiscard !== undefined,
+		select: (label: string) => {
+			for (let i = 0; i < 80; i++) {
+				const lines = view.render(140, 80).lines.map(stripVTControlCharacters);
+				if (lines.some((line) => line.includes("❯") && line.includes(label))) return;
+				view.handleInput("j");
+			}
+			throw new Error(`Cannot select ${label}`);
+		},
 		setSave: (next: SettingsSaver) => {
 			save = next;
 		},
@@ -299,19 +324,311 @@ describe("settings tab", () => {
 		});
 	});
 
-	test("rules and lists open the external editor only with no staged edits", () => {
-		for (const key of ["claude.replacePatterns", "quotas.providers"]) {
-			const rig = open(key);
-			rig.view.handleInput("\x7f");
-			rig.view.handleInput("\r");
-			expect(rig.finished).toEqual([]);
-			expect(
-				rig.view.render(80, 20).hints.some((hint) => hint.action.includes("save/discard")),
-			).toBe(true);
-			rig.view.discardDrafts?.();
-			rig.view.handleInput("\r");
-			expect(rig.finished).toEqual([{ editSetting: key }]);
+	test("provider detail stages unfinished input and preserves it across failed and successful saves", async () => {
+		const optionKeys: string[] = [];
+		const rig = open("quotas.providers", undefined, true, {
+			providerOptions: (key) => {
+				optionKeys.push(key);
+				return [{ value: "alpha", label: "Alpha" }];
+			},
+		});
+		rig.view.handleInput("\r");
+		expect(optionKeys).toEqual(["quotas.providers"]);
+		expect(rig.finished).toEqual([]);
+		expect(rig.text()).toContain("[ ] Alpha");
+		rig.select("+ Add provider");
+		rig.view.handleInput("\r");
+		expect(rig.view.hasDrafts()).toBe(false);
+		rig.view.handleInput("custom/vendor");
+		expect(rig.view.hasDrafts()).toBe(true);
+		expect(rig.store.get("quotas.providers")).toEqual([]);
+		for (const width of [36, 57, 80, 140]) {
+			const body = rig.view.render(width, 2);
+			expect(body.modal).toBe(true);
+			expect(body.lines.join("")).toContain("\x1b_pi:c\x07");
+			for (const line of [...body.lines, body.description ?? "", body.state ?? ""]) {
+				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			}
 		}
+		rig.view.handleInput("\r");
+		rig.view.handleInput("k");
+		rig.view.handleInput(" ");
+		rig.view.handleInput("\x13");
+		expect(rig.saved).toEqual([]);
+		rig.view.handleInput("\x1b");
+		expect(rig.text()).toContain("● staged");
+
+		const pending = Promise.withResolvers<Awaited<ReturnType<SettingsSaver>>>();
+		const calls: Parameters<SettingsSaver>[] = [];
+		rig.setSave(async (scope, changes) => {
+			calls.push([scope, structuredClone(changes)]);
+			return pending.promise;
+		});
+		rig.view.handleInput("\x13");
+		rig.view.handleInput("u");
+		expect(rig.view.isSaving()).toBe(true);
+		rig.view.discardDrafts();
+		expect(rig.view.hasDrafts()).toBe(true);
+		expect(calls).toEqual([["user", { "quotas.providers": ["custom/vendor", "alpha"] }]]);
+		const failed = rig.nextRefresh();
+		pending.resolve({ committed: false, error: "disk rejected changes" });
+		await failed;
+		expect(rig.view.isSaving()).toBe(false);
+		expect(rig.view.hasDrafts()).toBe(true);
+		expect(rig.text()).toContain("disk rejected changes");
+		rig.view.handleInput("\r");
+		expect(rig.text()).toContain("[x] Alpha");
+		expect(rig.text()).toContain("custom/vendor");
+		rig.view.handleInput("\x1b");
+
+		rig.setSave(
+			createSettingsSaver(() => ({
+				store: rig.store,
+				signal: new AbortController().signal,
+				apply: async () => [],
+			})),
+		);
+		await save(rig, "r");
+		expect(rig.store.get("quotas.providers")).toEqual(["custom/vendor", "alpha"]);
+		expect(rig.view.hasDrafts()).toBe(false);
+		rig.view.handleInput("\r");
+		expect(rig.text()).toContain("[x] Alpha");
+		expect(rig.view.hasDrafts()).toBe(false);
+	});
+
+	test("verbosity provider choices and Claude literal rules stage their typed values", async () => {
+		const optionKeys: string[] = [];
+		const providers = open("openai.verbosityProviders", undefined, true, {
+			providerOptions: (key) => {
+				optionKeys.push(key);
+				return [{ value: "selected", label: "Selected provider" }];
+			},
+		});
+		providers.select("Model rules scope");
+		providers.view.handleInput(" ");
+		providers.select("Verbosity providers");
+		providers.view.handleInput("\r");
+		providers.view.handleInput(" ");
+		providers.view.handleInput("\x13");
+		providers.view.handleInput("\x1b");
+		expect(optionKeys).toEqual(["openai.verbosityProviders"]);
+		expect(providers.store.get("openai.verbosityProviders")).toEqual(["openai", "openai-codex"]);
+		providers.view.handleInput("\x13");
+		expect(providers.text()).not.toContain("p project");
+		providers.view.handleInput("p");
+		expect(providers.saved).toEqual([]);
+		providers.view.handleInput("u");
+		await providers.nextRefresh();
+		expect(providers.store.get("openai.verbosityProviders")).toEqual([
+			"openai",
+			"openai-codex",
+			"selected",
+		]);
+		expect(providers.finished).toEqual([]);
+
+		const rules = open("claude.replacePatterns");
+		rules.view.handleInput("\r");
+		rules.view.handleInput("\r");
+		rules.view.handleInput("\x13");
+		expect(rules.view.hasDrafts()).toBe(true);
+		expect(stripVTControlCharacters(rules.view.render(80, 20).description ?? "")).toContain(
+			"Match required",
+		);
+		rules.view.handleInput("\r");
+		rules.view.handleInput("literal");
+		rules.view.handleInput("\x13");
+		rules.view.handleInput("\x1b");
+		expect(rules.store.get("claude.replacePatterns")).toEqual([]);
+		await save(rules, "r");
+		expect(rules.store.get("claude.replacePatterns")).toEqual([
+			{ match: "literal", replacement: "" },
+		]);
+		expect(rules.finished).toEqual([]);
+	});
+
+	test("local and global discard include child input and preserve other staged values", () => {
+		const rig = open("quotas.providers");
+		rig.select("Show dashboard provenance");
+		rig.view.handleInput(" ");
+		rig.select("Quota providers");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("unfinished");
+		expect(rig.view.hasDrafts()).toBe(true);
+		rig.view.handleInput("\x1b");
+		expect(rig.hasConfirmation()).toBe(true);
+		rig.confirmDiscard();
+		expect(rig.text()).toContain("● staged");
+		expect(rig.view.hasDrafts()).toBe(true);
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("another draft");
+		rig.view.discardDrafts();
+		expect(rig.view.hasDrafts()).toBe(false);
+		expect(rig.text()).not.toContain("● staged");
+		expect(rig.finished).toEqual([]);
+	});
+
+	test("discard and disposal invalidate pending child confirmations", () => {
+		const rig = open("quotas.providers");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("old input");
+		rig.view.handleInput("\x1b");
+		expect(rig.hasConfirmation()).toBe(true);
+		rig.view.discardDrafts();
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("new input");
+		rig.confirmDiscard();
+		expect(rig.view.hasDrafts()).toBe(true);
+		expect(rig.text()).toContain("new input");
+		rig.view.handleInput("\x1b");
+		rig.view.dispose();
+		rig.confirmDiscard();
+		expect(rig.view.hasDrafts()).toBe(true);
+		expect(rig.text()).toContain("new input");
+	});
+
+	test("a rebound j confirm opens and operates the collection", async () => {
+		const keys = new KeybindingsManager(TUI_KEYBINDINGS, { "tui.select.confirm": "j" });
+		const rig = open("quotas.providers", undefined, true, {
+			keys,
+			providerOptions: () => [{ value: "alpha", label: "Alpha" }],
+		});
+		rig.view.handleInput("j");
+		expect(rig.text()).toContain("[ ] Alpha");
+		rig.view.handleInput("j");
+		rig.view.handleInput("\x13");
+		rig.view.handleInput("\x1b");
+		await save(rig, "r");
+		expect(rig.store.get("quotas.providers")).toEqual(["alpha"]);
+	});
+
+	test("rebound confirm retains collection apply and parent save shortcuts", async () => {
+		const keys = new KeybindingsManager(TUI_KEYBINDINGS, { "tui.select.confirm": "ctrl+s" });
+		const rig = open("quotas.providers", undefined, true, {
+			keys,
+			providerOptions: () => [{ value: "alpha", label: "Alpha" }],
+		});
+		rig.view.handleInput("\x13");
+		expect(rig.text()).toContain("[ ] Alpha");
+		rig.view.handleInput("\x13");
+		expect(rig.text()).toContain("[x] Alpha");
+		expect(rig.view.render(80, 10).hints.some((hint) => hint.key === "ctrl+g")).toBe(true);
+		rig.view.handleInput("\x07");
+		rig.view.handleInput("\x1b");
+		expect(rig.view.render(80, 10).hints.some((hint) => hint.key === "ctrl+g")).toBe(true);
+		rig.view.handleInput("\x07");
+		rig.view.handleInput("r");
+		await rig.nextRefresh();
+		expect(rig.store.get("quotas.providers")).toEqual(["alpha"]);
+	});
+
+	test("dashboard shrinks around the nested collection and keeps the input cursor", () => {
+		const rig = open("quotas.providers");
+		const views = staticViews({ providers: [], nowMs: 0 });
+		views.settings = (host) =>
+			new SettingsView(
+				host,
+				{
+					store: () => rig.store,
+					save: createSettingsSaver(() => ({
+						store: rig.store,
+						signal: new AbortController().signal,
+						apply: async () => [],
+					})),
+				},
+				"quotas.providers",
+			);
+		const panel = new AuthDashboard(
+			{ terminal: { rows: 80 }, requestRender: () => {} },
+			rig.host.theme,
+			rig.host.keys,
+			() => {},
+			views,
+			"settings",
+			0,
+		);
+		const settingsHeight = panel.render(80).length;
+		panel.handleInput("\r");
+		expect(panel.render(80).length).toBeLessThan(settingsHeight);
+		panel.handleInput("\r");
+		panel.handleInput("custom");
+		for (const width of [36, 57, 80, 140]) {
+			const lines = panel.render(width);
+			expect(lines.join("")).toContain("\x1b_pi:c\x07");
+			for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+		panel.handleInput("\x03");
+		expect(panel.render(80).map(stripVTControlCharacters).join("\n")).toContain(
+			"Discard all & exit?",
+		);
+		panel.handleInput("\x1b");
+		expect(panel.render(80).join("")).toContain("custom");
+		panel.dispose();
+	});
+
+	test.each([
+		["models.rules", "models"],
+		["models.aliases", "models"],
+		["models.groups", "groups"],
+	] as const)("%s navigates to %s with Settings drafts intact", async (key, tab) => {
+		const rig = open(key);
+		const views = staticViews({ providers: [], nowMs: 0 });
+		views.settings = (host) =>
+			new SettingsView(
+				host,
+				{
+					store: () => rig.store,
+					save: createSettingsSaver(() => ({
+						store: rig.store,
+						signal: new AbortController().signal,
+						apply: async () => [],
+					})),
+				},
+				key,
+			);
+		let closed = 0;
+		let onRefresh: (() => void) | undefined;
+		const panel = new AuthDashboard(
+			{ terminal: { rows: 80 }, requestRender: () => onRefresh?.() },
+			rig.host.theme,
+			rig.host.keys,
+			() => closed++,
+			views,
+			"settings",
+			0,
+		);
+		const select = (label: string) => {
+			for (let i = 0; i < 80; i++) {
+				const lines = panel.render(140).map(stripVTControlCharacters);
+				if (lines.some((line) => line.includes("❯") && line.includes(label))) return;
+				panel.handleInput("j");
+			}
+			throw new Error(`Cannot select ${label}`);
+		};
+		select("Show dashboard provenance");
+		panel.handleInput(" ");
+		select(SETTINGS[key].label);
+		panel.handleInput("\r");
+		expect(panel.tab).toBe(tab);
+		expect(closed).toBe(0);
+		for (let i = 0; i < 6 && panel.tab !== "settings"; i++) panel.handleInput("\t");
+		expect(panel.tab).toBe("settings");
+		expect(panel.render(140).map(stripVTControlCharacters).join("\n")).toContain("● staged");
+		panel.handleInput("\x03");
+		expect(panel.render(140).map(stripVTControlCharacters).join("\n")).toContain(
+			"Discard all & exit?",
+		);
+		panel.handleInput("\x1b");
+		panel.handleInput("\x13");
+		panel.handleInput("r");
+		await new Promise<void>((resolve) => {
+			onRefresh = resolve;
+		});
+		expect(rig.store.get("dashboard.showProvenance")).toBe(true);
+		panel.dispose();
 	});
 
 	test("failed save retains edits and cancellation leaves them available", async () => {
@@ -425,8 +742,22 @@ describe("settings tab", () => {
 		}
 		rig.view.handleInput("\x1b");
 		expect(rig.text()).toContain("⚠ ignored: bad");
-		expect(rig.text()).toContain("Quotas");
-		expect(rig.text()).toContain("Claude");
-		expect(rig.text()).toContain("Synthetic");
+		const pages: string[] = [];
+		for (let i = 0; i <= Object.keys(SETTINGS).length; i++) {
+			pages.push(rig.view.render(80, 8).lines.map(stripVTControlCharacters).join("\n"));
+			rig.view.handleInput("j");
+		}
+		const sections = pages.join("\n");
+		for (const section of [
+			"Dashboard",
+			"Quotas",
+			"Models",
+			"Openai",
+			"Claude",
+			"Synthetic",
+			"Tokens",
+		]) {
+			expect(sections).toContain(section);
+		}
 	});
 });

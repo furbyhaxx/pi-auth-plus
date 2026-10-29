@@ -4,7 +4,14 @@ import type { TextRule } from "../../core/config/fields.ts";
 import { ProviderHttpError, request } from "../../core/http/index.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
 import { estimateCounter } from "../../tokens/estimate/index.ts";
-import type { CounterDeps, TokenCounter, TokenModel, ToolSchema } from "../../tokens/types.ts";
+import type {
+	CounterDeps,
+	TokenContextInput,
+	TokenCounter,
+	TokenModel,
+	ToolSchema,
+} from "../../tokens/types.ts";
+import { countPayload } from "./count-context.ts";
 import { shapeHeaders, shapeUrl } from "./request.ts";
 import { sanitizeSystemText, withClaudeCodeIdentity } from "./sanitize.ts";
 import { wireToolName } from "./tool-names.ts";
@@ -15,18 +22,45 @@ const MINIMAL_TEXT = "x";
 let active = 0;
 const waiting: (() => void)[] = [];
 
-async function acquire(): Promise<void> {
+async function acquire(signal?: AbortSignal): Promise<boolean> {
+	if (signal?.aborted) return false;
 	if (active < 2) {
 		active++;
-		return;
+		return true;
 	}
-	await new Promise<void>((resolve) => waiting.push(resolve));
+	return new Promise<boolean>((resolve) => {
+		const wake = () => {
+			signal?.removeEventListener("abort", abort);
+			resolve(true);
+		};
+		const abort = () => {
+			const index = waiting.indexOf(wake);
+			if (index >= 0) waiting.splice(index, 1);
+			resolve(false);
+		};
+		waiting.push(wake);
+		signal?.addEventListener("abort", abort, { once: true });
+		if (signal?.aborted) abort();
+	});
 }
 
 function release(): void {
 	const next = waiting.shift();
 	if (next) next();
 	else active--;
+}
+
+async function waitFor<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T | undefined> {
+	if (!signal) return promise;
+	const cancelled = Promise.withResolvers<undefined>();
+	const abort = () => cancelled.resolve(undefined);
+	signal.addEventListener("abort", abort, { once: true });
+	if (signal.aborted) abort();
+	try {
+		return await Promise.race([cancelled.promise, promise]);
+	} finally {
+		signal.removeEventListener("abort", abort);
+	}
 }
 
 /** Shares the family's lazy reported version and environment without probing at construction. */
@@ -46,53 +80,66 @@ export function claudeTokenCounter(
 	const fallback = estimateCounter("claude", { prose: 2.73, json: 2.7 });
 	let backoffUntil = 0;
 	const session = crypto.randomUUID();
-	let baseline: Promise<number | undefined> | undefined;
+	let baseline: number | undefined;
+	let baselinePending: Promise<number | undefined> | undefined;
 
-	async function rawCount(
-		text: string,
-		tools?: readonly ToolSchema[],
+	type RequestBody = {
+		readonly body: string;
+		readonly target: string;
+		readonly env: PathEnv;
+		readonly headers?: Readonly<Record<string, string>>;
+		readonly betas?: readonly string[];
+	};
+
+	async function performCount(
+		build: (
+			oauth: boolean,
+			version: string,
+			signal: AbortSignal,
+		) => Promise<RequestBody | undefined>,
 		signal?: AbortSignal,
 	): Promise<number | undefined> {
-		await acquire();
+		const deadline = AbortSignal.timeout(10_000);
+		const activeSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
+		if (!(await acquire(activeSignal))) return undefined;
 		try {
-			if (Date.now() < backoffUntil || signal?.aborted) return undefined;
-			const auth = await deps.auth("claude");
-			if (!auth?.token) return undefined;
-			let headers = new Headers({
-				"anthropic-version": "2023-06-01",
-				"content-type": "application/json",
-			});
-			if (auth.extra["type"] === "oauth" || oauthToken({ apiKey: auth.token })) {
-				headers = shapeHeaders(headers, auth.token, await options.version());
+			if (Date.now() < backoffUntil || activeSignal.aborted) return undefined;
+			const auth = await waitFor(deps.auth("claude"), activeSignal);
+			if (!auth?.token || activeSignal.aborted) return undefined;
+			const oauth = auth.extra["type"] === "oauth" || Boolean(oauthToken({ apiKey: auth.token }));
+			const version = oauth ? await waitFor(options.version(), activeSignal) : "";
+			if (version === undefined || activeSignal.aborted) return undefined;
+			const payload = await waitFor(build(oauth, version, activeSignal), activeSignal);
+			if (!payload || activeSignal.aborted) return undefined;
+			let headers = new Headers(payload.headers);
+			if (!headers.has("anthropic-version")) headers.set("anthropic-version", "2023-06-01");
+			headers.set("content-type", "application/json");
+			if (payload.betas?.length) headers.set("anthropic-beta", payload.betas.join(","));
+			for (const key of ["content-length", "content-md5", "content-digest", "digest"])
+				headers.delete(key);
+			if (oauth) {
+				headers = shapeHeaders(headers, auth.token, version);
 				headers.set("x-claude-code-session-id", session);
-			} else {
+			} else if (!headers.has("x-api-key")) {
 				headers.set("x-api-key", auth.token);
 			}
-			const target = shapeUrl(ENDPOINT, options.env ?? process.env);
-			const response = await request(String(target), {
-				provider: "claude",
-				fetch: deps.fetch,
-				method: "POST",
-				headers,
-				timeoutMs: 10_000,
-				secrets: [auth.token],
-				...(signal ? { signal } : {}),
-				body: JSON.stringify({
-					model: model.id,
-					system: withClaudeCodeIdentity(undefined, []),
-					messages: [{ role: "user", content: [{ type: "text", text }] }],
-					...(tools
-						? {
-								tools: tools.map((tool) => ({
-									name: wireToolName(tool.name),
-									description: tool.description,
-									input_schema: tool.parameters,
-								})),
-							}
-						: {}),
+			const target = oauth ? shapeUrl(payload.target, payload.env) : payload.target;
+			const response = await waitFor(
+				request(String(target), {
+					provider: "claude",
+					fetch: deps.fetch,
+					method: "POST",
+					headers,
+					timeoutMs: 10_000,
+					secrets: [auth.token],
+					signal: activeSignal,
+					body: payload.body,
 				}),
-			});
-			const body: unknown = await response.json();
+				activeSignal,
+			);
+			if (!response || activeSignal.aborted) return undefined;
+			const body: unknown = await waitFor(response.json(), activeSignal);
+			if (activeSignal.aborted) return undefined;
 			if (
 				typeof body === "object" &&
 				body !== null &&
@@ -114,33 +161,108 @@ export function claudeTokenCounter(
 		}
 	}
 
+	async function rawCount(
+		text: string,
+		tools?: readonly ToolSchema[],
+		signal?: AbortSignal,
+	): Promise<number | undefined> {
+		return performCount(
+			async () => ({
+				target: String(shapeUrl(ENDPOINT, options.env ?? process.env)),
+				env: options.env ?? process.env,
+				body: JSON.stringify({
+					model: model.id,
+					system: withClaudeCodeIdentity(undefined, []),
+					messages: [{ role: "user", content: [{ type: "text", text }] }],
+					...(tools
+						? {
+								tools: tools.map((tool) => ({
+									name: wireToolName(tool.name),
+									description: tool.description,
+									input_schema: tool.parameters,
+								})),
+							}
+						: {}),
+				}),
+			}),
+			signal,
+		);
+	}
+
 	async function getBaseline(signal?: AbortSignal): Promise<number | undefined> {
-		baseline ??= rawCount(MINIMAL_TEXT, undefined, signal);
-		const result = await baseline;
-		if (result === undefined) baseline = undefined;
-		return result;
+		if (signal?.aborted) return undefined;
+		if (baseline !== undefined) return baseline;
+		baselinePending ??= (async () => {
+			try {
+				const result = await rawCount(MINIMAL_TEXT);
+				if (result !== undefined) baseline = result;
+				return result;
+			} finally {
+				baselinePending = undefined;
+			}
+		})();
+		return waitFor(baselinePending, signal);
 	}
 
 	return {
 		id: `count_tokens:claude:${model.id}`,
 		anchorSource: "provider",
 		async count(text, kind, signal) {
-			if (!text) return { tokens: 0, source: "count-endpoint" };
+			if (!text) return { tokens: 0, source: "estimate" };
 			const base = await getBaseline(signal);
 			const total = base === undefined ? undefined : await rawCount(text, undefined, signal);
 			if (base === undefined || total === undefined) return fallback.count(text, kind, signal);
 			// Live x/x x/x x x = 33/34/35 (x = 1); prose A+B subtraction residual was -1 token.
-			return { tokens: Math.max(0, total - base + 1), source: "count-endpoint" };
+			return { tokens: Math.max(0, total - base + 1), source: "estimate" };
+		},
+		async countContext(input, signal) {
+			if (
+				signal?.aborted ||
+				input.model.provider !== model.provider ||
+				input.model.id !== model.id ||
+				input.model.api !== "anthropic-messages"
+			)
+				return undefined;
+			try {
+				const snapshot: TokenContextInput = JSON.parse(JSON.stringify(input));
+				const rules = (options.rules?.() ?? []).map((rule) => ({ ...rule }));
+				const env = { ...(options.env ?? process.env) };
+				const base = new URL(snapshot.model.baseUrl);
+				if (
+					(base.protocol !== "https:" && base.protocol !== "http:") ||
+					base.username ||
+					base.password ||
+					base.search ||
+					base.hash
+				)
+					return undefined;
+				const target = `${base.href.replace(/\/$/, "")}/v1/messages/count_tokens`;
+				const total = await performCount(async (oauth, version, activeSignal) => {
+					const payload = await countPayload(snapshot, oauth, version, rules, activeSignal);
+					if (!payload) return undefined;
+					return {
+						...payload,
+						target,
+						env,
+						...(snapshot.model.headers ? { headers: snapshot.model.headers } : {}),
+					};
+				}, signal);
+				return total === undefined || signal?.aborted
+					? undefined
+					: { tokens: total, source: "count-endpoint" };
+			} catch {
+				return undefined;
+			}
 		},
 		systemText: (text) => sanitizeSystemText(text, options.rules?.() ?? []),
 		async countTools(tools, signal) {
-			if (!tools.length) return { tokens: 0, source: "count-endpoint" };
+			if (!tools.length) return { tokens: 0, source: "estimate" };
 			const base = await getBaseline(signal);
 			const total = base === undefined ? undefined : await rawCount(MINIMAL_TEXT, tools, signal);
 			if (base === undefined || total === undefined) {
 				return fallback.count(JSON.stringify(tools), "json", signal);
 			}
-			return { tokens: Math.max(0, total - base), source: "count-endpoint" };
+			return { tokens: Math.max(0, total - base), source: "estimate" };
 		},
 	};
 }

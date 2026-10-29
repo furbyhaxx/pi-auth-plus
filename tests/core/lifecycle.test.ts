@@ -501,6 +501,154 @@ async function respond(fixture: ReturnType<typeof lifecycleFixture>, provider: s
 	return response;
 }
 
+test("shutdown clears the idle header-ingest deadline before replacement", async () => {
+	const fixture = lifecycleFixture();
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		const timeouts = spyOn(globalThis, "setTimeout");
+		const clears = spyOn(globalThis, "clearTimeout");
+		try {
+			await fixture.run("session_shutdown");
+			await fixture.run("session_start");
+			const index = timeouts.mock.calls.findIndex((args) => args[1] === 2_000);
+			const deadline = timeouts.mock.results[index]?.value;
+			if (deadline === undefined) throw new Error("Missing shutdown deadline");
+			expect(clears.mock.calls.some(([cleared]) => cleared === deadline)).toBe(true);
+		} finally {
+			for (const [index, args] of timeouts.mock.calls.entries()) {
+				const timer = timeouts.mock.results[index]?.value;
+				if (
+					args[1] === 2_000 &&
+					timer !== undefined &&
+					!clears.mock.calls.some(([cleared]) => cleared === timer)
+				)
+					clearTimeout(Number(timer));
+			}
+			timeouts.mockRestore();
+			clears.mockRestore();
+		}
+	} finally {
+		await fixture.run("session_shutdown");
+		start.mockRestore();
+	}
+});
+
+test("shutdown clears its deadline after pending headers settle during replacement", async () => {
+	const fixture = lifecycleFixture();
+	const replacement = { ...fixture.ctx };
+	const pending = Promise.withResolvers<string | undefined>();
+	const waiting = Promise.withResolvers<void>();
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	const stop = spyOn(QuotaEngine.prototype, "stop");
+	const ingest = spyOn(QuotaEngine.prototype, "ingestHeaders").mockResolvedValue(undefined);
+	ingest.mockImplementationOnce(() => pending.promise);
+	let shutdown: Promise<void> | undefined;
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		await respond(fixture, "test-provider");
+		fixture.setShutdownWaiting(waiting.resolve);
+		const timeouts = spyOn(globalThis, "setTimeout");
+		const clears = spyOn(globalThis, "clearTimeout");
+		try {
+			shutdown = fixture.run("session_shutdown");
+			await waiting.promise;
+			const index = timeouts.mock.calls.findIndex((args) => args[1] === 2_000);
+			const deadline = timeouts.mock.results[index]?.value;
+			if (deadline === undefined) throw new Error("Missing shutdown deadline");
+			expect(clears.mock.calls.some(([cleared]) => cleared === deadline)).toBe(false);
+			await fixture.run("session_start", replacement);
+			const replacementStops = stop.mock.calls.length;
+			pending.resolve(undefined);
+			await shutdown;
+			expect(clears.mock.calls.some(([cleared]) => cleared === deadline)).toBe(true);
+			expect(stop).toHaveBeenCalledTimes(replacementStops);
+			await respond(fixture, "test-provider");
+			expect(ingest).toHaveBeenCalledTimes(2);
+		} finally {
+			pending.resolve(undefined);
+			await shutdown;
+			for (const [index, args] of timeouts.mock.calls.entries()) {
+				const timer = timeouts.mock.results[index]?.value;
+				if (
+					args[1] === 2_000 &&
+					timer !== undefined &&
+					!clears.mock.calls.some(([cleared]) => cleared === timer)
+				)
+					clearTimeout(Number(timer));
+			}
+			timeouts.mockRestore();
+			clears.mockRestore();
+		}
+	} finally {
+		await fixture.run("session_shutdown", replacement);
+		start.mockRestore();
+		stop.mockRestore();
+		ingest.mockRestore();
+	}
+});
+
+test("shutdown bounds the header-ingest drain with an unreferenced deadline", async () => {
+	const fixture = lifecycleFixture();
+	const pending = Promise.withResolvers<string | undefined>();
+	const waiting = Promise.withResolvers<void>();
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	const ingest = spyOn(QuotaEngine.prototype, "ingestHeaders").mockReturnValue(pending.promise);
+	let shutdown: Promise<void> | undefined;
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		await respond(fixture, "test-provider");
+		fixture.setShutdownWaiting(waiting.resolve);
+		const timeouts = spyOn(globalThis, "setTimeout");
+		const clears = spyOn(globalThis, "clearTimeout");
+		const guard = Promise.withResolvers<void>();
+		const watchdog = setTimeout(
+			() => guard.reject(new Error("Shutdown exceeded its bound")),
+			3_000,
+		);
+		try {
+			const started = performance.now();
+			shutdown = fixture.run("session_shutdown");
+			await waiting.promise;
+			const index = timeouts.mock.calls.findIndex((args) => args[1] === 2_000);
+			const deadline = timeouts.mock.results[index]?.value;
+			if (
+				typeof deadline !== "object" ||
+				deadline === null ||
+				!("hasRef" in deadline) ||
+				typeof deadline.hasRef !== "function"
+			)
+				throw new Error("Missing shutdown deadline");
+			expect(deadline.hasRef()).toBe(false);
+			await Promise.race([shutdown, guard.promise]);
+			expect(performance.now() - started).toBeGreaterThanOrEqual(1_900);
+			expect(clears.mock.calls.some(([cleared]) => cleared === deadline)).toBe(true);
+		} finally {
+			pending.resolve(undefined);
+			await shutdown;
+			clearTimeout(watchdog);
+			for (const [index, args] of timeouts.mock.calls.entries()) {
+				const timer = timeouts.mock.results[index]?.value;
+				if (
+					args[1] === 2_000 &&
+					timer !== undefined &&
+					!clears.mock.calls.some(([cleared]) => cleared === timer)
+				)
+					clearTimeout(Number(timer));
+			}
+			timeouts.mockRestore();
+			clears.mockRestore();
+		}
+	} finally {
+		await fixture.run("session_shutdown");
+		start.mockRestore();
+		ingest.mockRestore();
+	}
+}, 5_000);
+
 test("session replacement fences physical responses, resets and shutdown work", async () => {
 	const {
 		requests,

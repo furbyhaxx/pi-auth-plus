@@ -537,10 +537,18 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	pi.on("session_shutdown", async (_event, ctx) => {
 		if (!ownsShutdown(ctx)) return;
 		// Print mode exits right after the turn; let header writes land, bounded.
-		await Promise.race([
-			Promise.allSettled(pendingIngests),
-			new Promise((resolve) => setTimeout(resolve, 2_000).unref()),
-		]);
+		let deadline: ReturnType<typeof setTimeout> | undefined;
+		try {
+			await Promise.race([
+				Promise.allSettled(pendingIngests),
+				new Promise<void>((resolve) => {
+					deadline = setTimeout(resolve, 2_000);
+					deadline.unref();
+				}),
+			]);
+		} finally {
+			clearTimeout(deadline);
+		}
 		if (!ownsShutdown(ctx)) return;
 		quotasEnabled = false;
 		quotaContext = undefined;

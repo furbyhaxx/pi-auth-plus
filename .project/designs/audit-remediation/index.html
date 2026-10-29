@@ -1,0 +1,1242 @@
+<!doctype html>
+<!--
+document:
+  type: "design"
+  id: "audit-remediation-preview"
+  title: "Auth dashboard audit remediation preview"
+  description: "Interactive preview for dashboard-wide drafts, searchable model selection, typed settings and compact-layout controls"
+  status: "draft"
+  revision: 1
+  created_at: "2026-10-29T16:41:09+01:00"
+  updated_at: "2026-10-29T16:46:59+01:00"
+  created_by: "pi"
+  updated_by: "pi"
+  changelog:
+    - revision: 1
+      reason: "document creation"
+      changes: ["Preview F03, F20, F21, F25, F29, F31 and F32 UX remediation"]
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pi-auth-plus · audit remediation preview</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #16181d;
+    --panel: #1d2026;
+    --terminal: #0f1115;
+    --fg: #d7dae0;
+    --dim: #6b7280;
+    --muted: #9aa1ad;
+    --accent: #7dcfff;
+    --border: #3b4048;
+    --ok: #9ece6a;
+    --warn: #e0af68;
+    --err: #f7768e;
+    --sel: #2a3140;
+    --mag: #bb9af7;
+    --shadow: 0 14px 40px rgb(0 0 0 / 40%);
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f3f4f6;
+    --panel: #fff;
+    --terminal: #fff;
+    --fg: #20242b;
+    --dim: #69717e;
+    --muted: #4f5967;
+    --accent: #006f9f;
+    --border: #c5cad2;
+    --ok: #347a27;
+    --warn: #865100;
+    --err: #b4233b;
+    --sel: #e6edf5;
+    --mag: #7144a4;
+    --shadow: 0 14px 40px rgb(0 0 0 / 16%);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.45 ui-sans-serif, system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+  button, input, select { font: inherit; }
+  button, input, select, label { accent-color: var(--accent); }
+  button {
+    color: var(--fg);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  button[aria-pressed="true"], button.active {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  code, kbd, .mono, .terminal {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  code, kbd { font-size: .94em; }
+  kbd {
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--panel);
+    white-space: nowrap;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px max(12px, calc((100vw - 1280px) / 2));
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  header h1 { margin: 0; font-size: 15px; font-weight: 650; }
+  .title-group, .toolbar, .control-group, .button-row, .meta-line {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+  .title-group { gap: 10px; }
+  .badge, .tag {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font: 11px/1.5 ui-monospace, monospace;
+    white-space: nowrap;
+  }
+  .badge { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, var(--border)); }
+  .tag.ok { color: var(--ok); }
+  .tag.warn { color: var(--warn); }
+  .tag.dim { color: var(--muted); }
+  .toolbar { justify-content: flex-end; }
+  .control-group { gap: 4px; }
+  .control-label { color: var(--muted); font-size: 12px; margin-right: 2px; }
+  .control-group button { font-size: 12px; padding: 3px 7px; }
+  .page { max-width: 1320px; margin: 0 auto; padding: 14px; }
+  .notice {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warn);
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .notice strong { color: var(--warn); font-weight: 600; }
+  #terminalViewport {
+    width: 100%;
+    max-height: calc(var(--rows, 24) * 1.4rem);
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--terminal);
+  }
+  #terminalScreen {
+    width: min(100%, var(--screen-width, 720px));
+    min-height: 280px;
+    margin: 0 auto;
+    padding: 10px 12px;
+    background: var(--terminal);
+  }
+  .terminal { font-size: 13px; line-height: 1.4; }
+  .frame-rule {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 1.4em;
+    color: var(--accent);
+  }
+  .frame-rule::before, .frame-rule::after { content: ""; height: 1px; background: var(--accent); }
+  .frame-rule::before { width: 2ch; flex: 0 0 2ch; }
+  .frame-rule::after { flex: 1 1 auto; }
+  .frame-state { color: var(--dim); white-space: nowrap; }
+  .tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    overflow-x: auto;
+    margin: 4px 0 7px;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: thin;
+  }
+  .tabs button {
+    flex: 0 0 auto;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    padding: 5px 7px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+  .screen-intro, .screen-hints, .screen-note {
+    color: var(--muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+  .screen-intro { margin: 0 0 8px; }
+  .screen-hints { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
+  .screen-body { overflow-wrap: anywhere; }
+  .screen-body.limited { max-height: calc(var(--body-rows, 8) * 1.7rem); overflow: auto; overscroll-behavior: contain; }
+  .section-title { margin: 10px 0 5px; color: var(--fg); font-weight: 650; }
+  .section-title .dim { font-weight: 400; }
+  .terminal-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 3px 5px;
+    border-radius: 3px;
+    overflow-wrap: anywhere;
+  }
+  [data-density="comfortable"] .terminal-row { padding-top: 7px; padding-bottom: 7px; }
+  .terminal-row.selected { background: var(--sel); }
+  .terminal-row + .terminal-row { margin-top: 1px; }
+  .row-primary { flex: 1 1 18ch; min-width: 0; overflow-wrap: anywhere; }
+  .row-meta { flex: 0 1 auto; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+  .status { flex: 0 0 auto; font-size: 12px; white-space: nowrap; }
+  .status.ok { color: var(--ok); }
+  .status.warn { color: var(--warn); }
+  .status.dim { color: var(--muted); }
+  .identity {
+    display: block;
+    padding: 6px 8px;
+    border-left: 2px solid var(--accent);
+    background: var(--panel);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .detail-grid { display: grid; grid-template-columns: minmax(8ch, .8fr) minmax(0, 2fr); gap: 4px 10px; margin: 7px 0; }
+  .detail-grid dt { color: var(--muted); }
+  .detail-grid dd { margin: 0; overflow-wrap: anywhere; }
+  .panel-box { border: 1px solid var(--border); border-radius: 4px; padding: 9px; margin: 8px 0; background: var(--panel); }
+  .panel-box h3 { margin: 0 0 6px; font-size: 13px; }
+  .panel-box p { margin: 4px 0; }
+  .screen-body input[type="search"], .screen-body input[type="text"], .dialog input[type="text"], .dialog input[type="search"] {
+    width: 100%;
+    min-width: 0;
+    padding: 6px 8px;
+    color: var(--fg);
+    background: var(--terminal);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .screen-body select, .dialog select {
+    color: var(--fg);
+    background: var(--terminal);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 7px;
+  }
+  .model-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 7px 0; }
+  .model-tools button { font-size: 12px; }
+  .provider-checks { display: flex; gap: 6px 12px; flex-wrap: wrap; }
+  .provider-checks label { display: inline-flex; align-items: center; gap: 5px; }
+  .rule-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; align-items: center; margin: 6px 0; }
+  .rule-editor.drop-rule { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .rule-editor .drop-label { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); white-space: nowrap; }
+  .small { color: var(--muted); font-size: 12px; }
+  .draft-state { color: var(--warn); font-size: 12px; }
+  .picker-results { display: grid; gap: 3px; margin-top: 7px; }
+  .picker-result {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    padding: 6px 8px;
+  }
+  .picker-result[aria-pressed="true"] { background: var(--sel); border-color: var(--accent); }
+  .picker-name, .picker-id { display: block; overflow-wrap: anywhere; }
+  .picker-name { color: var(--fg); }
+  .picker-id { color: var(--muted); font-size: 11px; }
+  .pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+  .pager span { color: var(--muted); font-size: 12px; }
+  .fixture-stamp { color: var(--dim); font-size: 11px; }
+  .page-footer { margin-top: 8px; color: var(--dim); font-size: 11px; text-align: right; }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: grid;
+    place-items: center;
+    padding: 10px;
+    background: rgb(0 0 0 / 58%);
+  }
+  .overlay[hidden] { display: none; }
+  .dialog {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 520px);
+    max-height: min(92dvh, 680px);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+  .dialog-header { padding: 12px 14px 8px; border-bottom: 1px solid var(--border); }
+  .dialog-header h2 { margin: 0; font-size: 15px; }
+  .dialog-scroll { padding: 10px 14px; overflow-y: auto; overscroll-behavior: contain; }
+  .dialog-scroll p { margin: 4px 0 8px; }
+  .dialog-actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 9px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .dialog-actions .primary { color: var(--accent); border-color: var(--accent); }
+  .scope-option { display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; padding: 6px 2px; }
+  .scope-option small { grid-column: 2; color: var(--muted); }
+  .warning-box { border-left: 3px solid var(--warn); padding: 7px 9px; margin: 8px 0; color: var(--warn); background: color-mix(in srgb, var(--warn) 9%, transparent); }
+  .essential { border-left: 3px solid var(--accent); padding: 7px 9px; margin: 0 0 10px; background: var(--terminal); }
+  .hint-list { margin: 4px 0 12px; padding-left: 20px; }
+  .hint-list li { margin: 4px 0; }
+  .toast {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 20;
+    max-width: min(420px, calc(100vw - 28px));
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--ok);
+    border-radius: 4px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+  .toast[hidden] { display: none; }
+  .reopen { display: grid; place-items: center; min-height: 45vh; text-align: center; }
+  .reopen h2 { font-size: 16px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  @media (max-width: 650px) {
+    .page { padding: 9px; }
+    header { padding: 10px; }
+    .toolbar { justify-content: flex-start; }
+    #terminalScreen { padding: 8px; }
+    .rule-editor { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .rule-editor > button { grid-column: 2; justify-self: end; }
+    .rule-editor.drop-rule { grid-template-columns: minmax(0, 1fr) auto; }
+    .rule-editor.drop-rule .drop-label { grid-column: 2; }
+    .rule-editor.drop-rule > button { grid-column: 2; }
+    .detail-grid { grid-template-columns: 1fr; gap: 1px; }
+    .detail-grid dd { margin-bottom: 5px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    button, .terminal-row { transition: border-color .12s ease, background-color .12s ease; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="title-group">
+    <h1>pi-auth-plus · /auth</h1>
+    <span class="badge">PREVIEW ONLY</span>
+  </div>
+  <div class="toolbar" aria-label="Preview controls">
+    <div class="control-group" role="group" aria-label="Terminal width">
+      <span class="control-label">Cols</span>
+      <button type="button" data-cols="36" aria-pressed="false">36</button>
+      <button type="button" data-cols="57" aria-pressed="false">57</button>
+      <button type="button" data-cols="80" aria-pressed="true">80</button>
+      <button type="button" data-cols="140" aria-pressed="false">140</button>
+    </div>
+    <div class="control-group" role="group" aria-label="Visible terminal rows">
+      <span class="control-label">Rows</span>
+      <button type="button" data-rows="8" aria-pressed="false">8</button>
+      <button type="button" data-rows="12" aria-pressed="false">12</button>
+      <button type="button" data-rows="24" aria-pressed="true">24</button>
+      <button type="button" data-rows="40" aria-pressed="false">40</button>
+    </div>
+    <button type="button" id="themeToggle" aria-pressed="false">Light theme</button>
+    <button type="button" id="helpOpen" aria-haspopup="dialog">Help</button>
+  </div>
+</header>
+<main class="page">
+  <div class="notice" role="note"><strong>Fixture data only.</strong><span>All provider, quota, token and model rows are invented preview content. This page makes no requests and describes no real provider specifications.</span></div>
+  <section id="dashboard" aria-label="Auth dashboard preview">
+    <div id="terminalViewport" aria-label="Scrollable terminal preview">
+      <div id="terminalScreen" class="terminal" tabindex="-1" data-density="comfortable">
+        <div id="frameTitle" class="frame-rule"><span id="frameName">Auth › Providers</span><span class="frame-state">Preview fixture</span></div>
+        <nav id="tabs" class="tabs" role="tablist" aria-label="Auth sections"></nav>
+        <p id="intro" class="screen-intro"></p>
+        <div id="screenBody" class="screen-body"></div>
+        <div id="hints" class="screen-hints"></div>
+        <div class="page-footer">No runtime wiring · changes stay in this page</div>
+      </div>
+    </div>
+  </section>
+  <section id="closedDashboard" class="reopen" hidden>
+    <div><span class="badge">PREVIEW ONLY</span><h2>Auth preview closed</h2><p class="small">Staged edits were discarded. Reopen to start a fresh draft.</p><button id="reopenButton" type="button" class="primary">Reopen dashboard</button></div>
+  </section>
+</main>
+<div id="dialogOverlay" class="overlay" hidden>
+  <section id="dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle" tabindex="-1">
+    <header class="dialog-header"><h2 id="dialogTitle"></h2></header>
+    <div id="dialogContent" class="dialog-scroll"></div>
+    <div id="dialogActions" class="dialog-actions"></div>
+  </section>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script>
+"use strict";
+
+const TAB_NAMES = ["Providers", "Quotas", "Tokens", "Models", "Groups", "Settings"];
+const MODEL_FIXTURES = [
+  { id: "sample-a/amber-chat-02", name: "Amber Chat Two", state: "Listed", source: "Fixture catalog · sample-a", reason: "No rule matched; listed by default." },
+  { id: "sample-a/amber-code-01", name: "Amber Code One", state: "Hidden", source: "Fixture catalog · sample-a", reason: 'Matched rule 2: "sample-a/*-code-*" → hidden.' },
+  { id: "sample-b/bluejay-dialog-03", name: "Bluejay Dialog Three", state: "Listed", source: "Fixture catalog · sample-b", reason: 'Matched rule 3: "!sample-b/*" → shown again.' },
+  { id: "sample-b/cinder-reason-01", name: "Cinder Reason One", state: "Listed", source: "Fixture catalog · sample-b", reason: "No rule matched; listed by default." },
+  { id: "sample-c/delta-summary-04", name: "Delta Summary Four", state: "Listed", source: "Fixture catalog · sample-c", reason: "No rule matched; listed by default." },
+  { id: "sample-c/ember-dialog-02", name: "Ember Dialog Two", state: "Listed", source: "Fixture catalog · sample-c", reason: "No rule matched; listed by default." },
+  { id: "sample-a/fable-chat-01", name: "Fable Chat One", state: "Listed", source: "Fixture catalog · sample-a", reason: "No rule matched; listed by default." },
+  { id: "sample-b/grove-code-02", name: "Grove Code Two", state: "Hidden", source: "Fixture catalog · sample-b", reason: 'Matched rule 4: "sample-b/grove-*" → hidden.' },
+  { id: "sample-c/harbor-dialog-01", name: "Harbor Dialog One", state: "Listed", source: "Fixture catalog · sample-c", reason: "No rule matched; listed by default." },
+  { id: "sample-a/indigo-chat-03", name: "Indigo Chat Three", state: "Listed", source: "Fixture catalog · sample-a", reason: "No rule matched; listed by default." },
+  { id: "sample-b/juniper-code-01", name: "Juniper Code One", state: "Listed", source: "Fixture catalog · sample-b", reason: "No rule matched; listed by default." },
+  { id: "sample-c/kestrel-dialog-02", name: "Kestrel Dialog Two", state: "Listed", source: "Fixture catalog · sample-c", reason: "No rule matched; listed by default." },
+];
+const INITIAL_SETTINGS = {
+  quotaProviders: ["sample-a", "sample-b"],
+  verbosityProviders: ["sample-a", "sample-b"],
+  replaceRules: [
+    { match: "[fixture:private]", replacement: "[fixture:shared]", drop: false },
+    { match: "[fixture:omit]", replacement: "", drop: true },
+  ],
+  density: "comfortable",
+  maxBodyRows: "auto",
+  showProvenance: true,
+  showRuleReason: true,
+};
+const SETTINGS_KEYS = [
+  { key: "quotas.providers", label: "Quota providers", source: "Runtime" },
+  { key: "openai.verbosityProviders", label: "Verbosity providers", source: "User" },
+  { key: "claude.replacePatterns", label: "Literal replacement rules", source: "User" },
+  { key: "appearance", label: "Appearance", source: "Project (trusted)" },
+];
+const state = {
+  tab: "Providers",
+  columns: 80,
+  rows: 24,
+  theme: "dark",
+  dashboardOpen: true,
+  selectedModelId: MODEL_FIXTURES[0].id,
+  picker: null,
+  groupMembers: [MODEL_FIXTURES[0].id, MODEL_FIXTURES[2].id],
+  saved: structuredClone(INITIAL_SETTINGS),
+  draft: structuredClone(INITIAL_SETTINGS),
+  lastSave: null,
+  overlay: null,
+  scope: "user",
+  toastTimer: null,
+};
+const root = document.documentElement;
+const tabRoot = document.getElementById("tabs");
+const bodyRoot = document.getElementById("screenBody");
+const viewport = document.getElementById("terminalViewport");
+const screen = document.getElementById("terminalScreen");
+const overlay = document.getElementById("dialogOverlay");
+let focusBeforeDialog = null;
+
+function node(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+function button(text, action, className = "") {
+  const element = node("button", className, text);
+  element.type = "button";
+  if (action) element.addEventListener("click", action);
+  return element;
+}
+function labelValue(label, value, className = "") {
+  const dt = node("dt", "", label);
+  const dd = node("dd", className, value);
+  return [dt, dd];
+}
+function selectedModel() {
+  return MODEL_FIXTURES.find((model) => model.id === state.selectedModelId) || MODEL_FIXTURES[0];
+}
+function dirty() {
+  return JSON.stringify(state.saved) !== JSON.stringify(state.draft);
+}
+function dirtyKeys() {
+  const keys = [];
+  if (JSON.stringify(state.saved.quotaProviders) !== JSON.stringify(state.draft.quotaProviders)) keys.push("quotas.providers");
+  if (JSON.stringify(state.saved.verbosityProviders) !== JSON.stringify(state.draft.verbosityProviders)) keys.push("openai.verbosityProviders");
+  if (JSON.stringify(state.saved.replaceRules) !== JSON.stringify(state.draft.replaceRules)) keys.push("claude.replacePatterns");
+  if (["density", "maxBodyRows", "showProvenance", "showRuleReason"].some((key) => state.saved[key] !== state.draft[key])) keys.push("appearance");
+  return keys;
+}
+function updateTabButtons() {
+  for (const tabButton of tabRoot.querySelectorAll("button[role=tab]")) {
+    const selected = tabButton.dataset.tab === state.tab;
+    tabButton.setAttribute("aria-selected", String(selected));
+    tabButton.tabIndex = selected ? 0 : -1;
+    const marker = tabButton.querySelector(".draft-marker");
+    if (marker) marker.hidden = !dirty() || state.tab !== "Settings";
+  }
+}
+function updateAppearance() {
+  screen.dataset.density = state.draft.density;
+  const rowLimit = state.draft.maxBodyRows;
+  bodyRoot.classList.toggle("limited", rowLimit !== "auto");
+  if (rowLimit !== "auto") screen.style.setProperty("--body-rows", String(rowLimit));
+  else screen.style.removeProperty("--body-rows");
+  root.dataset.theme = state.theme;
+  document.getElementById("themeToggle").textContent = state.theme === "dark" ? "Light theme" : "Dark theme";
+  document.getElementById("themeToggle").setAttribute("aria-pressed", String(state.theme === "light"));
+  document.querySelectorAll("[data-cols]").forEach((control) => control.setAttribute("aria-pressed", String(Number(control.dataset.cols) === state.columns)));
+  document.querySelectorAll("[data-rows]").forEach((control) => control.setAttribute("aria-pressed", String(Number(control.dataset.rows) === state.rows)));
+  root.style.setProperty("--rows", String(state.rows));
+  root.style.setProperty("--screen-width", `calc(${state.columns} * .49rem + 2rem)`);
+}
+function updateSaveButton() {
+  const save = document.getElementById("saveButton");
+  if (save) {
+    save.disabled = !dirty();
+    save.textContent = dirty() ? "Save · Ctrl+S" : "Saved";
+    save.setAttribute("aria-label", dirty() ? "Save staged settings, Control plus S" : "No staged changes");
+  }
+  updateTabButtons();
+  const status = document.getElementById("draftStatus");
+  if (status) status.textContent = dirty() ? `Staged changes · ${dirtyKeys().join(", ")}` : "No staged changes";
+}
+function addRow(container, primary, statusText, statusClass = "dim", metadata = "") {
+  const row = node("div", "terminal-row");
+  const main = node("div", "row-primary");
+  main.append(node("span", "mono", primary));
+  const status = node("span", `status ${statusClass}`, statusText);
+  row.append(main, status);
+  if (metadata) row.append(node("span", "row-meta", metadata));
+  container.append(row);
+  return row;
+}
+function sectionTitle(container, text, detail = "") {
+  const title = node("div", "section-title", text);
+  if (detail) title.append(node("span", "dim", ` · ${detail}`));
+  container.append(title);
+  return title;
+}
+function description(text) { document.getElementById("intro").textContent = text; }
+function hints(text) { document.getElementById("hints").textContent = text; }
+function titleState() {
+  document.getElementById("frameName").textContent = `Auth › ${state.tab}`;
+  const title = document.getElementById("frameTitle");
+  title.querySelector(".frame-state").textContent = dirty() ? "Drafts staged" : "Fixture data";
+}
+function renderTabs() {
+  tabRoot.replaceChildren();
+  for (const name of TAB_NAMES) {
+    const tab = node("button", "", name);
+    tab.type = "button";
+    tab.id = `tab-${name.toLowerCase()}`;
+    tab.dataset.tab = name;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-controls", "screenBody");
+    tab.setAttribute("aria-selected", String(name === state.tab));
+    tab.tabIndex = name === state.tab ? 0 : -1;
+    if (name === "Settings") {
+      const marker = node("span", "draft-marker", " · draft");
+      marker.hidden = !dirty();
+      tab.append(marker);
+    }
+    tab.addEventListener("click", () => switchTab(name));
+    tab.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      const next = (TAB_NAMES.indexOf(name) + direction + TAB_NAMES.length) % TAB_NAMES.length;
+      switchTab(TAB_NAMES[next], true);
+    });
+    tabRoot.append(tab);
+  }
+}
+function switchTab(tab, focus = false) {
+  state.tab = tab;
+  state.picker = null;
+  renderScreen();
+  if (focus) document.getElementById(`tab-${tab.toLowerCase()}`).focus();
+}
+function renderProviders() {
+  description("Providers · invented fixture states only. No account, credential or endpoint data is loaded.");
+  sectionTitle(bodyRoot, "Provider status", "preview fixtures");
+  addRow(bodyRoot, "sample-a", "Ready", "ok", "fixture");
+  addRow(bodyRoot, "sample-b", "Needs setup", "warn", "fixture");
+  addRow(bodyRoot, "sample-c", "Ready", "ok", "fixture");
+  const box = node("div", "panel-box");
+  box.append(node("h3", "", "Preview boundary"), node("p", "small", "These labels are sample UI states only. There are no login actions or real provider details."));
+  bodyRoot.append(box);
+  hints("Alt+← / Alt+→ switch tabs · ? help · Ctrl+S save staged settings · Esc review dashboard drafts");
+}
+function renderQuotas() {
+  description("Quotas · each number below is a made-up display sample, not a provider limit or measurement.");
+  sectionTitle(bodyRoot, "Sample quota state", "fixture values");
+  addRow(bodyRoot, "sample-a", "41% used", "ok", "sample window");
+  addRow(bodyRoot, "sample-b", "Unknown", "warn", "fixture did not provide a value");
+  addRow(bodyRoot, "sample-c", "72% used", "warn", "sample window");
+  bodyRoot.append(node("p", "screen-note", "No reset time, capacity, pricing, endpoint or refresh behavior is represented."));
+  hints("Alt+← / Alt+→ switch tabs · ? help · Ctrl+S save staged settings · Esc review dashboard drafts");
+}
+function renderTokens() {
+  description("Tokens · sample counts are decorative fixtures and do not claim a tokenizer or provider source.");
+  sectionTitle(bodyRoot, "Sample turn", "fixture data");
+  addRow(bodyRoot, "input", "1,284 tokens", "dim", "sample count");
+  addRow(bodyRoot, "output", "316 tokens", "dim", "sample count");
+  addRow(bodyRoot, "source", "Preview fixture", "dim", "not provider-reported");
+  bodyRoot.append(node("p", "screen-note", "No tokenization, model capabilities, rates or billing metadata are included."));
+  hints("Alt+← / Alt+→ switch tabs · ? help · Ctrl+S save staged settings · Esc review dashboard drafts");
+}
+function modelIsShown(model) { return model.state === "Listed"; }
+function renderModelList() {
+  description("Models · select any row for full identity, provenance and rule explanation. The shared picker searches ID or human name.");
+  sectionTitle(bodyRoot, "Model catalog", "12 invented rows · no model specifications");
+  const controls = node("div", "model-tools");
+  controls.append(button("Open searchable picker", () => openPicker("model")));
+  controls.append(node("span", "small", "ID or display name · paged results"));
+  bodyRoot.append(controls);
+  const list = node("div", "catalog-list");
+  const visibleLimit = state.draft.maxBodyRows === "auto" ? 8 : Number(state.draft.maxBodyRows);
+  const models = MODEL_FIXTURES.slice(0, Math.max(1, visibleLimit));
+  for (const model of models) {
+    const row = button("", () => {
+      state.selectedModelId = model.id;
+      renderScreen();
+    }, `terminal-row ${model.id === state.selectedModelId ? "selected" : ""}`);
+    row.setAttribute("aria-pressed", String(model.id === state.selectedModelId));
+    const primary = node("span", "row-primary");
+    primary.append(node("span", "mono", model.id));
+    primary.append(node("span", "row-meta", ` · ${model.name}`));
+    row.append(primary, node("span", `status ${modelIsShown(model) ? "ok" : "warn"}`, model.state));
+    if (state.draft.showProvenance) row.append(node("span", "row-meta", model.source));
+    if (state.draft.showRuleReason) row.append(node("span", "row-meta", model.reason));
+    list.append(row);
+  }
+  bodyRoot.append(list);
+  renderModelDetail(bodyRoot, selectedModel());
+  hints("Enter or click select · Open searchable picker · Alt+←/→ tabs · ? help · Ctrl+S save · Esc review drafts");
+}
+function renderModelDetail(container, model) {
+  sectionTitle(container, "Selection detail", "full identity retained");
+  const box = node("div", "panel-box");
+  const identity = node("strong", "identity mono", model.id);
+  box.append(identity);
+  const grid = node("dl", "detail-grid");
+  for (const pair of [
+    ["Human name", model.name],
+    ["Primary state", model.state],
+    ["Provenance", model.source],
+    ["Matched-rule reason", model.reason],
+  ]) grid.append(...labelValue(...pair));
+  box.append(grid, node("div", "fixture-stamp", "Synthetic model fixture · no context, pricing or capability claims"));
+  container.append(box);
+}
+function openPicker(mode) {
+  state.picker = { mode, query: "", page: 0, selectedId: mode === "model" ? state.selectedModelId : null };
+  renderScreen();
+  const search = document.getElementById("modelSearch");
+  if (search) search.focus();
+}
+function filteredModels() {
+  const query = (state.picker?.query || "").trim().toLocaleLowerCase();
+  if (!query) return MODEL_FIXTURES;
+  return MODEL_FIXTURES.filter((model) => `${model.id}\n${model.name}`.toLocaleLowerCase().includes(query));
+}
+function pickerDetail(container, model) {
+  sectionTitle(container, "Selection detail", "full identity · fixture source · rule outcome");
+  if (!model) {
+    container.append(node("p", "small", "Choose a result to reveal its full identity and explanation."));
+    return;
+  }
+  const box = node("div", "panel-box");
+  box.append(node("strong", "identity mono", model.id));
+  const grid = node("dl", "detail-grid");
+  for (const pair of [
+    ["Human name", model.name],
+    ["Primary state", model.state],
+    ["Provenance", model.source],
+    ["Rule reason", model.reason],
+  ]) grid.append(...labelValue(...pair));
+  box.append(grid);
+  container.append(box);
+}
+function renderPicker() {
+  const picker = state.picker;
+  description(picker.mode === "group" ? "Shared picker · choose one fixture model to add to the sample group." : "Shared picker · search either complete IDs or human-readable names, then inspect before choosing.");
+  sectionTitle(bodyRoot, picker.mode === "group" ? "Add group member" : "Choose model", "search · page · inspect");
+  const searchLabel = node("label", "small", "Search model ID or human name");
+  searchLabel.htmlFor = "modelSearch";
+  const search = node("input");
+  search.id = "modelSearch";
+  search.type = "search";
+  search.autocomplete = "off";
+  search.placeholder = "Try sample-b or Bluejay Dialog";
+  search.value = picker.query;
+  search.addEventListener("input", () => {
+    picker.query = search.value;
+    picker.page = 0;
+    const activeId = picker.selectedId;
+    const matches = filteredModels();
+    if (!matches.some((model) => model.id === activeId)) picker.selectedId = null;
+    renderPickerResults();
+  });
+  bodyRoot.append(searchLabel, search);
+  const resultsWrap = node("div", "picker-results");
+  resultsWrap.id = "pickerResults";
+  bodyRoot.append(resultsWrap);
+  const pager = node("div", "pager");
+  pager.id = "pickerPager";
+  bodyRoot.append(pager);
+  const detail = node("div");
+  detail.id = "pickerDetail";
+  bodyRoot.append(detail);
+  const controls = node("div", "button-row");
+  controls.append(button("Choose selected model", choosePickerModel, "primary"));
+  controls.append(button("Close picker", () => { state.picker = null; renderScreen(); }));
+  bodyRoot.append(controls);
+  renderPickerResults();
+  hints("↑/↓ move result · PgUp/PgDn page · Enter choose · / search · Esc review dashboard drafts · ? help");
+}
+function renderPickerResults() {
+  if (!state.picker) return;
+  const picker = state.picker;
+  const matches = filteredModels();
+  const pageSize = 4;
+  const pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
+  picker.page = Math.max(0, Math.min(picker.page, pageCount - 1));
+  const start = picker.page * pageSize;
+  const pageModels = matches.slice(start, start + pageSize);
+  const results = document.getElementById("pickerResults");
+  if (!results) return;
+  results.replaceChildren();
+  if (pageModels.length === 0) results.append(node("p", "small", "No fixture matches. Search by ID or human name."));
+  for (const model of pageModels) {
+    const result = button("", () => {
+      picker.selectedId = model.id;
+      renderPickerResults();
+    }, "picker-result");
+    result.dataset.modelId = model.id;
+    result.setAttribute("aria-pressed", String(model.id === picker.selectedId));
+    result.append(node("span", "picker-name", model.name), node("span", "picker-id mono", model.id));
+    results.append(result);
+  }
+  const pager = document.getElementById("pickerPager");
+  pager.replaceChildren();
+  pager.append(button("Previous page", () => { picker.page = Math.max(0, picker.page - 1); renderPickerResults(); }, ""));
+  pager.append(node("span", "", matches.length ? `${start + 1}–${Math.min(start + pageSize, matches.length)} of ${matches.length} · page ${picker.page + 1}/${pageCount}` : "0 results"));
+  pager.append(button("Next page", () => { picker.page = Math.min(pageCount - 1, picker.page + 1); renderPickerResults(); }, ""));
+  pager.querySelector("button:first-child").disabled = picker.page === 0;
+  pager.querySelector("button:last-child").disabled = picker.page >= pageCount - 1;
+  const detail = document.getElementById("pickerDetail");
+  detail.replaceChildren();
+  pickerDetail(detail, MODEL_FIXTURES.find((model) => model.id === picker.selectedId));
+  const choose = bodyRoot.querySelector("button.primary");
+  if (choose) choose.disabled = !picker.selectedId;
+}
+function choosePickerModel() {
+  const picker = state.picker;
+  if (!picker?.selectedId) return;
+  if (picker.mode === "group") {
+    if (!state.groupMembers.includes(picker.selectedId)) state.groupMembers.push(picker.selectedId);
+    else showToast("That fixture model is already a group member.");
+    state.tab = "Groups";
+  } else {
+    state.selectedModelId = picker.selectedId;
+    state.tab = "Models";
+  }
+  state.picker = null;
+  renderScreen();
+}
+function renderGroups() {
+  description("Groups · the sample group reuses the same search, paging and selection-detail picker as Models.");
+  sectionTitle(bodyRoot, "sample-group/amber-route", "fixture membership only");
+  addRow(bodyRoot, "Group state", "Preview only", "dim", "no requests routed");
+  sectionTitle(bodyRoot, "Members", `${state.groupMembers.length} fixture models`);
+  for (const id of state.groupMembers) {
+    const model = MODEL_FIXTURES.find((candidate) => candidate.id === id);
+    if (!model) continue;
+    addRow(bodyRoot, model.id, model.state, model.state === "Listed" ? "ok" : "warn", model.name);
+  }
+  const controls = node("div", "model-tools");
+  controls.append(button("Add member · shared picker", () => openPicker("group")));
+  controls.append(node("span", "small", "ID and display-name search are identical in both entry points"));
+  bodyRoot.append(controls);
+  hints("Add member opens shared picker · Alt+←/→ tabs · ? help · Ctrl+S save staged settings · Esc review drafts");
+}
+function renderProviderChecklist(container, title, key, options) {
+  sectionTitle(container, title, "typed provider checklist · fixture IDs");
+  const panel = node("div", "panel-box");
+  const group = node("div", "provider-checks");
+  for (const id of options) {
+    const label = node("label");
+    const input = node("input");
+    input.type = "checkbox";
+    input.value = id;
+    input.checked = state.draft[key].includes(id);
+    input.addEventListener("change", () => {
+      const selected = new Set(state.draft[key]);
+      if (input.checked) selected.add(id);
+      else selected.delete(id);
+      state.draft[key] = options.filter((candidate) => selected.has(candidate));
+      titleState();
+      updateSaveButton();
+    });
+    label.append(input, node("span", "mono", id));
+    group.append(label);
+  }
+  panel.append(group, node("p", "small", "Values are local preview choices only; no real provider names or details are loaded."));
+  container.append(panel);
+}
+function renderReplacementRules(container) {
+  sectionTitle(container, "claude.replacePatterns", "literal match → optional replacement or drop");
+  const panel = node("div", "panel-box");
+  panel.append(node("p", "small", "These rows preview typed rule fields. Match text is literal, never a pattern. Drop removes matching paragraphs."));
+  const rules = state.draft.replaceRules;
+  rules.forEach((rule, index) => {
+    const row = node("div", `rule-editor ${rule.drop ? "drop-rule" : ""}`);
+    const match = node("input");
+    match.type = "text";
+    match.setAttribute("aria-label", `Rule ${index + 1} literal match`);
+    match.placeholder = "Literal match";
+    match.value = rule.match;
+    match.addEventListener("input", () => {
+      rule.match = match.value;
+      updateSaveButton();
+      titleState();
+    });
+    row.append(match);
+    if (rule.drop) {
+      row.append(node("span", "drop-label", "Drop matching paragraph"));
+    } else {
+      const replacement = node("input");
+      replacement.type = "text";
+      replacement.setAttribute("aria-label", `Rule ${index + 1} replacement`);
+      replacement.placeholder = "Replacement text";
+      replacement.value = rule.replacement;
+      replacement.addEventListener("input", () => {
+        rule.replacement = replacement.value;
+        updateSaveButton();
+        titleState();
+      });
+      row.append(replacement);
+    }
+    const remove = button("Remove", () => {
+      rules.splice(index, 1);
+      renderScreen();
+    });
+    remove.setAttribute("aria-label", `Remove literal rule ${index + 1}`);
+    row.append(remove);
+    panel.append(row);
+  });
+  panel.append(button("Add literal rule", () => {
+    rules.push({ match: "", replacement: "", drop: false });
+    renderScreen();
+    bodyRoot.querySelector(".rule-editor:last-of-type input")?.focus();
+  }));
+  panel.append(button("Add drop rule", () => {
+    rules.push({ match: "", replacement: "", drop: true });
+    renderScreen();
+    bodyRoot.querySelector(".rule-editor:last-of-type input")?.focus();
+  }));
+  container.append(panel);
+}
+function renderSettings() {
+  description("Settings · edits stay staged across every dashboard tab. Save opens an explicit scope choice.");
+  const draftState = node("div", "meta-line");
+  draftState.append(node("span", "draft-state", dirty() ? "Staged changes" : "No staged changes"));
+  draftState.append(node("span", "small", "Tab changes keep this draft."));
+  const saveButton = button(dirty() ? "Save · Ctrl+S" : "Saved", openSaveDialog);
+  saveButton.id = "saveButton";
+  saveButton.disabled = !dirty();
+  draftState.append(saveButton);
+  const status = node("span", "small");
+  status.id = "draftStatus";
+  draftState.append(status);
+  bodyRoot.append(draftState);
+  renderProviderChecklist(bodyRoot, "quotas.providers", "quotaProviders", ["sample-a", "sample-b", "sample-c"]);
+  renderProviderChecklist(bodyRoot, "openai.verbosityProviders", "verbosityProviders", ["sample-a", "sample-b", "sample-c"]);
+  renderReplacementRules(bodyRoot);
+  sectionTitle(bodyRoot, "Appearance", "preview controls · staged");
+  const appearance = node("div", "panel-box");
+  appearance.append(node("h3", "", "Density"));
+  const density = node("div", "provider-checks");
+  for (const option of ["compact", "comfortable"]) {
+    const label = node("label");
+    const input = node("input");
+    input.type = "radio";
+    input.name = "density";
+    input.value = option;
+    input.checked = state.draft.density === option;
+    input.addEventListener("change", () => {
+      state.draft.density = option;
+      updateAppearance();
+      titleState();
+      updateSaveButton();
+    });
+    label.append(input, node("span", "", option));
+    density.append(label);
+  }
+  appearance.append(density);
+  const maxRowsLabel = node("label", "small", "Maximum body rows ");
+  const maxRows = node("select");
+  maxRows.id = "maxBodyRows";
+  maxRows.setAttribute("aria-label", "Maximum body rows");
+  const choices = [["auto", "Auto"], ["4", "4 rows"], ["6", "6 rows"], ["8", "8 rows"], ["12", "12 rows"], ["16", "16 rows"]];
+  for (const [value, label] of choices) {
+    const option = node("option", "", label);
+    option.value = value;
+    option.selected = state.draft.maxBodyRows === value;
+    maxRows.append(option);
+  }
+  maxRows.addEventListener("change", () => {
+    state.draft.maxBodyRows = maxRows.value;
+    updateAppearance();
+    titleState();
+    updateSaveButton();
+  });
+  maxRowsLabel.append(maxRows);
+  appearance.append(maxRowsLabel);
+  for (const [key, text] of [["showProvenance", "Show provenance in catalog rows"], ["showRuleReason", "Show matched-rule reason in catalog rows"]]) {
+    const label = node("label", "provider-checks");
+    const input = node("input");
+    input.type = "checkbox";
+    input.checked = state.draft[key];
+    input.addEventListener("change", () => {
+      state.draft[key] = input.checked;
+      titleState();
+      updateSaveButton();
+    });
+    label.append(input, node("span", "", text));
+    appearance.append(label);
+  }
+  appearance.append(node("p", "small", "List metadata can be hidden; full picker detail remains available. Primary model ID and Listed/Hidden state are always retained."));
+  bodyRoot.append(appearance);
+  hints("Ctrl+S choose save scope · Esc Keep editing / Discard drafts · Alt+←/→ tabs · ? complete keyboard help");
+  updateSaveButton();
+}
+function renderScreen() {
+  if (!state.dashboardOpen) return;
+  renderTabs();
+  bodyRoot.replaceChildren();
+  updateAppearance();
+  titleState();
+  if (state.picker) renderPicker();
+  else if (state.tab === "Providers") renderProviders();
+  else if (state.tab === "Quotas") renderQuotas();
+  else if (state.tab === "Tokens") renderTokens();
+  else if (state.tab === "Models") renderModelList();
+  else if (state.tab === "Groups") renderGroups();
+  else renderSettings();
+  updateTabButtons();
+  updateSaveButton();
+}
+function showToast(text) {
+  const toast = document.getElementById("toast");
+  toast.textContent = text;
+  toast.hidden = false;
+  clearTimeout(state.toastTimer);
+  state.toastTimer = setTimeout(() => { toast.hidden = true; }, 4200);
+}
+function showDialog(type, title, contentBuilder, actionsBuilder) {
+  focusBeforeDialog = document.activeElement;
+  state.overlay = type;
+  document.getElementById("dialogTitle").textContent = title;
+  const content = document.getElementById("dialogContent");
+  const actions = document.getElementById("dialogActions");
+  content.replaceChildren();
+  actions.replaceChildren();
+  contentBuilder(content);
+  actionsBuilder(actions);
+  overlay.hidden = false;
+  requestAnimationFrame(() => {
+    const first = overlay.querySelector("button:not(:disabled), input:not(:disabled), [tabindex='0']");
+    (first || document.getElementById("dialog")).focus();
+  });
+}
+function closeDialog() {
+  overlay.hidden = true;
+  state.overlay = null;
+  const previous = focusBeforeDialog;
+  focusBeforeDialog = null;
+  if (previous?.isConnected) previous.focus();
+}
+function askDiscard() {
+  const keys = dirtyKeys();
+  showDialog("discard", "Dashboard-wide staged changes", (content) => {
+    content.append(node("p", "", dirty() ? "Staged edits from every tab stay together. Discarding clears the complete dashboard draft." : "There are no staged settings to lose. Close this preview dashboard?"));
+    if (keys.length) {
+      const list = node("ul", "small");
+      for (const key of keys) list.append(node("li", "mono", key));
+      content.append(node("p", "small", "Drafts currently changed:"), list);
+    }
+    content.append(node("p", "small", "Keep editing returns to the same tab and preserves every draft."));
+  }, (actions) => {
+    actions.append(button("Keep editing", closeDialog, "primary"));
+    actions.append(button("Discard", () => {
+      state.draft = structuredClone(state.saved);
+      state.picker = null;
+      state.dashboardOpen = false;
+      closeDialog();
+      document.getElementById("dashboard").hidden = true;
+      document.getElementById("closedDashboard").hidden = false;
+      updateAppearance();
+    }));
+  });
+}
+function currentEffectiveSource(key) {
+  if (state.lastSave?.keys.includes(key)) return state.lastSave.sources[key] || "Runtime";
+  return SETTINGS_KEYS.find((setting) => setting.key === key)?.source || "User";
+}
+function openSaveDialog() {
+  if (!dirty()) {
+    showToast("No staged settings to save.");
+    return;
+  }
+  state.scope = "user";
+  const keys = dirtyKeys();
+  const scopeLabel = () => ({ user: "User", project: "Trusted project", runtime: "Runtime" })[state.scope];
+  const renderScopeWarning = (content) => {
+    const warningHost = content.querySelector("#scopeWarning");
+    if (!warningHost) return;
+    warningHost.replaceChildren();
+    const shadowed = keys.filter((key) => {
+      const source = currentEffectiveSource(key);
+      const rank = { User: 1, "Project (trusted)": 2, Runtime: 3 };
+      return rank[source] > rank[state.scope === "user" ? "User" : state.scope === "project" ? "Project (trusted)" : "Runtime"];
+    });
+    if (shadowed.length) {
+      warningHost.append(node("div", "warning-box", `Shadow warning: ${shadowed.join(", ")} currently resolve from ${[...new Set(shadowed.map(currentEffectiveSource))].join(", ")}. Saving to ${scopeLabel()} will not change the effective value.`));
+    } else {
+      warningHost.append(node("p", "small", `Effective source for changed settings: ${keys.map((key) => `${key} · ${currentEffectiveSource(key)}`).join("; ")}.`));
+    }
+  };
+  showDialog("save", "Save staged settings", (content) => {
+    content.append(node("p", "small", "Choose exactly where this draft is written. This is a preview; no file will be changed."));
+    for (const [value, title, detail] of [
+      ["user", "User", "Available in your sessions"],
+      ["project", "Trusted project", "Project settings · trusted preview scope"],
+      ["runtime", "Runtime", "This session only · highest precedence"],
+    ]) {
+      const label = node("label", "scope-option");
+      const radio = node("input");
+      radio.type = "radio";
+      radio.name = "saveScope";
+      radio.value = value;
+      radio.checked = state.scope === value;
+      radio.addEventListener("change", () => {
+        state.scope = value;
+        renderScopeWarning(content);
+      });
+      label.append(radio, node("span", "", title), node("small", "", detail));
+      content.append(label);
+    }
+    content.append(node("div", "", ""));
+    const warning = node("div");
+    warning.id = "scopeWarning";
+    content.append(warning);
+    renderScopeWarning(content);
+    const summary = node("ul", "small");
+    for (const key of keys) summary.append(node("li", "mono", `${key} · effective source: ${currentEffectiveSource(key)}`));
+    content.append(node("p", "small", "Changed settings and current effective sources:"), summary);
+  }, (actions) => {
+    actions.append(button("Cancel · keep draft", closeDialog));
+    actions.append(button("Save to selected scope", () => {
+      const target = state.scope;
+      const savedKeys = dirtyKeys();
+      const sourceByKey = {};
+      const rank = { user: 1, project: 2, runtime: 3 };
+      const sourceName = { user: "User", project: "Project (trusted)", runtime: "Runtime" };
+      for (const key of savedKeys) {
+        const source = currentEffectiveSource(key);
+        const sourceRank = source === "Runtime" ? 3 : source === "Project (trusted)" ? 2 : 1;
+        sourceByKey[key] = rank[target] < sourceRank ? source : sourceName[target];
+      }
+      state.saved = structuredClone(state.draft);
+      state.lastSave = { keys: savedKeys, scope: target, sources: sourceByKey };
+      closeDialog();
+      renderScreen();
+      const shadowed = savedKeys.filter((key) => sourceByKey[key] !== sourceName[target]);
+      showToast(shadowed.length ? `Saved to ${sourceName[target]}; ${shadowed.join(", ")} remain shadowed by ${[...new Set(shadowed.map((key) => sourceByKey[key]))].join(", ")}.` : `Saved to ${sourceName[target]} · effective source updated.`);
+    }, "primary"));
+  });
+}
+function openHelp() {
+  showDialog("help", "Keyboard help · complete hints", (content) => {
+    const essential = node("div", "essential");
+    essential.append(node("strong", "", "Essential actions"));
+    const lead = node("p", "small", "These remain first at 36 columns and 8 visible rows. Scroll this panel for the complete list.");
+    essential.append(lead);
+    const essentials = node("ul", "hint-list");
+    for (const [key, text] of [
+      ["Enter", "Confirm the focused choice or choose the selected model."],
+      ["Escape", "On the dashboard, ask whether to Keep editing or Discard all tab drafts. In Save, cancel and keep the draft; in Help, close Help."],
+      ["Ctrl+S", "Open explicit User / Trusted project / Runtime save scope; review effective source and shadow warning before saving."],
+    ]) {
+      const item = node("li");
+      item.append(node("kbd", "", key), document.createTextNode(` ${text}`));
+      essentials.append(item);
+    }
+    essential.append(essentials);
+    content.append(essential);
+    const groups = [
+      ["Dashboard and focus", [
+        ["Tab / Shift+Tab", "Move between interactive controls. Native focus order is preserved."],
+        ["Alt+← / Alt+→", "Switch between Providers, Quotas, Tokens, Models, Groups and Settings."],
+        ["← / →", "When a tab is focused, move to the adjacent tab."],
+        ["?", "Open this keyboard help from the dashboard."],
+      ]],
+      ["Model picker", [
+        ["/", "Focus the picker search field."],
+        ["Type", "Searches model IDs and human names together."],
+        ["↑ / ↓", "Move through results when a result is focused."],
+        ["PgUp / PgDn", "Move between result pages."],
+        ["Enter", "Choose the selected result after inspecting its details."],
+      ]],
+      ["Settings and dialogs", [
+        ["Space", "Toggle a focused provider or metadata checkbox."],
+        ["Enter / Space", "Choose a save scope radio option; Save remains explicit."],
+        ["Escape", "Keep editing or discard the dashboard-wide draft; modal-specific behavior is stated above."],
+      ]],
+      ["Preview controls", [
+        ["Mouse or keyboard", "Activate width (36/57/80/140 cols), visible row (8/12/24/40), theme, tabs and Help controls."],
+        ["Scroll", "The terminal viewport, model list and dialog content scroll inside their own bounds."],
+      ]],
+    ];
+    for (const [title, entries] of groups) {
+      content.append(node("h3", "", title));
+      const list = node("ul", "hint-list");
+      for (const [key, text] of entries) {
+        const item = node("li");
+        item.append(node("kbd", "", key), document.createTextNode(` ${text}`));
+        list.append(item);
+      }
+      content.append(list);
+    }
+    content.append(node("p", "small", "The browser's normal Tab order is retained for accessible controls; tab switching uses Alt+arrow keys."));
+  }, (actions) => actions.append(button("Close Help", closeDialog, "primary")));
+}
+function movePickerPage(delta) {
+  if (!state.picker) return;
+  const count = Math.max(1, Math.ceil(filteredModels().length / 4));
+  state.picker.page = Math.max(0, Math.min(count - 1, state.picker.page + delta));
+  renderPickerResults();
+}
+function handleGlobalKey(event) {
+  if (event.key === "Escape") {
+    if (state.overlay === "help" || state.overlay === "save" || state.overlay === "discard") {
+      closeDialog();
+      return;
+    }
+    if (state.dashboardOpen) {
+      event.preventDefault();
+      askDiscard();
+    }
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    if (!state.overlay && state.dashboardOpen) openSaveDialog();
+    return;
+  }
+  if (!state.dashboardOpen || state.overlay) return;
+  const target = event.target;
+  const editingText = target instanceof HTMLElement && (target.matches("input, textarea, select, [contenteditable=true]") || target.closest("input, textarea, select, [contenteditable=true]"));
+  if (event.key === "?" && !editingText) {
+    event.preventDefault();
+    openHelp();
+    return;
+  }
+  if (event.altKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+    event.preventDefault();
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const currentIndex = TAB_NAMES.indexOf(state.tab);
+    switchTab(TAB_NAMES[(currentIndex + direction + TAB_NAMES.length) % TAB_NAMES.length]);
+    return;
+  }
+  if (state.picker && !editingText && (event.key === "PageDown" || event.key === "PageUp")) {
+    event.preventDefault();
+    movePickerPage(event.key === "PageDown" ? 1 : -1);
+    return;
+  }
+  if (state.picker && event.key === "/" && !editingText) {
+    event.preventDefault();
+    document.getElementById("modelSearch")?.focus();
+  }
+  if (state.picker && (event.key === "ArrowDown" || event.key === "ArrowUp") && target instanceof HTMLElement && target.classList.contains("picker-result")) {
+    event.preventDefault();
+    const results = [...document.querySelectorAll(".picker-result")];
+    const index = results.indexOf(target);
+    results[Math.max(0, Math.min(results.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)))]?.focus();
+  }
+}
+
+document.addEventListener("keydown", handleGlobalKey);
+document.querySelectorAll("[data-cols]").forEach((control) => control.addEventListener("click", () => {
+  state.columns = Number(control.dataset.cols);
+  updateAppearance();
+}));
+document.querySelectorAll("[data-rows]").forEach((control) => control.addEventListener("click", () => {
+  state.rows = Number(control.dataset.rows);
+  updateAppearance();
+}));
+document.getElementById("themeToggle").addEventListener("click", () => {
+  state.theme = state.theme === "dark" ? "light" : "dark";
+  updateAppearance();
+});
+document.getElementById("helpOpen").addEventListener("click", openHelp);
+document.getElementById("reopenButton").addEventListener("click", () => {
+  state.dashboardOpen = true;
+  document.getElementById("closedDashboard").hidden = true;
+  document.getElementById("dashboard").hidden = false;
+  renderScreen();
+  document.getElementById("tab-providers").focus();
+});
+overlay.addEventListener("click", (event) => {
+  if (event.target === overlay && state.overlay === "help") closeDialog();
+});
+overlay.addEventListener("keydown", (event) => {
+  if (event.key !== "Tab") return;
+  const controls = [...overlay.querySelectorAll("button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex='0']")];
+  if (controls.length === 0) return;
+  const first = controls[0];
+  const last = controls[controls.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+});
+
+renderScreen();
+updateAppearance();
+</script>
+</body>
+</html>

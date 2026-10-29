@@ -31,6 +31,16 @@ All notable changes to this project are documented here. The format follows
 - **Preview performance and live tool settings.** Rule previews cache compiled state rather
   than recompiling per model. Synthetic search enable/disable updates active membership
   immediately and the tool renders progress, success, failure and cancellation explicitly.
+  Narrow output retains truncation warnings; expanded results preserve the full file path and
+  HTTP endpoint diagnostics.
+- **Native context counts.** Supported unanchored Claude contexts count the complete shaped
+  request instead of losing framing through segment subtraction. Usage anchors remain
+  authoritative; additive contributions are labelled estimates, and native totals show
+  `count API` rather than claiming provider-reported usage. Native memoization follows the
+  effective request and authentication mode, reasoning changes invalidate old reports, and
+  missing authentication exposes login guidance without blocking estimates.
+- **Shutdown cleanup.** A completed cache drain clears its losing shutdown deadline without
+  weakening the bounded drain or session ownership checks.
 
 ### Changed
 

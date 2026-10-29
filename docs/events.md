@@ -317,14 +317,21 @@ its success payload is `{ v: 1, ok: true, report: ContextReport | null, breakdow
 `report` is `null` when no report is available, including before a model is selected.
 `context` is emitted when a recount completes or the report is cleared.
 
-`reason` is one of `session_start`, `session_shutdown`, `model_select`, `message_end`,
-`turn_end`, `session_compact`, `session_tree` and `request`.
+`reason` is one of `session_start`, `session_shutdown`, `model_select`,
+`thinking_level_select`, `message_end`, `turn_end`, `session_compact`, `session_tree` and
+`request`. A model or thinking change clears the old report before the replacement count arrives.
 
 ```typescript
 type TokenSource = "provider" | "count-endpoint" | "tokenizer" | "estimate";
+interface TokenDiagnostic {
+  code: "needs-auth";
+  provider: string;
+  message: string;
+}
 interface TokenCount {
   tokens: number;
   source: TokenSource;
+  diagnostics?: TokenDiagnostic[];
 }
 interface ContextReport {
   provider: string;
@@ -344,3 +351,9 @@ interface BreakdownPart {
   items: number;
 }
 ```
+
+`count-endpoint` describes the complete supplied native request, not billed usage.
+Baseline-subtracted Claude contributions are `estimate`. Optional `diagnostics` explain
+why authentication-dependent counts fell back; `needs-auth` includes provider-specific login
+guidance without credentials. Sums retain distinct diagnostics. Successful counts omit them.
+`TokenDiagnostic`, `TokenCount` and `TokenSource` are exported by the bus client.

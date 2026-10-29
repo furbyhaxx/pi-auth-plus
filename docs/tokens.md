@@ -15,17 +15,21 @@ context = anchor + tail
 ```
 
 Before the first reply, or after an invalidating context edit or compaction, there is no
-anchor. The system prompt, tool definitions and messages are counted separately. Counts
-of individual pieces need not include all provider framing or special tokens.
+anchor. For supported Claude contexts, the native endpoint counts the complete SDK-shaped
+request, including framing, ordered system updates and tool definitions. Unsupported contexts
+and other routes count contributions separately with their available counter.
+
+A valid usage anchor remains authoritative. Contributions after it and the on-demand breakdown
+are additive estimates; even endpoint-derived differences can omit framing or token boundaries.
 
 Each count carries a source, from most to least authoritative:
 
 | Source | Shown as | Meaning |
 |---|---|---|
 | `provider` | exact (usage) | Usage the provider reported for a real request |
-| `count-endpoint` | exact (count API) | The provider's token count endpoint |
+| `count-endpoint` | count API | Native count of the supplied complete request; not billed usage |
 | `tokenizer` | tokenizer estimate | The model's published tokenizer, run locally |
-| `estimate` | estimate | Characters per token, measured per route |
+| `estimate` | estimate | Additive endpoint differences or measured character estimates |
 
 A sum takes the weakest source of its parts.
 
@@ -33,7 +37,7 @@ A sum takes the weakest source of its parts.
 
 | Provider | Anchor | Tail and first turn |
 |---|---|---|
-| `claude` | usage | `count_tokens` endpoint, estimate on failure |
+| `claude` | usage | Full native count without an anchor when supported; additive estimates otherwise |
 | `synthetic`, `hf:` models | tokenizer recount when available, otherwise usage | tokenizer, or estimate when unavailable |
 | `synthetic`, other models | usage | estimate |
 | `antigravity`, gpt-oss | usage | gpt-oss tokenizer, or estimate when unavailable |
@@ -43,10 +47,14 @@ A sum takes the weakest source of its parts.
 
 Notes:
 
-- **Claude.** The system prompt is counted after the provider's rewrite (branded
-  paragraphs removed and `claude.replacePatterns` applied). The count API counts pieces
-  separately, so framing can still make the total differ from billed usage. Antigravity's
-  Claude models never use this endpoint; they run on Google's route.
+- **Claude.** Full native counts use the SDK's request serializer and the provider's
+  subscription shaping, including `claude.replacePatterns`. API-key requests retain their
+  native shaping. The effective session thinking level is included in request capture; a change
+  invalidates the old report. Signed or redacted thinking, an unknown thinking setting on a
+  reasoning model and projections requiring unsupported conversion fall back to labelled estimates.
+  A count API response describes the supplied context; it does not include later request-hook
+  additions or prove billed usage. Antigravity's Claude
+  models never use this endpoint; they run on Google's route.
 - **Synthetic.** Synthetic reports input tokens in a scaled unit (0.42x the real count
   for DeepSeek, 2.4x for gpt-oss), while its context limit applies to real tokens. For
   `hf:<org>/<repo>` models, the stored input usage of each reply is recounted with the
@@ -84,8 +92,13 @@ Delete the directory to force a fresh download.
 | Anchor, Tail | The last reply's usage, and the messages after it |
 | Breakdown | The full request split into system, tools, user, assistant and tool results |
 
-The breakdown is counted when the tab opens and recounted on changes. On Claude it uses
-the count endpoint for new pieces of content; results are cached by content.
+The breakdown is counted when the tab opens and recounted on changes. On Claude its
+baseline-subtracted pieces are labelled estimates, rather than complete native counts.
+Authoritative full-request results are memoized in memory after authentication and effective
+request shaping; changing authentication mode or request shape cannot reuse a stale total.
+Unavailable results and estimates remain retryable. If native counting lacks authentication,
+Recovery rows and full Help name the provider, endpoint and login command; estimates remain usable.
+Restoring credentials clears that diagnostic after a successful recount.
 Outside the TUI, `/tokens` prints the latest count without recounting.
 
 ## Footer

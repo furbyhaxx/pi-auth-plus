@@ -257,9 +257,11 @@ Endpoints, auth, schemas, units and reset semantics per provider are in
 - Source precedence: provider-reported usage > native count endpoint > known tokenizer >
   generic tokenizer. Every count carries its source; anything but the first two is labelled an
   estimate.
-- Counts are keyed by tokenizer and content hash and computed once. Antigravity's Claude
-  models do not reuse the anthropic family's counts: the wrapper tokenizes differently
-  (`.project/analyses/tokens/count-endpoints/`).
+- Reusable counts have bounded in-memory caches keyed by tokenizer/content or the complete
+  shaped native request. Native memo lookup follows authentication and request shaping; keys
+  exclude credentials. Missing auth, unknown reasoning settings and unsupported projections
+  fall back honestly. Antigravity's Claude models do not reuse the anthropic family's counts:
+  the wrapper tokenizes differently (`.project/analyses/tokens/count-endpoints/`).
 - Synthetic `hf:` models: the model's own tokenizer outranks provider usage, because Synthetic
   reports a per-model scaled unit while its context limit applies to real tokens
   (`.project/analyses/tokens/synthetic-counts/`); its stored usage is rescaled at `message_end`.

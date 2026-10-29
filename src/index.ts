@@ -44,6 +44,7 @@ import {
 	installPhysicalRequestHooks,
 	type PhysicalRequestFactory,
 } from "./models/runtime/physical.ts";
+import { selectModelIfCurrent } from "./models/runtime/selection.ts";
 import { quotaAuthFor } from "./quotas/auth.ts";
 import { registerQuotaBus } from "./quotas/bus.ts";
 import { QuotaEngine } from "./quotas/engine.ts";
@@ -309,16 +310,29 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				.getAvailable()
 				.filter((model) => isVisible(model.provider, model, store));
 			const next = available.find((model) => model.provider === selected.provider) ?? available[0];
-			const switched = next && (await pi.setModel(next));
-			if (signal.aborted) return;
-			if (switched && next) {
-				ctx.ui.notify(
-					`${identity} is hidden by model rules; switched to ${next.provider}/${next.id}.`,
-					"info",
-				);
+			if (next) {
+				const result = await selectModelIfCurrent(pi, next, signal);
+				if (signal.aborted) return;
+				if (result === "selected") {
+					ctx.ui.notify(
+						`${identity} is hidden by model rules; switched to ${next.provider}/${next.id}.`,
+						"info",
+					);
+				} else if (result === "unsupported") {
+					ctx.ui.notify(
+						`${identity} is hidden by model rules; automatic selection is unavailable on this host, so the current selection was kept. Use /model to select a visible model.`,
+						"warning",
+					);
+				} else {
+					ctx.ui.notify(
+						`${identity} is hidden by model rules; automatic fallback was not applied. Use /model to select a visible model.`,
+						"warning",
+					);
+				}
 				return;
 			}
 		}
+		if (signal.aborted) return;
 		ctx.ui.notify(
 			`${identity} is hidden by model rules; the current selection was kept.`,
 			"warning",
@@ -881,8 +895,20 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 						lifetime = applied;
 						if (ctx.model?.provider === provider && ctx.model.id === id) {
 							const model = ctx.modelRegistry.find(provider, id);
-							if (model && !(await pi.setModel(model)) && !lifetime.aborted)
-								ctx.ui.notify("Model override saved; reselect the model to apply it.", "warning");
+							if (model) {
+								const result = await selectModelIfCurrent(pi, model, lifetime);
+								if (lifetime.aborted) return;
+								if (result === "unsupported")
+									ctx.ui.notify(
+										"Model override saved; automatic reselection is unavailable on this host. Use /model to reselect the model and apply it.",
+										"warning",
+									);
+								else if (result === "not-applied")
+									ctx.ui.notify(
+										"Model override saved; use /model to reselect the model and apply it.",
+										"warning",
+									);
+							}
 						}
 					} catch (error) {
 						if (!signal.aborted && !lifetime?.aborted)

@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -18,11 +18,13 @@ import {
 import { channelName, request } from "../../src/core/bus/index.ts";
 import type { AppSettings } from "../../src/core/config/catalog.ts";
 import { SettingsStore } from "../../src/core/config/index.ts";
+import { userSettingsPath } from "../../src/core/paths/index.ts";
 import { FAMILIES } from "../../src/families/index.ts";
 import piAuthPlus from "../../src/index.ts";
 import { CatalogVisibility } from "../../src/models/catalog/runtime.ts";
 import * as startupCoordinator from "../../src/models/catalog/startup.ts";
 import { GroupRegistrations } from "../../src/models/groups/registration.ts";
+import { selectModelIfCurrent } from "../../src/models/runtime/selection.ts";
 import { QuotaEngine } from "../../src/quotas/engine.ts";
 import * as quotaLine from "../../src/quotas/line/index.ts";
 import * as quotaMigration from "../../src/quotas/migrate/index.ts";
@@ -93,6 +95,8 @@ function lifecycleFixture(activeModel?: {
 			getRegisteredProviderConfig: () => undefined,
 			getRegisteredNativeProvider: () => undefined,
 			getAll: () => catalog,
+			find: (provider: string, id: string) =>
+				catalog.find((item) => item.provider === provider && item.id === id),
 			getAvailable: () => {
 				availableVirtuals.push([...virtuals.keys()]);
 				return [
@@ -134,7 +138,14 @@ function lifecycleFixture(activeModel?: {
 	const unexpected = (): never => {
 		throw new Error("Unexpected Pi API call");
 	};
-	const pi: ExtensionAPI = {
+	const select = (next: Model<Api>): boolean => {
+		switches.push(next);
+		ctx.model = next;
+		return true;
+	};
+	const pi: ExtensionAPI & {
+		setModelIfCurrent(model: Model<Api>, signal: AbortSignal): Promise<boolean>;
+	} = {
 		on: (event: string, handler: unknown) => {
 			if (typeof handler !== "function") return unexpected();
 			const list = handlers.get(event) ?? [];
@@ -172,11 +183,8 @@ function lifecycleFixture(activeModel?: {
 		setActiveTools: (names) => {
 			activeTools = [...names];
 		},
-		setModel: async (next) => {
-			switches.push(next);
-			ctx.model = next;
-			return true;
-		},
+		setModel: async (next) => select(next),
+		setModelIfCurrent: async (next, signal) => !signal.aborted && select(next),
 		getThinkingLevel: unexpected,
 		setThinkingLevel: unexpected,
 		unregisterProvider: unexpected,
@@ -381,6 +389,108 @@ for (const policy of ["warn", "fallback", "fallback-physical", "fallback-no-cand
 		}
 	});
 }
+
+test("guarded selection short-circuits cancellation and detects a missing host method", async () => {
+	const { pi, model } = lifecycleFixture();
+	const legacy = spyOn(pi, "setModel");
+	const guarded = spyOn(pi, "setModelIfCurrent");
+	const controller = new AbortController();
+	controller.abort();
+	try {
+		expect(await selectModelIfCurrent(pi, model, controller.signal)).toBe("not-applied");
+		expect(guarded).not.toHaveBeenCalled();
+		guarded.mockRestore();
+		Reflect.deleteProperty(pi, "setModelIfCurrent");
+		expect(await selectModelIfCurrent(pi, model, controller.signal)).toBe("not-applied");
+		expect(await selectModelIfCurrent(pi, model, new AbortController().signal)).toBe("unsupported");
+		Reflect.set(pi, "setModelIfCurrent", undefined);
+		expect(await selectModelIfCurrent(pi, model, new AbortController().signal)).toBe("unsupported");
+		expect(legacy).not.toHaveBeenCalled();
+	} finally {
+		guarded.mockRestore();
+		legacy.mockRestore();
+	}
+});
+
+test("legacy host keeps a hidden selection, continues startup, and persists rules", async () => {
+	const cleanup = groupSettings(["group/alpha"], "fallback");
+	const fixture = lifecycleFixture({ provider: "group", id: "alpha" });
+	fixture.catalog.push(fixture.model);
+	Reflect.deleteProperty(fixture.pi, "setModelIfCurrent");
+	const legacy = spyOn(fixture.pi, "setModel");
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		if (!deps?.saveSettings) throw new Error("Missing settings saver");
+		expect(start).toHaveBeenCalled();
+		expect(legacy).not.toHaveBeenCalled();
+		expect(fixture.ctx.model?.id).toBe("alpha");
+		expect(fixture.notices).toContain(
+			"group/alpha is hidden by model rules; automatic selection is unavailable on this host, so the current selection was kept. Use /model to select a visible model.",
+		);
+		expect(fixture.noticeTones[fixture.notices.length - 1]).toBe("warning");
+		fixture.notices.length = 0;
+		const rules = ["group/*", "!group/beta"];
+		const outcome = await deps.saveSettings("user", { "models.rules": rules });
+		expect(outcome).toMatchObject({ committed: true, scope: "user" });
+		expect(JSON.parse(readFileSync(userSettingsPath(), "utf8"))).toMatchObject({
+			models: { rules, hiddenDefault: "fallback" },
+		});
+		expect(legacy).not.toHaveBeenCalled();
+		expect(fixture.ctx.model?.id).toBe("alpha");
+		expect(fixture.notices).toContain(
+			"group/alpha is hidden by model rules; automatic selection is unavailable on this host, so the current selection was kept. Use /model to select a visible model.",
+		);
+	} finally {
+		await fixture.run("session_shutdown");
+		capture.mockRestore();
+		start.mockRestore();
+		legacy.mockRestore();
+		cleanup();
+	}
+});
+
+test("legacy host persists an override and asks for manual reselection", async () => {
+	const cleanup = groupSettings([]);
+	const fixture = lifecycleFixture({ provider: "test-provider", id: "model" });
+	fixture.catalog.push(fixture.model);
+	Reflect.deleteProperty(fixture.pi, "setModelIfCurrent");
+	const legacy = spyOn(fixture.pi, "setModel");
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		if (!deps?.models?.details) throw new Error("Missing model details");
+		fixture.notices.length = 0;
+		await deps.models.details.save("test-provider", "model", [
+			{ field: ["contextWindow"], edit: { kind: "set", value: 2000 } },
+		]);
+		expect(await deps.models.details.read("test-provider", "model")).toEqual({
+			contextWindow: 2000,
+		});
+		expect(legacy).not.toHaveBeenCalled();
+		expect(fixture.ctx.model?.contextWindow).toBe(1000);
+		expect(fixture.notices).toEqual([
+			"Model override saved; automatic reselection is unavailable on this host. Use /model to reselect the model and apply it.",
+		]);
+		expect(fixture.noticeTones.at(-1)).toBe("warning");
+	} finally {
+		await fixture.run("session_shutdown");
+		capture.mockRestore();
+		start.mockRestore();
+		legacy.mockRestore();
+		cleanup();
+	}
+});
 
 async function respond(fixture: ReturnType<typeof lifecycleFixture>, provider: string) {
 	const model = { ...fixture.model, provider };
@@ -1877,7 +1987,7 @@ test("a selected-model failure is reported after groups refresh", async () => {
 	const cleanup = groupSettings([], "fallback");
 	const fixture = lifecycleFixture({ provider: "group", id: "alpha" });
 	fixture.catalog.push(fixture.model);
-	const switching = spyOn(fixture.pi, "setModel").mockRejectedValue(
+	const switching = spyOn(fixture.pi, "setModelIfCurrent").mockRejectedValue(
 		new Error("selection unavailable"),
 	);
 	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
@@ -1904,6 +2014,219 @@ test("a selected-model failure is reported after groups refresh", async () => {
 	}
 });
 
+test("a guarded fallback that is not applied asks for manual selection", async () => {
+	const cleanup = groupSettings([], "fallback");
+	const fixture = lifecycleFixture({ provider: "group", id: "alpha" });
+	fixture.catalog.push(fixture.model);
+	const switching = spyOn(fixture.pi, "setModelIfCurrent").mockResolvedValue(false);
+	const legacy = spyOn(fixture.pi, "setModel");
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		if (!deps?.saveSettings) throw new Error("Missing settings saver");
+		fixture.notices.length = 0;
+		const outcome = await deps.saveSettings("runtime", { "models.rules": ["group/alpha"] });
+		expect(outcome).toMatchObject({ committed: true, warnings: [] });
+		expect(switching).toHaveBeenCalledTimes(1);
+		expect(legacy).not.toHaveBeenCalled();
+		expect(fixture.notices).toEqual([
+			"group/alpha is hidden by model rules; automatic fallback was not applied. Use /model to select a visible model.",
+		]);
+	} finally {
+		await fixture.run("session_shutdown");
+		capture.mockRestore();
+		start.mockRestore();
+		legacy.mockRestore();
+		switching.mockRestore();
+		cleanup();
+	}
+});
+
+test("a cancelled fallback without candidates emits no stale warning", async () => {
+	const cleanup = groupSettings([], "fallback");
+	const fixture = lifecycleFixture({ provider: "group", id: "alpha" });
+	const controller = new AbortController();
+	const visibility = spyOn(CatalogVisibility.prototype, "apply").mockResolvedValue({
+		signal: controller.signal,
+		warnings: [],
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		if (!deps?.saveSettings) throw new Error("Missing settings saver");
+		fixture.ctx.modelRegistry.getAvailable = () => {
+			controller.abort();
+			return [];
+		};
+		fixture.notices.length = 0;
+		const outcome = await deps.saveSettings("runtime", { "models.rules": ["group/alpha"] });
+		expect(outcome).toMatchObject({ committed: true, warnings: [] });
+		expect(fixture.notices).toEqual([]);
+	} finally {
+		await fixture.run("session_shutdown");
+		capture.mockRestore();
+		visibility.mockRestore();
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+for (const result of ["selected", "not-applied", "error"] as const) {
+	test(`guarded override reselection reports ${result} and preserves the edit`, async () => {
+		const cleanup = groupSettings([]);
+		const fixture = lifecycleFixture({ provider: "test-provider", id: "model" });
+		fixture.catalog.push(fixture.model);
+		const select = fixture.pi.setModelIfCurrent;
+		const switching = spyOn(fixture.pi, "setModelIfCurrent").mockImplementation(
+			async (model, signal) => {
+				if (result === "error") throw new Error("selection unavailable");
+				return result === "selected" && (await select(model, signal));
+			},
+		);
+		const legacy = spyOn(fixture.pi, "setModel");
+		const apply = CatalogVisibility.prototype.apply;
+		let lifetime: AbortSignal | undefined;
+		const visibility = spyOn(CatalogVisibility.prototype, "apply").mockImplementation(
+			async function (this: CatalogVisibility, ctx, providers, owner, store) {
+				const applied = await apply.call(this, ctx, providers, owner, store);
+				if (applied) lifetime = applied.signal;
+				return applied;
+			},
+		);
+		const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+		let deps: AuthCommandDeps | undefined;
+		const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation(
+			(_pi, value) => {
+				deps = value;
+			},
+		);
+		try {
+			await piAuthPlus(fixture.pi);
+			await fixture.run("session_start");
+			if (!deps?.models?.details) throw new Error("Missing model details");
+			fixture.notices.length = 0;
+			await deps.models.details.save("test-provider", "model", [
+				{ field: ["contextWindow"], edit: { kind: "set", value: 2000 } },
+			]);
+			expect(await deps.models.details.read("test-provider", "model")).toEqual({
+				contextWindow: 2000,
+			});
+			expect(switching).toHaveBeenCalledTimes(1);
+			expect(switching.mock.calls[0]?.[0]).toBe(fixture.model);
+			expect(switching.mock.calls[0]?.[1]).toBe(lifetime);
+			expect(lifetime?.aborted).toBe(false);
+			expect(legacy).not.toHaveBeenCalled();
+			expect(fixture.switches).toEqual(result === "selected" ? [fixture.model] : []);
+			expect(fixture.notices).toEqual(
+				result === "selected"
+					? []
+					: result === "not-applied"
+						? ["Model override saved; use /model to reselect the model and apply it."]
+						: ["Model override saved, but catalog refresh failed: selection unavailable"],
+			);
+		} finally {
+			await fixture.run("session_shutdown");
+			capture.mockRestore();
+			visibility.mockRestore();
+			start.mockRestore();
+			legacy.mockRestore();
+			switching.mockRestore();
+			cleanup();
+		}
+	});
+}
+
+for (const source of ["settings", "override"] as const) {
+	test(`a deferred ${source} selection cannot replace a newer model`, async () => {
+		const cleanup = groupSettings([], "fallback");
+		const fixture = lifecycleFixture(
+			source === "settings"
+				? { provider: "group", id: "alpha" }
+				: { provider: "test-provider", id: "model" },
+		);
+		fixture.catalog.push(fixture.model);
+		const entered = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		const select = fixture.pi.setModelIfCurrent;
+		const switching = spyOn(fixture.pi, "setModelIfCurrent").mockImplementation(
+			async (model, signal) => {
+				entered.resolve();
+				await release.promise;
+				return select(model, signal);
+			},
+		);
+		const legacy = spyOn(fixture.pi, "setModel");
+		const apply = CatalogVisibility.prototype.apply;
+		let lifetime: AbortSignal | undefined;
+		const visibility = spyOn(CatalogVisibility.prototype, "apply").mockImplementation(
+			async function (this: CatalogVisibility, ctx, providers, owner, store) {
+				const applied = await apply.call(this, ctx, providers, owner, store);
+				if (applied) lifetime = applied.signal;
+				return applied;
+			},
+		);
+		const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+		let deps: AuthCommandDeps | undefined;
+		const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation(
+			(_pi, value) => {
+				deps = value;
+			},
+		);
+		try {
+			await piAuthPlus(fixture.pi);
+			await fixture.run("session_start");
+			if (!deps?.saveSettings || !deps.models?.details)
+				throw new Error("Missing settings integration");
+			const pending =
+				source === "settings"
+					? deps.saveSettings("runtime", { "models.rules": ["group/alpha"] })
+					: deps.models.details.save("test-provider", "model", [
+							{ field: ["contextWindow"], edit: { kind: "set", value: 2000 } },
+						]);
+			await entered.promise;
+			const selectionSignal = switching.mock.calls[0]?.[1];
+			expect(selectionSignal).toBe(lifetime);
+			expect(selectionSignal?.aborted).toBe(false);
+			const replacement = { ...fixture.model, id: "manual-choice" };
+			fixture.ctx.model = replacement;
+			if (source === "settings") await deps.models.details.save("test-provider", "model", []);
+			else await deps.saveSettings("runtime", { "models.rules": [] });
+			expect(selectionSignal?.aborted).toBe(true);
+			fixture.notices.length = 0;
+			release.resolve();
+			const outcome = await pending;
+			if (source === "settings") expect(outcome).toMatchObject({ committed: true, warnings: [] });
+			else
+				expect(await deps.models.details.read("test-provider", "model")).toEqual({
+					contextWindow: 2000,
+				});
+			expect(fixture.ctx.model).toBe(replacement);
+			expect(fixture.switches).toEqual([]);
+			expect(legacy).not.toHaveBeenCalled();
+			expect(fixture.notices).toEqual([]);
+		} finally {
+			release.resolve();
+			await fixture.run("session_shutdown");
+			capture.mockRestore();
+			visibility.mockRestore();
+			start.mockRestore();
+			legacy.mockRestore();
+			switching.mockRestore();
+			cleanup();
+		}
+	});
+}
+
 for (const source of ["settings", "override"] as const) {
 	test(`a superseded ${source} selection does not report failure or refresh groups again`, async () => {
 		const cleanup = groupSettings([], "fallback");
@@ -1911,15 +2234,17 @@ for (const source of ["settings", "override"] as const) {
 		fixture.catalog.push(fixture.model);
 		const entered = Promise.withResolvers<void>();
 		const release = Promise.withResolvers<boolean>();
-		const setModel = fixture.pi.setModel;
+		const setModelIfCurrent = fixture.pi.setModelIfCurrent;
 		let selections = 0;
-		const switching = spyOn(fixture.pi, "setModel").mockImplementation(async (model) => {
-			if (++selections === 1) {
-				entered.resolve();
-				return await release.promise;
-			}
-			return setModel(model);
-		});
+		const switching = spyOn(fixture.pi, "setModelIfCurrent").mockImplementation(
+			async (model, signal) => {
+				if (++selections === 1) {
+					entered.resolve();
+					return await release.promise;
+				}
+				return setModelIfCurrent(model, signal);
+			},
+		);
 		const applyGroups = GroupRegistrations.prototype.apply;
 		const groups = spyOn(GroupRegistrations.prototype, "apply").mockImplementation(function (
 			this: GroupRegistrations,

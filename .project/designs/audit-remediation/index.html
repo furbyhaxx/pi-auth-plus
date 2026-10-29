@@ -6,15 +6,18 @@ document:
   title: "Auth dashboard audit remediation preview"
   description: "Interactive preview for dashboard-wide drafts, searchable model selection, typed settings and compact-layout controls"
   status: "draft"
-  revision: 1
+  revision: 2
   created_at: "2026-10-29T16:41:09+01:00"
-  updated_at: "2026-10-29T16:46:59+01:00"
+  updated_at: "2026-10-29T17:17:40+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
     - revision: 1
       reason: "document creation"
       changes: ["Preview F03, F20, F21, F25, F29, F31 and F32 UX remediation"]
+    - revision: 2
+      reason: "correct preview behavior before user review"
+      changes: ["Fix layered setting saves, narrow layouts, picker keyboard choice and closed-dashboard visibility"]
 -->
 <html lang="en">
 <head>
@@ -155,7 +158,7 @@ document:
     background: var(--terminal);
   }
   #terminalScreen {
-    width: min(100%, var(--screen-width, 720px));
+    width: var(--screen-width, 720px);
     min-height: 280px;
     margin: 0 auto;
     padding: 10px 12px;
@@ -232,7 +235,7 @@ document:
   .detail-grid { display: grid; grid-template-columns: minmax(8ch, .8fr) minmax(0, 2fr); gap: 4px 10px; margin: 7px 0; }
   .detail-grid dt { color: var(--muted); }
   .detail-grid dd { margin: 0; overflow-wrap: anywhere; }
-  .panel-box { border: 1px solid var(--border); border-radius: 4px; padding: 9px; margin: 8px 0; background: var(--panel); }
+  .panel-box { container-type: inline-size; border: 1px solid var(--border); border-radius: 4px; padding: 9px; margin: 8px 0; background: var(--panel); }
   .panel-box h3 { margin: 0 0 6px; font-size: 13px; }
   .panel-box p { margin: 4px 0; }
   .screen-body input[type="search"], .screen-body input[type="text"], .dialog input[type="text"], .dialog input[type="search"] {
@@ -259,6 +262,8 @@ document:
   .rule-editor.drop-rule { grid-template-columns: minmax(0, 1fr) auto auto; }
   .rule-editor .drop-label { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); white-space: nowrap; }
   .small { color: var(--muted); font-size: 12px; }
+  .layer-summary { overflow-wrap: anywhere; }
+  .layer-summary p { margin: 3px 0; }
   .draft-state { color: var(--warn); font-size: 12px; }
   .picker-results { display: grid; gap: 3px; margin-top: 7px; }
   .picker-result {
@@ -332,18 +337,22 @@ document:
   }
   .toast[hidden] { display: none; }
   .reopen { display: grid; place-items: center; min-height: 45vh; text-align: center; }
+  .reopen[hidden] { display: none; }
   .reopen h2 { font-size: 16px; }
   .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  @container (max-width: 440px) {
+    .rule-editor, .rule-editor.drop-rule { grid-template-columns: minmax(0, 1fr) auto; }
+    .rule-editor:not(.drop-rule) input { grid-column: 1 / -1; }
+    .rule-editor:not(.drop-rule) > button { grid-column: 2; justify-self: end; }
+    .rule-editor.drop-rule > input { grid-column: 1 / -1; }
+    .rule-editor.drop-rule .drop-label { grid-column: 1; white-space: normal; }
+    .rule-editor.drop-rule > button { grid-column: 2; justify-self: end; }
+  }
   @media (max-width: 650px) {
     .page { padding: 9px; }
     header { padding: 10px; }
     .toolbar { justify-content: flex-start; }
     #terminalScreen { padding: 8px; }
-    .rule-editor { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    .rule-editor > button { grid-column: 2; justify-self: end; }
-    .rule-editor.drop-rule { grid-template-columns: minmax(0, 1fr) auto; }
-    .rule-editor.drop-rule .drop-label { grid-column: 2; }
-    .rule-editor.drop-rule > button { grid-column: 2; }
     .detail-grid { grid-template-columns: 1fr; gap: 1px; }
     .detail-grid dd { margin-bottom: 5px; }
   }
@@ -433,12 +442,22 @@ const INITIAL_SETTINGS = {
   showProvenance: true,
   showRuleReason: true,
 };
-const SETTINGS_KEYS = [
-  { key: "quotas.providers", label: "Quota providers", source: "Runtime" },
-  { key: "openai.verbosityProviders", label: "Verbosity providers", source: "User" },
-  { key: "claude.replacePatterns", label: "Literal replacement rules", source: "User" },
-  { key: "appearance", label: "Appearance", source: "Project (trusted)" },
-];
+const SETTING_KEYS = ["quotas.providers", "openai.verbosityProviders", "claude.replacePatterns", "appearance"];
+const SCOPE_PRIORITY = { user: 1, project: 2, runtime: 3 };
+const SCOPE_LABEL = { user: "User", project: "Trusted project", runtime: "Runtime" };
+const INITIAL_LAYERS = {
+  "quotas.providers": { runtime: structuredClone(INITIAL_SETTINGS.quotaProviders) },
+  "openai.verbosityProviders": { user: structuredClone(INITIAL_SETTINGS.verbosityProviders) },
+  "claude.replacePatterns": { user: structuredClone(INITIAL_SETTINGS.replaceRules) },
+  appearance: {
+    project: {
+      density: INITIAL_SETTINGS.density,
+      maxBodyRows: INITIAL_SETTINGS.maxBodyRows,
+      showProvenance: INITIAL_SETTINGS.showProvenance,
+      showRuleReason: INITIAL_SETTINGS.showRuleReason,
+    },
+  },
+};
 const state = {
   tab: "Providers",
   columns: 80,
@@ -448,9 +467,9 @@ const state = {
   selectedModelId: MODEL_FIXTURES[0].id,
   picker: null,
   groupMembers: [MODEL_FIXTURES[0].id, MODEL_FIXTURES[2].id],
+  layers: structuredClone(INITIAL_LAYERS),
   saved: structuredClone(INITIAL_SETTINGS),
   draft: structuredClone(INITIAL_SETTINGS),
-  lastSave: null,
   overlay: null,
   scope: "user",
   toastTimer: null,
@@ -486,13 +505,54 @@ function selectedModel() {
 function dirty() {
   return JSON.stringify(state.saved) !== JSON.stringify(state.draft);
 }
+function settingValue(snapshot, key) {
+  if (key === "quotas.providers") return snapshot.quotaProviders;
+  if (key === "openai.verbosityProviders") return snapshot.verbosityProviders;
+  if (key === "claude.replacePatterns") return snapshot.replaceRules;
+  return {
+    density: snapshot.density,
+    maxBodyRows: snapshot.maxBodyRows,
+    showProvenance: snapshot.showProvenance,
+    showRuleReason: snapshot.showRuleReason,
+  };
+}
+function setSettingValue(snapshot, key, value) {
+  if (key === "quotas.providers") snapshot.quotaProviders = structuredClone(value);
+  else if (key === "openai.verbosityProviders") snapshot.verbosityProviders = structuredClone(value);
+  else if (key === "claude.replacePatterns") snapshot.replaceRules = structuredClone(value);
+  else Object.assign(snapshot, structuredClone(value));
+}
+function currentEffectiveLayer(key) {
+  return Object.keys(state.layers[key]).sort((left, right) => SCOPE_PRIORITY[right] - SCOPE_PRIORITY[left])[0];
+}
+function currentEffectiveSource(key) { return SCOPE_LABEL[currentEffectiveLayer(key)]; }
+function currentEffectiveValue(key) { return state.layers[key][currentEffectiveLayer(key)]; }
+function effectiveSettingsSnapshot() {
+  const snapshot = structuredClone(INITIAL_SETTINGS);
+  for (const key of SETTING_KEYS) setSettingValue(snapshot, key, currentEffectiveValue(key));
+  return snapshot;
+}
+function formatLayerValue(key, value) {
+  if (key === "quotas.providers" || key === "openai.verbosityProviders") return value.length ? value.join(", ") : "(empty)";
+  if (key === "claude.replacePatterns") return value.length ? value.map((rule) => `${rule.match} → ${rule.drop ? "drop" : rule.replacement}`).join("; ") : "(no rules)";
+  return `density ${value.density}; max rows ${value.maxBodyRows}; provenance ${value.showProvenance ? "on" : "off"}; rule reason ${value.showRuleReason ? "on" : "off"}`;
+}
+function renderLayerSummary(container, key) {
+  const summary = node("div", "layer-summary");
+  const saved = node("p", "small");
+  saved.append(node("strong", "", "Saved layers: "));
+  const scopes = Object.keys(state.layers[key]).sort((left, right) => SCOPE_PRIORITY[left] - SCOPE_PRIORITY[right]);
+  scopes.forEach((scope, index) => {
+    if (index) saved.append(document.createTextNode(" · "));
+    saved.append(document.createTextNode(`${SCOPE_LABEL[scope]} = ${formatLayerValue(key, state.layers[key][scope])}`));
+  });
+  const effective = node("p", "small");
+  effective.append(node("strong", "", `Effective · ${currentEffectiveSource(key)}: `), document.createTextNode(formatLayerValue(key, currentEffectiveValue(key))));
+  summary.append(saved, effective);
+  container.append(summary);
+}
 function dirtyKeys() {
-  const keys = [];
-  if (JSON.stringify(state.saved.quotaProviders) !== JSON.stringify(state.draft.quotaProviders)) keys.push("quotas.providers");
-  if (JSON.stringify(state.saved.verbosityProviders) !== JSON.stringify(state.draft.verbosityProviders)) keys.push("openai.verbosityProviders");
-  if (JSON.stringify(state.saved.replaceRules) !== JSON.stringify(state.draft.replaceRules)) keys.push("claude.replacePatterns");
-  if (["density", "maxBodyRows", "showProvenance", "showRuleReason"].some((key) => state.saved[key] !== state.draft[key])) keys.push("appearance");
-  return keys;
+  return SETTING_KEYS.filter((key) => JSON.stringify(settingValue(state.saved, key)) !== JSON.stringify(settingValue(state.draft, key)));
 }
 function updateTabButtons() {
   for (const tabButton of tabRoot.querySelectorAll("button[role=tab]")) {
@@ -721,7 +781,7 @@ function renderPicker() {
   controls.append(button("Close picker", () => { state.picker = null; renderScreen(); }));
   bodyRoot.append(controls);
   renderPickerResults();
-  hints("↑/↓ move result · PgUp/PgDn page · Enter choose · / search · Esc review dashboard drafts · ? help");
+  hints("↑/↓ move result · PgUp/PgDn page · Enter choose focused result · / search · Esc review drafts · ? help");
 }
 function renderPickerResults() {
   if (!state.picker) return;
@@ -740,9 +800,17 @@ function renderPickerResults() {
     const result = button("", () => {
       picker.selectedId = model.id;
       renderPickerResults();
+      [...document.querySelectorAll(".picker-result")].find((candidate) => candidate.dataset.modelId === model.id)?.focus();
     }, "picker-result");
     result.dataset.modelId = model.id;
     result.setAttribute("aria-pressed", String(model.id === picker.selectedId));
+    result.setAttribute("aria-label", `Inspect ${model.name}, ${model.id}; Enter chooses this result`);
+    result.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      picker.selectedId = model.id;
+      choosePickerModel();
+    });
     result.append(node("span", "picker-name", model.name), node("span", "picker-id mono", model.id));
     results.append(result);
   }
@@ -772,6 +840,7 @@ function choosePickerModel() {
   }
   state.picker = null;
   renderScreen();
+  document.getElementById(`tab-${state.tab.toLowerCase()}`)?.focus();
 }
 function renderGroups() {
   description("Groups · the sample group reuses the same search, paging and selection-detail picker as Models.");
@@ -812,6 +881,7 @@ function renderProviderChecklist(container, title, key, options) {
   }
   panel.append(group, node("p", "small", "Values are local preview choices only; no real provider names or details are loaded."));
   container.append(panel);
+  renderLayerSummary(container, title);
 }
 function renderReplacementRules(container) {
   sectionTitle(container, "claude.replacePatterns", "literal match → optional replacement or drop");
@@ -865,6 +935,7 @@ function renderReplacementRules(container) {
     bodyRoot.querySelector(".rule-editor:last-of-type input")?.focus();
   }));
   container.append(panel);
+  renderLayerSummary(container, "claude.replacePatterns");
 }
 function renderSettings() {
   description("Settings · edits stay staged across every dashboard tab. Save opens an explicit scope choice.");
@@ -937,6 +1008,7 @@ function renderSettings() {
   }
   appearance.append(node("p", "small", "List metadata can be hidden; full picker detail remains available. Primary model ID and Listed/Hidden state are always retained."));
   bodyRoot.append(appearance);
+  renderLayerSummary(bodyRoot, "appearance");
   hints("Ctrl+S choose save scope · Esc Keep editing / Discard drafts · Alt+←/→ tabs · ? complete keyboard help");
   updateSaveButton();
 }
@@ -1009,10 +1081,6 @@ function askDiscard() {
     }));
   });
 }
-function currentEffectiveSource(key) {
-  if (state.lastSave?.keys.includes(key)) return state.lastSave.sources[key] || "Runtime";
-  return SETTINGS_KEYS.find((setting) => setting.key === key)?.source || "User";
-}
 function openSaveDialog() {
   if (!dirty()) {
     showToast("No staged settings to save.");
@@ -1020,18 +1088,14 @@ function openSaveDialog() {
   }
   state.scope = "user";
   const keys = dirtyKeys();
-  const scopeLabel = () => ({ user: "User", project: "Trusted project", runtime: "Runtime" })[state.scope];
   const renderScopeWarning = (content) => {
     const warningHost = content.querySelector("#scopeWarning");
     if (!warningHost) return;
     warningHost.replaceChildren();
-    const shadowed = keys.filter((key) => {
-      const source = currentEffectiveSource(key);
-      const rank = { User: 1, "Project (trusted)": 2, Runtime: 3 };
-      return rank[source] > rank[state.scope === "user" ? "User" : state.scope === "project" ? "Project (trusted)" : "Runtime"];
-    });
+    const shadowed = keys.filter((key) => SCOPE_PRIORITY[currentEffectiveLayer(key)] > SCOPE_PRIORITY[state.scope]);
     if (shadowed.length) {
-      warningHost.append(node("div", "warning-box", `Shadow warning: ${shadowed.join(", ")} currently resolve from ${[...new Set(shadowed.map(currentEffectiveSource))].join(", ")}. Saving to ${scopeLabel()} will not change the effective value.`));
+      const sources = [...new Set(shadowed.map(currentEffectiveSource))].join(", ");
+      warningHost.append(node("div", "warning-box", `Shadow warning: ${shadowed.join(", ")} currently resolve from ${sources}. Saving to ${SCOPE_LABEL[state.scope]} stores these lower-layer values without changing the effective value.`));
     } else {
       warningHost.append(node("p", "small", `Effective source for changed settings: ${keys.map((key) => `${key} · ${currentEffectiveSource(key)}`).join("; ")}.`));
     }
@@ -1069,20 +1133,13 @@ function openSaveDialog() {
     actions.append(button("Save to selected scope", () => {
       const target = state.scope;
       const savedKeys = dirtyKeys();
-      const sourceByKey = {};
-      const rank = { user: 1, project: 2, runtime: 3 };
-      const sourceName = { user: "User", project: "Project (trusted)", runtime: "Runtime" };
-      for (const key of savedKeys) {
-        const source = currentEffectiveSource(key);
-        const sourceRank = source === "Runtime" ? 3 : source === "Project (trusted)" ? 2 : 1;
-        sourceByKey[key] = rank[target] < sourceRank ? source : sourceName[target];
-      }
-      state.saved = structuredClone(state.draft);
-      state.lastSave = { keys: savedKeys, scope: target, sources: sourceByKey };
+      for (const key of savedKeys) state.layers[key][target] = structuredClone(settingValue(state.draft, key));
+      state.saved = effectiveSettingsSnapshot();
+      state.draft = structuredClone(state.saved);
       closeDialog();
       renderScreen();
-      const shadowed = savedKeys.filter((key) => sourceByKey[key] !== sourceName[target]);
-      showToast(shadowed.length ? `Saved to ${sourceName[target]}; ${shadowed.join(", ")} remain shadowed by ${[...new Set(shadowed.map((key) => sourceByKey[key]))].join(", ")}.` : `Saved to ${sourceName[target]} · effective source updated.`);
+      const shadowed = savedKeys.filter((key) => currentEffectiveLayer(key) !== target);
+      showToast(shadowed.length ? `Saved to ${SCOPE_LABEL[target]}; ${shadowed.join(", ")} remain shadowed by ${[...new Set(shadowed.map(currentEffectiveSource))].join(", ")}.` : `Saved to ${SCOPE_LABEL[target]} · effective source updated.`);
     }, "primary"));
   });
 }
@@ -1116,7 +1173,7 @@ function openHelp() {
         ["Type", "Searches model IDs and human names together."],
         ["↑ / ↓", "Move through results when a result is focused."],
         ["PgUp / PgDn", "Move between result pages."],
-        ["Enter", "Choose the selected result after inspecting its details."],
+        ["Enter", "Choose the focused result, or commit the inspected selection from its Choose button."],
       ]],
       ["Settings and dialogs", [
         ["Space", "Toggle a focused provider or metadata checkbox."],

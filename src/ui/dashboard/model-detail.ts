@@ -9,7 +9,7 @@ import {
 import type { OverrideEdit } from "../../models/overrides/index.ts";
 import { sanitize } from "../frame/index.ts";
 import { AliasDetail } from "./alias-detail.ts";
-import type { ModelCatalogItem, ModelsTabDeps } from "./models.ts";
+import type { ModelCatalogItem, ModelPresentation, ModelsTabDeps, RuleOutcome } from "./models.ts";
 import type { TabBody, TabViewHost } from "./view.ts";
 
 type Field = {
@@ -18,6 +18,7 @@ type Field = {
 	kind: "name" | "integer" | "cost" | "boolean" | "input" | "verbosity";
 	value: unknown;
 };
+type DetailPresentation = ModelPresentation & { outcome?: RuleOutcome; aliasSource?: string };
 const clean = (value: string) => sanitize(value).replace(/\n/g, " ");
 function at(value: unknown, path: readonly string[]): unknown {
 	for (const key of path) {
@@ -33,6 +34,7 @@ export class ModelDetail {
 	readonly #deps: NonNullable<ModelsTabDeps["details"]>;
 	readonly #item: ModelCatalogItem;
 	readonly #back: () => void;
+	readonly #presentation: (() => DetailPresentation) | undefined;
 	readonly #input = new Input({ prompt: "", placeholder: "" });
 	readonly #fields: Field[];
 	#override: Record<string, unknown> | undefined;
@@ -52,11 +54,13 @@ export class ModelDetail {
 		deps: NonNullable<ModelsTabDeps["details"]>,
 		item: ModelCatalogItem,
 		back: () => void,
+		presentation?: () => DetailPresentation,
 	) {
 		this.#host = host;
 		this.#deps = deps;
 		this.#item = item;
 		this.#back = back;
+		this.#presentation = presentation;
 		this.#fields = [
 			{ label: "Name", path: ["name"], kind: "name", value: item.name },
 			{
@@ -327,9 +331,17 @@ export class ModelDetail {
 	render(width: number, bodyRows: number): TabBody {
 		if (this.#aliasDetail) return this.#aliasDetail.render(width, bodyRows);
 		const { theme } = this.#host;
+		const presentation = this.#presentation?.();
 		const rows = [
 			` ${clean(this.#item.provider)}/${clean(this.#item.id)}${this.#changes.size ? " · staged" : ""}`,
 		];
+		if (presentation?.outcome)
+			rows.push(` Visibility · ${presentation.outcome.visible ? "listed" : "hidden"}`);
+		if (presentation?.showProvenance && presentation.aliasSource !== undefined)
+			rows.push(` Alias of · ${clean(this.#item.provider)}/${clean(presentation.aliasSource)}`);
+		if (presentation?.showMatchedRule && presentation.outcome?.ruleIndex !== undefined)
+			rows.push(` Matched rule · ${presentation.outcome.ruleIndex + 1}`);
+		const headerRows = rows.length;
 		for (const [index, field] of this.#fields.entries()) {
 			const edit = this.#changes.get(index);
 			const value =
@@ -342,13 +354,18 @@ export class ModelDetail {
 				edit?.kind === "remove"
 					? "inherit (staged)"
 					: edit?.kind === "set"
-						? "override (staged)"
-						: at(this.#override, field.path) !== undefined
-							? "override"
-							: "default";
+						? presentation?.showProvenance
+							? "override (staged)"
+							: "staged"
+						: presentation?.showProvenance && this.#mode !== "loading" && !this.#unavailable
+							? at(this.#override, field.path) !== undefined
+								? "override"
+								: "default"
+							: undefined;
 			const marker = index === this.#selected ? theme.fg("accent", "❯") : " ";
 			const prefix = ` ${marker} ${field.label} · `;
-			const suffix = ` · ${source}`;
+			let suffix = source ? ` · ${source}` : "";
+			if (edit && visibleWidth(prefix + suffix) > width) suffix = " · staged";
 			const display =
 				index === this.#selected && this.#mode === "edit"
 					? (this.#input.render(
@@ -359,7 +376,9 @@ export class ModelDetail {
 								? value.join(", ")
 								: String(value ?? (field.kind === "verbosity" ? "inherit" : "unknown")),
 						);
-			rows.push(`${prefix}${display}${suffix}`);
+			rows.push(
+				`${prefix}${truncateToWidth(display, Math.max(0, width - visibleWidth(prefix) - visibleWidth(suffix)), "…")}${suffix}`,
+			);
 		}
 		rows.push(" Aliases");
 		const aliases = this.#aliases();
@@ -388,7 +407,8 @@ export class ModelDetail {
 				: [];
 		const reserved = Math.min(details.length, Math.max(0, bodyRows - 1));
 		const available = Math.max(0, bodyRows - reserved);
-		const selectedRow = this.#selected + 1 + (this.#selected >= this.#fields.length ? 1 : 0);
+		const selectedRow =
+			this.#selected + headerRows + (this.#selected >= this.#fields.length ? 1 : 0);
 		this.#offset = Math.max(0, Math.min(this.#offset, selectedRow));
 		this.#offset = Math.max(this.#offset, selectedRow - available + 1);
 		this.#offset = Math.max(0, Math.min(this.#offset, rows.length - available));
@@ -402,7 +422,10 @@ export class ModelDetail {
 			below: Math.max(0, rows.length - this.#offset - available),
 			modal: true,
 			state: truncateToWidth(
-				theme.fg("dim", this.#changes.size ? "staged" : "model detail"),
+				theme.fg(
+					"dim",
+					`${presentation?.outcome ? `${presentation.outcome.visible ? "listed" : "hidden"} · ` : ""}${this.#changes.size ? "staged" : "model detail"}`,
+				),
 				Math.max(0, width),
 				"…",
 			),

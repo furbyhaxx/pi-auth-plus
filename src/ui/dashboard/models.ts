@@ -10,7 +10,7 @@ import type { SaveScope } from "../../core/config/index.ts";
 import { formatSaveOutcome, type SaveOutcome } from "../../core/config/save.ts";
 import type { ModelAlias } from "../../models/aliases/index.ts";
 import type { OverrideEdit } from "../../models/overrides/index.ts";
-import { exactModelRule } from "../../models/rules/match.ts";
+import { compileModelRules, exactModelRule } from "../../models/rules/match.ts";
 import { type HintItem, sanitize } from "../frame/index.ts";
 import { ModelDetail } from "./model-detail.ts";
 import { ModelPicker } from "./model-picker.ts";
@@ -27,6 +27,8 @@ export interface ModelCatalogItem {
 	input?: readonly ("text" | "image")[];
 	cost?: { input: number; output: number; cacheRead: number; cacheWrite: number };
 	api?: string;
+	/** Physical source ID for an accepted alias. */
+	aliasSource?: string;
 }
 
 /** The final visibility and the last matching rule, if any. */
@@ -35,10 +37,18 @@ export interface RuleOutcome {
 	ruleIndex?: number;
 }
 
+/** Optional metadata displayed alongside model identity and visibility. */
+export interface ModelPresentation {
+	showProvenance: boolean;
+	showMatchedRule: boolean;
+}
+
 /** Session-owned sources and persistence for model rules. */
 export interface ModelsTabDeps {
 	rules(): readonly string[];
 	catalog(): readonly ModelCatalogItem[];
+	/** Read the current preferences; omission disables both optional labels. */
+	presentation?(): ModelPresentation;
 	evaluate(rules: readonly string[], provider: string, id: string): RuleOutcome;
 	save(rules: readonly string[], scope: SaveScope): Promise<SaveOutcome>;
 	details?: {
@@ -61,13 +71,17 @@ function text(value: string): string {
 	return sanitize(value).replace(/\n/g, " ");
 }
 
+interface RuleEffect {
+	hidden: number;
+	shown: number;
+}
+
 interface Preview {
 	rules: readonly string[];
 	catalogVersion: number;
 	outcomes: readonly RuleOutcome[];
 	hidden: number;
-	selection: number | undefined;
-	effect: number | undefined;
+	effects: readonly RuleEffect[];
 }
 
 function sameCatalogItem(left: ModelCatalogItem, right: ModelCatalogItem): boolean {
@@ -79,6 +93,7 @@ function sameCatalogItem(left: ModelCatalogItem, right: ModelCatalogItem): boole
 		left.maxTokens === right.maxTokens &&
 		left.reasoning === right.reasoning &&
 		left.api === right.api &&
+		left.aliasSource === right.aliasSource &&
 		left.cost?.input === right.cost?.input &&
 		left.cost?.output === right.cost?.output &&
 		left.cost?.cacheRead === right.cost?.cacheRead &&
@@ -147,6 +162,8 @@ export class ModelsView implements TabView {
 	#catalogItems: ModelCatalogItem[] = [];
 	#catalogVersion = 0;
 	#preview: Preview | undefined;
+	#catalogWidth = 0;
+	#presentation: ModelPresentation = { showProvenance: false, showMatchedRule: false };
 
 	constructor(host: TabViewHost, deps: ModelsTabDeps) {
 		this.#host = host;
@@ -156,13 +173,31 @@ export class ModelsView implements TabView {
 			() => this.#catalog(),
 			(item) => {
 				if (deps.details)
-					this.#detail = new ModelDetail(host, deps.details, item, () => this.#closeDetail());
+					this.#detail = new ModelDetail(
+						host,
+						deps.details,
+						item,
+						() => this.#closeDetail(),
+						() => {
+							const catalog = this.#catalog();
+							const index = catalog.findIndex(
+								(model) => model.provider === item.provider && model.id === item.id,
+							);
+							const outcome = this.#previewFor(this.#rules(), catalog).outcomes[index];
+							const aliasSource = catalog[index]?.aliasSource;
+							return {
+								...this.#readPresentation(),
+								...(outcome ? { outcome } : {}),
+								...(aliasSource === undefined ? {} : { aliasSource }),
+							};
+						},
+					);
 			},
 			() => {
 				this.#view = "rules";
 				this.#offset = 0;
 			},
-			(_item, index) => (this.#preview?.outcomes[index]?.visible ? "listed" : "hidden"),
+			(item, index) => this.#annotation(item, index),
 		);
 	}
 
@@ -194,6 +229,35 @@ export class ModelsView implements TabView {
 	#closeDetail(): void {
 		this.#detail?.dispose();
 		this.#detail = undefined;
+	}
+
+	#readPresentation(): ModelPresentation {
+		return this.#deps.presentation?.() ?? { showProvenance: false, showMatchedRule: false };
+	}
+
+	#annotation(item: ModelCatalogItem, index: number): string {
+		const outcome = this.#preview?.outcomes[index];
+		let annotation = outcome?.visible ? "listed" : "hidden";
+		let remaining =
+			this.#catalogWidth -
+			visibleWidth(` ❯ ${annotation} ${text(item.provider)}/${text(item.id)} · ${text(item.name)}`);
+		const metadata = [
+			...(this.#presentation.showProvenance && item.aliasSource !== undefined
+				? [`alias of ${text(item.aliasSource)}`]
+				: []),
+			...(this.#presentation.showMatchedRule && outcome?.ruleIndex !== undefined
+				? [`rule ${outcome.ruleIndex + 1}`]
+				: []),
+		];
+		for (const part of metadata) {
+			const addition = ` · ${part}`;
+			const size = visibleWidth(addition);
+			if (size <= remaining) {
+				annotation += addition;
+				remaining -= size;
+			}
+		}
+		return annotation;
 	}
 
 	#rules(): readonly string[] {
@@ -247,33 +311,28 @@ export class ModelsView implements TabView {
 				if (!outcome.visible) hidden++;
 				return outcome;
 			});
+			const effects = stableRules.map(() => ({ hidden: 0, shown: 0 }));
+			const hiddenByPrefix = new Uint8Array(catalog.length);
+			const identities = catalog.map((item) => `${item.provider}/${item.id}`);
+			for (const rule of compileModelRules(stableRules)) {
+				const effect = effects[rule.ruleIndex];
+				if (!effect) continue;
+				const next = rule.hidden ? 1 : 0;
+				for (const [index, identity] of identities.entries()) {
+					if (hiddenByPrefix[index] === next || !rule.pattern.test(identity)) continue;
+					hiddenByPrefix[index] = next;
+					if (rule.hidden) effect.hidden++;
+					else effect.shown++;
+				}
+			}
 			preview = {
 				rules: stableRules,
 				catalogVersion: this.#catalogVersion,
 				outcomes,
 				hidden,
-				selection: undefined,
-				effect: undefined,
+				effects,
 			};
 			this.#preview = preview;
-		}
-		if (
-			this.#view === "rules" &&
-			rules[this.#ruleSelected] !== undefined &&
-			preview.selection !== this.#ruleSelected
-		) {
-			const beforeRule = preview.rules.slice(0, this.#ruleSelected);
-			const throughRule = preview.rules.slice(0, this.#ruleSelected + 1);
-			const before = catalog.map(
-				(item) => this.#deps.evaluate(beforeRule, item.provider, item.id).visible,
-			);
-			let effect = 0;
-			for (const [index, item] of catalog.entries()) {
-				if (before[index] !== this.#deps.evaluate(throughRule, item.provider, item.id).visible)
-					effect++;
-			}
-			preview.selection = this.#ruleSelected;
-			preview.effect = effect;
 		}
 		return preview;
 	}
@@ -454,13 +513,17 @@ export class ModelsView implements TabView {
 		const rules = this.#rules();
 		const catalog = this.#catalog();
 		this.#ruleSelected = Math.max(0, Math.min(this.#ruleSelected, rules.length - 1));
-		const { hidden, effect } = this.#previewFor(rules, catalog);
+		const { hidden, effects } = this.#previewFor(rules, catalog);
+		const selectedEffect = effects[this.#ruleSelected];
+		const effect = selectedEffect ? selectedEffect.hidden + selectedEffect.shown : undefined;
 		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
 		if (this.#view === "catalog") {
 			const details: string[] = [];
 			if (this.#message) details.push(` ${theme.fg("warning", text(this.#message))}`);
 			if (this.#mode === "save") details.push(" Save: u user · p project · r runtime");
 			const reserved = Math.min(details.length, Math.max(0, bodyRows - 1));
+			this.#catalogWidth = width;
+			this.#presentation = this.#readPresentation();
 			const body = this.#picker.render(width, Math.max(0, bodyRows - reserved));
 			const active = !this.#picker.isEditing() && !this.#picker.isInspecting();
 			// Leave room for the Models crumb and frame rules.
@@ -518,7 +581,14 @@ export class ModelsView implements TabView {
 				selected && this.#mode === "edit" && !this.#adding
 					? (this.#input.render(Math.max(1, width - 5))[0] ?? "")
 					: text(rule);
-			rows.push(` ${selected ? theme.fg("accent", "❯") : " "} ${value}`);
+			const effect = effects[index];
+			const label = effect?.hidden
+				? `${effect.hidden} hidden`
+				: effect?.shown
+					? `${effect.shown} shown`
+					: "0 changes";
+			const suffix = this.#mode === "edit" && selected && !this.#adding ? "" : ` · ${label}`;
+			rows.push(` ${selected ? theme.fg("accent", "❯") : " "} ${value}${suffix}`);
 		}
 		if (this.#mode === "edit" && this.#adding) {
 			selectedRow = rows.length;

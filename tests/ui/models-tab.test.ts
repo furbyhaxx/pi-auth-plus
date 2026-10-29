@@ -26,6 +26,7 @@ function open(
 	details?: ModelsTabDeps["details"],
 	bindings: KeybindingsConfig = {},
 	outcome?: (rules: readonly string[], scope: SaveScope) => SaveOutcome,
+	presentation?: () => { showProvenance: boolean; showMatchedRule: boolean },
 ) {
 	let stored = [...initial];
 	const saves: { rules: readonly string[]; scope: SaveScope }[] = [];
@@ -77,6 +78,7 @@ function open(
 		},
 	};
 	if (details) deps.details = details;
+	if (presentation) deps.presentation = presentation;
 	const view = new ModelsView(host, deps);
 	return {
 		view,
@@ -183,6 +185,7 @@ describe("models tab", () => {
 		}));
 		const target = catalog[5];
 		if (!target) throw new Error("fixture missing");
+		target.aliasSource = "physical-000";
 		let stored: readonly string[] = [];
 		const reads: string[] = [];
 		let previous: readonly string[] | undefined;
@@ -205,6 +208,7 @@ describe("models tab", () => {
 			{
 				rules: () => [...stored],
 				catalog: () => catalog.map((item) => ({ ...item })),
+				presentation: () => ({ showProvenance: true, showMatchedRule: true }),
 				evaluate: (rules, itemProvider, id) => {
 					evaluations++;
 					if (rules !== previous) {
@@ -241,6 +245,7 @@ describe("models tab", () => {
 		body = view.render(36, 6);
 		expect(body.state).toContain("6–10 of 555");
 		expect(body.lines.join(" ")).toContain("listed");
+		expect(view.render(140, 6).lines.join(" ")).toContain("alias of physical-000");
 		view.handleInput("\r");
 		await Promise.resolve();
 		expect(reads).toEqual([`${provider}/${target.id}`]);
@@ -404,7 +409,8 @@ describe("models tab", () => {
 		expect(rig.view().hasDrafts()).toBe(true);
 		rig.view().discardDrafts();
 		expect(rig.view().hasDrafts()).toBe(false);
-		expect(rig.text()).toContain("Name · First · default");
+		expect(rig.text()).toContain("Name · First");
+		expect(rig.text()).not.toContain("Name · First · default");
 		rig.panel.dispose();
 	});
 
@@ -624,16 +630,21 @@ describe("models tab", () => {
 		body = render();
 		expect(body.state).toContain("549 hidden");
 		expect(body.description).toContain("changes 550 models");
+		expect(evaluations).toBe(initialEvaluations);
 		expect(compilations - before).toBeLessThanOrEqual(3);
 		view.handleInput("j");
 		body = render();
 		expect(body.description).toContain("changes 1 model;");
+		expect(body.lines.join("\n")).toContain("vendor/* · 550 hidden");
+		expect(body.lines.join("\n")).toContain("!vendor/model-1 · 1 shown");
+		expect(body.lines.join("\n")).toContain("unmatched/rule-0 · 0 changes");
 
 		view.handleInput(" ");
 		before = compilations;
 		body = render();
 		expect(body.state).toContain("550 hidden");
 		expect(body.description).toContain("changes 0 models");
+		expect(body.lines.join("\n")).toContain("#!vendor/model-1 · 0 changes");
 		expect(compilations - before).toBeLessThanOrEqual(3);
 		expect(view.handleInput("\x1b")).toBe(false);
 		view.discardDrafts();
@@ -701,6 +712,109 @@ describe("models tab", () => {
 		const body = rig.view.render(140, 30);
 		expect(body.state).toContain("2 hidden");
 		expect(body.description).toContain("changes 1 model;");
+	});
+
+	test("live presentation explains accepted aliases, winning rules and override sources", async () => {
+		const presentation = { showProvenance: false, showMatchedRule: false };
+		const alias: ModelCatalogItem = {
+			provider: "vendor",
+			id: "copy",
+			name: "Copy",
+			contextWindow: 4096,
+			aliasSource: "one\x1b]0;evil\x07",
+		};
+		const rig = open(
+			["vendor/*", "!vendor/copy", "vendor/copy"],
+			false,
+			[alias],
+			{ read: async () => ({ contextWindow: 1200 }), save: async () => {} },
+			{},
+			undefined,
+			() => presentation,
+		);
+		let body = rig.view.render(140, 30);
+		let lines = body.lines.map(stripVTControlCharacters).join("\n");
+		expect(lines).toContain("vendor/* · 3 hidden");
+		expect(lines).toContain("!vendor/copy · 1 shown");
+		expect(lines).toContain("vendor/copy · 1 hidden");
+		rig.view.handleInput("v");
+		rig.view.handleInput("/");
+		rig.view.handleInput("vendor/copy");
+		rig.view.handleInput("\t");
+		expect(rig.text()).toContain("hidden vendor/copy · Copy");
+		expect(rig.text()).not.toContain("alias of");
+		expect(rig.text()).not.toContain("rule 3");
+		presentation.showProvenance = true;
+		expect(rig.text()).toContain("hidden · alias of one vendor/copy · Copy");
+		expect(rig.text()).not.toContain("rule 3");
+		presentation.showMatchedRule = true;
+		expect(rig.text()).toContain("hidden · alias of one · rule 3 vendor/copy · Copy");
+		presentation.showProvenance = false;
+		expect(rig.text()).toContain("hidden · rule 3 vendor/copy · Copy");
+		expect(rig.text()).not.toContain("alias of");
+		presentation.showProvenance = true;
+		for (const width of [36, 57, 80, 140]) {
+			body = rig.view.render(width, 6);
+			lines = body.lines.map(stripVTControlCharacters).join("\n");
+			expect(lines).toContain("hidden");
+			expect(lines).toContain("vendor/copy");
+			expect(lines).not.toContain("evil");
+			for (const line of [...body.lines, body.state ?? "", body.description ?? ""])
+				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+		const opened = rig.nextRefresh();
+		rig.view.handleInput("\r");
+		await opened;
+		expect(rig.text()).toContain("vendor/copy");
+		expect(rig.text()).toContain("Visibility · hidden");
+		expect(rig.text()).toContain("Alias of · vendor/one");
+		expect(rig.text()).toContain("Matched rule · 3");
+		expect(rig.text()).toContain("Name · Copy · default");
+		expect(rig.text()).toContain("Context window · 1200 · override");
+		alias.aliasSource = "two";
+		expect(rig.text()).toContain("Alias of · vendor/two");
+		presentation.showProvenance = false;
+		presentation.showMatchedRule = false;
+		expect(rig.text()).toContain("vendor/copy");
+		expect(rig.text()).toContain("Visibility · hidden");
+		expect(rig.text()).toContain("Context window · 1200");
+		expect(rig.text()).not.toContain("Alias of");
+		expect(rig.text()).not.toContain("Matched rule");
+		expect(rig.text()).not.toContain("· override");
+		expect(rig.text()).not.toContain("· default");
+		rig.view.handleInput("\r");
+		rig.view.handleInput(" edited");
+		rig.view.handleInput("\r");
+		expect(rig.text()).toContain("Name · Copy edited · staged");
+		presentation.showProvenance = true;
+		presentation.showMatchedRule = true;
+		expect(rig.text()).toContain("Name · Copy edited · override (staged)");
+		expect(rig.text()).toContain("Matched rule · 3");
+		presentation.showProvenance = false;
+		presentation.showMatchedRule = false;
+		expect(rig.text()).toContain("Name · Copy edited · staged");
+		rig.view.handleInput("j");
+		rig.view.handleInput("\x7f");
+		expect(rig.text()).toContain("Context window · unknown · inherit (staged)");
+		for (const width of [36, 57, 80, 140]) {
+			body = rig.view.render(width, 6);
+			lines = body.lines.map(stripVTControlCharacters).join("\n");
+			expect(lines.split("\n").find((line) => line.includes("Context window"))).toContain("staged");
+			expect(body.state).toContain("hidden");
+			for (const line of [...body.lines, body.state ?? "", body.description ?? ""])
+				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+		rig.view.discardDrafts();
+		rig.view.handleInput("\x1b");
+		rig.view.handleInput("\x1b");
+		rig.view.handleInput("/");
+		rig.view.handleInput("other/three");
+		rig.view.handleInput("\t");
+		presentation.showProvenance = true;
+		presentation.showMatchedRule = true;
+		expect(rig.text()).toContain("listed other/three · Third");
+		expect(rig.text()).not.toContain("alias of");
+		expect(rig.text()).not.toContain("rule ");
 	});
 
 	test("creates, edits and removes aliases with scoped validation while preserving overrides", async () => {
@@ -850,7 +964,10 @@ describe("models tab", () => {
 				saves.push({ provider, id, changes });
 			},
 		};
-		const rig = open([], false, [], details);
+		const rig = open([], false, [], details, {}, undefined, () => ({
+			showProvenance: true,
+			showMatchedRule: false,
+		}));
 		rig.view.handleInput("v");
 		let refreshed = rig.nextRefresh();
 		rig.view.handleInput("\r");
@@ -941,7 +1058,10 @@ describe("models tab", () => {
 			},
 			current: () => ({ provider: "vendor", id: "one", name: "First", contextWindow: 5000 }),
 		};
-		const rig = open([], false, [], details);
+		const rig = open([], false, [], details, {}, undefined, () => ({
+			showProvenance: true,
+			showMatchedRule: false,
+		}));
 		rig.view.handleInput("v");
 		let refreshed = rig.nextRefresh();
 		rig.view.handleInput("\r");
@@ -978,6 +1098,9 @@ describe("models tab", () => {
 				},
 			],
 			details,
+			{},
+			undefined,
+			() => ({ showProvenance: true, showMatchedRule: false }),
 		);
 		rig.view.handleInput("v");
 		rig.view.handleInput("j");
@@ -1013,19 +1136,28 @@ describe("models tab", () => {
 
 	test("detail read failure blocks changes and save", async () => {
 		let saved = false;
-		const rig = open([], false, [], {
-			read: async () => {
-				throw new Error("bad file");
+		const rig = open(
+			[],
+			false,
+			[],
+			{
+				read: async () => {
+					throw new Error("bad file");
+				},
+				save: async () => {
+					saved = true;
+				},
 			},
-			save: async () => {
-				saved = true;
-			},
-		});
+			{},
+			undefined,
+			() => ({ showProvenance: true, showMatchedRule: true }),
+		);
 		rig.view.handleInput("v");
 		const opened = rig.nextRefresh();
 		rig.view.handleInput("\r");
 		await opened;
 		expect(rig.text()).toContain("Read failed");
+		expect(rig.text()).not.toContain("· default");
 		rig.view.handleInput("\r");
 		rig.view.handleInput("\x13");
 		expect(saved).toBe(false);

@@ -1,0 +1,12 @@
+
+── Auth › Help ────────────── ↓14 ──
+ Description
+ Row spacing in the dashboard;
+ compact uses less vertical space
+ j/k scroll · F1 back
+────────────────────────────────────
+[PRIVATE_TMP]/cwd
+~0.8%/262k (auto)
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …

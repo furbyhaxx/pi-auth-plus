@@ -1,0 +1,40 @@
+
+[Extensions]
+  src
+
+
+── Auth › Settings ────────────────────────────────────────────── ↑ 1 more ────────────────────────────────────────── 9 providers F1 help ──
+  Providers   Quotas   Tokens   Models   Groups  ▸Settings
+   Dashboard density             Comfortable                                                                                        default
+   Maximum dashboard body rows   2                                                                                                 ● staged
+   Show dashboard provenance     on                                                                                                ● staged
+   Show matched dashboard rule   off                                                                                                default
+ Quotas
+   Quota refresh interval        60                                                                                                 default
+   Refresh quotas after requests on                                                                                                 default
+   Quota providers               ["synthetic","claude"]                                                                            ● staged
+   Quota line placement          Below editor, first                                                                                default
+   Quota percent                 Used                                                                                               default
+   Compact width                 100                                                                                                default
+   Always short ids              off                                                                                                default
+   Healthy credit (USD)          50                                                                                                 default
+   Critical credit (USD)         5                                                                                                  default
+   Quota line template           {openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {… default
+ Models
+   Model visibility rules        []                                                                                                 default
+   Model rules scope             User and trusted project                                                                           default
+   Hidden selected model         Warn and keep                                                                                      default
+   Model aliases                 []                                                                                                 default
+   Model groups                  []                                                                                                 default
+ Openai
+   Response verbosity            Pi default                                                                                         default
+   Verbosity providers           ["openai","openai-codex"]                                                                          default
+ Claude
+ ❯ Claude prompt rules           [{"match":"Alpha","replacement":"Beta"}]                                                          ● staged
+───────────────────────────────────────────────────────────────── ↓ 5 more ─────────────────────────────────────────────────────────────────
+ Literal rules for claude system prompts: rewrite match to replacement, or drop paragraphs containing match
+ ctrl+t switch · ctrl+g edit · ctrl+s save · Backspace default · alt+k/alt+j move · ←/→ change · ctrl+x close
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

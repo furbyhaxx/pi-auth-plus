@@ -1,0 +1,193 @@
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s timeout -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/timeout/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/timeout/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/timeout/agent XDG_CACHE_HOME=[PRIVATE_TMP]/timeout/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/timeout/config XDG_STATE_HOME=[PRIVATE_TMP]/timeout/state XDG_DATA_HOME=[PRIVATE_TMP]/timeout/data TMPDIR=[PRIVATE_TMP]/timeout/tmp QA_CASE=timeout QA_AUDIT=[PRIVATE_TMP]/timeout.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme dark -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s d1-s -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/d1-s/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/d1-s/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/d1-s/agent XDG_CACHE_HOME=[PRIVATE_TMP]/d1-s/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/d1-s/config XDG_STATE_HOME=[PRIVATE_TMP]/d1-s/state XDG_DATA_HOME=[PRIVATE_TMP]/d1-s/data TMPDIR=[PRIVATE_TMP]/d1-s/tmp QA_CASE=success QA_AUDIT=[PRIVATE_TMP]/d1-s.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme dark -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s d1-t -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/d1-t/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/d1-t/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/d1-t/agent XDG_CACHE_HOME=[PRIVATE_TMP]/d1-t/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/d1-t/config XDG_STATE_HOME=[PRIVATE_TMP]/d1-t/state XDG_DATA_HOME=[PRIVATE_TMP]/d1-t/data TMPDIR=[PRIVATE_TMP]/d1-t/tmp QA_CASE=truncate QA_AUDIT=[PRIVATE_TMP]/d1-t.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme dark -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s d1-h -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/d1-h/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/d1-h/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/d1-h/agent XDG_CACHE_HOME=[PRIVATE_TMP]/d1-h/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/d1-h/config XDG_STATE_HOME=[PRIVATE_TMP]/d1-h/state XDG_DATA_HOME=[PRIVATE_TMP]/d1-h/data TMPDIR=[PRIVATE_TMP]/d1-h/tmp QA_CASE=http QA_AUDIT=[PRIVATE_TMP]/d1-h.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme dark -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s l0-s -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/l0-s/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/l0-s/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/l0-s/agent XDG_CACHE_HOME=[PRIVATE_TMP]/l0-s/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/l0-s/config XDG_STATE_HOME=[PRIVATE_TMP]/l0-s/state XDG_DATA_HOME=[PRIVATE_TMP]/l0-s/data TMPDIR=[PRIVATE_TMP]/l0-s/tmp QA_CASE=success QA_AUDIT=[PRIVATE_TMP]/l0-s.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme light -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s l0-t -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/l0-t/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/l0-t/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/l0-t/agent XDG_CACHE_HOME=[PRIVATE_TMP]/l0-t/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/l0-t/config XDG_STATE_HOME=[PRIVATE_TMP]/l0-t/state XDG_DATA_HOME=[PRIVATE_TMP]/l0-t/data TMPDIR=[PRIVATE_TMP]/l0-t/tmp QA_CASE=truncate QA_AUDIT=[PRIVATE_TMP]/l0-t.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme light -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s l0-h -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/l0-h/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/l0-h/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/l0-h/agent XDG_CACHE_HOME=[PRIVATE_TMP]/l0-h/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/l0-h/config XDG_STATE_HOME=[PRIVATE_TMP]/l0-h/state XDG_DATA_HOME=[PRIVATE_TMP]/l0-h/data TMPDIR=[PRIVATE_TMP]/l0-h/tmp QA_CASE=http QA_AUDIT=[PRIVATE_TMP]/l0-h.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme light -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s d0-s -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/d0-s/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/d0-s/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/d0-s/agent XDG_CACHE_HOME=[PRIVATE_TMP]/d0-s/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/d0-s/config XDG_STATE_HOME=[PRIVATE_TMP]/d0-s/state XDG_DATA_HOME=[PRIVATE_TMP]/d0-s/data TMPDIR=[PRIVATE_TMP]/d0-s/tmp QA_CASE=success QA_AUDIT=[PRIVATE_TMP]/d0-s.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme dark -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s d0-t -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/d0-t/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/d0-t/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/d0-t/agent XDG_CACHE_HOME=[PRIVATE_TMP]/d0-t/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/d0-t/config XDG_STATE_HOME=[PRIVATE_TMP]/d0-t/state XDG_DATA_HOME=[PRIVATE_TMP]/d0-t/data TMPDIR=[PRIVATE_TMP]/d0-t/tmp QA_CASE=truncate QA_AUDIT=[PRIVATE_TMP]/d0-t.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme dark -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s d0-h -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/d0-h/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/d0-h/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/d0-h/agent XDG_CACHE_HOME=[PRIVATE_TMP]/d0-h/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/d0-h/config XDG_STATE_HOME=[PRIVATE_TMP]/d0-h/state XDG_DATA_HOME=[PRIVATE_TMP]/d0-h/data TMPDIR=[PRIVATE_TMP]/d0-h/tmp QA_CASE=http QA_AUDIT=[PRIVATE_TMP]/d0-h.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme dark -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s l1-s -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/l1-s/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/l1-s/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/l1-s/agent XDG_CACHE_HOME=[PRIVATE_TMP]/l1-s/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/l1-s/config XDG_STATE_HOME=[PRIVATE_TMP]/l1-s/state XDG_DATA_HOME=[PRIVATE_TMP]/l1-s/data TMPDIR=[PRIVATE_TMP]/l1-s/tmp QA_CASE=success QA_AUDIT=[PRIVATE_TMP]/l1-s.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme light -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s l1-t -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/l1-t/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/l1-t/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/l1-t/agent XDG_CACHE_HOME=[PRIVATE_TMP]/l1-t/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/l1-t/config XDG_STATE_HOME=[PRIVATE_TMP]/l1-t/state XDG_DATA_HOME=[PRIVATE_TMP]/l1-t/data TMPDIR=[PRIVATE_TMP]/l1-t/tmp QA_CASE=truncate QA_AUDIT=[PRIVATE_TMP]/l1-t.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme light -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock new-session -d -s l1-h -x 140 -y 42 'exec timeout 180s bwrap --unshare-net --ro-bind / / --bind [PRIVATE_TMP] [PRIVATE_TMP] --proc /proc --dev /dev --chdir [PRIVATE_TMP]/l1-h/cwd /usr/bin/env -i HOME=[PRIVATE_TMP]/l1-h/home PATH=/usr/bin:/bin TERM=xterm-256color LANG=C.UTF-8 PI_TELEMETRY=0 PI_CODING_AGENT_DIR=[PRIVATE_TMP]/l1-h/agent XDG_CACHE_HOME=[PRIVATE_TMP]/l1-h/cache XDG_CONFIG_HOME=[PRIVATE_TMP]/l1-h/config XDG_STATE_HOME=[PRIVATE_TMP]/l1-h/state XDG_DATA_HOME=[PRIVATE_TMP]/l1-h/data TMPDIR=[PRIVATE_TMP]/l1-h/tmp QA_CASE=http QA_AUDIT=[PRIVATE_TMP]/l1-h.jsonl QA_PROVIDER_KEY=[DUMMY] SYNTHETIC_API_KEY=[DUMMY] /home/furbyhaxx/.local/bin/pi-bolt --no-session -ne --offline --no-mcp -ns -np --no-themes -nc --no-approve --tui-mode fullscreen --use-theme light -e [PRIVATE_TMP]/fixture.ts --model qa-fixture/fixture-model'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t timeout: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t timeout: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-s: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-s: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-t: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-t: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-h: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-h: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-s: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-s: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-t: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-t: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-h: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-h: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d0-s: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d0-s: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d0-t: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d0-t: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d0-h: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d0-h: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l1-s: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l1-s: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l1-t: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l1-t: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l1-h: -l 'Search fixture'
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l1-h: Enter
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t timeout:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-s:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-t:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-s:0 -x 57 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-t:0 -x 57 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-s:0 -x 80 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-t:0 -x 80 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-s:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-t:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-h:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-h:
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-s: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-t: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-h: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-s:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-t:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-h:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-h:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-s:0 -x 57 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-t:0 -x 57 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-h:0 -x 57 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-h:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-s:0 -x 80 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-t:0 -x 80 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-h:0 -x 80 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-h:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-s:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-t:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-h:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-h:
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-t: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-t:0 -x 36 -y 12
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-t:0 -x 36 -y 8
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-s:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-t:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-s:0 -x 57 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-t:0 -x 57 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-s:0 -x 80 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-t:0 -x 80 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-s:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-t:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-h:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-h:
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-s: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-t: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-h: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-s:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-t:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-h:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-h:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-s:0 -x 57 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-t:0 -x 57 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-h:0 -x 57 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-h:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-s:0 -x 80 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-t:0 -x 80 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-h:0 -x 80 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-h:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-s:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-t:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-h:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-h:
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-t: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-t:0 -x 36 -y 12
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-t:0 -x 36 -y 8
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d0-s:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d0-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d0-t:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d0-h:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d0-h:
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d0-s: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d0-t: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d0-h: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d0-s:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d0-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d0-t:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d0-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d0-h:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d0-h:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l1-s:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l1-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l1-t:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l1-h:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l1-h:
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l1-s: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l1-t: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l1-h: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l1-s:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l1-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l1-t:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l1-h:0 -x 36 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l1-h:
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-s: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t d1-s:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -e -t d1-s:
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-s: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t l0-s:0 -x 140 -y 42
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -e -t l0-s:
+tmux -S [PRIVATE_TMP]/tmux.sock resize-window -t timeout:0 -x 80 -y 24
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t timeout:
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t timeout: C-o
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t timeout:
+
+# Short viewport scrolling, executed three times each
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-t: PageUp
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-t: PageUp
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t d1-t: PageUp
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t d1-t:
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-t: PageUp
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-t: PageUp
+tmux -S [PRIVATE_TMP]/tmux.sock send-keys -t l0-t: PageUp
+tmux -S [PRIVATE_TMP]/tmux.sock capture-pane -p -t l0-t:
+
+# Initial harness attempt failed: bare tmux target timeout matched another session window; using timeout: fixed it. The failed sessions were stopped and isolated scratch recreated before the successful matrix.
+# Fixture and driver snapshots redact private paths and dummy values; restore explicit dummy values when reproducing.

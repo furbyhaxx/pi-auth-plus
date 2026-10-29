@@ -1,0 +1,12 @@
+
+ ✗ synthetic_web_search error “CJK…
+   ⎿  network failed
+      Retry or run /login synthetic
+
+ Fixture complete.
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/networ...
+26.0%/8.2k (auto)      fixture-model

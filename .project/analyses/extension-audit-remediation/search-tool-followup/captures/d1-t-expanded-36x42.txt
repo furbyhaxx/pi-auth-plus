@@ -1,0 +1,42 @@
+
+ Search fixture
+
+
+ ✓ synthetic_web_search done · 3 “…
+   ⎿  truncated
+   ⎿  Long result
+      https://example.test/long
+      Beta result and its longer
+      title
+      https://example.test/a/long/p
+      ath/to/a/useful/resource?vers
+      ion=1234567890
+      Gamma café
+      https://example.test/gamma
+      Model output truncated
+      Full text: [PATH PART]
+      [PATH PART]
+      [PATH PART]
+      [PATH PART]
+      [PATH PART]
+
+ Fixture complete.
+
+ Tool output: expanded
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]
+26.5%/8.2k (auto)      fixture-model

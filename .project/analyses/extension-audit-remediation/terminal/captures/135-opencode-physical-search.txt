@@ -1,0 +1,40 @@
+
+[Extensions]
+  src
+
+
+── Auth › Groups ───────────────────────────────────────────────────────────────────────────────────────────────────── 1–25 of 83 F1 help ──
+  Providers   Quotas   Tokens   Models  ▸Groups   Settings
+ ⌕ opencode/
+ ❯ opencode/claude-fable-5 · Claude Fable 5
+   opencode/claude-fable-5-1 · Claude Fable 5.1
+   opencode/claude-haiku-4-5 · Claude Haiku 4.5
+   opencode/claude-haiku-5-5 · Claude Haiku 5.5
+   opencode/claude-opus-4-5 · Claude Opus 4.5
+   opencode/claude-opus-4-6 · Claude Opus 4.6
+   opencode/claude-opus-4-7 · Claude Opus 4.7
+   opencode/claude-opus-4-8 · Claude Opus 4.8
+   opencode/claude-opus-5 · Claude Opus 5
+   opencode/claude-opus-5-5 · Claude Opus 5.5
+   opencode/claude-sonnet-4-5 · Claude Sonnet 4.5
+   opencode/claude-sonnet-4-6 · Claude Sonnet 4.6
+   opencode/claude-sonnet-5 · Claude Sonnet 5
+   opencode/claude-sonnet-5-5 · Claude Sonnet 5.5
+   opencode/qwen3.5-plus · Qwen3.5 Plus
+   opencode/qwen3.6-plus · Qwen3.6 Plus
+   opencode/qwen3.8-flash · Qwen3.8 Flash
+   opencode/gemini-3-flash · Gemini 3 Flash
+   opencode/gemini-3.1-pro · Gemini 3.1 Pro Preview
+   opencode/gemini-3.5-flash · Gemini 3.5 Flash
+   opencode/gemini-3.5-flash-lite · Gemini 3.5 Flash Lite
+   opencode/gemini-3.6-flash · Gemini 3.6 Flash
+   opencode/gemini-3.7-flash · Gemini 3.7 Flash
+   opencode/gemini-3.8-flash · Gemini 3.8 Flash
+   opencode/gemini-4-argon · Gemini 4 Argon
+──────────────────────────────────────────────────────────────── ↓ 58 more ─────────────────────────────────────────────────────────────────
+ ? inspect after ctrl+t or moving
+ alt+k/alt+j move · alt+u/alt+d page · alt+↑/↓ page · ctrl+g choose · ctrl+x back · ctrl+t results
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/cwd-light
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

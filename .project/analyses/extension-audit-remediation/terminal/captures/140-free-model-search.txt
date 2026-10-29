@@ -1,0 +1,40 @@
+
+[Extensions]
+  src
+
+
+── Auth › Groups ───────────────────────────────────────────────────────────────────────────────────────────────────── 1–25 of 35 F1 help ──
+  Providers   Quotas   Tokens   Models  ▸Groups   Settings
+ ⌕ free
+ ❯ opencode/beam-free · Beam Free
+   opencode/deepseek-v4.1-flash-free · DeepSeek V4.1 Flash Free
+   opencode/flint-40b-free · Flint 40B Free
+   opencode/glm-5.3-flash-free · GLM-5.3-Flash Free
+   opencode/longcat-2.5-preview-free · LongCat 2.5 Preview Free
+   opencode/mimo-v2.6-flash-free · MiMo-V2.6-Flash Free
+   opencode/minimax-m3.1-flash-free · MiniMax M3.1 Flash Free
+   opencode/nemotron-3-ultra-free · Nemotron 3 Ultra Free
+   opencode/nemotron-3.5-lightning-free · Nemotron 3.5 Lightning Free
+   opencode/nemotron-3.5-super-vl-free · Nemotron 3.5 Super VL Free
+   opencode-go/beam-free · Beam Free
+   opencode-go/longcat-2.5-preview-free · LongCat 2.5 Preview Free
+   opencode-go/minimax-m3.1-flash-free · MiniMax M3.1 Flash Free
+   openrouter/cohere/north-mini-code:free · Cohere: North Mini Code (free)
+   openrouter/dots-studio/dots-3-note-preview:free · Dots Studio: Dots3-Note Preview (free)
+   openrouter/google/gemma-4-26b-a4b-it:free · Google: Gemma 4 26B A4B  (free)
+   openrouter/google/gemma-4-31b-it:free · Google: Gemma 4 31B (free)
+   openrouter/liquid/lfm-2.5-2.6b:free · LiquidAI: LFM2.5-2.6B (free)
+   openrouter/minimax/minimax-m3.1-flash:free · MiniMax: MiniMax M3.1 Flash (free)
+   openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free · NVIDIA: Nemotron 3 Nano Omni (free)
+   openrouter/nvidia/nemotron-3-super-120b-a12b:free · NVIDIA: Nemotron 3 Super (free)
+   openrouter/nvidia/nemotron-3-ultra-550b-a55b:free · NVIDIA: Nemotron 3 Ultra (free)
+   openrouter/nvidia/nemotron-3.5-lightning:free · NVIDIA: Nemotron 3.5 Lightning (free)
+   openrouter/nvidia/nemotron-3.5-super-vl:free · NVIDIA: Nemotron 3.5 Super VL (free)
+   openrouter/openrouter/free · Free Models Router
+──────────────────────────────────────────────────────────────── ↓ 10 more ─────────────────────────────────────────────────────────────────
+ ? inspect · alt+↑/↓ page · / search
+ alt+k/alt+j move · alt+u/alt+d page · alt+↑/↓ page · ctrl+g choose · ctrl+x back · / search · ? inspect
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/cwd-light
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

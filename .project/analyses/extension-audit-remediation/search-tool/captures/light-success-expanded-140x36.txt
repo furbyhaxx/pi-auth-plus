@@ -1,0 +1,36 @@
+ / for commands
+ ! to run bash
+ !! to run bash (no context)
+ alt+enter to queue follow-up
+ alt+up to edit all queued messages
+ ctrl+v to paste files on macOS, images, or text
+ drop files to attach
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use or extend Pi-Bolt.
+
+[Extensions]
+  path
+    [REPO]/.project/analyses/extension-audit-remediation/search-tool/fixture.ts
+
+
+ Search fixture
+
+
+ ✓ synthetic_web_search done · 3 results “CJK界 café search”
+   ⎿  Alpha result 界
+      https://example.test/alpha
+      Beta result and its longer title
+      https://example.test/a/long/path/to/a/useful/resource?version=1234567890
+      Gamma café
+      https://example.test/gamma
+      Full text: [PATH]
+
+ Fixture complete.
+
+ Tool output: expanded
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[PRIVATE_TMP]/success-light/cwd
+27.1%/8.2k (auto)                                                                                                              fixture-model

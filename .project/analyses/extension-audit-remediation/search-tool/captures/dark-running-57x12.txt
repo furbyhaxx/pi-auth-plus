@@ -1,0 +1,12 @@
+
+ Search fixture
+
+
+ ◌ synthetic_web_search running “CJK界 café search”
+   ⎿  Searching Synthetic…
+
+── ⠙ Working ────────────────────────────────────────────
+
+─────────────────────────────────────────────────────────
+[PRIVATE_TMP]/running-dark/cwd
+25.6%/8.2k (auto)                           fixture-model

@@ -1,0 +1,24 @@
+ or extend Pi-Bolt.
+
+[Extensions]
+  src
+
+
+── Auth › Providers ───────────────────────────────────── 9 providers F1 help ──
+ ▸Providers   Quotas   Tokens   Models   Groups   Settings
+ OpenCode Zen  anonymous · limited · /login opencode for full access
+ OpenCode Go   not signed in · /login opencode-go
+ Synthetic     not signed in · /login synthetic
+ Claude        not signed in · /login claude
+ Antigravity   not signed in · /login antigravity
+ OpenAI Codex  not signed in · /quota codex login or /login openai-codex
+ xAI           not signed in · /login xai
+ OpenRouter    not signed in · /login openrouter
+ DeepSeek      not signed in · /login deepseek
+────────────────────────────────────────────────────────────────────────────────
+ Sign-in state per provider. Sign in with /login <provider>.
+ ctrl+t switch · ctrl+x close
+────────────────────────────────────────────────────────────────────────────────
+or: … · ds: … · cox: … · cl: 5h/… 7d/… · ag: gem/… arg/… · syn: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)                                              kimi-k2.6 • medium

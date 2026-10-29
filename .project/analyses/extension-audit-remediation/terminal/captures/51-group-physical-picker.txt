@@ -1,0 +1,40 @@
+
+[Extensions]
+  src
+
+
+── Auth › Groups ─────────────────────────────────────────────────────────────────────────────────────────────────── 1–25 of 1635 F1 help ──
+  Providers   Quotas   Tokens   Models  ▸Groups   Settings
+ ⌕ provider/id or name
+ ❯ synthetic/infinite:small:vision · infinite:small:vision
+   synthetic/syn:large:text · syn:large:text
+   synthetic/syn:small:text · syn:small:text
+   synthetic/syn:large:vision · syn:large:vision
+   synthetic/syn:small:vision · syn:small:vision
+   synthetic/hf:openai/gpt-oss-120b · openai/gpt-oss-120b
+   synthetic/hf:zai-org/GLM-5.3 · zai-org/GLM-5.3
+   synthetic/hf:zai-org/GLM-5.3-Flash · zai-org/GLM-5.3-Flash
+   synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017 · deepseek-ai/DeepSeek-V4.1-Flash-1017
+   synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash · deepseek-ai/DeepSeek-V4.1-Flash
+   synthetic/hf:moonshotai/Kimi-K3 · moonshotai/Kimi-K3
+   synthetic/hf:Qwen/Qwen3.8-27B · Qwen/Qwen3.8-27B
+   synthetic/hf:zai-org/GLM-4.7-Flash · zai-org/GLM-4.7-Flash
+   synthetic/hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 · nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+   claude/claude-fable-5 · Claude Fable 5
+   claude/claude-fable-5-1 · Claude Fable 5.1
+   claude/claude-haiku-4-5 · Claude Haiku 4.5 (latest)
+   claude/claude-haiku-4-5-20251001 · Claude Haiku 4.5
+   claude/claude-haiku-5-5 · Claude Haiku 5.5
+   claude/claude-opus-4-5 · Claude Opus 4.5 (latest)
+   claude/claude-opus-4-5-20251101 · Claude Opus 4.5
+   claude/claude-opus-4-6 · Claude Opus 4.6
+   claude/claude-opus-4-7 · Claude Opus 4.7
+   claude/claude-opus-4-8 · Claude Opus 4.8
+   claude/claude-opus-5 · Claude Opus 5
+─────────────────────────────────────────────────────────────── ↓ 1610 more ────────────────────────────────────────────────────────────────
+ ? inspect · alt+↑/↓ page · / search
+ alt+k/alt+j move · alt+u/alt+d page · alt+↑/↓ page · ctrl+g choose · ctrl+x back · / search · ? inspect
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

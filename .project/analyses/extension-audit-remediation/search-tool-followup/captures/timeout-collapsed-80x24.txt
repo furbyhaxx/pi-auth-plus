@@ -1,0 +1,24 @@
+
+ Search fixture
+
+
+ ✗ synthetic_web_search error “CJK界 café search”
+   ⎿  request timed out
+      Retry or run /login synthetic
+
+ Fixture complete.
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[PRIVATE_TMP]/timeout/cwd
+26.0%/8.2k (auto)                                                  fixture-model

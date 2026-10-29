@@ -1,0 +1,36 @@
+  fixture.ts, src
+
+
+ Synthetic search active: true
+
+── Auth › Settings ────────────────────────────────────────────── ↑ 8 more ────────────────────────────────────────── 9 providers F1 help ──
+  Providers   Quotas   Tokens   Models   Groups  ▸Settings
+   Quota providers               []                                                                                                 default
+   Quota line placement          Below editor, first                                                                                default
+   Quota percent                 Used                                                                                               default
+   Compact width                 100                                                                                                default
+   Always short ids              off                                                                                                default
+   Healthy credit (USD)          50                                                                                                 default
+   Critical credit (USD)         5                                                                                                  default
+   Quota line template           {openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {… default
+ Models
+   Model visibility rules        []                                                                                                 default
+   Model rules scope             User and trusted project                                                                           default
+   Hidden selected model         Warn and keep                                                                                      default
+   Model aliases                 []                                                                                                 default
+   Model groups                  []                                                                                                 default
+ Openai
+   Response verbosity            Pi default                                                                                         default
+   Verbosity providers           ["openai","openai-codex"]                                                                          default
+ Claude
+   Claude prompt rules           []                                                                                                 default
+ Synthetic
+ ❯ Synthetic web search          off                                                                                                runtime
+ Saved to runtime scope
+───────────────────────────────────────────────────────────────── ↓ 3 more ─────────────────────────────────────────────────────────────────
+ Offer the synthetic_web_search tool; it needs a Synthetic login or SYNTHETIC_API_KEY
+ tab switch · enter edit · ctrl+s save · Backspace default · ↑/↓ move · ←/→ change · esc close
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/member/cwd
+0.0%/8.2k (auto)                                                                                                  (qa-fixture) fixture-model

@@ -1,0 +1,12 @@
+      https://example.test/gamma
+      Full text: …[PATH]
+
+ Fixture complete.
+
+ Tool output: expanded
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/path-n...
+27.1%/8.2k (auto)      fixture-model

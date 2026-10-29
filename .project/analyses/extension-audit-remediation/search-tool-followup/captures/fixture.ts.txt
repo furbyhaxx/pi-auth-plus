@@ -1,0 +1,100 @@
+import { appendFileSync, readFileSync, statSync } from "node:fs";
+import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
+import { registerWebSearch, TOOL_NAME } from "[REPO]/src/families/synthetic/web-search.ts";
+
+const qaCase = process.env.QA_CASE || "success";
+const audit = process.env.QA_AUDIT;
+const save = (value) => appendFileSync(audit, JSON.stringify({ ...value, ms: Math.round(performance.now()) }) + "\n");
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const fakeFetch = async (_url, init) => {
+  save({ stage: "fetch", method: init.method, queryOK: JSON.parse(init.body).query === "CJK界 café search", hasAuth: Boolean(init.headers.Authorization), signalPresent: Boolean(init.signal) });
+  if (qaCase === "cancel" || qaCase === "timeout") {
+    return await new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => { save({ stage: "fetch-aborted" }); reject(new Error("fixture aborted")); }, { once: true });
+    });
+  }
+  await pause(6000);
+  if (qaCase === "http") return new Response("fixture error", { status: 503 });
+  if (qaCase === "parse") return new Response("{invalid");
+  if (qaCase === "network") throw new Error("offline fixture");
+  if (qaCase === "empty") return Response.json({ results: [] });
+  const results = [
+    { url: "https://example.test/alpha", title: "Alpha result 界", text: "FULL ALPHA BODY -- fixture.", highlights: ["Alpha highlight."] },
+    { url: "https://example.test/a/long/path/to/a/useful/resource?version=1234567890", title: "Beta result and its longer title", text: "FULL BETA BODY -- fixture.", highlights: ["Beta highlight."] },
+    { url: "https://example.test/gamma", title: "Gamma café", text: "FULL GAMMA BODY -- fixture.", highlights: ["Gamma highlight."] }
+  ];
+  if (qaCase === "truncate") results[0] = { url: "https://example.test/long", title: "Long result", text: "First line\n" + "X".repeat(60 * 1024) };
+  return Response.json({ results });
+};
+
+function streamSimple(model, context) {
+  const stream = createAssistantMessageEventStream();
+  (async () => {
+    const output = { role: "assistant", content: [], api: model.api, provider: model.provider, model: model.id,
+      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+      stopReason: "pending", timestamp: Date.now() };
+    stream.push({ type: "start", partial: output });
+    const followup = context.messages.at(-1)?.role === "toolResult";
+    if (followup) {
+      output.content.push({ type: "text", text: "Fixture complete." });
+      stream.push({ type: "text_start", contentIndex: 0, partial: output });
+      stream.push({ type: "text_delta", contentIndex: 0, delta: "Fixture complete.", partial: output });
+      stream.push({ type: "text_end", contentIndex: 0, content: "Fixture complete.", partial: output });
+      output.stopReason = "stop";
+      stream.push({ type: "done", reason: "stop", message: output });
+      stream.end();
+      return;
+    }
+    await pause(600);
+    const call = { type: "toolCall", id: "fixture-call", name: TOOL_NAME, arguments: {} };
+    output.content.push(call);
+    stream.push({ type: "toolcall_start", contentIndex: 0, partial: output });
+    await pause(800);
+    call.arguments = { query: "CJK界 café search" };
+    stream.push({ type: "toolcall_delta", contentIndex: 0, delta: JSON.stringify(call.arguments), partial: output });
+    await pause(800);
+    stream.push({ type: "toolcall_end", contentIndex: 0, toolCall: call, partial: output });
+    output.stopReason = "toolUse";
+    stream.push({ type: "done", reason: "toolUse", message: output });
+    stream.end();
+  })();
+  return stream;
+}
+export default function (pi) {
+  if (process.env.QA_MEMBERSHIP !== "1") {
+    registerWebSearch(pi, { fetch: fakeFetch, enabled: () => qaCase !== "disabled", outputDir: () => process.env.TMPDIR });
+    pi.registerProvider("synthetic", { baseUrl: "https://example.test", api: "anthropic-messages", apiKey: "$SYNTHETIC_API_KEY" });
+  }
+  pi.registerProvider("qa-fixture", { baseUrl: "https://example.test", apiKey: "$QA_PROVIDER_KEY", api: "qa-fixture-api", streamSimple,
+    models: [{ id: "fixture-model", name: "Fixture model", reasoning: false, input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 8192, maxTokens: 1024 }] });
+  pi.on("session_start", () => {
+    const active = pi.getActiveTools();
+    save({ stage: "session-start", searchActive: active.includes(TOOL_NAME), registered: pi.getAllTools().some((x) => x.name === TOOL_NAME) });
+    if (process.env.QA_MEMBERSHIP !== "1") pi.setActiveTools([...active, TOOL_NAME]);
+    save({ stage: "after-harness-activation", searchActive: pi.getActiveTools().includes(TOOL_NAME) });
+  });
+  pi.registerCommand("qa-tools", { description: "Show synthetic search membership", handler: async (_args, ctx) => {
+    const enabled = pi.getActiveTools().includes(TOOL_NAME);
+    save({ stage: "membership", searchActive: enabled });
+    ctx.ui.notify("Synthetic search active: " + enabled, "info");
+  }});
+  pi.on("tool_execution_update", (event) => {
+    if (event.toolName === TOOL_NAME) save({ stage: "partial", kind: event.partialResult?.details?.kind });
+  });
+  pi.on("tool_result", (event) => {
+    if (event.toolName !== TOOL_NAME) return;
+    const d = event.details || {};
+    const content = event.content?.[0]?.text || "";
+    const data = { stage: "result", isError: event.isError, kind: d.kind, code: d.code, status: d.status, count: d.resultCount, truncated: d.truncated,
+      emptyContent: content === "No results found.", summaryContainsHighlight: content.includes("Alpha highlight."), summaryContainsFullBody: content.includes("FULL ALPHA BODY"),
+      endpointPresentInContent: content.includes("https://api.synthetic.new/v2/search"), hasFullPath: typeof d.fullOutputPath === "string", fullOutputPath: d.fullOutputPath };
+    if (d.fullOutputPath) {
+      const body = readFileSync(d.fullOutputPath, "utf8");
+      data.fullMode = (statSync(d.fullOutputPath).mode & 0o777).toString(8);
+      data.fullHasBodies = body.includes("FULL ALPHA BODY") && body.includes("FULL BETA BODY") && body.includes("FULL GAMMA BODY");
+      data.longBodySaved = body.includes("X".repeat(60 * 1024));
+    }
+    save(data);
+  });
+}

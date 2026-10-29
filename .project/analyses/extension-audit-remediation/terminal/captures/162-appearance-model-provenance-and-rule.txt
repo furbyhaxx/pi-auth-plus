@@ -1,0 +1,40 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use or extend Pi-Bolt.
+
+[Extensions]
+  src
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+── Auth › Models ─────────────────────────────────────────────────────────────────────── ● hidden · rule 1 · 1–1 of 1 · 83 hidden F1 help ──
+ ⌕ opencode/beam-free
+ ❯ hidden · rule 1 opencode/beam-free · Beam Free
+ alt+k/alt+j move · alt+↑/↓ page · ctrl+g detail · ctrl+x back · / search · ? inspect · v rules · h hide/show · ctrl+t switch · ctrl+s save
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

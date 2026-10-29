@@ -1,0 +1,12 @@
+
+── Auth › Help ───────────── ↑6↓5 ──
+ Keys
+ ctrl+t switch
+ alt+k/alt+j provider
+ j/k scroll · F1 back
+────────────────────────────────────
+[PRIVATE_TMP]/cwd-light
+~0.8%/262k (auto)
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …

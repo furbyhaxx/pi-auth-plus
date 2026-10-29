@@ -1,0 +1,42 @@
+
+Search fixture
+
+
+✓ synthetic_web_search done · truncated · 3 results · expand “CJK界 café search”
+
+Fixture complete.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[PRIVATE_TMP]/l0-t/cwd
+26.5%/8.2k (auto)                                                  fixture-model

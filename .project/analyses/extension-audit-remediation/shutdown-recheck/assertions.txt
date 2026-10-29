@@ -1,0 +1,4 @@
+run 1: initial timers observed; shutdown deadline absent; replacement deadline absent; 2.25s old timers []; live for 3s; exit 0: PASS
+run 2: initial timers observed; shutdown deadline absent; replacement deadline absent; 2.25s old timers []; live for 3s; exit 0: PASS
+run 3: initial timers observed; shutdown deadline absent; replacement deadline absent; 2.25s old timers []; live for 3s; exit 0: PASS
+3/3 PASS

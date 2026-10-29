@@ -1,0 +1,12 @@
+
+── Auth › Help ───────────── ↑9↓5 ──
+ Keys
+ ctrl+t switch
+ ctrl+g edit
+ j/k scroll · F1 back
+────────────────────────────────────
+[PRIVATE_TMP]/cwd
+~0.8%/262k (auto)
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …

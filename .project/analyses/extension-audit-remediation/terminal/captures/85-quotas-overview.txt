@@ -1,0 +1,40 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use or extend Pi-Bolt.
+
+[Extensions]
+  src
+
+
+
+
+
+
+
+
+── Auth › Quotas ───────────────────────────────────────────────────────────────────────────────────────────── below-editor-first F1 help ──
+  Providers  ▸Quotas   Tokens   Models   Groups   Settings
+ ❯ Synthetic (syn)
+     Loading quota… (press r to refresh)
+   Claude (cl)
+     Loading quota… (press r to refresh)
+   Antigravity (ag)
+     Loading quota… (press r to refresh)
+   OpenAI Codex (cox)
+     Loading quota… (press r to refresh)
+   xAI (xai)
+     Loading quota… (press r to refresh)
+   OpenRouter (or)
+     Loading quota… (press r to refresh)
+   DeepSeek (ds)
+     Loading quota… (press r to refresh)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Usage windows and credits per provider.
+ ctrl+t switch · alt+k/alt+j provider · r/R refresh · a solo · p position · ctrl+x close
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

@@ -1,0 +1,12 @@
+
+ ✓ synthetic_web_search done · 3 ·…
+
+ Fixture complete.
+
+ Tool output: collapsed
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/cwd
+27.1%/8.2k (auto)      fixture-model

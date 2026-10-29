@@ -1,0 +1,6 @@
+{"stage":"session-start","searchActive":false,"registered":true}
+{"stage":"after-harness-activation","searchActive":true}
+{"stage":"partial","kind":"progress"}
+{"stage":"fetch","method":"POST","queryOK":true,"hasAuth":true,"signalPresent":true}
+{"stage":"fetch-aborted"}
+{"stage":"result","isError":true,"kind":"aborted","emptyContent":false,"summaryContainsHighlight":false,"summaryContainsFullBody":false,"hasFullPath":false}

@@ -1,0 +1,12 @@
+
+── Settings ─ 9 pr… ↑24↓5 F1 help ──
+   Verbosity pr… ["openai"… default
+ Claude
+ ❯ Claude promp… [{"match… ● staged
+ ctrl+s save · ctrl+x close
+────────────────────────────────────
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)  kimi-k2.6 • medium

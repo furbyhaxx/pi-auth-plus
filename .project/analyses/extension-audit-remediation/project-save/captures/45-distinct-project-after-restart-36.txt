@@ -1,0 +1,12 @@
+
+
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+── Settings ─ 9 pr… ↑7↓22 F1 help ──
+   Refresh quot… on         default
+   Quota provid… []         default
+ ❯ Quota line p… Above edi… project
+ ctrl+s save · ctrl+x close
+────────────────────────────────────
+[PRIVATE_TMP]/cwd-tr...
+0.0%/262k (auto)  kimi-k2.6 • medium

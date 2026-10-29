@@ -1,0 +1,12 @@
+
+── Quotas ─ below-edi… ↓1 F1 help ──
+   Below editor, first · current
+ ❯ Below editor, last (footer)
+   Above editor
+ ctrl+g ch ctrl+x ba alt+k/alt+j mo
+────────────────────────────────────
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …
+[PRIVATE_TMP]/cwd-light
+0.0%/262k (auto)  kimi-k2.6 • medium

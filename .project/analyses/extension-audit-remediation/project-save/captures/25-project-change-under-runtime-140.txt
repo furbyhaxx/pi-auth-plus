@@ -1,0 +1,40 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use or extend Pi-Bolt.
+
+[Extensions]
+  src
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+── Auth › Quotas ──────────────────────────────────────────────────────────────────────────────────────────────────────────── off F1 help ──
+  Providers  ▸Quotas   Tokens   Models   Groups   Settings
+ ❯ Below editor, first
+   Below editor, last (footer)
+   Above editor
+   Off · current
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Choose line placement.
+ ctrl+g choose · ctrl+x back · alt+k/alt+j move
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cwd-trusted
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

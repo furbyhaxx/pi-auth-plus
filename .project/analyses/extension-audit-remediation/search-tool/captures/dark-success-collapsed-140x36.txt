@@ -1,0 +1,36 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use or extend Pi-Bolt.
+
+[Extensions]
+  fixture.ts
+
+
+ Search fixture
+
+
+ ✓ synthetic_web_search done · 3 results · expand “CJK界 café search”
+
+ Fixture complete.
+
+ Tool output: collapsed
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cwd
+27.1%/8.2k (auto)                                                                                                              fixture-model

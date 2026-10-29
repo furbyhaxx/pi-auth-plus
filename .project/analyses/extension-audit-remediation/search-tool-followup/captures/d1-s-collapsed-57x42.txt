@@ -1,0 +1,42 @@
+
+ Search fixture
+
+
+ ✓ synthetic_web_search done · 3 results · expand “CJK…
+
+ Fixture complete.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+─────────────────────────────────────────────────────────
+
+─────────────────────────────────────────────────────────
+[PRIVATE_TMP]/d1-s/cwd
+27.2%/8.2k (auto)                           fixture-model

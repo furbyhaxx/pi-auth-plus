@@ -1,0 +1,12 @@
+ ✗ synthetic_web_search error
+   ⎿  search disabled
+      Enable synthetic.webSearch
+      or --synthetic-web-search
+
+ Fixture complete.
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/disabl...
+25.9%/8.2k (auto)      fixture-model

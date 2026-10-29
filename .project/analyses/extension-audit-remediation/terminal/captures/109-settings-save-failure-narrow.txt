@@ -1,0 +1,12 @@
+
+── Settings ─ 9 pr… ↑1↓30 F1 help ──
+ ❯ Dashboard de… Compact   ● staged
+ Cannot save
+ result 1-1/4 alt+u/alt+d
+ ctrl+s save · ctrl+x close
+────────────────────────────────────
+[PRIVATE_TMP]/cwd
+~0.8%/262k (auto)
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …

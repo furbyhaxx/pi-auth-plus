@@ -1,0 +1,12 @@
+[Extensions]
+  src
+
+
+── Quotas ─ result 1… ↓12 F1 help ──
+ ❯ Synthetic (syn)
+     Loading quota… (press r to ref…
+ Saved to project scope; shadowed by
+ alt+u/alt+d result · ctrl+x close
+────────────────────────────────────
+[PRIVATE_TMP]/cwd-tr...
+0.0%/262k (auto)  kimi-k2.6 • medium

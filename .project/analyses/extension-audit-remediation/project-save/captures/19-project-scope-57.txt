@@ -1,0 +1,12 @@
+
+
+── Auth › Quotas ──────── staged: above-editor F1 help ──
+ ❯ r runtime
+   u user
+   p project
+ ctrl+g save ctrl+x back alt+k/alt+j move r/u/p scop
+─────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cwd-trusted
+~0.8%/262k (auto)                      kimi-k2.6 • medium
+or: … · ds: … · cox: … · cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …

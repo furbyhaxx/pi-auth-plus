@@ -1,0 +1,12 @@
+
+
+── Auth › Providers ─────────── 9 providers ↓6 F1 help ──
+ OpenCode Zen  anonymous · limited · /login opencode for…
+ OpenCode Go   not signed in · /login opencode-go
+ Synthetic     not signed in · /login synthetic
+ ctrl+t switch · alt+k/alt+j scroll · ctrl+x close
+─────────────────────────────────────────────────────────
+or: … · ds: … · cox: … · cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …
+[PRIVATE_TMP]/cwd-light
+0.0%/262k (auto)                       kimi-k2.6 • medium

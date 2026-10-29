@@ -1,0 +1,12 @@
+
+
+── Auth › Tokens ──────────── 9 providers ↑1↓7 F1 help ──
+ Model      kimi-k2.6
+ Total      2.2K · estimate
+ Context    0.8% of 262.1K
+ ctrl+t switch · alt+k/alt+j scroll · ctrl+x close
+─────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cwd
+~0.8%/262k (auto)                      kimi-k2.6 • medium
+or: … · ds: … · cox: … · cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …

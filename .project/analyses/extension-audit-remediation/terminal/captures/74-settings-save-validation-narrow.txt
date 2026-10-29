@@ -1,0 +1,12 @@
+
+── Settings ─ 9 p… ↑14↓17 F1 help ──
+ ❯ Critical cre… 55        ● staged
+ Cannot save runtime settings:
+ result 1-1/5 alt+u/alt+d
+ ctrl+s save · ctrl+x close
+────────────────────────────────────
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)  kimi-k2.6 • medium

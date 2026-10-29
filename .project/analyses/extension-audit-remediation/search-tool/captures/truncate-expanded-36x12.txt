@@ -1,0 +1,12 @@
+      Model output truncated
+      Full text: [PATH]
+
+ Fixture complete.
+
+ Tool output: expanded
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/trunca...
+26.4%/8.2k (auto)      fixture-model

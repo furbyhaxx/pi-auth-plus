@@ -1,0 +1,265 @@
+@@ BEGIN render-detail.ts
+import { KeybindingsManager, TUI_KEYBINDINGS } from "/mnt/Projects/furbyhaxx/pi-auth-plus/node_modules/@earendil-works/pi-tui";
+import { ModelsView } from "/mnt/Projects/furbyhaxx/pi-auth-plus/src/ui/dashboard/models.ts";
+import { AuthDashboard, staticViews } from "/mnt/Projects/furbyhaxx/pi-auth-plus/src/ui/dashboard/index.ts";
+import { bindingLabel } from "/mnt/Projects/furbyhaxx/pi-auth-plus/src/ui/frame/index.ts";
+import { compileModelRules, evaluateModelRules } from "/mnt/Projects/furbyhaxx/pi-auth-plus/src/models/rules/match.ts";
+const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+const theme = {fg: (_:unknown,s:string)=>s,bg: (_:unknown,s:string)=>s,bold:(s:string)=>s};
+function make(ruleCount:number, metadata = false) {
+ const rules = Array.from({length:ruleCount},(_,i)=>`vendor/model-${i}*`);
+ const catalog = Array.from({length:555},(_,i)=>({provider:"vendor",id:`model-${i}`,name:`Model ${i}`,contextWindow:100000,...(metadata && i===0 ? {aliasSource:"physical-base"} : {})}));
+ let previous: readonly string[] | undefined, compiled = compileModelRules([]), compilations=0, evaluations=0;
+ const deps = {rules:()=>rules,catalog:()=>catalog,presentation:()=>({showProvenance:metadata,showMatchedRule:metadata}),evaluate:(input:readonly string[],provider:string,id:string)=>{
+  evaluations++; if(input!==previous){previous=input;compiled=compileModelRules(input);compilations++;}
+  const outcome = evaluateModelRules(compiled,provider,id);
+  return {visible:!outcome.hidden,...(outcome.ruleIndex === undefined ? {} : {ruleIndex:outcome.ruleIndex})};
+ },save:async()=>({committed:true,scope:"runtime",shadowed:[],warnings:[]})};
+ return {deps,catalog,counts:()=>({compilations,evaluations})};
+}
+const host = {theme,keys,binding:(id:any)=>bindingLabel(keys,id),refresh:()=>{},finish:()=>{}};
+function sample(label:string, n:number, fn:()=>unknown, counts:()=>{compilations:number,evaluations:number}, before?: (i:number)=>void) {
+ const startCounts=counts(); const samplesMs:number[]=[];
+ for(let i=0;i<n;i++){before?.(i);const start=performance.now();fn();samplesMs.push(performance.now()-start);}
+ const endCounts=counts();
+ return {label,samplesMs,compilations:endCounts.compilations-startCounts.compilations,evaluations:endCounts.evaluations-startCounts.evaluations};
+}
+for(const count of [10,25,50]) {
+ const rig=make(count); const view=new ModelsView(host,rig.deps as any);
+ for(let i=1;i<count;i++) view.handleInput("\x1b[B");
+ const phases=[];
+ phases.push(sample("first-frame",1,()=>view.render(140,30),rig.counts));
+ for(let i=0;i<5;i++)view.render(140,30);
+ phases.push(sample("repeated",30,()=>view.render(140,30),rig.counts));
+ phases.push(sample("selection-change",30,()=>view.render(140,30),rig.counts,i=>view.handleInput(i%2===0?"\x1b[A":"\x1b[B")));
+ phases.push(sample("rule-toggle",30,()=>view.render(140,30),rig.counts,()=>view.handleInput(" ")));
+ phases.push(sample("catalog-name-change",30,()=>view.render(140,30),rig.counts,i=>{rig.catalog[0]!.name=`Changed ${i%2}`;}));
+ console.log(JSON.stringify({kind:"models-view",catalog:555,rules:count,cols:140,bodyRows:30,phases}));
+ view.dispose();
+}
+for(const count of [10,25,50]) {
+ const rig=make(count,true); const views=staticViews({providers:[],nowMs:0});
+ views.models=(h:any)=>new ModelsView(h,rig.deps as any);
+ const panel=new AuthDashboard({terminal:{rows:44},requestRender:()=>{}},theme,keys,()=>{},views,"models",0);
+ for(let i=1;i<count;i++)panel.handleInput("\x1b[B");
+ for(let i=0;i<5;i++)panel.render(140);
+ const phases=[];
+ phases.push(sample("dashboard-rules",30,()=>panel.render(140),rig.counts));
+ panel.handleInput("\x1bOP"); const ruleHelp=panel.render(140).join("\n");
+ if(!ruleHelp.includes("Auth")||!ruleHelp.includes(`Rule ${count}:`)) throw new Error("Rules Help not open or missing selected rule");
+ for(let i=0;i<5;i++)panel.render(140);
+ phases.push(sample("dashboard-rules-full-help",30,()=>panel.render(140),rig.counts));
+ panel.handleInput("\x1bOP"); panel.handleInput("v");
+ const catalogLines=panel.render(140).join("\n");
+ if(!catalogLines.includes("alias of physical-base")||!catalogLines.includes("rule 1")) throw new Error("Metadata labels not displayed");
+ for(let i=0;i<5;i++)panel.render(140);
+ phases.push(sample("dashboard-catalog-metadata",30,()=>panel.render(140),rig.counts));
+ panel.handleInput("\x1bOP"); const catalogHelp=panel.render(140).join("\n");
+ if(!catalogHelp.includes("Alias source:")||!catalogHelp.includes("Selected model identity:")) throw new Error("Catalog Help not open or missing metadata");
+ for(let i=0;i<5;i++)panel.render(140);
+ phases.push(sample("dashboard-catalog-full-help",30,()=>panel.render(140),rig.counts));
+ console.log(JSON.stringify({kind:"dashboard",catalog:555,rules:count,cols:140,bodyRows:30,metadata:{provenance:true,matchedRule:true,aliasModels:1},checks:"selected-rule, metadata labels, full-help identity and alias source present",phases}));
+ panel.dispose();
+}
+@@ END render-detail.ts
+@@ BEGIN render-tail.ts
+import { KeybindingsManager, TUI_KEYBINDINGS } from "/mnt/Projects/furbyhaxx/pi-auth-plus/node_modules/@earendil-works/pi-tui";
+import { ModelsView } from "/mnt/Projects/furbyhaxx/pi-auth-plus/src/ui/dashboard/models.ts";
+import { AuthDashboard, staticViews } from "/mnt/Projects/furbyhaxx/pi-auth-plus/src/ui/dashboard/index.ts";
+import { compileModelRules, evaluateModelRules } from "/mnt/Projects/furbyhaxx/pi-auth-plus/src/models/rules/match.ts";
+const keys=new KeybindingsManager(TUI_KEYBINDINGS);
+const theme={fg:(_:unknown,s:string)=>s,bg:(_:unknown,s:string)=>s,bold:(s:string)=>s};
+const rules=Array.from({length:50},(_,i)=>`vendor/model-${i}*`);
+const catalog=Array.from({length:555},(_,i)=>({provider:"vendor",id:`model-${i}`,name:`Model ${i}`,contextWindow:100000,...(i===0?{aliasSource:"physical-base"}:{})}));
+let last:readonly string[]|undefined, compiled=compileModelRules([]), evals=0;
+const deps={rules:()=>rules,catalog:()=>catalog,presentation:()=>({showProvenance:true,showMatchedRule:true}),evaluate:(r:readonly string[],p:string,id:string)=>{evals++;if(last!==r){last=r;compiled=compileModelRules(r)}const x=evaluateModelRules(compiled,p,id);return {visible:!x.hidden,ruleIndex:x.ruleIndex};},save:async()=>({committed:true,scope:"runtime",shadowed:[],warnings:[]})};
+const views=staticViews({providers:[],nowMs:0});views.models=(h:any)=>new ModelsView(h,deps as any);
+const panel=new AuthDashboard({terminal:{rows:44},requestRender:()=>{}},theme,keys,()=>{},views,"models",0);
+for(let i=1;i<50;i++)panel.handleInput("\x1b[B");
+for(const label of ["rules","catalog-metadata","catalog-full-help"]) {
+ if(label==="catalog-metadata")panel.handleInput("v");
+ if(label==="catalog-full-help")panel.handleInput("\x1bOP");
+ const visible=panel.render(140).join("\n");
+ if(label==="catalog-metadata"&&!visible.includes("alias of physical-base"))throw Error("metadata not visible");
+ if(label==="catalog-full-help"&&!visible.includes("Alias source:"))throw Error("help not open");
+ for(let i=0;i<50;i++)panel.render(140);
+ const before=evals,wallMs=[],cpuMs=[];
+ for(let i=0;i<300;i++) {const c=process.cpuUsage();const t=performance.now();panel.render(140);wallMs.push(performance.now()-t);const d=process.cpuUsage(c);cpuMs.push((d.user+d.system)/1000);}
+ console.log(JSON.stringify({label,catalog:555,rules:50,cols:140,bodyRows:30,warmups:50,n:300,wallMs,cpuMs,evaluations:evals-before}));
+}
+panel.dispose();
+@@ END render-tail.ts
+@@ BEGIN startup.py
+import ctypes, errno, json, os, pathlib, select, signal, subprocess, sys, tempfile, time
+
+ROOT = '/mnt/Projects/furbyhaxx/pi-auth-plus'
+SCRATCH = '/tmp/pi-auth-perf.cE2TZvNs'
+PI = '/home/furbyhaxx/.local/bin/pi-bolt'
+FLAGS = ['--mode','rpc','--no-session','--no-extensions','--offline','--no-skills','--no-prompt-templates','--no-themes','--no-context-files','--no-mcp','--no-approve']
+sec = ctypes.CDLL('libseccomp.so.2', use_errno=True)
+sec.seccomp_init.argtypes = [ctypes.c_uint32]
+sec.seccomp_init.restype = ctypes.c_void_p
+sec.seccomp_syscall_resolve_name.argtypes = [ctypes.c_char_p]
+sec.seccomp_syscall_resolve_name.restype = ctypes.c_int
+sec.seccomp_rule_add.argtypes = [ctypes.c_void_p,ctypes.c_uint32,ctypes.c_int,ctypes.c_uint]
+sec.seccomp_load.argtypes = [ctypes.c_void_p]
+sec.seccomp_release.argtypes = [ctypes.c_void_p]
+
+def no_network():
+    ctx=sec.seccomp_init(0x7fff0000)
+    if not ctx: os._exit(120)
+    for name in (b'socket',b'connect',b'sendto',b'sendmsg',b'sendmmsg'):
+        num=sec.seccomp_syscall_resolve_name(name)
+        if num < 0 or sec.seccomp_rule_add(ctx,0x00050000 | errno.ENETUNREACH,num,0) != 0: os._exit(121)
+    if sec.seccomp_load(ctx) != 0: os._exit(122)
+    sec.seccomp_release(ctx)
+
+def take_idle(pid):
+    status=pathlib.Path(f'/proc/{pid}/status').read_text().splitlines()
+    fields={line.split(':',1)[0]:line.split(':',1)[1].strip() for line in status if ':' in line}
+    stat=pathlib.Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()
+    fds=list(pathlib.Path(f'/proc/{pid}/fd').iterdir())
+    sockets=sum(1 for fd in fds if os.readlink(fd).startswith('socket:'))
+    return {'rss_kib':int(fields['VmRSS'].split()[0]),'threads':int(fields['Threads']),'fd_count':len(fds),'socket_fds':sockets,'cpu_ticks':int(stat[11])+int(stat[12])}
+
+def run(label, extension=None, idle_seconds=0, trace=False, switch=False):
+    with tempfile.TemporaryDirectory(prefix='run-',dir=SCRATCH) as d:
+        for name in ('home','config','cache','state','data','agent','work'): pathlib.Path(d,name).mkdir()
+        env={'PATH':'/usr/bin:/bin:/home/furbyhaxx/.local/bin','HOME':d+'/home','XDG_CONFIG_HOME':d+'/config','XDG_CACHE_HOME':d+'/cache','XDG_STATE_HOME':d+'/state','XDG_DATA_HOME':d+'/data','PI_CODING_AGENT_DIR':d+'/agent','PI_OFFLINE':'1','PI_TIMING':'1','LANG':'C.UTF-8','TERM':'dumb','NO_COLOR':'1'}
+        cmd=[PI,*FLAGS]+(['-e',extension] if extension else [])
+        if trace: cmd=['strace','-f','-e','trace=network','-o',SCRATCH+'/network-'+label+'.txt',*cmd]
+        with tempfile.TemporaryFile(mode='w+t') as errors:
+            t=time.perf_counter()
+            proc=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=errors,text=True,bufsize=1,cwd=d+'/work',env=env,preexec_fn=no_network,start_new_session=True)
+            try:
+                proc.stdin.write('{"type":"get_commands","id":"bench"}\n'); proc.stdin.flush()
+                ready,_,_=select.select([proc.stdout],[],[],20)
+                if not ready: raise TimeoutError('no RPC response within 20s')
+                response=proc.stdout.readline(); startup_ms=(time.perf_counter()-t)*1000
+                if not response: raise RuntimeError('RPC EOF before response')
+                data=json.loads(response)
+                if not data.get('success') or data.get('id')!='bench': raise RuntimeError('invalid RPC get_commands response: '+response[:300])
+                commands=data.get('data',{}).get('commands',[])
+                command_names=[item.get('name') for item in commands]
+                if extension and 'auth' not in command_names: raise RuntimeError('extension auth command missing')
+                if not extension and 'auth' in command_names: raise RuntimeError('auth command present in baseline')
+                if switch:
+                    proc.stdin.write('{"type":"new_session","id":"switch"}\n'); proc.stdin.flush()
+                    ready,_,_=select.select([proc.stdout],[],[],20)
+                    if not ready: raise TimeoutError('new_session response missing')
+                    switch_response=json.loads(proc.stdout.readline())
+                    if not switch_response.get('success') or switch_response.get('id')!='switch': raise RuntimeError('invalid new_session response: '+repr(switch_response))
+                idle=None
+                if idle_seconds:
+                    before=take_idle(proc.pid); time.sleep(idle_seconds); after=take_idle(proc.pid)
+                    idle={'seconds':idle_seconds,'clock_ticks_per_s':os.sysconf('SC_CLK_TCK'),'before':before,'after':after,'cpu_ticks_delta':after['cpu_ticks']-before['cpu_ticks']}
+                shutdown_start=time.perf_counter(); proc.stdin.close(); proc.wait(timeout=8)
+                exit_ms=(time.perf_counter()-shutdown_start)*1000
+                rest=proc.stdout.read(); errors.seek(0); err=errors.read()
+                return {'label':label,'cmd':cmd,'startupToRpcMs':startup_ms,'shutdownAfterEofMs':exit_ms,'returncode':proc.returncode,'extensionCommandPresent':'auth' in command_names,'commandCount':len(command_names),'idle':idle,'stdoutExtra':rest,'stderr':err}
+            finally:
+                if proc.poll() is None:
+                    os.killpg(proc.pid,signal.SIGTERM)
+                    try: proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(proc.pid,signal.SIGKILL);proc.wait(timeout=3)
+
+if __name__=='__main__':
+    mode=sys.argv[1]
+    extension=ROOT+'/src/index.ts'
+    if mode=='trial':
+        print(json.dumps(run('baseline-trial')))
+        print(json.dumps(run('extension-trial',extension)))
+    elif mode=='sample':
+        for label, ext in [('baseline-warmup',None),('extension-warmup',extension)]: print(json.dumps(run(label,ext)),flush=True)
+        for i in range(10):
+            cases=[('baseline',None),('extension',extension)]
+            if i%2: cases.reverse()
+            for label,ext in cases: print(json.dumps(run(f'{label}-{i+1}',ext)),flush=True)
+    elif mode=='idle':
+        for label,ext in [('baseline-idle',None),('extension-idle',extension)]: print(json.dumps(run(label,ext,idle_seconds=5)),flush=True)
+    elif mode=='wrapper': print(json.dumps(run('instrumented',SCRATCH+'/timer-wrapper.ts',idle_seconds=3,switch=True)),flush=True)
+    elif mode=='trace':
+        for label,ext in [('baseline',None),('extension',extension)]: print(json.dumps(run(label,ext,trace=True)),flush=True)
+    else: raise ValueError(mode)
+@@ END startup.py
+@@ BEGIN timer-wrapper.ts
+const originals = {
+ setTimeout: globalThis.setTimeout,
+ clearTimeout: globalThis.clearTimeout,
+ setInterval: globalThis.setInterval,
+ clearInterval: globalThis.clearInterval,
+};
+const active = new Map<any,{id:number,kind:string,delay:number,site:string}>();
+let nextId=0;
+function site(){
+ const lines=(new Error().stack ?? "").split("\n");
+ return lines.find(line=>line.includes("/pi-auth-plus/src/"))?.trim().replace(/^.*?\/pi-auth-plus\/src\//,"src/") ?? "other";
+}
+globalThis.setTimeout = ((fn:any,delay?:number,...args:any[])=>{
+ const id=++nextId; let handle:any;
+ handle=originals.setTimeout((...values:any[])=>{active.delete(handle);fn(...values)},delay,...args);
+ active.set(handle,{id,kind:"timeout",delay:delay??0,site:site()}); return handle;
+}) as typeof setTimeout;
+globalThis.clearTimeout = ((handle:any)=>{active.delete(handle);return originals.clearTimeout(handle)}) as typeof clearTimeout;
+globalThis.setInterval = ((fn:any,delay?:number,...args:any[])=>{
+ const handle=originals.setInterval(fn,delay,...args);
+ active.set(handle,{id:++nextId,kind:"interval",delay:delay??0,site:site()}); return handle;
+}) as typeof setInterval;
+globalThis.clearInterval = ((handle:any)=>{active.delete(handle);return originals.clearInterval(handle)}) as typeof clearInterval;
+function snapshot(){return [...active].filter(([,value])=>value.site!=="other").map(([handle,value])=>({...value,referenced:typeof handle?.hasRef==="function"?handle.hasRef():null}));}
+export default async function(pi:any) {
+ const {default:extension}=await import("/mnt/Projects/furbyhaxx/pi-auth-plus/src/index.ts");
+ await extension(pi);
+ pi.on("session_start",()=>console.error("PERF_TIMER_START "+JSON.stringify(snapshot())));
+ pi.on("session_shutdown",()=>{
+  const before=snapshot(); const ids=new Set(before.map(item=>item.id));
+  console.error("PERF_TIMER_SHUTDOWN "+JSON.stringify(before));
+  originals.setTimeout(()=>console.error("PERF_TIMER_2_25S_AFTER "+JSON.stringify(snapshot().filter(item=>ids.has(item.id)))),2250).unref();
+ });
+}
+@@ END timer-wrapper.ts
+@@ BEGIN transforms.ts
+import { readFileSync } from "node:fs";
+import { shapeBody } from "/mnt/Projects/furbyhaxx/pi-auth-plus/src/families/anthropic/request.ts";
+import { restoreToolNames } from "/mnt/Projects/furbyhaxx/pi-auth-plus/src/families/anthropic/response.ts";
+import { toolNameRestorer } from "/mnt/Projects/furbyhaxx/pi-auth-plus/src/families/anthropic/tool-names.ts";
+const root="/mnt/Projects/furbyhaxx/pi-auth-plus";
+const requestTest=readFileSync(`${root}/tests/families/anthropic/request.test.ts`,"utf8");
+const requestStart=requestTest.indexOf("\t\tconst system = [");
+const requestEnd=requestTest.indexOf("\t\tconst shaped = JSON.parse(",requestStart);
+if(requestStart<0||requestEnd<0) throw new Error("request fixture boundaries not found");
+const {system,messages,placeholder}=new Function(requestTest.slice(requestStart,requestEnd)+"\nreturn {system,messages,placeholder};")();
+const request=JSON.stringify({system,messages,tools:[{name:"bash",input_schema:{}},{name:"web_search"},{name:"MyCustomTool"},placeholder],tool_choice:{type:"tool",name:"bash"}});
+const replacements=[{match:"Private workspace note"},{match:"widgets",replacement:"gadgets"}];
+const responseTest=readFileSync(`${root}/tests/families/anthropic/response.test.ts`,"utf8");
+const responseStart=responseTest.indexOf("const input =\n");
+const responseEnd=responseTest.indexOf("\ndescribe(",responseStart);
+if(responseStart<0||responseEnd<0) throw new Error("response fixture boundaries not found");
+const {input,expected}=new Function(responseTest.slice(responseStart,responseEnd)+"\nreturn {input,expected};")();
+const delta=JSON.stringify({type:"content_block_delta",delta:{type:"text_delta",text:'"name":"Bash"'}});
+const body=`data: ${input}\r\n\rdata: ${delta}\n`;
+const expectedBody=`data: ${expected}\r\n\rdata: ${delta}\n`;
+const bytes=new TextEncoder().encode(body);
+const restore=toolNameRestorer(["bash","MyCustomTool","web_search","ask_user","é🦊"]);
+const shaped=JSON.parse(shapeBody(request,"2.1.87",replacements));
+if(shaped.tools.map((t:any)=>t.name).join(",")!=="Bash,WebSearch,MyCustomTool,DeferredToolPlaceholder"||shaped.tool_choice.name!=="Bash"||!shaped.system.some((b:any)=>b.text.includes("gadgets"))) throw new Error("request fixture assertion failed");
+let checksum=0;
+function syncBatch(fn:()=>string,n:number){const start=performance.now();for(let i=0;i<n;i++)checksum+=fn().length;return (performance.now()-start)/n;}
+const syncFns={jsonRoundTrip:()=>JSON.stringify(JSON.parse(request)),shapeBody:()=>shapeBody(request,"2.1.87",replacements)};
+for(let i=0;i<200;i++){syncFns.jsonRoundTrip();syncFns.shapeBody();}
+const requestSamples={jsonRoundTrip:[] as number[],shapeBody:[] as number[]};
+for(let i=0;i<30;i++) for(const key of i%2 ? ["shapeBody","jsonRoundTrip"] as const : ["jsonRoundTrip","shapeBody"] as const) requestSamples[key].push(syncBatch(syncFns[key],200));
+console.log(JSON.stringify({kind:"request",fixture:"tests/families/anthropic/request.test.ts first test",inputBytes:new TextEncoder().encode(request).length,warmupOpsPerCase:200,batches:30,opsPerBatch:200,msPerOp:requestSamples,checks:"tool names, tool_choice, replacement",checksum}));
+function response(chunkSize:number){const chunks=[];for(let i=0;i<bytes.length;i+=chunkSize)chunks.push(bytes.slice(i,i+chunkSize));return new Response(new ReadableStream({start(c){for(const chunk of chunks)c.enqueue(chunk);c.close();}}),{status:207,statusText:"Multi-Status",headers:{"content-type":"text/event-stream"}});}
+async function runStream(chunkSize:number,transform:boolean){const source=response(chunkSize);return await (transform?restoreToolNames(source,restore):source).text();}
+async function asyncBatch(fn:()=>Promise<string>,n:number){const start=performance.now();for(let i=0;i<n;i++)checksum+=(await fn()).length;return (performance.now()-start)/n;}
+for(const chunkSize of [bytes.length,32,1]) {
+ if(await runStream(chunkSize,true)!==expectedBody || await runStream(chunkSize,false)!==body) throw new Error(`response fixture assertion failed chunkSize=${chunkSize}`);
+ const fns={baseline:()=>runStream(chunkSize,false),restore:()=>runStream(chunkSize,true)};
+ for(let i=0;i<15;i++){await fns.baseline();await fns.restore();}
+ const timings={baseline:[] as number[],restore:[] as number[]};
+ for(let i=0;i<30;i++) for(const key of i%2 ? ["restore","baseline"] as const : ["baseline","restore"] as const) timings[key].push(await asyncBatch(fns[key],20));
+ console.log(JSON.stringify({kind:"sse",fixture:"tests/families/anthropic/response.test.ts every byte split",inputBytes:bytes.length,chunkSize,chunksPerResponse:Math.ceil(bytes.length/chunkSize),warmupOpsPerCase:15,batches:30,opsPerBatch:20,msPerOp:timings,checks:"exact restored and passthrough bytes",checksum}));
+}
+@@ END transforms.ts

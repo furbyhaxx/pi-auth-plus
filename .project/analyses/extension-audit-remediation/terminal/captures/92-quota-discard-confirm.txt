@@ -1,0 +1,12 @@
+  src
+
+
+── Quotas ─── 9 providers F1 help ──
+ Discard this draft?
+ ctrl+g discard · ctrl+x keep
+────────────────────────────────────
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)  kimi-k2.6 • medium

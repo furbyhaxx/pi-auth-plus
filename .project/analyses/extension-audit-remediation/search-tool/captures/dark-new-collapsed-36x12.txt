@@ -1,0 +1,12 @@
+ Search fixture
+
+
+ ✓ synthetic_web_search done · 3 ·…
+
+ Fixture complete.
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/dark-n...
+27.1%/8.2k (auto)      fixture-model

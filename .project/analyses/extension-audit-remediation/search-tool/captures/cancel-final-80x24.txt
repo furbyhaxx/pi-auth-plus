@@ -1,0 +1,24 @@
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash ·
+ ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use
+ or extend Pi-Bolt.
+
+[Extensions]
+  fixture.ts
+
+
+ Search fixture
+
+
+ ■ synthetic_web_search aborted “CJK界 café search”
+
+ Error: The operation was aborted.
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cancel/cwd
+25.6%/8.2k (auto)                                                  fixture-model

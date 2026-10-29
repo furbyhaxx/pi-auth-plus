@@ -1,0 +1,12 @@
+      ion=1234567890               │
+      Gamma café                   │
+      https://example.test/gamma   │
+      Full text: [PATH]
+                                   ┃
+ ↓ Jump to latest message · Ctrl+En┃
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/cwd
+27.1%/8.2k (auto)      fixture-model

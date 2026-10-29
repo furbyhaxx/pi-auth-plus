@@ -1,0 +1,40 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use or extend Pi-Bolt.
+
+[Extensions]
+  src
+
+
+
+
+
+
+
+
+
+── Auth › Models ────────────────────────────────────────────────────────────────────────────────────────── listed · model detail F1 help ──
+  Providers   Quotas   Tokens  ▸Models   Groups   Settings
+ synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017
+ Visibility · listed
+ ❯ Name · deepseek-ai/DeepSeek-V4.1-Flash-1017
+   Context window · 524288
+   Max tokens · 65536
+   Reasoning · true
+   Input · text, image
+   Cost input · 0.6
+   Cost output · 1.2
+   Cost cacheRead · 0.03
+   Cost cacheWrite · 0
+ Aliases
+   + new alias
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Overrides are saved to user models.json.
+ ctrl+g stage · ctrl+x cancel
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

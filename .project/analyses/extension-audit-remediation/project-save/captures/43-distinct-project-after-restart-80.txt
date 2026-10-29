@@ -1,0 +1,24 @@
+
+[Extensions]
+  src
+
+
+or: … · ds: … · cox: … · cl: 5h/… 7d/… · ag: gem/… arg/… · syn: … · xai: …
+── Auth › Settings ────────────────────────────────────── 9 providers F1 help ──
+  Providers   Quotas   Tokens   Models   Groups  ▸Settings
+ Dashboard
+   Dashboard density             Comfortable                            default
+   Maximum dashboard body rows   0                                      default
+   Show dashboard provenance     off                                    default
+   Show matched dashboard rule   off                                    default
+ Quotas
+   Quota refresh interval        60                                     default
+   Refresh quotas after requests on                                     default
+   Quota providers               []                                     default
+ ❯ Quota line placement          Above editor                           project
+────────────────────────────────── ↓ 22 more ───────────────────────────────────
+ Where the quota line renders; below-editor-last uses the footer
+ ctrl+t switch · ctrl+g edit · ctrl+s save · ←/→ change · ctrl+x close
+────────────────────────────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cwd-trusted
+0.0%/262k (auto)                                              kimi-k2.6 • medium

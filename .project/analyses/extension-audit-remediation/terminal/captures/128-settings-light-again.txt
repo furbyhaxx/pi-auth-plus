@@ -1,0 +1,24 @@
+
+[Extensions]
+  src
+
+
+── Auth › Settings ──────────────── ↑ 2 more ──────────── 9 providers F1 help ──
+  Providers   Quotas   Tokens   Models   Groups  ▸Settings
+ ❯ Maximum dashboard body rows   3                                     ● staged
+   Show dashboard provenance     off                                    default
+   Show matched dashboard rule   off                                    default
+ Quotas
+   Quota refresh interval        60                                     default
+   Refresh quotas after requests on                                     default
+   Quota providers               []                                     default
+   Quota line placement          Below editor, first                    default
+   Quota percent                 Used                                   default
+   Compact width                 100                                    default
+────────────────────────────────── ↓ 20 more ───────────────────────────────────
+ Maximum additional body rows; 0 automatically fits available space, while prim…
+ ctrl+t switch · ctrl+g edit · ctrl+s save · ←/→ change · ctrl+x close
+────────────────────────────────────────────────────────────────────────────────
+or: … · ds: … · cox: … · cl: 5h/… 7d/… · ag: gem/… arg/… · syn: … · xai: …
+[PRIVATE_TMP]/cwd-light
+0.0%/262k (auto)                                              kimi-k2.6 • medium

@@ -1,0 +1,12 @@
+
+── Models ─ ● listed … ↓2 F1 help ──
+Identity
+synthetic/hf:deepseek-ai/DeepSeek-V4
+.1-Flash-1017
+ alt+k/alt+j move · ctrl+x back
+────────────────────────────────────
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)  kimi-k2.6 • medium

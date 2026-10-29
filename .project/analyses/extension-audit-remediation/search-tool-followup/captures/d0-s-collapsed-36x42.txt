@@ -1,0 +1,42 @@
+
+Search fixture
+
+
+✓ synthetic_web_search done · 3 · e…
+
+Fixture complete.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]
+27.2%/8.2k (auto)      fixture-model

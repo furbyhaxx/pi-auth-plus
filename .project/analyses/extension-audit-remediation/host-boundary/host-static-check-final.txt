@@ -1,0 +1,23 @@
+npm notice run pi-monorepo@0.0.3 check
+npm notice run npm run generate:catalog-modules && node scripts/biome-check.mjs --write && npm run check:pinned-deps && npm run check:runtime-deps && npm run check:ts-imports && npm run check:entry-graphs && npm run check:install-lock:coding-agent && tsc --noEmit && npm run check:browser-smoke
+npm notice run pi-monorepo@0.0.3 generate:catalog-modules
+npm notice run npm --prefix packages/ai run generate-catalog-modules
+npm notice run @earendil-works/pi-ai@1.4.0 generate-catalog-modules
+npm notice run node scripts/generate-catalog-modules.ts
+Wrote the catalog modules of 42 providers
+Checked 1728 files in 8s. No fixes applied.
+npm notice run pi-monorepo@0.0.3 check:pinned-deps
+npm notice run node scripts/check-pinned-deps.mjs
+npm notice run pi-monorepo@0.0.3 check:runtime-deps
+npm notice run node scripts/check-runtime-deps.mjs
+Public package runtime imports have declared dependencies.
+npm notice run pi-monorepo@0.0.3 check:ts-imports
+npm notice run node scripts/check-ts-relative-imports.mjs
+npm notice run pi-monorepo@0.0.3 check:entry-graphs
+npm notice run node scripts/check-entry-graphs.mjs
+Entry point graphs are within budget.
+npm notice run pi-monorepo@0.0.3 check:install-lock:coding-agent
+npm notice run node scripts/generate-coding-agent-install-lock.mjs --check
+packages/coding-agent/install-lock is up to date.
+npm notice run pi-monorepo@0.0.3 check:browser-smoke
+npm notice run node scripts/check-browser-smoke.mjs

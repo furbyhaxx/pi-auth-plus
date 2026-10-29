@@ -1,0 +1,12 @@
+ Search fixture
+
+
+ ✓ synthetic_web_search empty “CJK…
+
+ Fixture complete.
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/empty/cwd
+25.7%/8.2k (auto)      fixture-model

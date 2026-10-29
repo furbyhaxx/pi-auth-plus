@@ -1,0 +1,12 @@
+[Extensions]
+  src
+
+
+── Auth › Quotas ──────────── result 1-1/2 ↓12 F1 help ──
+ ❯ Synthetic (syn)
+     Loading quota… (press r to refresh)
+ Saved to project scope; shadowed by higher scope:
+ ctrl+t switch · alt+u/alt+d result · ctrl+x close
+─────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cwd-trusted
+0.0%/262k (auto)                       kimi-k2.6 • medium

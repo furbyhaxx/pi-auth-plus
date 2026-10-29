@@ -1,0 +1,7 @@
+Captured private file-state checks after latest-source restart:
+project auth-plus.json: {"quotas": {"linePlacement": "above-editor"}}
+user auth-plus.json: {"quotas": {"linePlacement": "below-editor-last"}}
+private trust.json: {"[PRIVATE_TMP]/cwd-trusted": true}
+project byte-for-byte unchanged after restart: True
+user byte-for-byte unchanged since before project save: True
+untrusted project file absent: True

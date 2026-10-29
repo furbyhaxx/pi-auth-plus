@@ -1,0 +1,12 @@
+[Extensions]
+  src
+
+
+── Auth › Help ────────────── ↓11 ──
+ Description
+ Saved to project scope; shadowed
+ by…
+ j/k scroll · F1 back
+────────────────────────────────────
+[PRIVATE_TMP]/cwd-tr...
+0.0%/262k (auto)  kimi-k2.6 • medium

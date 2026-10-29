@@ -1,0 +1,12 @@
+      rce?version=1234567890                            │
+      Gamma café                                        │
+      https://example.test/gamma                        │
+      Full text: [PATH]
+                                                        ┃
+ Fixture c ↓ Jump to latest message · Ctrl+End          ┃
+
+─────────────────────────────────────────────────────────
+
+─────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cwd
+27.1%/8.2k (auto)                           fixture-model

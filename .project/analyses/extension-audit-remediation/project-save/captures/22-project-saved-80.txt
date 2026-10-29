@@ -1,0 +1,24 @@
+
+[Extensions]
+  src
+
+
+or: … · ds: … · cox: … · cl: 5h/… 7d/… · ag: gem/… arg/… · syn: … · xai: …
+── Auth › Quotas ─────────────────────────────────────── above-editor F1 help ──
+  Providers  ▸Quotas   Tokens   Models   Groups   Settings
+ ❯ Synthetic (syn)
+     Loading quota… (press r to refresh)
+   Claude (cl)
+     Loading quota… (press r to refresh)
+   Antigravity (ag)
+     Loading quota… (press r to refresh)
+   OpenAI Codex (cox)
+     Loading quota… (press r to refresh)
+   xAI (xai)
+ Saved to project scope
+─────────────────────────────────── ↓ 5 more ───────────────────────────────────
+ Saved to project scope
+ ctrl+t switch · alt+k/alt+j provider · r/R refresh · a solo · ctrl+x close
+────────────────────────────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cwd-trusted
+0.0%/262k (auto)                                              kimi-k2.6 • medium

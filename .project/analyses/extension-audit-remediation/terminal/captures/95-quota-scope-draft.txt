@@ -1,0 +1,12 @@
+
+── Quotas ─ staged: belo… F1 help ──
+ ❯ r runtime
+   u user
+   p project
+ ctrl+g s ctrl+x b r/u/p s
+────────────────────────────────────
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)  kimi-k2.6 • medium

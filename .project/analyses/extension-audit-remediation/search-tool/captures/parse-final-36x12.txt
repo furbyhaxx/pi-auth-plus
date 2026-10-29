@@ -1,0 +1,12 @@
+
+ ✗ synthetic_web_search error “CJK…
+   ⎿  invalid response
+      Retry or run /login synthetic
+
+ Fixture complete.
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/parse/cwd
+26.0%/8.2k (auto)      fixture-model

@@ -1,0 +1,187 @@
+import json
+import os
+import pathlib
+import re
+import shlex
+import subprocess
+import time
+
+root = pathlib.Path(os.environ['QA_ROOT'])
+repo = '[REPO]'
+output = pathlib.Path(repo) / '.project/analyses/extension-audit-remediation/search-tool-followup/captures'
+output.mkdir(parents=True, exist_ok=True)
+socket = str(root / 'tmux.sock')
+fixture = str(root / 'fixture.ts')
+log = []
+checks = []
+pi = '/home/furbyhaxx/.local/bin/pi-bolt'
+
+def redact(value):
+    value = value.replace(str(root), '[PRIVATE_TMP]').replace(repo, '[REPO]')
+    value = re.sub(r'(SYNTHETIC_API_KEY|QA_PROVIDER_KEY)=fixture', r'\1=[DUMMY]', value)
+    value = re.sub(r'/tmp/[^\s\x1b]*', '[PRIVATE_TMP]', value)
+    return value
+
+def tm(*args):
+    targeted = list(args)
+    for i, value in enumerate(targeted):
+        if i and targeted[i-1] == '-t' and ':' not in str(value): targeted[i] = str(value) + ':'
+    command = ['tmux', '-S', socket, *map(str, targeted)]
+    log.append(shlex.join(command))
+    return subprocess.run(command, check=True, text=True, capture_output=True, timeout=8).stdout
+
+def events(name):
+    path = root / (name + '.jsonl')
+    return [json.loads(x) for x in path.read_text().splitlines()] if path.exists() else []
+
+def wait(name, stage, seconds=18):
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        for entry in events(name):
+            if entry.get('stage') == stage:
+                return entry
+        time.sleep(.10)
+    raise RuntimeError(name + ' timed out waiting for ' + stage)
+
+def start(name, scenario, theme, pad):
+    local = root / name
+    for directory in ['home', 'agent', 'cache', 'config', 'state', 'data', 'cwd', 'tmp']:
+        (local / directory).mkdir(parents=True, exist_ok=True)
+    (local / 'agent/settings.json').write_text(json.dumps({'outputPad': pad, 'quietStartup': True, 'fullscreenScrollbar': 'hidden'}))
+    env = {'HOME': str(local / 'home'), 'PATH': '/usr/bin:/bin', 'TERM': 'xterm-256color', 'LANG': 'C.UTF-8', 'PI_TELEMETRY': '0',
+           'PI_CODING_AGENT_DIR': str(local / 'agent'), 'XDG_CACHE_HOME': str(local / 'cache'), 'XDG_CONFIG_HOME': str(local / 'config'),
+           'XDG_STATE_HOME': str(local / 'state'), 'XDG_DATA_HOME': str(local / 'data'), 'TMPDIR': str(local / 'tmp'), 'QA_CASE': scenario,
+           'QA_AUDIT': str(root / (name + '.jsonl')), 'QA_PROVIDER_KEY': '[DUMMY]', 'SYNTHETIC_API_KEY': '[DUMMY]'}
+    command = ['timeout', '180s', 'bwrap', '--unshare-net', '--ro-bind', '/', '/', '--bind', str(root), str(root), '--proc', '/proc', '--dev', '/dev',
+               '--chdir', str(local / 'cwd'), '/usr/bin/env', '-i'] + [f'{k}={v}' for k, v in env.items()] + [pi, '--no-session', '-ne', '--offline',
+               '--no-mcp', '-ns', '-np', '--no-themes', '-nc', '--no-approve', '--tui-mode', 'fullscreen', '--use-theme', theme,
+               '-e', fixture, '--model', 'qa-fixture/fixture-model']
+    tm('new-session', '-d', '-s', name, '-x', 140, '-y', 42, 'exec ' + shlex.join(command))
+
+def screen(name, label, with_path=False, ansi=False):
+    raw = tm('capture-pane', '-p', *(['-e'] if ansi else []), '-t', name)
+    safe = raw
+    if with_path:
+        lines = safe.splitlines()
+        masking = False
+        for i, line in enumerate(lines):
+            if 'Full text: ' in line:
+                lines[i] = line.split('Full text: ', 1)[0] + 'Full text: [PATH PART]'
+                masking = True
+            elif masking:
+                if not line.strip() or not line.startswith('     '):
+                    masking = False
+                else:
+                    lines[i] = re.match(r'\s*', line).group(0) + '[PATH PART]'
+        safe = '\n'.join(lines) + '\n'
+    safe = redact(safe)
+    (output / label).write_text(safe)
+    return raw
+
+def resize(name, width, height=42):
+    tm('resize-window', '-t', name + ':0', '-x', width, '-y', height)
+    time.sleep(.25)
+
+def check(name, value, **extra):
+    checks.append({'check': name, 'pass': bool(value), **extra})
+
+def check_path(raw, expected, name, width, pad):
+    lines = raw.splitlines()
+    indices = [i for i, value in enumerate(lines) if 'Full text: ' in value]
+    if not indices:
+        check('path', False, session=name, width=width, pad=pad, reason='path line not visible')
+        return
+    i = indices[0]
+    value = lines[i].split('Full text: ', 1)[1].strip()
+    parts = 1
+    while len(value) < len(expected) and i + 1 < len(lines):
+        i += 1
+        part = lines[i].strip()
+        if not part or not lines[i].startswith('     '):
+            break
+        value += part
+        parts += 1
+    check('path', value == expected and '…' not in value, session=name, width=width, pad=pad,
+          actualLength=len(value), expectedLength=len(expected), parts=parts, ellipsis='…' in value)
+
+combos = [('d1', 'dark', 1, [36, 57, 80, 140]), ('l0', 'light', 0, [36, 57, 80, 140]),
+          ('d0', 'dark', 0, [36]), ('l1', 'light', 1, [36])]
+sessions = [('timeout', 'timeout', 'dark', 1)]
+for prefix, theme, pad, _ in combos:
+    sessions += [(prefix+'-s', 'success', theme, pad), (prefix+'-t', 'truncate', theme, pad), (prefix+'-h', 'http', theme, pad)]
+try:
+    for spec in sessions:
+        start(*spec)
+    for name, _, _, _ in sessions:
+        wait(name, 'session-start')
+    for name, _, _, _ in sessions:
+        tm('send-keys', '-t', name, '-l', 'Search fixture')
+        tm('send-keys', '-t', name, 'Enter')
+    wait('timeout', 'partial')
+    screen('timeout', 'timeout-running-140x42.txt')
+    for name, _, _, _ in sessions[1:]:
+        wait(name, 'result')
+    for prefix, theme, pad, widths in combos:
+        success, truncated, http = prefix+'-s', prefix+'-t', prefix+'-h'
+        for width in widths:
+            for name, is_truncated in ((success, False), (truncated, True)):
+                resize(name, width)
+                raw = screen(name, f'{name}-collapsed-{width}x42.txt')
+                row = next((line for line in raw.splitlines() if 'synthetic_web_search' in line), '')
+                check('collapsed-warning', ('truncated' in raw) == is_truncated and bool(row), session=name, width=width, pad=pad)
+                check('output-padding', bool(row) and row.index('✓') == pad, session=name, width=width, pad=pad)
+        resize(http, 140 if 140 in widths else 36)
+        screen(http, f'{http}-collapsed.txt')
+        for name in (success, truncated, http):
+            tm('send-keys', '-t', name, 'C-o')
+        time.sleep(.35)
+        for width in widths:
+            for name in (success, truncated):
+                resize(name, width)
+                raw = screen(name, f'{name}-expanded-{width}x42.txt', with_path=True)
+                expected = next(x for x in events(name) if x['stage'] == 'result')['fullOutputPath']
+                check_path(raw, expected, name, width, pad)
+            resize(http, width)
+            raw = screen(http, f'{http}-expanded-{width}x42.txt')
+            compact = re.sub(r'\s+', '', raw)
+            check('http-expanded', 'HTTP503' in compact and 'https://api.synthetic.new/v2/search' in compact
+                  and '/loginsynthetic' in compact and 'retry' in compact.lower(), session=http, width=width, pad=pad)
+        if prefix in ('d1', 'l0'):
+            tm('send-keys', '-t', truncated, 'C-o')
+            time.sleep(.25)
+            for height in (12, 8):
+                resize(truncated, 36, height)
+                screen(truncated, f'{truncated}-collapsed-36x{height}.txt')
+    for prefix in ('d1', 'l0'):
+        name = prefix+'-s'
+        tm('send-keys', '-t', name, 'C-o')
+        resize(name, 140)
+        screen(name, f'{name}-collapsed-140x42.ansi', ansi=True)
+    result = wait('timeout', 'result', 75)
+    fetch = next(x for x in events('timeout') if x['stage'] == 'fetch')
+    abort = next((x for x in events('timeout') if x['stage'] == 'fetch-aborted'), None)
+    check('timeout', result.get('kind') == 'error' and result.get('code') == 'timeout' and result.get('isError') is True,
+          elapsedMs=result['ms'] - fetch['ms'], transportAborted=abort is not None)
+    resize('timeout', 80, 24)
+    screen('timeout', 'timeout-collapsed-80x24.txt')
+    tm('send-keys', '-t', 'timeout', 'C-o')
+    time.sleep(.3)
+    raw = screen('timeout', 'timeout-expanded-80x24.txt')
+    normalized = re.sub(r'\s+', '', raw)
+    check('timeout-ui', 'requesttimedout' in normalized and 'https://api.synthetic.new/v2/search' in normalized and '/loginsynthetic' in normalized)
+    for name, _, _, _ in sessions:
+        safe_events = []
+        for event in events(name):
+            safe = dict(event)
+            if 'fullOutputPath' in safe: safe['fullOutputPath'] = '[PATH]'
+            safe_events.append(safe)
+        (output / (name + '-events.jsonl')).write_text('\n'.join(json.dumps(e, ensure_ascii=False) for e in safe_events) + '\n')
+    (output / 'checks.json').write_text(json.dumps(checks, indent=2) + '\n')
+    total = len(checks)
+    failures = [x for x in checks if not x['pass']]
+    print('CHECKS', total, 'PASSED', total - len(failures), 'FAILED', len(failures), flush=True)
+    for failure in failures: print('FAILED', json.dumps(failure), flush=True)
+    print('TIMEOUT', json.dumps(next(x for x in checks if x['check'] == 'timeout')), flush=True)
+finally:
+    (output / 'commands.txt').write_text('\n'.join(redact(x) for x in log) + '\n')
+    (output / 'fixture.ts.txt').write_text(redact(pathlib.Path(fixture).read_text()))

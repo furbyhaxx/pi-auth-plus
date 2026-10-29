@@ -1,0 +1,26 @@
+[
+  {
+    "width": 140,
+    "height": 36,
+    "fullTextLineFound": true,
+    "leftEllipsis": false
+  },
+  {
+    "width": 80,
+    "height": 36,
+    "fullTextLineFound": true,
+    "leftEllipsis": true
+  },
+  {
+    "width": 57,
+    "height": 36,
+    "fullTextLineFound": true,
+    "leftEllipsis": true
+  },
+  {
+    "width": 36,
+    "height": 36,
+    "fullTextLineFound": true,
+    "leftEllipsis": true
+  }
+]

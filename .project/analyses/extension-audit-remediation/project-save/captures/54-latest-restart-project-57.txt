@@ -1,0 +1,12 @@
+
+
+or: … · ds: … · cox: … · cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …
+── Auth › Settings ───────── 9 providers ↑7↓22 F1 help ──
+   Refresh quotas after… on                      default
+   Quota providers       []                      default
+ ❯ Quota line placement  Above editor            project
+ ctrl+t switch · ctrl+g edit · ctrl+s save · ctrl+x close
+─────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cwd-trusted
+0.0%/262k (auto)                       kimi-k2.6 • medium

@@ -1,0 +1,12 @@
+      https://example.test/a/long/p│
+      ath/to/a/useful/resource?vers│
+      ion=1234567890               │
+      Gamma café                   │
+      https://example.test/gamma   ┃
+ ↓ Jump to latest message · Ctrl+En┃
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/cwd
+27.1%/8.2k (auto)      fixture-model

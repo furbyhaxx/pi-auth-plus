@@ -1,0 +1,12 @@
+      Beta result and its longer title                  │
+      https://example.test/a/long/path/to/a/useful/resou│
+      rce?version=1234567890                            │
+      Gamma café                                        │
+      https://example.test/gamma                        ┃
+      Full ↓ Jump to latest message · Ctrl+End 8b567f.md┃
+
+─────────────────────────────────────────────────────────
+
+─────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cwd
+27.1%/8.2k (auto)                           fixture-model

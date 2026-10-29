@@ -1,0 +1,12 @@
+
+ ✗ synthetic_web_search error
+   ⎿  credentials missing
+      Retry or run /login synthetic
+
+ Fixture complete.
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/missin...
+26.0%/8.2k (auto)      fixture-model

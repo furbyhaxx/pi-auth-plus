@@ -1,0 +1,12 @@
+[Extensions]
+  src
+
+
+── Auth › Help ───────────── ↑3↓6 ──
+ Save failed: Project settings are
+ unavailable until the project is
+ trusted
+ j/k scroll · F1 back
+────────────────────────────────────
+[PRIVATE_TMP]/cwd-un...
+0.0%/262k (auto)  kimi-k2.6 • medium

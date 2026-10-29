@@ -1,0 +1,12 @@
+ Search fixture
+
+
+ ✓ synthetic_web_search done · 3 results · truncated · …
+
+ Fixture complete.
+
+─────────────────────────────────────────────────────────
+
+─────────────────────────────────────────────────────────
+[PRIVATE_TMP]/truncate-new/cwd
+26.5%/8.2k (auto)                           fixture-model

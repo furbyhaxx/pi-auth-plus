@@ -1,0 +1,5 @@
+600889 +++ exited with 0 +++
+600887 +++ exited with 0 +++
+600886 +++ exited with 0 +++
+600888 +++ exited with 0 +++
+600885 +++ exited with 0 +++

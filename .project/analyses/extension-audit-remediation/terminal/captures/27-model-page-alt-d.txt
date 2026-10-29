@@ -1,0 +1,40 @@
+
+[Extensions]
+  src
+
+
+── Auth › Models ─────────────────────────────────────────────── ↑ 25 more ───────────────── ● listed · 26–50 of 1635 · 83 hidden F1 help ──
+  Providers   Quotas   Tokens  ▸Models   Groups   Settings
+ ⌕ provider/id or name
+ ❯ listed claude/claude-opus-5-5 · Claude Opus 5.5
+   listed claude/claude-sonnet-4-5 · Claude Sonnet 4.5 (latest)
+   listed claude/claude-sonnet-4-5-20250929 · Claude Sonnet 4.5
+   listed claude/claude-sonnet-4-6 · Claude Sonnet 4.6
+   listed claude/claude-sonnet-5 · Claude Sonnet 5
+   listed claude/claude-sonnet-5-5 · Claude Sonnet 5.5
+   listed antigravity/gemini-4-argon · Gemini 4 Argon
+   listed antigravity/gemini-3.8-flash · Gemini 3.8 Flash
+   listed antigravity/claude-opus-5-5 · Claude Opus 5.5
+   listed antigravity/claude-sonnet-5-5 · Claude Sonnet 5.5
+   listed antigravity/gpt-oss-120b · GPT-OSS 120B
+   listed amazon-bedrock/amazon.nova-2-lite-v1:0 · Nova 2 Lite
+   listed amazon-bedrock/amazon.nova-lite-v1:0 · Nova Lite
+   listed amazon-bedrock/amazon.nova-micro-v1:0 · Nova Micro
+   listed amazon-bedrock/amazon.nova-pro-v1:0 · Nova Pro
+   listed amazon-bedrock/anthropic.claude-fable-5 · Claude Fable 5
+   listed amazon-bedrock/anthropic.claude-fable-5-1 · Claude Fable 5.1
+   listed amazon-bedrock/anthropic.claude-haiku-4-5-20251001-v1:0 · Claude Haiku 4.5
+   listed amazon-bedrock/anthropic.claude-haiku-5-5 · Claude Haiku 5.5
+   listed amazon-bedrock/anthropic.claude-opus-4-1-20250805-v1:0 · Claude Opus 4.1
+   listed amazon-bedrock/anthropic.claude-opus-4-5-20251101-v1:0 · Claude Opus 4.5
+   listed amazon-bedrock/anthropic.claude-opus-4-6-v1 · Claude Opus 4.6
+   listed amazon-bedrock/anthropic.claude-opus-4-7 · Claude Opus 4.7
+   listed amazon-bedrock/anthropic.claude-opus-4-8 · Claude Opus 4.8
+   listed amazon-bedrock/anthropic.claude-opus-5-5 · Claude Opus 5.5
+─────────────────────────────────────────────────────────────── ↓ 1585 more ────────────────────────────────────────────────────────────────
+ ? inspect · alt+↑/↓ page · / search
+ alt+k/alt+j move · alt+↑/↓ page · ctrl+g detail · ctrl+x back · / search · ? inspect · v rules · h hide/show · ctrl+t switch · ctrl+s save
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

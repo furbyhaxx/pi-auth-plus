@@ -1,0 +1,42 @@
+
+ Search fixture
+
+
+ ✓ synthetic_web_search done · truncated · 3 results “CJK界 café search”
+   ⎿  Long result
+      https://example.test/long
+      Beta result and its longer title
+      https://example.test/a/long/path/to/a/useful/resource?version=1234567890
+      Gamma café
+      https://example.test/gamma
+      Model output truncated
+      Full text: [PATH PART]
+      [PATH PART]
+
+ Fixture complete.
+
+ Tool output: expanded
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+[PRIVATE_TMP]/d1-t/cwd
+26.5%/8.2k (auto)                                                  fixture-model

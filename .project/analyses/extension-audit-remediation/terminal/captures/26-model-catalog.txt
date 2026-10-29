@@ -1,0 +1,40 @@
+
+[Extensions]
+  src
+
+
+── Auth › Models ──────────────────────────────────────────────────────────────────────────── ● listed · 1–25 of 1635 · 83 hidden F1 help ──
+  Providers   Quotas   Tokens  ▸Models   Groups   Settings
+ ⌕ provider/id or name
+ ❯ listed synthetic/infinite:small:vision · infinite:small:vision
+   listed synthetic/syn:large:text · syn:large:text
+   listed synthetic/syn:small:text · syn:small:text
+   listed synthetic/syn:large:vision · syn:large:vision
+   listed synthetic/syn:small:vision · syn:small:vision
+   listed synthetic/hf:openai/gpt-oss-120b · openai/gpt-oss-120b
+   listed synthetic/hf:zai-org/GLM-5.3 · zai-org/GLM-5.3
+   listed synthetic/hf:zai-org/GLM-5.3-Flash · zai-org/GLM-5.3-Flash
+   listed synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017 · deepseek-ai/DeepSeek-V4.1-Flash-1017
+   listed synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash · deepseek-ai/DeepSeek-V4.1-Flash
+   listed synthetic/hf:moonshotai/Kimi-K3 · moonshotai/Kimi-K3
+   listed synthetic/hf:Qwen/Qwen3.8-27B · Qwen/Qwen3.8-27B
+   listed synthetic/hf:zai-org/GLM-4.7-Flash · zai-org/GLM-4.7-Flash
+   listed synthetic/hf:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 · nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+   listed claude/claude-fable-5 · Claude Fable 5
+   listed claude/claude-fable-5-1 · Claude Fable 5.1
+   listed claude/claude-haiku-4-5 · Claude Haiku 4.5 (latest)
+   listed claude/claude-haiku-4-5-20251001 · Claude Haiku 4.5
+   listed claude/claude-haiku-5-5 · Claude Haiku 5.5
+   listed claude/claude-opus-4-5 · Claude Opus 4.5 (latest)
+   listed claude/claude-opus-4-5-20251101 · Claude Opus 4.5
+   listed claude/claude-opus-4-6 · Claude Opus 4.6
+   listed claude/claude-opus-4-7 · Claude Opus 4.7
+   listed claude/claude-opus-4-8 · Claude Opus 4.8
+   listed claude/claude-opus-5 · Claude Opus 5
+─────────────────────────────────────────────────────────────── ↓ 1610 more ────────────────────────────────────────────────────────────────
+ ? inspect · alt+↑/↓ page · / search
+ alt+k/alt+j move · alt+↑/↓ page · ctrl+g detail · ctrl+x back · / search · ? inspect · v rules · h hide/show · ctrl+t switch · ctrl+s save
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

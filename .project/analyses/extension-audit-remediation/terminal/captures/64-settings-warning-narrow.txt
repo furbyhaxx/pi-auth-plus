@@ -1,0 +1,12 @@
+
+── Settings ─ 9 p… ↑12↓17 F1 help ──
+   Always short… off        default
+   Healthy cred… 50         default
+ ❯ Critical cre… 55        ● staged
+ ctrl+s save · ctrl+x close
+────────────────────────────────────
+or: … · ds: … · cox: …
+cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)  kimi-k2.6 • medium

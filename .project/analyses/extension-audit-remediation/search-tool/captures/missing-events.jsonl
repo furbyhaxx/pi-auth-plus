@@ -1,0 +1,3 @@
+{"stage":"session-start","searchActive":false,"registered":true}
+{"stage":"after-harness-activation","searchActive":true}
+{"stage":"result","isError":true,"kind":"error","code":"auth","emptyContent":false,"summaryContainsHighlight":false,"summaryContainsFullBody":false,"hasFullPath":false}

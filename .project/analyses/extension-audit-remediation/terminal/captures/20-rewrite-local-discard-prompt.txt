@@ -1,0 +1,40 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use or extend Pi-Bolt.
+
+[Extensions]
+  src
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+── Auth › Settings ────────────────────────────────────────────────────────────────────────────────────────────────── 9 providers F1 help ──
+  Providers   Quotas   Tokens   Models   Groups  ▸Settings
+ Discard this draft?
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ctrl+g discard
+ ctrl+x keep
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/cwd
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

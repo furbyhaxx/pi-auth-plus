@@ -1,0 +1,12 @@
+✓ synthetic_web_search done · 3 · e…
+  ⎿  truncated
+
+Fixture complete.
+
+ Tool output: collapsed
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]
+26.5%/8.2k (auto)      fixture-model

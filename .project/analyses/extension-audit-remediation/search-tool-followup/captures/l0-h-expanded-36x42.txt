@@ -1,0 +1,42 @@
+
+Search fixture
+
+
+✗ synthetic_web_search error “CJK界…
+  ⎿  HTTP 503
+     Retry or run /login synthetic
+     synthetic: HTTP 503 at
+     https://api.synthetic.new/v2/se
+     arch; retry or run /login
+     synthetic.
+
+Fixture complete.
+
+ Tool output: expanded
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]
+26.0%/8.2k (auto)      fixture-model

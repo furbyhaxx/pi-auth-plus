@@ -1,0 +1,8 @@
+
+── Settings ─ 9 pr… ↑2↓29 F1 help ──
+ ❯ Maximum dash… 3         ● staged
+ ctrl+s save · ctrl+x close
+────────────────────────────────────
+… quota line has 3 rows
+[PRIVATE_TMP]/cwd-light
+0.0%/262k (auto)  kimi-k2.6 • medium

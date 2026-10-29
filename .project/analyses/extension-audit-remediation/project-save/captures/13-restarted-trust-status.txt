@@ -1,0 +1,40 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use or extend Pi-Bolt.
+
+[Extensions]
+  src
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+ Project trust
+ [PRIVATE_TMP]/cwd-trusted
+
+ Saved decision: trusted ([PRIVATE_TMP]/cwd-trusted)
+ Current session: trusted
+
+ → ✓ Trust
+     Trust parent folder ([PRIVATE_TMP])
+     Do not trust
+
+ ↑↓ navigate  ctrl+g/enter save  ctrl+x/escape cancel
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: … · deepseek: … · codex: … · claude: 5h/… 7d/… · antigravity: gem/… arg/… · synthetic: … · xai: …
+[PRIVATE_TMP]/cwd-trusted
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

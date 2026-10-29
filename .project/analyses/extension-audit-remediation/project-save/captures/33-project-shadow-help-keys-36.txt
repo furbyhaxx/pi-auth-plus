@@ -1,0 +1,12 @@
+[Extensions]
+  src
+
+
+── Auth › Help ───────────── ↑6↓5 ──
+ Keys
+ ctrl+t switch
+ alt+k/alt+j provider
+ j/k scroll · F1 back
+────────────────────────────────────
+[PRIVATE_TMP]/cwd-tr...
+0.0%/262k (auto)  kimi-k2.6 • medium

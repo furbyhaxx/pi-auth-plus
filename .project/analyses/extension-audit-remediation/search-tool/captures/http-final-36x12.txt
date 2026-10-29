@@ -1,0 +1,12 @@
+
+ ✗ synthetic_web_search error “CJK…
+   ⎿  HTTP 503
+      Retry or run /login synthetic
+
+ Fixture complete.
+
+────────────────────────────────────
+
+────────────────────────────────────
+[PRIVATE_TMP]/http/cwd
+25.9%/8.2k (auto)      fixture-model

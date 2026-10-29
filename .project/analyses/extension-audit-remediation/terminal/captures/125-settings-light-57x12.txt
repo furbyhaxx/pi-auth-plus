@@ -1,0 +1,12 @@
+
+
+── Auth › Settings ─────────── 9 providers ↓29 F1 help ──
+ Dashboard
+   Dashboard density     Comfortable             default
+ ❯ Maximum dashboard bo… 3                      ● staged
+ ctrl+t switch · ctrl+g edit · ctrl+s save · ctrl+x close
+─────────────────────────────────────────────────────────
+or: … · ds: … · cox: … · cl: 5h/… 7d/… · ag: gem/… arg/…
+syn: … · xai: …
+[PRIVATE_TMP]/cwd-light
+0.0%/262k (auto)                       kimi-k2.6 • medium

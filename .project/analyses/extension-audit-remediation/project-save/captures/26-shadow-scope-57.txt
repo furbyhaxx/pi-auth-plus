@@ -1,0 +1,12 @@
+[Extensions]
+  src
+
+
+── Auth › Quotas ── staged: below-editor-first F1 help ──
+ ❯ r runtime
+   u user
+   p project
+ ctrl+g save ctrl+x back alt+k/alt+j move r/u/p scop
+─────────────────────────────────────────────────────────
+[PRIVATE_TMP]/cwd-trusted
+0.0%/262k (auto)                       kimi-k2.6 • medium

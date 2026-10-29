@@ -1,0 +1,5 @@
+{"stage": "session-start", "searchActive": false, "registered": true, "ms": 314}
+{"stage": "after-harness-activation", "searchActive": true, "ms": 315}
+{"stage": "partial", "kind": "progress", "ms": 2725}
+{"stage": "fetch", "method": "POST", "queryOK": true, "hasAuth": true, "signalPresent": true, "ms": 2725}
+{"stage": "result", "isError": true, "kind": "error", "code": "http", "status": 503, "emptyContent": false, "summaryContainsHighlight": false, "summaryContainsFullBody": false, "endpointPresentInContent": true, "hasFullPath": false, "ms": 8726}

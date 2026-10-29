@@ -5,7 +5,7 @@ title: "pi-auth-plus roadmap"
 description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
 type: "plan"
 created: "2026-10-27T09:43:00+01:00"
-updated: "2026-10-29T19:09:11+01:00"
+updated: "2026-10-29T21:47:05+01:00"
 createdBy: "pi"
 updatedBy: "pi"
 document:
@@ -14,12 +14,18 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 24
+  revision: 26
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-29T19:09:11+01:00"
+  updated_at: "2026-10-29T21:47:05+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
+    - revision: 26
+      reason: "Accept native-count follow-up and committed public documentation"
+      changes: ["Live native count differential and authentication recovery passed", "Offline Tokens acceptance and documentation reconciliation complete", "External and protected-host acceptance gaps remain open"]
+    - revision: 25
+      reason: "Integrate audit remediation and record final regression gates"
+      changes: ["Runtime, editor, metadata and ownership corrections integrated", "Final extension gate: 1,230 tests; native acceptance and evidence closure remain", "Host guard static checks pass; patch remains uncommitted and unbuilt"]
     - revision: 24
       reason: "Track authorized extension audit remediation"
       changes: ["F01–F34 and R01/R02 corrections in plan 0006", "Local host selection guard authorized; acceptance remains open"]
@@ -148,8 +154,11 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] Bounded Gemini thought-signature recovery; RPC startup coordination on verified builds
 [>] Audit closure   plans/0006-extension-audit-remediation/plan.md
     [x] Runtime correctness, persistence outcomes, pickers and typed settings
-    [>] Metadata/help consumers and session ownership, including local Pi-Bolt model selection
-    [ ] Combined gates, performance and real-host/provider acceptance
+    [x] Metadata/help consumers and session ownership, including isolated Pi-Bolt guard
+    [x] Final regression gates, render performance and offline terminal acceptance
+    [x] Native count/auth recovery, offline Tokens acceptance and public documentation
+    [>] Acceptance closure; external and protected-host gaps remain
+    [!] Endpoint/installed-host gaps: upstream 429s, Codex auth, protected unbuilt host patch
 [.] Later           codex/grok providers?, Pi estimator hook (no upstream request authorized)
 ```
 

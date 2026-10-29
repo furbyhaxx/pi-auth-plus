@@ -1,0 +1,45 @@
+Source: d8233bcc42954dbc14be35feddf590fc9dabcb96
+Started: 2026-10-29T21:16:57+01:00
+
+=== just check ===
+bunx tsc --noEmit
+tests/tokens/tracker.test.ts(151,44): error TS2740: Type 'EngineContext' is missing the following properties from type 'ExtensionContext': ui, mode, hasUI, cwd, and 8 more.
+error: recipe `typecheck` failed on line 12 with exit code 1
+
+=== just check exit 1 ===
+
+=== just rpc-verify ===
+dir=$(mktemp -d); trap 'rm -rf "$dir"' EXIT; { echo '{"type":"get_commands","id":"1"}'; sleep 2; } | PI_CODING_AGENT_DIR="$dir" timeout 30 ${PI_BIN:-pi-bolt} --mode rpc --no-session -ne --offline -e ./src/index.ts
+{"id":"1","type":"response","command":"get_commands","success":true,"data":{"commands":[{"name":"auth","description":"Provider status, quotas, token counts, models and settings","source":"extension","sourceInfo":{"path":"/mnt/Projects/furbyhaxx/pi-auth-plus/src/index.ts","source":"cli","scope":"temporary","origin":"top-level"}},{"name":"quotas","description":"Quota windows and credits; <provider> focuses one; codex login [--device|--browser]","source":"extension","sourceInfo":{"path":"/mnt/Projects/furbyhaxx/pi-auth-plus/src/index.ts","source":"cli","scope":"temporary","origin":"top-level"}},{"name":"quota","description":"Quota windows and credits; <provider> focuses one; codex login [--device|--browser]","source":"extension","sourceInfo":{"path":"/mnt/Projects/furbyhaxx/pi-auth-plus/src/index.ts","source":"cli","scope":"temporary","origin":"top-level"}},{"name":"tokens","description":"Live session context token counts; opens Auth › Tokens","source":"extension","sourceInfo":{"path":"/mnt/Projects/furbyhaxx/pi-auth-plus/src/index.ts","source":"cli","scope":"temporary","origin":"top-level"}},{"name":"token","description":"Live session context token counts; opens Auth › Tokens","source":"extension","sourceInfo":{"path":"/mnt/Projects/furbyhaxx/pi-auth-plus/src/index.ts","source":"cli","scope":"temporary","origin":"top-level"}},{"name":"skill:reverse-engineer-anything","description":"Reverse engineer native, managed, Electron/JavaScript, packaged, firmware, and browser targets with REA. Use shipped-artifact or requested runtime evidence to explain features, compare versions, decompile code, or guide a reconstruction. Skip REA for ordinary source-repository architecture analysis.","source":"skill","sourceInfo":{"path":"/home/furbyhaxx/.agents/skills/reverse-engineer-anything/SKILL.md","source":"auto","scope":"user","origin":"top-level","baseDir":"/home/furbyhaxx/.agents"}}]}}
+
+=== just rpc-verify exit 0 ===
+
+=== just parity-verify ===
+bun scripts/parity-verify.ts
+parity-verify: Pi listed 555 models; checking 9 providers
+  ok  opencode: 83 models, --model opencode/beam-free
+  ok  opencode-go: 29 models, --model opencode-go/beam-free
+  ok  synthetic: 14 models, --model synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash
+  ok  claude: 17 models, --model claude/claude-fable-5
+  ok  antigravity: 5 models, --model antigravity/claude-opus-5-5
+  --  codex: quota-only, no Pi provider to list
+  ok  xai: 4 models, --model xai/grok-4.3
+  ok  openrouter: 401 models, --model openrouter/~anthropic/claude-fable-latest
+  ok  deepseek: 2 models, --model deepseek/deepseek-flash
+parity-verify: ok
+
+=== just parity-verify exit 0 ===
+
+=== just aot-verify ===
+bun scripts/aot-verify.ts
+aot-verify: 166 modules, 2295392 B bytecode total
+     88696 B  src/index.ts
+     65912 B  src/ui/commands/index.ts
+     48272 B  src/ui/dashboard/models.ts
+     46240 B  src/ui/dashboard/quotas.ts
+     40848 B  src/ui/dashboard/model-detail.ts
+aot-verify: ok
+
+=== just aot-verify exit 0 ===
+
+Finished: 2026-10-29T21:17:03+01:00

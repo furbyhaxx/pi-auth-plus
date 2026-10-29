@@ -1,6 +1,7 @@
 /** Staged model visibility rules and their catalog preview. */
 import { Input, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../core/config/index.ts";
+import type { SaveOutcome } from "../../core/config/save.ts";
 import type { ModelAlias } from "../../models/aliases/index.ts";
 import type { OverrideEdit } from "../../models/overrides/index.ts";
 import { exactModelRule } from "../../models/rules/match.ts";
@@ -37,7 +38,7 @@ export interface ModelsTabDeps {
 		aliases?: {
 			list(): readonly ModelAlias[];
 			supported(provider: string): boolean;
-			save(aliases: readonly ModelAlias[], scope: SaveScope): Promise<void>;
+			save(aliases: readonly ModelAlias[], scope: SaveScope): Promise<SaveOutcome>;
 		};
 		read(provider: string, id: string): Promise<Record<string, unknown> | undefined>;
 		current?(provider: string, id: string): ModelCatalogItem | undefined;
@@ -95,6 +96,7 @@ export class ModelsView implements TabView {
 	#staged: string[] | undefined;
 	#view: "rules" | "catalog" = "rules";
 	#mode: "list" | "edit" | "save" = "list";
+	#editInitial = "";
 	#ruleSelected = 0;
 	#modelSelected = 0;
 	#offset = 0;
@@ -112,6 +114,36 @@ export class ModelsView implements TabView {
 	constructor(host: TabViewHost, deps: ModelsTabDeps) {
 		this.#host = host;
 		this.#deps = deps;
+	}
+
+	/** Include staged rules, unfinished rule input and nested model drafts. */
+	hasDrafts(): boolean {
+		return (
+			this.#staged !== undefined ||
+			(this.#mode === "edit" && this.#input.getValue() !== this.#editInitial) ||
+			(this.#detail?.hasDrafts() ?? false)
+		);
+	}
+
+	/** Discard rules and nested model drafts without touching other tabs. */
+	discardDrafts(): void {
+		if (this.isSaving()) return;
+		this.#staged = undefined;
+		this.#detail?.discardDrafts();
+		this.#mode = "list";
+		this.#input.setValue("");
+		this.#adding = false;
+		this.#message = "";
+	}
+
+	/** Include saves owned by nested model and alias editors. */
+	isSaving(): boolean {
+		return this.#saving || (this.#detail?.isSaving() ?? false);
+	}
+
+	#closeDetail(): void {
+		this.#detail?.dispose();
+		this.#detail = undefined;
 	}
 
 	#rules(): readonly string[] {
@@ -201,6 +233,7 @@ export class ModelsView implements TabView {
 		this.#input.setValue("");
 		const value = adding ? "" : (this.#rules()[this.#ruleSelected] ?? "");
 		this.#input.handleInput(`\x1b[200~${text(value)}\x1b[201~`);
+		this.#editInitial = this.#input.getValue();
 		this.#input.focused = true;
 		this.#mode = "edit";
 		this.#message = "";
@@ -227,14 +260,11 @@ export class ModelsView implements TabView {
 
 	/** Handles inline editing, staged actions and the scope prompt before frame keys. */
 	handleInput(data: string): boolean {
+		if (this.isSaving()) return true;
 		if (this.#detail) {
-			if (!this.#detail.handleInput(data)) {
-				this.#detail.dispose();
-				this.#detail = undefined;
-			}
+			if (!this.#detail.handleInput(data)) this.#closeDetail();
 			return true;
 		}
-		if (this.#saving) return true;
 		const { keys } = this.#host;
 		const cancel = keys.matches(data, "tui.select.cancel");
 		const enter = keys.matches(data, "tui.select.confirm");
@@ -264,12 +294,7 @@ export class ModelsView implements TabView {
 			else if (data === "r") void this.#save("runtime");
 			return true;
 		}
-		if (cancel) {
-			if (!this.#staged) return false;
-			this.#staged = undefined;
-			this.#message = "Discarded staged changes";
-			return true;
-		}
+		if (cancel) return false;
 		if (
 			keys.matches(data, "tui.input.tab") ||
 			keys.matches(data, "tui.editor.cursorLeft") ||
@@ -325,7 +350,9 @@ export class ModelsView implements TabView {
 		if (this.#view === "catalog") {
 			const item = catalog[this.#modelSelected];
 			if (enter && item && this.#deps.details) {
-				this.#detail = new ModelDetail(this.#host, this.#deps.details, item);
+				this.#detail = new ModelDetail(this.#host, this.#deps.details, item, () =>
+					this.#closeDetail(),
+				);
 				return true;
 			}
 			if (data !== "h" || !item) return false;

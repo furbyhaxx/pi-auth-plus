@@ -1,5 +1,11 @@
 /** Staged, typed edits to one model's user-scoped overrides. */
-import { Input, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	Input,
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+	wrapTextWithAnsi,
+} from "@earendil-works/pi-tui";
 import type { OverrideEdit } from "../../models/overrides/index.ts";
 import { sanitize } from "../frame/index.ts";
 import { AliasDetail } from "./alias-detail.ts";
@@ -26,6 +32,7 @@ export class ModelDetail {
 	readonly #host: TabViewHost;
 	readonly #deps: NonNullable<ModelsTabDeps["details"]>;
 	readonly #item: ModelCatalogItem;
+	readonly #back: () => void;
 	readonly #input = new Input({ prompt: "", placeholder: "" });
 	readonly #fields: Field[];
 	#override: Record<string, unknown> | undefined;
@@ -33,6 +40,7 @@ export class ModelDetail {
 	#selected = 0;
 	#offset = 0;
 	#mode: "loading" | "list" | "edit" = "loading";
+	#editInitial = "";
 	#message = "";
 	#saving = false;
 	#unavailable = false;
@@ -43,10 +51,12 @@ export class ModelDetail {
 		host: TabViewHost,
 		deps: NonNullable<ModelsTabDeps["details"]>,
 		item: ModelCatalogItem,
+		back: () => void,
 	) {
 		this.#host = host;
 		this.#deps = deps;
 		this.#item = item;
+		this.#back = back;
 		this.#fields = [
 			{ label: "Name", path: ["name"], kind: "name", value: item.name },
 			{
@@ -74,9 +84,35 @@ export class ModelDetail {
 			});
 		void this.#load();
 	}
+	/** Include this model's staged fields and its nested alias editor. */
+	hasDrafts(): boolean {
+		return (
+			this.#changes.size > 0 ||
+			(this.#mode === "edit" && this.#input.getValue() !== this.#editInitial) ||
+			(this.#aliasDetail?.hasDrafts() ?? false)
+		);
+	}
+
+	/** Discard this model's drafts and its nested alias draft. */
+	discardDrafts(): void {
+		if (this.isSaving()) return;
+		this.#changes.clear();
+		this.#aliasDetail?.discardDrafts();
+		if (this.#mode === "edit") this.#mode = "list";
+		this.#input.setValue("");
+		this.#message = "";
+	}
+
+	/** Include saves owned by the nested alias editor. */
+	isSaving(): boolean {
+		return this.#saving || (this.#aliasDetail?.isSaving() ?? false);
+	}
+
 	async #load(): Promise<void> {
 		try {
-			this.#override = await this.#deps.read(this.#item.provider, this.#item.id);
+			const override = await this.#deps.read(this.#item.provider, this.#item.id);
+			if (this.#disposed) return;
+			this.#override = override;
 		} catch (error) {
 			if (!this.#disposed) {
 				this.#unavailable = true;
@@ -100,7 +136,9 @@ export class ModelDetail {
 			if (this.#disposed) return;
 			this.#changes.clear();
 			try {
-				this.#override = await this.#deps.read(this.#item.provider, this.#item.id);
+				const override = await this.#deps.read(this.#item.provider, this.#item.id);
+				if (this.#disposed) return;
+				this.#override = override;
 				const current = this.#deps.current?.(this.#item.provider, this.#item.id);
 				if (current) for (const field of this.#fields) field.value = at(current, field.path);
 				if (!this.#disposed) this.#message = "Saved overrides";
@@ -187,7 +225,19 @@ export class ModelDetail {
 			} else if (!matchesKey(data, "ctrl+s")) this.#input.handleInput(data);
 			return true;
 		}
-		if (cancel) return false;
+		if (cancel) {
+			if (!this.hasDrafts()) return false;
+			if (!this.#host.confirmDiscard) {
+				this.#message = "Cannot discard; save or keep editing";
+				return true;
+			}
+			this.#host.confirmDiscard(() => {
+				if (this.#disposed || this.isSaving()) return;
+				this.discardDrafts();
+				this.#back();
+			});
+			return true;
+		}
 		if (this.#unavailable) return true;
 		if (matchesKey(data, "ctrl+s")) {
 			if (this.#changes.size) void this.#save();
@@ -215,9 +265,12 @@ export class ModelDetail {
 					this.#item.provider,
 					this.#item.id,
 					original,
-					() => {
+					(message) => {
+						this.#aliasDetail?.dispose();
 						this.#aliasDetail = undefined;
 						this.#selected = Math.min(this.#selected, this.#fields.length + this.#aliases().length);
+						if (message !== undefined) this.#message = message;
+						if (!this.#disposed) this.#host.refresh();
 					},
 				);
 			}
@@ -234,6 +287,7 @@ export class ModelDetail {
 			this.#input.setValue("");
 			const value = this.#value(field);
 			if (value !== undefined) this.#input.handleInput(`\x1b[200~${clean(String(value))}\x1b[201~`);
+			this.#editInitial = this.#input.getValue();
 			this.#input.focused = true;
 			this.#mode = "edit";
 			this.#message = "";
@@ -326,7 +380,9 @@ export class ModelDetail {
 			);
 		} else rows.push(` ${aliasReason}`);
 		const details = this.#message
-			? [` ${theme.fg("warning", clean(this.#message))}`]
+			? wrapTextWithAnsi(clean(this.#message), Math.max(1, width - 1)).map(
+					(line) => ` ${theme.fg("warning", line)}`,
+				)
 			: this.#mode === "loading"
 				? [" Loading overrides…"]
 				: [];

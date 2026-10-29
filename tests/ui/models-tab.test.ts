@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
 import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../src/core/config/index.ts";
+import type { SaveOutcome } from "../../src/core/config/save.ts";
 import type { ModelAlias } from "../../src/models/aliases/index.ts";
 import { compileModelRules, evaluateModelRules } from "../../src/models/rules/match.ts";
+import { AuthDashboard, staticViews } from "../../src/ui/dashboard/index.ts";
 import {
 	type ModelCatalogItem,
 	type ModelsTabDeps,
@@ -21,6 +23,7 @@ function open(
 	let stored = [...initial];
 	const saves: { rules: readonly string[]; scope: SaveScope }[] = [];
 	let onRefresh: (() => void) | undefined;
+	let onDiscard: (() => void) | undefined;
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS);
 	const host: TabViewHost = {
 		theme: {
@@ -35,6 +38,9 @@ function open(
 			onRefresh = undefined;
 		},
 		finish: () => {},
+		confirmDiscard: (discard) => {
+			onDiscard = discard;
+		},
 	};
 	const deps: ModelsTabDeps = {
 		rules: () => stored,
@@ -62,6 +68,11 @@ function open(
 		view,
 		saves,
 		stored: () => stored,
+		confirmDiscard: () => {
+			const discard = onDiscard;
+			onDiscard = undefined;
+			discard?.();
+		},
 		text: () => view.render(140, 30).lines.map(stripVTControlCharacters).join("\n"),
 		nextRefresh: () =>
 			new Promise<void>((resolve) => {
@@ -77,7 +88,257 @@ async function save(rig: ReturnType<typeof open>, target: string) {
 	await refreshed;
 }
 
+function dashboard(
+	saveAlias: (aliases: readonly ModelAlias[], scope: SaveScope) => Promise<SaveOutcome> = async (
+		_aliases,
+		scope,
+	) => ({ committed: true, scope, shadowed: [], warnings: [] }),
+	saveOverride: () => Promise<void> = async () => {},
+	saveRules: () => Promise<void> = async () => {},
+) {
+	let modelHost: TabViewHost | undefined;
+	let modelView: ModelsView | undefined;
+	let closed = 0;
+	const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+	const views = staticViews({ providers: [], nowMs: 0 });
+	views.models = (host) => {
+		modelHost = host;
+		modelView = new ModelsView(host, {
+			rules: () => [],
+			catalog: () => [{ provider: "vendor", id: "one", name: "First", contextWindow: 1000 }],
+			evaluate: () => ({ visible: true }),
+			save: saveRules,
+			details: {
+				read: async () => undefined,
+				save: saveOverride,
+				aliases: { list: () => [], supported: () => true, save: saveAlias },
+			},
+		});
+		return modelView;
+	};
+	const panel = new AuthDashboard(
+		{ terminal: { rows: 40 }, requestRender: () => {} },
+		{ fg: (_color, value) => value, bg: (_color, value) => value, bold: (value) => value },
+		keys,
+		() => closed++,
+		views,
+		"models",
+		0,
+	);
+	return {
+		panel,
+		view: () => {
+			if (!modelView) throw new Error("models view missing");
+			return modelView;
+		},
+		navigate: () => modelHost?.navigate?.("settings"),
+		backToModels: () => modelHost?.navigate?.("models"),
+		closed: () => closed,
+		text: () => stripVTControlCharacters(panel.render(140).join("\n")),
+	};
+}
+
+async function openModel(rig: ReturnType<typeof dashboard>) {
+	rig.panel.handleInput("v");
+	rig.panel.handleInput("\r");
+	await Promise.resolve();
+}
+
+function openAlias(rig: ReturnType<typeof dashboard>) {
+	for (let i = 0; i < 9; i++) rig.panel.handleInput("j");
+	rig.panel.handleInput("\r");
+}
+
 describe("models tab", () => {
+	test("dashboard keeps changed nested override and alias input across another tab's cancelled exit", async () => {
+		for (const alias of [false, true]) {
+			const rig = dashboard();
+			await openModel(rig);
+			if (alias) openAlias(rig);
+			rig.panel.handleInput("\r");
+			rig.panel.handleInput("\x01");
+			rig.panel.handleInput("\x0b");
+			rig.panel.handleInput(alias ? "pending-alias" : "pending-override");
+			expect(rig.view().hasDrafts()).toBe(true);
+			rig.navigate();
+			rig.panel.handleInput("\x1b");
+			expect(rig.text()).toContain("Discard all & exit?");
+			rig.panel.handleInput("\x1b");
+			expect(rig.closed()).toBe(0);
+			rig.backToModels();
+			expect(rig.text()).toContain(alias ? "pending-alias" : "pending-override");
+			rig.panel.handleInput("\x03");
+			rig.panel.handleInput("\r");
+			expect(rig.closed()).toBe(1);
+		}
+	});
+
+	test("unfinished rule input is guarded and canceling the field restores a clean view", () => {
+		const rig = dashboard();
+		rig.panel.handleInput("a");
+		expect(rig.view().hasDrafts()).toBe(false);
+		rig.panel.handleInput("draft-rule");
+		expect(rig.view().hasDrafts()).toBe(true);
+		rig.panel.handleInput("\x03");
+		expect(rig.text()).toContain("Discard all & exit?");
+		rig.panel.handleInput("\x1b");
+		expect(rig.text()).toContain("draft-rule");
+		rig.panel.handleInput("\x1b");
+		expect(rig.view().hasDrafts()).toBe(false);
+		rig.panel.handleInput("\x1b");
+		expect(rig.closed()).toBe(1);
+	});
+
+	test("unchanged override input is clean and a changed input can be discarded", async () => {
+		const rig = dashboard();
+		await openModel(rig);
+		rig.panel.handleInput("\r");
+		expect(rig.view().hasDrafts()).toBe(false);
+		rig.panel.handleInput(" edited");
+		expect(rig.view().hasDrafts()).toBe(true);
+		rig.view().discardDrafts();
+		expect(rig.view().hasDrafts()).toBe(false);
+		expect(rig.text()).toContain("Name · First · default");
+		rig.panel.dispose();
+	});
+
+	test("confirmed child backs discard only their own drafts and root escape asks for rules", async () => {
+		const rig = dashboard();
+		rig.panel.handleInput("a");
+		rig.panel.handleInput("vendor/one");
+		rig.panel.handleInput("\r");
+		await openModel(rig);
+		rig.panel.handleInput("\r");
+		rig.panel.handleInput("\x01");
+		rig.panel.handleInput("\x0b");
+		rig.panel.handleInput("parent override");
+		rig.panel.handleInput("\r");
+		openAlias(rig);
+		rig.panel.handleInput("\r");
+		rig.panel.handleInput("child-alias");
+		rig.panel.handleInput("\r");
+		rig.panel.handleInput("\x1b");
+		expect(rig.text()).toContain("Discard this draft?");
+		rig.panel.handleInput("\x1b");
+		expect(rig.text()).toContain("child-alias");
+		rig.panel.handleInput("\x1b");
+		rig.panel.handleInput("\r");
+		expect(rig.text()).toContain("parent override");
+		expect(rig.view().hasDrafts()).toBe(true);
+		rig.panel.handleInput("\x1b");
+		expect(rig.text()).toContain("Discard this draft?");
+		rig.panel.handleInput("\r");
+		expect(rig.text()).toContain("Catalog");
+		rig.panel.handleInput("v");
+		expect(rig.text()).toContain("vendor/one");
+		rig.panel.handleInput("\x1b");
+		expect(rig.text()).toContain("Discard all & exit?");
+		rig.panel.handleInput("\x1b");
+		expect(rig.text()).toContain("vendor/one");
+		rig.panel.handleInput("\x1b");
+		rig.panel.handleInput("\r");
+		expect(rig.closed()).toBe(1);
+	});
+
+	test("committed alias warning remains visible in the owning model detail", async () => {
+		const pending = Promise.withResolvers<SaveOutcome>();
+		const rig = dashboard(() => pending.promise);
+		await openModel(rig);
+		openAlias(rig);
+		rig.panel.handleInput("\r");
+		rig.panel.handleInput("copy");
+		rig.panel.handleInput("\r");
+		rig.panel.handleInput("\x13");
+		rig.panel.handleInput("u");
+		pending.resolve({
+			committed: true,
+			scope: "user",
+			shadowed: ["models.aliases"],
+			warnings: ["refresh failed"],
+		});
+		await Promise.resolve();
+		expect(rig.text()).toContain(
+			"Saved to user scope; shadowed by higher scope: models.aliases; warning: refresh failed",
+		);
+		expect(rig.text()).toContain("+ new alias");
+		for (const width of [36, 57, 80, 140]) {
+			const lines = rig.panel.render(width).map(stripVTControlCharacters);
+			for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			expect(lines.join(" ").replace(/\s+/g, " ")).toContain("warning: refresh failed");
+		}
+		expect(rig.view().hasDrafts()).toBe(false);
+		rig.panel.dispose();
+	});
+
+	test("pending alias save blocks dashboard navigation and exit until failure", async () => {
+		const pending = Promise.withResolvers<SaveOutcome>();
+		const rig = dashboard(() => pending.promise);
+		await openModel(rig);
+		openAlias(rig);
+		rig.panel.handleInput("\r");
+		rig.panel.handleInput("pending-alias");
+		rig.panel.handleInput("\r");
+		rig.panel.handleInput("\x13");
+		rig.panel.handleInput("r");
+		expect(rig.view().isSaving()).toBe(true);
+		rig.navigate();
+		rig.panel.handleInput("\x03");
+		rig.panel.handleInput("\x1b");
+		expect(rig.panel.tab).toBe("models");
+		expect(rig.closed()).toBe(0);
+		pending.resolve({ committed: false, error: "write failed; retry" });
+		await Promise.resolve();
+		expect(rig.view().isSaving()).toBe(false);
+		expect(rig.text()).toContain("write failed; retry");
+		expect(rig.text()).toContain("pending-alias");
+		rig.panel.dispose();
+	});
+	test("pending physical override save blocks every dashboard exit and retains drafts on failure", async () => {
+		const pending = Promise.withResolvers<void>();
+		const rig = dashboard(undefined, () => pending.promise);
+		await openModel(rig);
+		rig.panel.handleInput("\r");
+		rig.panel.handleInput(" edited");
+		rig.panel.handleInput("\r");
+		rig.panel.handleInput("\x13");
+		expect(rig.view().isSaving()).toBe(true);
+		rig.view().discardDrafts();
+		rig.panel.handleInput("\x1b");
+		rig.navigate();
+		rig.panel.handleInput("\x03");
+		expect(rig.panel.tab).toBe("models");
+		expect(rig.closed()).toBe(0);
+		pending.reject(new Error("models.json locked; retry"));
+		await Promise.resolve();
+		expect(rig.view().isSaving()).toBe(false);
+		expect(rig.view().hasDrafts()).toBe(true);
+		expect(rig.text()).toContain("models.json locked; retry");
+		expect(rig.text()).toContain("First edited");
+		rig.panel.dispose();
+	});
+
+	test("pending rule save also blocks dashboard navigation and exit", async () => {
+		const pending = Promise.withResolvers<void>();
+		const rig = dashboard(undefined, undefined, () => pending.promise);
+		rig.panel.handleInput("a");
+		rig.panel.handleInput("vendor/one");
+		rig.panel.handleInput("\r");
+		rig.panel.handleInput("\x13");
+		rig.panel.handleInput("r");
+		expect(rig.view().isSaving()).toBe(true);
+		rig.view().discardDrafts();
+		rig.navigate();
+		rig.panel.handleInput("\x03");
+		expect(rig.panel.tab).toBe("models");
+		expect(rig.closed()).toBe(0);
+		expect(rig.view().hasDrafts()).toBe(true);
+		pending.resolve();
+		await Promise.resolve();
+		expect(rig.view().isSaving()).toBe(false);
+		expect(rig.view().hasDrafts()).toBe(false);
+		rig.panel.dispose();
+	});
+
 	test("batches and caches full-catalog previews until relevant state changes", () => {
 		const rules = [
 			"vendor/*",
@@ -163,7 +424,8 @@ describe("models tab", () => {
 		expect(body.state).toContain("550 hidden");
 		expect(body.description).toContain("changes 0 models");
 		expect(compilations - before).toBeLessThanOrEqual(3);
-		view.handleInput("\x1b");
+		expect(view.handleInput("\x1b")).toBe(false);
+		view.discardDrafts();
 		body = render();
 		expect(body.state).toContain("549 hidden");
 		expect(body.description).toContain("changes 1 model;");
@@ -239,6 +501,7 @@ describe("models tab", () => {
 				save: async (next, scope) => {
 					aliases = next;
 					saves.push({ aliases: next, scope });
+					return { committed: true, scope, shadowed: [], warnings: [] };
 				},
 			},
 		});
@@ -331,8 +594,9 @@ describe("models tab", () => {
 			aliases: {
 				list: () => [{ provider: "vendor", source: "two", id: "duplicate" }],
 				supported: (provider) => provider === "vendor",
-				save: async (aliases) => {
+				save: async (aliases, scope) => {
 					saves.push(aliases);
+					return { committed: true, scope, shadowed: [], warnings: [] };
 				},
 			},
 		});
@@ -349,8 +613,7 @@ describe("models tab", () => {
 		expect(rig.text()).toContain("duplicate IDs");
 		expect(saves).toEqual([]);
 		rig.view.handleInput("\x1b");
-		expect(rig.text()).toContain("Discarded");
-		rig.view.handleInput("\x1b");
+		rig.confirmDiscard();
 		rig.view.handleInput("\x1b");
 		rig.view.handleInput("j");
 		rig.view.handleInput("j");
@@ -443,6 +706,7 @@ describe("models tab", () => {
 		rig.view.handleInput("5000");
 		rig.view.handleInput("\r");
 		rig.view.handleInput("\x1b");
+		rig.confirmDiscard();
 		refreshed = rig.nextRefresh();
 		rig.view.handleInput("\r");
 		await refreshed;
@@ -599,8 +863,10 @@ describe("models tab", () => {
 		rig.view.handleInput("a");
 		rig.view.handleInput("vendor/two");
 		rig.view.handleInput("\r");
-		expect(rig.view.handleInput("\x1b")).toBe(true);
-		expect(rig.text()).toContain("Discarded");
+		expect(rig.view.handleInput("\x1b")).toBe(false);
+		expect(rig.text()).toContain("vendor/two");
+		rig.view.discardDrafts();
+		expect(rig.text()).not.toContain("vendor/two");
 		expect(rig.view.handleInput("\x1b")).toBe(false);
 	});
 

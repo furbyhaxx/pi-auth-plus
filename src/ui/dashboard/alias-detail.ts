@@ -1,6 +1,13 @@
 /** Staged edits to one model alias. */
-import { Input, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	Input,
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+	wrapTextWithAnsi,
+} from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../core/config/index.ts";
+import { formatSaveOutcome } from "../../core/config/save.ts";
 import { type ModelAlias, parseAliases } from "../../models/aliases/index.ts";
 import { sanitize } from "../frame/index.ts";
 import type { ModelsTabDeps } from "./models.ts";
@@ -17,10 +24,11 @@ export class AliasDetail {
 	readonly #provider: string;
 	readonly #source: string;
 	readonly #original: ModelAlias | undefined;
-	readonly #done: () => void;
+	readonly #done: (message?: string) => void;
 	readonly #input = new Input({ prompt: "", placeholder: "" });
 	readonly #initial: string[];
 	#values: string[];
+	#editInitial = "";
 	#selected = 0;
 	#offset = 0;
 	#mode: "list" | "edit" | "save" = "list";
@@ -35,7 +43,7 @@ export class AliasDetail {
 		provider: string,
 		source: string,
 		original: ModelAlias | undefined,
-		done: () => void,
+		done: (message?: string) => void,
 	) {
 		this.#host = host;
 		this.#deps = deps;
@@ -54,6 +62,28 @@ export class AliasDetail {
 
 	#changed(): boolean {
 		return this.#deleted || this.#values.some((value, index) => value !== this.#initial[index]);
+	}
+
+	/** Include staged alias fields, removal and an unfinished input. */
+	hasDrafts(): boolean {
+		return (
+			this.#changed() || (this.#mode === "edit" && this.#input.getValue() !== this.#editInitial)
+		);
+	}
+
+	/** Discard only this alias editor's drafts. */
+	discardDrafts(): void {
+		if (this.#saving) return;
+		this.#values = [...this.#initial];
+		this.#deleted = false;
+		this.#mode = "list";
+		this.#input.setValue("");
+		this.#message = "";
+	}
+
+	/** Report an in-flight alias save to the dashboard. */
+	isSaving(): boolean {
+		return this.#saving;
 	}
 
 	#candidate(): readonly ModelAlias[] | undefined {
@@ -98,8 +128,15 @@ export class AliasDetail {
 		}
 		this.#saving = true;
 		try {
-			await this.#deps.save(aliases, scope);
-			if (!this.#disposed) this.#done();
+			const outcome = await this.#deps.save(aliases, scope);
+			if (this.#disposed) return;
+			if (!outcome.committed) {
+				this.#message = `Save failed: ${formatSaveOutcome(outcome)}`;
+				return;
+			}
+			this.#values = [...this.#initial];
+			this.#deleted = false;
+			this.#done(formatSaveOutcome(outcome));
 		} catch (error) {
 			if (!this.#disposed)
 				this.#message = `Save failed: ${error instanceof Error ? error.message : String(error)}`;
@@ -132,10 +169,16 @@ export class AliasDetail {
 			return true;
 		}
 		if (cancel) {
-			if (!this.#changed()) return false;
-			this.#values = [...this.#initial];
-			this.#deleted = false;
-			this.#message = "Discarded staged alias changes";
+			if (!this.hasDrafts()) return false;
+			if (!this.#host.confirmDiscard) {
+				this.#message = "Cannot discard; save or keep editing";
+				return true;
+			}
+			this.#host.confirmDiscard(() => {
+				if (this.#disposed || this.#saving) return;
+				this.discardDrafts();
+				this.#done();
+			});
 			return true;
 		}
 		if (matchesKey(data, "ctrl+s")) {
@@ -153,6 +196,7 @@ export class AliasDetail {
 		} else if (enter && !this.#deleted) {
 			this.#input.setValue("");
 			this.#input.handleInput(`\x1b[200~${clean(this.#values[this.#selected] ?? "")}\x1b[201~`);
+			this.#editInitial = this.#input.getValue();
 			this.#input.focused = true;
 			this.#mode = "edit";
 			this.#message = "";
@@ -177,7 +221,12 @@ export class AliasDetail {
 		}
 		const message =
 			this.#mode === "save" ? "Save to [u]ser, [p]roject or [r]untime?" : this.#message;
-		const reserved = message && bodyRows > 0 ? 1 : 0;
+		const details = message
+			? wrapTextWithAnsi(clean(message), Math.max(1, width - 1)).map(
+					(line) => ` ${theme.fg("warning", line)}`,
+				)
+			: [];
+		const reserved = Math.min(details.length, Math.max(0, bodyRows - 1));
 		const available = Math.max(0, bodyRows - reserved);
 		const selectedRow = this.#selected + 1;
 		this.#offset = Math.max(0, Math.min(this.#offset, selectedRow));
@@ -187,7 +236,7 @@ export class AliasDetail {
 		return {
 			lines: [
 				...rows.slice(this.#offset, this.#offset + available),
-				...(reserved ? [` ${theme.fg("warning", clean(message))}`] : []),
+				...details.slice(0, reserved),
 			].map((line) => truncateToWidth(line, Math.max(0, width), "…")),
 			above: this.#offset,
 			below: Math.max(0, rows.length - this.#offset - available),

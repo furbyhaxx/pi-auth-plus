@@ -68,6 +68,25 @@ function sessionRuntime(ctx: ExtensionContext): ModelRuntime | undefined {
 }
 
 export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
+	let sessionController = new AbortController();
+	let stopQuotaBus: (() => void) | undefined;
+	const shutdownOwners = new WeakMap<ExtensionContext, AbortSignal>();
+	sessionController.abort();
+	const stopSession = () => {
+		sessionController.abort();
+		stopQuotaBus?.();
+		stopQuotaBus = undefined;
+	};
+	pi.on("session_start", () => {
+		stopSession();
+		sessionController = new AbortController();
+	});
+	pi.on("session_shutdown", (_event, ctx) => {
+		shutdownOwners.set(ctx, sessionController.signal);
+		stopSession();
+	});
+	const ownsShutdown = (ctx: ExtensionContext) =>
+		shutdownOwners.get(ctx) === sessionController.signal;
 	const modeIndex = process.argv.indexOf("--mode");
 	const rpcStartup = modeIndex >= 0 && process.argv[modeIndex + 1] === "rpc";
 	const offline =
@@ -85,6 +104,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	if (startupCoordinator) {
 		const coordinator = startupCoordinator;
 		pi.on("session_shutdown", (_event, ctx) => {
+			if (!ownsShutdown(ctx)) return;
 			const runtime = sessionRuntime(ctx);
 			if (runtime) coordinator.stop(runtime);
 		});
@@ -233,7 +253,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		stopTokenBus?.();
 		stopTokenBus = registerTokenBus(pi.events, tokens);
 	});
-	pi.on("session_shutdown", () => {
+	pi.on("session_shutdown", (_event, ctx) => {
+		if (!ownsShutdown(ctx)) return;
 		stopTokenBus?.();
 		stopTokenBus = undefined;
 	});
@@ -253,8 +274,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		now: Date.now,
 		tokens,
 	});
-	let stopQuotaBus: (() => void) | undefined;
 	pi.on("session_start", async (_event, ctx) => {
+		const signal = sessionController.signal;
 		stopQuotaBus?.();
 		stopQuotaBus = undefined;
 		quotaLine.stop();
@@ -276,29 +297,36 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			cwd: ctx.cwd,
 			projectTrusted: ctx.isProjectTrusted(),
 		});
+		if (signal.aborted) return;
 		if (carried.info.length > 0) ctx.ui.notify(carried.info.join("\n"), "info");
 		if (carried.warnings.length > 0)
 			ctx.ui.notify(`pi-auth-plus quota carry-over:\n${carried.warnings.join("\n")}`, "warning");
 		await quotas.start();
+		if (signal.aborted) return;
 		stopQuotaBus = registerQuotaBus(pi.events, quotas, registry, () => settings, Date.now, {
-			confirmReset: (id, credit, requester) =>
-				confirmReset(
-					quotaContext,
+			confirmReset: async (id, credit, requester) => {
+				if (signal.aborted) return false;
+				const approved = await confirmReset(
+					ctx,
 					id,
 					credit,
 					requester,
 					engineReport(quotas, settings, Date.now()),
 					registry,
-				),
+				);
+				return !signal.aborted && approved;
+			},
 		});
 		quotaLine.start(ctx);
 	});
-	pi.on("session_shutdown", async () => {
+	pi.on("session_shutdown", async (_event, ctx) => {
+		if (!ownsShutdown(ctx)) return;
 		// Print mode exits right after the turn; let header writes land, bounded.
 		await Promise.race([
 			Promise.allSettled(pendingIngests),
 			new Promise((resolve) => setTimeout(resolve, 2_000).unref()),
 		]);
+		if (!ownsShutdown(ctx)) return;
 		quotasEnabled = false;
 		quotaContext = undefined;
 		stopQuotaBus?.();
@@ -359,15 +387,18 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		},
 		(model, context) => recovery.factory(model, context),
 		(model, context) => compatiblePhysicalHooks(model, context),
-		(model) => ({
-			response: (response) => {
-				if (!quotasEnabled) return;
-				// The physical provider owns this response; the session model may be a group or alias.
-				const ingest = quotas.ingestHeaders(response.headers, model.provider, { strict: true });
-				pendingIngests.add(ingest);
-				void ingest.finally(() => pendingIngests.delete(ingest));
-			},
-		}),
+		(model) => {
+			const signal = sessionController.signal;
+			return {
+				response: (response) => {
+					if (signal.aborted || !quotasEnabled) return;
+					// The physical provider owns this response; the session model may be a group or alias.
+					const ingest = quotas.ingestHeaders(response.headers, model.provider, { strict: true });
+					pendingIngests.add(ingest);
+					void ingest.finally(() => pendingIngests.delete(ingest));
+				},
+			};
+		},
 	]);
 	// Groups, physical hooks and the cap install need this session's cwd and catalog.
 	let warnedStartup = false;
@@ -402,7 +433,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			}
 		}
 	});
-	pi.on("session_shutdown", () => {
+	pi.on("session_shutdown", (_event, ctx) => {
+		if (!ownsShutdown(ctx)) return;
 		physicalHooksActive = false;
 	});
 	let previewRules: readonly string[] | undefined;
@@ -419,6 +451,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	};
 	registerAuthCommands(pi, {
 		registry,
+		signal: () => sessionController.signal,
 		groups: {
 			groups: () => settings.get("models.groups"),
 			catalog: () => modelCatalog(),

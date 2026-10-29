@@ -57,7 +57,7 @@ export interface AuthCommandDeps {
 	readonly groups?: GroupsTabDeps;
 	readonly settings?: SettingsPanelDeps;
 	readonly loginCodex?: typeof loginCodex;
-	readonly signal?: AbortSignal;
+	readonly signal?: () => AbortSignal | undefined;
 }
 
 type SettingKey = keyof typeof SETTINGS;
@@ -198,7 +198,12 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		return dashboardText(tab, model);
 	};
 
-	const editSetting = async (ctx: ExtensionCommandContext, key: string): Promise<void> => {
+	const editSetting = async (
+		ctx: ExtensionCommandContext,
+		key: string,
+		signal: AbortSignal | undefined,
+	): Promise<void> => {
+		if (signal?.aborted) return;
 		const settings = deps.settings;
 		if (!settings || !(key in SETTINGS)) return;
 		const name = key as SettingKey;
@@ -208,7 +213,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 			`${field.label} (JSON)`,
 			JSON.stringify(store.get(name), null, 2),
 		);
-		if (edited === undefined) return;
+		if (signal?.aborted || edited === undefined) return;
 		let raw: unknown;
 		try {
 			raw = JSON.parse(edited);
@@ -226,18 +231,71 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 			`Save ${field.label} to`,
 			SCOPES.map((entry) => entry.label),
 		);
+		if (signal?.aborted) return;
 		const scope = SCOPES.find((entry) => entry.label === choice)?.scope;
 		if (!scope) return;
 		try {
 			await store.save(scope, { [name]: value });
 		} catch (error) {
+			if (signal?.aborted) return;
 			if (error instanceof SettingsError) return report(ctx, error.message, "error");
 			throw error;
 		}
-		settings.onSaved([name], scope);
+		if (!signal?.aborted) settings.onSaved([name], scope);
 	};
 
-	const open = async (ctx: ExtensionCommandContext, tab: TabId, target?: string) => {
+	const reset = async (
+		ctx: ExtensionCommandContext,
+		id: string,
+		requester: "panel" | "command",
+		quotas: QuotaPanelDeps,
+		signal: AbortSignal | undefined,
+	): Promise<void> => {
+		if (signal?.aborted) return;
+		await runResetFlow(
+			{
+				hasUI: ctx.hasUI,
+				ui: {
+					select: async (...args) => {
+						signal?.throwIfAborted();
+						const result = await ctx.ui.select(...args);
+						signal?.throwIfAborted();
+						return result;
+					},
+				},
+			},
+			id,
+			requester,
+			{
+				resetSupport: (provider) => quotas.resetSupport(provider),
+				report: () => quotas.report(),
+				listResets: async (provider) => {
+					signal?.throwIfAborted();
+					const list = await quotas.listResets(provider);
+					signal?.throwIfAborted();
+					return list;
+				},
+				consumeReset: async (provider, credit, origin) => {
+					signal?.throwIfAborted();
+					const outcome = await quotas.consumeReset(provider, credit, origin);
+					signal?.throwIfAborted();
+					return outcome;
+				},
+			},
+			deps.registry,
+			(text, tone) => {
+				if (!signal?.aborted) report(ctx, text, tone);
+			},
+		);
+	};
+
+	const open = async (
+		ctx: ExtensionCommandContext,
+		tab: TabId,
+		target: string | undefined,
+		signal: AbortSignal | undefined,
+	) => {
+		if (signal?.aborted) return;
 		const model = dashboardModel(deps);
 		if (ctx.mode !== "tui" || !ctx.hasUI) return report(ctx, headless(tab, model, target), "info");
 		let current: { tab: TabId; select?: string } = { tab, ...(target ? { select: target } : {}) };
@@ -280,16 +338,16 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 						);
 				return new AuthDashboard(tui, theme, keys, done, views, opened.tab, model.providers.length);
 			});
-			if (!result) return;
+			if (signal?.aborted || !result) return;
 			if ("reset" in result) {
 				const quotas = deps.quotas?.();
 				if (quotas && typeof quotas !== "string")
-					await runResetFlow(ctx, result.reset, "panel", quotas, deps.registry, (text, tone) =>
-						report(ctx, text, tone),
-					);
+					await reset(ctx, result.reset, "panel", quotas, signal);
+				if (signal?.aborted) return;
 				current = { tab: "quotas", select: result.reset };
 			} else {
-				await editSetting(ctx, result.editSetting);
+				await editSetting(ctx, result.editSetting, signal);
+				if (signal?.aborted) return;
 				current = { tab: "settings", select: result.editSetting };
 			}
 		}
@@ -299,36 +357,41 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		description: "Provider status, quotas, token counts, models and settings",
 		getArgumentCompletions: authCompletions,
 		handler: async (args, ctx) => {
+			const signal = deps.signal?.();
+			if (signal?.aborted) return;
 			const parsed = parseAuthArgs(args);
 			if ("error" in parsed) return report(ctx, parsed.error, "error");
-			await open(ctx, parsed.tab, parsed.target);
+			await open(ctx, parsed.tab, parsed.target, signal);
 		},
 	});
 
 	const runCodexLogin = async (
 		ctx: ExtensionCommandContext,
 		mode: "auto" | "device" | "browser",
+		signal: AbortSignal | undefined,
 	): Promise<void> => {
+		if (signal?.aborted) return;
 		if (!ctx.hasUI) return report(ctx, "Codex login needs an interactive session", "error");
 		try {
 			const credential = await (deps.loginCodex ?? loginCodex)({
 				mode,
 				onStatus: (message) => {
-					if (!deps.signal?.aborted) ctx.ui.notify(sanitize(message), "info");
+					if (!signal?.aborted) ctx.ui.notify(sanitize(message), "info");
 				},
-				...(deps.signal ? { signal: deps.signal } : {}),
+				...(signal ? { signal } : {}),
 			});
-			if (deps.signal?.aborted) return;
+			if (signal?.aborted) return;
 			const quotas = deps.quotas?.();
+			if (signal?.aborted) return;
 			if (quotas && typeof quotas !== "string") await quotas.refresh("codex", true);
-			if (deps.signal?.aborted) return;
+			if (signal?.aborted) return;
 			report(
 				ctx,
 				`Codex quota authenticated${credential.email ? ` (${sanitize(credential.email)})` : ""}${credential.planType ? ` [${sanitize(credential.planType)}]` : ""}`,
 				"info",
 			);
 		} catch (error) {
-			if (deps.signal?.aborted) return;
+			if (signal?.aborted) return;
 			report(
 				ctx,
 				`Codex login failed: ${sanitize(error instanceof Error ? error.message : String(error))}`,
@@ -353,6 +416,8 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 			return items.length ? items : null;
 		},
 		handler: async (args, ctx) => {
+			const signal = deps.signal?.();
+			if (signal?.aborted) return;
 			const tokens = args.trim().split(/\s+/);
 			const [word, target, extra] = tokens;
 			if (word?.toLowerCase() === "login" || target?.toLowerCase() === "login") {
@@ -371,10 +436,11 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 				return runCodexLogin(
 					ctx,
 					extra === "--device" ? "device" : extra === "--browser" ? "browser" : "auto",
+					signal,
 				);
 			}
 			if (word?.toLowerCase() !== "reset" && word?.toLowerCase() !== "resets")
-				return open(ctx, "quotas", word || undefined);
+				return open(ctx, "quotas", word || undefined, signal);
 			const quotas = deps.quotas?.();
 			if (!quotas || typeof quotas === "string")
 				return report(
@@ -393,9 +459,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 					`Usage: /quotas reset [provider]. Supported: ${supported.join(", ") || "none"}.`,
 					"error",
 				);
-			await runResetFlow(ctx, id, "command", quotas, deps.registry, (text, tone) =>
-				report(ctx, text, tone),
-			);
+			await reset(ctx, id, "command", quotas, signal);
 		},
 	};
 	pi.registerCommand("quotas", quotaCommand);
@@ -404,8 +468,10 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		description: "Live session context token counts; opens Auth › Tokens",
 		getArgumentCompletions: () => null,
 		handler: async (args, ctx) => {
+			const signal = deps.signal?.();
+			if (signal?.aborted) return;
 			if (args.trim()) return report(ctx, "Usage: /tokens (or /auth tokens).", "error");
-			await open(ctx, "tokens");
+			await open(ctx, "tokens", undefined, signal);
 		},
 	};
 	pi.registerCommand("tokens", tokenCommand);

@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { KeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
+import { SETTINGS } from "../../src/core/config/catalog.ts";
+import { SettingsStore } from "../../src/core/config/index.ts";
 import { Registry } from "../../src/core/registry/index.ts";
 import {
 	type AuthCommandDeps,
@@ -84,6 +86,7 @@ function rig(
 	};
 	return {
 		run,
+		ctx,
 		notes,
 		notices,
 		commands,
@@ -214,7 +217,7 @@ describe("ui/commands", () => {
 		const f = rig("rpc", {
 			registry,
 			quotas: () => quotas,
-			signal: controller.signal,
+			signal: () => controller.signal,
 			loginCodex: async ({ mode, onStatus, signal }) => {
 				events.push(`login ${mode}`);
 				expect(signal).toBe(controller.signal);
@@ -249,9 +252,316 @@ describe("ui/commands", () => {
 		controller.abort();
 		const noticesBeforeAbort = f.notices.length;
 		await f.run("quota", "cx login");
-		expect(events.at(-1)).toBe("login auto");
-		expect(events).toHaveLength(7);
+		expect(events.at(-1)).toBe("refresh codex true");
+		expect(events).toHaveLength(6);
 		expect(f.notices).toHaveLength(noticesBeforeAbort);
+	});
+
+	test("Codex login belongs to the session that started it", async () => {
+		const registry = new Registry([
+			{ id: "openai", label: "OpenAI", providers: [{ id: "codex", label: "Codex", aliases: [] }] },
+		]);
+		let controller = new AbortController();
+		let captures = 0;
+		const login = Promise.withResolvers<{
+			type: "oauth";
+			access: string;
+			refresh: string;
+			expires: number;
+		}>();
+		let status: ((message: string) => void) | undefined;
+		let received: AbortSignal | undefined;
+		let refreshes = 0;
+		let refreshStarted: (() => void) | undefined;
+		let refreshWait: Promise<void> | undefined;
+		const quotas: ReturnType<NonNullable<AuthCommandDeps["quotas"]>> = {
+			report: () => ({ v: 1, generatedAt: 0, providers: [] }),
+			resetSupport: () => false,
+			listResets: async () => {
+				throw new Error("unexpected reset");
+			},
+			consumeReset: async () => {
+				throw new Error("unexpected reset");
+			},
+			refreshing: () => false,
+			refresh: async () => {
+				refreshes++;
+				refreshStarted?.();
+				await refreshWait;
+			},
+			onChange: () => () => {},
+			lineConfig: () => ({ percentDisplay: "used", creditHealthyUsd: 50, creditCriticalUsd: 5 }),
+			linePlacement: () => "off",
+			setLinePlacement: async () => {},
+			now: () => 0,
+			text: () => "",
+		};
+		const f = rig("rpc", {
+			registry,
+			quotas: () => quotas,
+			signal: () => {
+				captures++;
+				return controller.signal;
+			},
+			loginCodex: async (options) => {
+				received = options.signal;
+				status = options.onStatus;
+				return login.promise;
+			},
+		});
+		const previous = controller.signal;
+		const running = f.run("quota", "codex login");
+		controller.abort();
+		controller = new AbortController();
+		status?.("late status");
+		login.resolve({ type: "oauth", access: "test-access", refresh: "test-refresh", expires: 0 });
+		await running;
+		expect(previous.aborted).toBe(true);
+		expect(refreshes).toBe(0);
+		expect(f.notices).toEqual([]);
+		expect(received).toBe(previous);
+		expect(captures).toBe(1);
+
+		const started = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		refreshStarted = started.resolve;
+		refreshWait = release.promise;
+		const refreshing = f.run("quota", "codex login");
+		await started.promise;
+		controller.abort();
+		controller = new AbortController();
+		release.resolve();
+		await refreshing;
+		expect(refreshes).toBe(1);
+		expect(captures).toBe(2);
+		expect(f.notices).toEqual([]);
+
+		const failed = Promise.withResolvers<void>();
+		const startedAgain = Promise.withResolvers<void>();
+		refreshStarted = startedAgain.resolve;
+		refreshWait = failed.promise;
+		const failing = f.run("quota", "codex login");
+		await startedAgain.promise;
+		controller.abort();
+		controller = new AbortController();
+		failed.reject(new Error("late refresh failure"));
+		await failing;
+		expect(refreshes).toBe(2);
+		expect(captures).toBe(3);
+		expect(f.notices).toEqual([]);
+	});
+
+	test("aborted sessions refuse every command before any work", async () => {
+		const controller = new AbortController();
+		controller.abort();
+		let captures = 0;
+		let work = 0;
+		const f = rig("tui", {
+			signal: () => {
+				captures++;
+				return controller.signal;
+			},
+			status: () => {
+				work++;
+				return { state: "missing" };
+			},
+			quotas: () => {
+				work++;
+				return "unavailable";
+			},
+		});
+		for (const [name, args] of [
+			["auth", "bad"],
+			["auth", "settings"],
+			["quota", "reset claude"],
+			["quotas", "codex login"],
+			["tokens", "bad"],
+			["token", ""],
+		] as const)
+			await f.run(name, args);
+		expect(captures).toBe(6);
+		expect(work).toBe(0);
+		expect(f.panels()).toBe(0);
+		expect(f.notices).toEqual([]);
+		expect(f.notes).toEqual([]);
+	});
+
+	test("replaced sessions cannot continue dashboard, JSON editor or scope dialogs", async () => {
+		for (const boundary of ["dashboard", "editor", "editor-invalid", "scope", "none"] as const) {
+			let controller = new AbortController();
+			let captures = 0;
+			const entered = Promise.withResolvers<void>();
+			const dialog = Promise.withResolvers<string | undefined>();
+			const store = new SettingsStore(SETTINGS, { user: "unused" });
+			const saved: string[] = [];
+			let editors = 0;
+			let scopes = 0;
+			let dashboards = 0;
+			const f = rig("tui", {
+				signal: () => {
+					captures++;
+					return controller.signal;
+				},
+				settings: { store: () => store, onSaved: (keys) => saved.push(...keys) },
+			});
+			Object.assign(f.ctx.ui, {
+				custom: async () => {
+					dashboards++;
+					if (dashboards > 1) return undefined;
+					if (boundary === "dashboard") {
+						entered.resolve();
+						await dialog.promise;
+					}
+					return { editSetting: "models.rules" };
+				},
+				editor: async () => {
+					editors++;
+					if (boundary === "editor" || boundary === "editor-invalid") {
+						entered.resolve();
+						return dialog.promise;
+					}
+					return '["vendor/*"]';
+				},
+				select: async () => {
+					scopes++;
+					if (boundary === "scope") {
+						entered.resolve();
+						return dialog.promise;
+					}
+					return "This session only";
+				},
+			});
+			const running = f.run("auth", "settings");
+			if (boundary !== "none") {
+				await entered.promise;
+				controller.abort();
+				controller = new AbortController();
+				dialog.resolve(
+					boundary === "scope"
+						? "This session only"
+						: boundary === "editor-invalid"
+							? "{"
+							: '["vendor/*"]',
+				);
+			}
+			await running;
+			expect(editors).toBe(boundary === "dashboard" ? 0 : 1);
+			expect(scopes).toBe(boundary === "scope" || boundary === "none" ? 1 : 0);
+			expect(dashboards).toBe(boundary === "none" ? 2 : 1);
+			expect(store.get("models.rules")).toEqual(boundary === "none" ? ["vendor/*"] : []);
+			expect(saved).toEqual(boundary === "none" ? ["models.rules"] : []);
+			expect(f.notices).toEqual([]);
+			expect(captures).toBe(1);
+		}
+	});
+
+	test("a save completing after replacement does not trigger effects or reopen the dashboard", async () => {
+		let controller = new AbortController();
+		const started = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		const store = new SettingsStore(SETTINGS, { user: "unused" });
+		const save = store.save.bind(store);
+		store.save = async (...args) => {
+			await save(...args);
+			started.resolve();
+			await release.promise;
+		};
+		const saved: string[] = [];
+		let panels = 0;
+		const f = rig("tui", {
+			signal: () => controller.signal,
+			settings: { store: () => store, onSaved: (keys) => saved.push(...keys) },
+		});
+		Object.assign(f.ctx.ui, {
+			custom: async () => {
+				panels++;
+				return { editSetting: "models.rules" };
+			},
+			editor: async () => '["vendor/*"]',
+			select: async () => "This session only",
+		});
+		const running = f.run("auth", "settings");
+		await started.promise;
+		controller.abort();
+		controller = new AbortController();
+		release.resolve();
+		await running;
+		expect(store.get("models.rules")).toEqual(["vendor/*"]);
+		expect(saved).toEqual([]);
+		expect(panels).toBe(1);
+		expect(f.notices).toEqual([]);
+	});
+
+	test("replacement while listing or confirming resets never spends a credit", async () => {
+		for (const [requester, boundary] of [
+			["command", "list"],
+			["command", "confirm"],
+			["command", "none"],
+			["panel", "confirm"],
+			["panel", "none"],
+		] as const) {
+			let controller = new AbortController();
+			const entered = Promise.withResolvers<void>();
+			const release = Promise.withResolvers<void>();
+			let selected = 0;
+			let consumed = 0;
+			const quotas: ReturnType<NonNullable<AuthCommandDeps["quotas"]>> = {
+				report: () => ({ v: 1, generatedAt: 0, providers: [] }),
+				resetSupport: () => true,
+				listResets: async (id) => {
+					if (boundary === "list") {
+						entered.resolve();
+						await release.promise;
+					}
+					return {
+						provider: id,
+						fetchedAt: 0,
+						available: 1,
+						credits: [{ id: "credit", type: "reset", status: "available" }],
+					};
+				},
+				consumeReset: async (id, creditId) => {
+					consumed++;
+					return { provider: id, creditId, windowsReset: 1, code: "reset" };
+				},
+				refreshing: () => false,
+				refresh: async () => {},
+				onChange: () => () => {},
+				lineConfig: () => ({ percentDisplay: "used", creditHealthyUsd: 50, creditCriticalUsd: 5 }),
+				linePlacement: () => "off",
+				setLinePlacement: async () => {},
+				now: () => 0,
+				text: () => "",
+			};
+			const f = rig(
+				"tui",
+				{ quotas: () => quotas, signal: () => controller.signal },
+				requester === "panel" ? [{ reset: "claude" }, undefined] : [],
+			);
+			Object.assign(f.ctx.ui, {
+				select: async () => {
+					selected++;
+					if (boundary === "confirm") {
+						entered.resolve();
+						await release.promise;
+					}
+					return "Spend 1 credit now (cannot be undone)";
+				},
+			});
+			const running =
+				requester === "panel" ? f.run("auth", "quotas") : f.run("quota", "reset claude");
+			if (boundary !== "none") {
+				await entered.promise;
+				controller.abort();
+				controller = new AbortController();
+				release.resolve();
+			}
+			await running;
+			expect(selected).toBe(boundary === "list" ? 0 : 1);
+			expect(consumed).toBe(boundary === "none" ? 1 : 0);
+			if (requester === "panel") expect(f.panels()).toBe(boundary === "none" ? 2 : 1);
+			if (boundary !== "none") expect(f.notices).toEqual([]);
+		}
 	});
 
 	test("Codex login rejects malformed arguments and handles failure without throwing", async () => {

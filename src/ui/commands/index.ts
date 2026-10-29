@@ -121,22 +121,25 @@ function editDistance(a: string, b: string): number {
 /** Valid names close to `input`: shared prefix or at most two edits away. */
 export function closestNames(input: string, names: readonly string[]): string[] {
 	const needle = input.trim().toLowerCase();
-	return names.filter(
-		(name) =>
-			(needle.length > 0 && (name.startsWith(needle) || needle.startsWith(name))) ||
-			editDistance(needle, name) <= 2,
-	);
+	return names.filter((name) => {
+		const candidate = name.toLowerCase();
+		return (
+			(needle.length > 0 && (candidate.startsWith(needle) || needle.startsWith(candidate))) ||
+			editDistance(needle, candidate) <= 2
+		);
+	});
 }
 
-/** `target` is the word after the section, e.g. the provider in `/auth quotas cc`. */
+/** `target` is the text after the section, e.g. the provider in `/auth quotas cc`. */
 export type AuthArgs =
 	| { readonly tab: TabId; readonly target?: string }
 	| { readonly error: string };
 
 export function parseAuthArgs(args: string): AuthArgs {
-	const [word = "", target] = args.trim().split(/\s+/);
+	const [word = "", ...rest] = args.trim().split(/\s+/);
 	if (word === "") return { tab: "providers" };
 	const tab = resolveTab(word);
+	const target = rest.join(" ");
 	if (tab) return target ? { tab, target } : { tab };
 	const near = TABS.filter((spec) => closestNames(word, [spec.id, ...spec.aliases]).length > 0).map(
 		(spec) => spec.id,
@@ -151,6 +154,56 @@ export function authCompletions(prefix: string): AutocompleteItem[] | null {
 		(tab) => tab.id.startsWith(needle) || tab.aliases.some((alias) => alias.startsWith(needle)),
 	).map((tab) => ({ value: tab.id, label: tab.id, description: tab.description }));
 	return items.length > 0 ? items : null;
+}
+
+interface TargetOption {
+	readonly value: string;
+	readonly label: string;
+	readonly aliases: readonly string[];
+}
+
+function normalizeTarget(input: string): string {
+	return input.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function resolveTarget(input: string, options: readonly TargetOption[]): string | undefined {
+	const needle = normalizeTarget(input);
+	const named = options.find((option) =>
+		[option.value, ...option.aliases].some((name) => normalizeTarget(name) === needle),
+	);
+	if (named) return named.value;
+	const labels = options.filter((option) => normalizeTarget(option.label) === needle);
+	return labels.length === 1 ? labels[0]?.value : undefined;
+}
+
+function targetCompletions(prefix: string, options: readonly TargetOption[]): AutocompleteItem[] {
+	const needle = normalizeTarget(prefix);
+	const names = [
+		...options.map((option) => ({ name: option.value, option })),
+		...options.flatMap((option) => option.aliases.map((name) => ({ name, option }))),
+	];
+	return names
+		.filter(
+			({ name, option }) =>
+				normalizeTarget(name).startsWith(needle) ||
+				(name === option.value && normalizeTarget(option.label).startsWith(needle)),
+		)
+		.map(({ name, option }) => ({ value: name, label: name, description: option.label }));
+}
+
+function targetError(
+	kind: string,
+	target: string,
+	options: readonly TargetOption[],
+	usage: string,
+): string {
+	const names = options.flatMap((option) => [option.value, ...option.aliases, option.label]);
+	const near = closestNames(target, names).filter(
+		(name, index, matches) =>
+			matches.findIndex((match) => normalizeTarget(match) === normalizeTarget(name)) === index,
+	);
+	const hint = near.length ? ` Did you mean: ${near.map(sanitize).join(", ")}?` : "";
+	return `Unknown ${kind} "${sanitize(target)}".${hint} ${usage}`;
 }
 
 function dashboardModel(deps: AuthCommandDeps): DashboardModel {
@@ -182,8 +235,18 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		} else pi.appendEntry(NOTE_TYPE, { text });
 	};
 
+	const providerTargets: TargetOption[] = deps.registry.providers().map(({ provider }) => ({
+		value: provider.id,
+		label: provider.label,
+		aliases: provider.aliases,
+	}));
+	const settingTargets: TargetOption[] = (Object.keys(SETTINGS) as SettingKey[]).map((key) => ({
+		value: key,
+		label: SETTINGS[key].label,
+		aliases: [],
+	}));
 	const quotaTarget = (target: string | undefined): string | undefined =>
-		target === undefined ? undefined : deps.registry.resolve(target)?.provider.id;
+		target === undefined ? undefined : resolveTarget(target, providerTargets);
 
 	const headless = (tab: TabId, model: DashboardModel, target?: string): string => {
 		if (tab === "tokens") return tokensText(deps.tokens?.());
@@ -193,7 +256,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		if (tab === "quotas" && quotas !== undefined)
 			return typeof quotas === "string"
 				? `Auth › Quotas\n  ${quotas}`
-				: `Auth › Quotas\n${quotas.text(quotaTarget(target))}`;
+				: `Auth › Quotas\n${quotas.text(target)}`;
 		if (tab === "settings" && deps.settings) return settingsText(deps.settings.store());
 		return dashboardText(tab, model);
 	};
@@ -296,9 +359,42 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		signal: AbortSignal | undefined,
 	) => {
 		if (signal?.aborted) return;
+		let select = target;
+		if (target !== undefined) {
+			if (tab === "quotas" || tab === "settings") {
+				const options = tab === "quotas" ? providerTargets : settingTargets;
+				select = resolveTarget(target, options);
+				if (select === undefined)
+					return report(
+						ctx,
+						targetError(
+							tab === "quotas" ? "provider" : "setting",
+							target,
+							options,
+							tab === "quotas"
+								? "Usage: /auth quotas [provider] (or /quota [provider])."
+								: "Usage: /auth settings [key].",
+						),
+						"error",
+					);
+			} else return report(ctx, `Usage: /auth ${tab}.`, "error");
+		}
+		if (tab === "quotas" && select !== undefined) {
+			const quotas = deps.quotas?.();
+			if (
+				quotas &&
+				typeof quotas !== "string" &&
+				!quotas.report().providers.some((provider) => provider.id === select)
+			) {
+				const action = deps.registry.byId(select)?.provider.quota
+					? "Enable it in /auth settings quotas.providers."
+					: "Choose a provider with a quota source.";
+				return report(ctx, `Quotas for "${sanitize(select)}" are unavailable. ${action}`, "error");
+			}
+		}
 		const model = dashboardModel(deps);
-		if (ctx.mode !== "tui" || !ctx.hasUI) return report(ctx, headless(tab, model, target), "info");
-		let current: { tab: TabId; select?: string } = { tab, ...(target ? { select: target } : {}) };
+		if (ctx.mode !== "tui" || !ctx.hasUI) return report(ctx, headless(tab, model, select), "info");
+		let current: { tab: TabId; select?: string } = { tab, ...(select ? { select } : {}) };
 		for (;;) {
 			const opened = current;
 			const result = await ctx.ui.custom<DashboardResult>((tui, theme, keys, done) => {
@@ -315,7 +411,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 							host,
 							theme,
 							quotas,
-							opened.tab === "quotas" ? quotaTarget(opened.select) : undefined,
+							opened.tab === "quotas" ? opened.select : undefined,
 						);
 				const groups = deps.groups;
 				if (groups) views.groups = (host) => new GroupsView(host, groups);
@@ -355,7 +451,18 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 
 	pi.registerCommand("auth", {
 		description: "Provider status, quotas, token counts, models and settings",
-		getArgumentCompletions: authCompletions,
+		getArgumentCompletions: (prefix) => {
+			const match = /^\s*(\S+)\s+(.*)$/s.exec(prefix);
+			if (!match) return authCompletions(prefix);
+			const section = match[1] ?? "";
+			const tab = resolveTab(section);
+			const options = tab === "quotas" ? providerTargets : tab === "settings" ? settingTargets : [];
+			const items = targetCompletions(match[2] ?? "", options).map((item) => ({
+				...item,
+				value: `${section} ${item.value}`,
+			}));
+			return items.length ? items : null;
+		},
 		handler: async (args, ctx) => {
 			const signal = deps.signal?.();
 			if (signal?.aborted) return;
@@ -404,15 +511,12 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		description:
 			"Quota windows and credits; <provider> focuses one; codex login [--device|--browser]",
 		getArgumentCompletions: (prefix) => {
-			const items = [
-				"reset",
-				...deps.registry.providers().map(({ provider }) => provider.id),
-				"codex login",
-				"codex login --device",
-				"codex login --browser",
-			]
-				.filter((name) => name.startsWith(prefix.trim().toLowerCase()))
+			const needle = normalizeTarget(prefix);
+			const reset = "reset".startsWith(needle) ? [{ value: "reset", label: "reset" }] : [];
+			const login = ["codex login", "codex login --device", "codex login --browser"]
+				.filter((name) => name.startsWith(needle))
 				.map((name) => ({ value: name, label: name }));
+			const items = [...reset, ...targetCompletions(prefix, providerTargets), ...login];
 			return items.length ? items : null;
 		},
 		handler: async (args, ctx) => {
@@ -440,7 +544,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 				);
 			}
 			if (word?.toLowerCase() !== "reset" && word?.toLowerCase() !== "resets")
-				return open(ctx, "quotas", word || undefined, signal);
+				return open(ctx, "quotas", tokens.join(" ") || undefined, signal);
 			const quotas = deps.quotas?.();
 			if (!quotas || typeof quotas === "string")
 				return report(

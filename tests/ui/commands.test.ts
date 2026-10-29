@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { KeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
+import {
+	CombinedAutocompleteProvider,
+	KeybindingsManager,
+	TUI_KEYBINDINGS,
+} from "@earendil-works/pi-tui";
 import { SETTINGS } from "../../src/core/config/catalog.ts";
 import { SettingsStore } from "../../src/core/config/index.ts";
 import { Registry } from "../../src/core/registry/index.ts";
@@ -8,6 +12,7 @@ import {
 	type AuthCommandDeps,
 	authCompletions,
 	parseAuthArgs,
+	type QuotaPanelDeps,
 	registerAuthCommands,
 } from "../../src/ui/commands/index.ts";
 
@@ -96,7 +101,197 @@ function rig(
 	};
 }
 
+function quotaFixture(available = true, withOther = false) {
+	const requested: (string | undefined)[] = [];
+	const quotas: QuotaPanelDeps = {
+		report: () => ({
+			v: 1,
+			generatedAt: 0,
+			providers: [
+				...(available
+					? [{ id: "claude", title: "Claude", short: "cl", state: "unknown" as const, windows: [] }]
+					: []),
+				...(withOther
+					? [{ id: "other", title: "Other", short: "ot", state: "unknown" as const, windows: [] }]
+					: []),
+			],
+		}),
+		resetSupport: () => false,
+		listResets: async () => {
+			throw new Error("unexpected reset");
+		},
+		consumeReset: async () => {
+			throw new Error("unexpected reset");
+		},
+		refreshing: () => false,
+		refresh: async () => {},
+		onChange: () => () => {},
+		lineConfig: () => ({ percentDisplay: "used", creditHealthyUsd: 50, creditCriticalUsd: 5 }),
+		linePlacement: () => "off",
+		setLinePlacement: async () => {},
+		now: () => 0,
+		text: (id) => {
+			requested.push(id);
+			return `Focused ${id}`;
+		},
+	};
+	return { quotas, requested };
+}
+
 describe("ui/commands", () => {
+	test("unknown quota targets fail before opening a panel or rendering unfiltered output", async () => {
+		const { quotas, requested } = quotaFixture();
+		for (const mode of ["rpc", "tui"] as const) {
+			const f = rig(mode, { quotas: () => quotas });
+			for (const [command, args] of [
+				["auth", "quotas claud"],
+				["quota", "claud"],
+				["quotas", "claude extra"],
+				["auth", "quotas claude extra"],
+			] as const) {
+				await f.run(command, args);
+				expect(f.notices.at(-1)?.[1]).toBe("error");
+				expect(f.notices.at(-1)?.[0]).toContain("Usage:");
+			}
+			expect(f.notices[0]?.[0]).toContain("Did you mean: claude");
+			expect(f.panels()).toBe(0);
+		}
+		const print = rig("rpc", { quotas: () => quotas }, [], false);
+		await print.run("quota", "claud");
+		expect(print.notes[0]).toContain("Did you mean: claude");
+		expect(print.notes[0]).not.toContain("Auth › Quotas");
+		expect(requested).toEqual([]);
+	});
+
+	test("invalid settings and unsupported section targets error instead of selecting a default", async () => {
+		const store = new SettingsStore(SETTINGS, { user: "unused" });
+		for (const mode of ["rpc", "tui"] as const) {
+			const f = rig(mode, { settings: { store: () => store, onSaved: () => {} } });
+			for (const args of [
+				"settings models.rule",
+				"providers claude",
+				"tokens x",
+				"models x",
+				"groups x",
+			]) {
+				await f.run("auth", args);
+				expect(f.notices.at(-1)?.[1]).toBe("error");
+				expect(f.notices.at(-1)?.[0]).toContain("Usage:");
+			}
+			expect(f.notices[0]?.[0]).toContain("models.rules");
+			expect(f.panels()).toBe(0);
+		}
+		const print = rig("rpc", {}, [], false);
+		await print.run("auth", "settings typo");
+		expect(print.notes[0]).toContain("Usage:");
+		expect(print.notes[0]).not.toContain("Auth › Settings");
+	});
+
+	test("unavailable quota providers never fall back to an unfiltered list", async () => {
+		const { quotas, requested } = quotaFixture(false, true);
+		for (const mode of ["rpc", "tui"] as const) {
+			const f = rig(mode, { quotas: () => quotas });
+			for (const [command, args] of [
+				["auth", "quotas cc"],
+				["quota", "cc"],
+			] as const) {
+				await f.run(command, args);
+				expect(f.notices.at(-1)?.[1]).toBe("error");
+				expect(f.notices.at(-1)?.[0]).toContain("claude");
+			}
+			expect(f.panels()).toBe(0);
+		}
+		expect(requested).toEqual([]);
+	});
+
+	test("quota ids, aliases, case and complete multiword labels select the same provider", async () => {
+		const registry = new Registry([
+			{
+				id: "anthropic",
+				label: "Anthropic",
+				providers: [
+					{ id: "claude", label: "Anthropic Claude Code", aliases: ["cc"] },
+					{ id: "other", label: "Other", aliases: [] },
+				],
+			},
+		]);
+		const { quotas, requested } = quotaFixture(true, true);
+		const f = rig("rpc", { registry, quotas: () => quotas });
+		for (const [command, args] of [
+			["auth", "quotas CLAUDE"],
+			["auth", "quota CC"],
+			["auth", "usage Anthropic   Claude Code"],
+			["quota", "cc"],
+			["quotas", "anthropic claude code"],
+		] as const) {
+			await f.run(command, args);
+			expect(f.notices.at(-1)).toEqual(["Auth › Quotas\nFocused claude", "info"]);
+		}
+		expect(requested).toEqual(["claude", "claude", "claude", "claude", "claude"]);
+		const tui = rig("tui", { registry, quotas: () => quotas });
+		await tui.run("auth", "usage Anthropic Claude Code");
+		expect(tui.rendered[0]?.join("\n")).toContain("Claude");
+		expect(tui.rendered[0]?.join("\n")).not.toContain("Other");
+	});
+
+	test("settings select canonical keys by case-insensitive key or complete label", async () => {
+		const store = new SettingsStore(SETTINGS, { user: "unused" });
+		const f = rig("tui", { settings: { store: () => store, onSaved: () => {} } });
+		for (const args of ["settings MODELS.RULES", "config Model visibility rules"]) {
+			await f.run("auth", args);
+			expect(f.rendered.at(-1)?.join("\n")).toContain("❯ Model visibility rules");
+		}
+	});
+
+	test("registered completions retain section prefixes and share provider aliases", async () => {
+		const f = rig("rpc");
+		const auth = f.commands.get("auth")?.getArgumentCompletions;
+		const quota = f.commands.get("quota")?.getArgumentCompletions;
+		expect((await auth?.("quotas c"))?.map((item) => item.value)).toEqual([
+			"quotas claude",
+			"quotas cc",
+		]);
+		expect((await auth?.("usage c"))?.map((item) => item.value)).toEqual([
+			"usage claude",
+			"usage cc",
+		]);
+		expect((await quota?.("c"))?.map((item) => item.value)).toEqual([
+			"claude",
+			"cc",
+			"codex login",
+			"codex login --device",
+			"codex login --browser",
+		]);
+		expect((await auth?.("settings models.r"))?.map((item) => item.value)).toEqual([
+			"settings models.rules",
+			"settings models.rulesScope",
+		]);
+		expect((await auth?.("config Model visibility"))?.map((item) => item.value)).toEqual([
+			"config models.rules",
+		]);
+		if (!auth || !quota) throw new Error("missing command completions");
+		const pi = new CombinedAutocompleteProvider(
+			[
+				{ name: "auth", getArgumentCompletions: auth },
+				{ name: "quota", getArgumentCompletions: quota },
+			],
+			".",
+		);
+		for (const [input, value, output] of [
+			["/auth quotas c", "quotas cc", "/auth quotas cc"],
+			["/auth config models.r", "config models.rules", "/auth config models.rules"],
+			["/quota c", "cc", "/quota cc"],
+		] as const) {
+			const suggestions = await pi.getSuggestions([input], 0, input.length, {
+				signal: new AbortController().signal,
+			});
+			const item = suggestions?.items.find((candidate) => candidate.value === value);
+			if (!suggestions || !item) throw new Error(`missing completion ${value}`);
+			expect(pi.applyCompletion([input], 0, input.length, item, suggestions.prefix).lines).toEqual([
+				output,
+			]);
+		}
+	});
 	test("tokens opens its dashboard tab, aliases share handlers, and headless counts are text", async () => {
 		const tui = rig("tui");
 		await tui.run("tokens");
@@ -195,7 +390,11 @@ describe("ui/commands", () => {
 		const events: string[] = [];
 		const controller = new AbortController();
 		const quotas: ReturnType<NonNullable<AuthCommandDeps["quotas"]>> = {
-			report: () => ({ v: 1, generatedAt: 0, providers: [] }),
+			report: () => ({
+				v: 1,
+				generatedAt: 0,
+				providers: [{ id: "codex", title: "Codex", short: "cx", state: "unknown", windows: [] }],
+			}),
 			resetSupport: () => false,
 			listResets: async () => {
 				throw new Error("unexpected reset");

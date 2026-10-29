@@ -1,0 +1,223 @@
+{
+  "arguments": {
+    "runtime": "bolt",
+    "case": "none",
+    "mode": "rpc",
+    "prototype": "delay",
+    "action": "none",
+    "offline": false,
+    "implicit_delay": 0,
+    "release_delay": 3000,
+    "trailing_delay": 0,
+    "fetch_delay": 800,
+    "sample_ms": 4200,
+    "early_models": false,
+    "eof": "none",
+    "replace": "waiting",
+    "store_delay": 0,
+    "narrow": false,
+    "prepatched": false,
+    "keep_picker_open": false
+  },
+  "events": [
+    {
+      "event": "probe-install",
+      "name": "ModelRuntime2",
+      "refreshName": "refresh",
+      "rpcArg": true,
+      "reused": false,
+      "ms": 0
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 1732
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 0,
+      "ms": 1735
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 1,
+      "keys": [
+        "signal"
+      ],
+      "signal": 1,
+      "seenSession": false,
+      "aborted": false,
+      "candidate": true,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:117:30)",
+        "at main2 (/$bunfs/root/entry-x282c8b9.js:11261:25)"
+      ],
+      "ms": 1736
+    },
+    {
+      "event": "startup-held",
+      "runtime": 1,
+      "signal": 1,
+      "pendingOffline": 0,
+      "ms": 1736
+    },
+    {
+      "event": "probe-session",
+      "runtime": 1,
+      "mode": "rpc",
+      "ms": 1736
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 1750
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "groupVisible": false,
+      "ms": 1750
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 1,
+      "pendingOffline": 0,
+      "ms": 1750
+    },
+    {
+      "event": "probe-shutdown",
+      "runtime": 1,
+      "reason": "new",
+      "ms": 1751
+    },
+    {
+      "event": "startup-skipped",
+      "runtime": 1,
+      "reason": "aborted-in-delay",
+      "ms": 1751
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 1751
+    },
+    {
+      "event": "probe-install",
+      "name": "ModelRuntime2",
+      "refreshName": "",
+      "rpcArg": true,
+      "reused": true,
+      "ms": 1752
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 1753
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 1754
+    },
+    {
+      "event": "probe-session",
+      "runtime": 2,
+      "mode": "rpc",
+      "ms": 1755
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 1756
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "groupVisible": false,
+      "ms": 1756
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 2,
+      "pendingOffline": 0,
+      "ms": 1756
+    },
+    {
+      "event": "probe-session",
+      "runtime": 2,
+      "mode": "rpc",
+      "ms": 1756
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 1756
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "groupVisible": false,
+      "ms": 1756
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 2,
+      "pendingOffline": 0,
+      "ms": 1756
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": false,
+      "storedHidden": false,
+      "ms": 5958
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": false,
+      "storedHidden": false,
+      "ms": 5958
+    },
+    {
+      "event": "probe-shutdown",
+      "runtime": 2,
+      "reason": "quit",
+      "ms": 5963
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 5963
+    }
+  ],
+  "triggerObserved": true,
+  "exit": 0,
+  "stderr": "",
+  "replace": {
+    "success": true,
+    "data": {
+      "cancelled": false
+    },
+    "error": null
+  },
+  "rpc": [
+    {
+      "id": "models",
+      "success": true,
+      "visible": false,
+      "hidden": false,
+      "openaiCount": 42
+    }
+  ]
+}

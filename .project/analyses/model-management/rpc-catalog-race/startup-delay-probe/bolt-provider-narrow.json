@@ -1,0 +1,230 @@
+{
+  "arguments": {
+    "runtime": "bolt",
+    "case": "none",
+    "mode": "rpc",
+    "prototype": "delay",
+    "action": "later-provider",
+    "offline": false,
+    "implicit_delay": 0,
+    "release_delay": 0,
+    "trailing_delay": 0,
+    "fetch_delay": 800,
+    "sample_ms": 2000,
+    "early_models": false,
+    "eof": "none",
+    "replace": "none",
+    "narrow": true,
+    "keep_picker_open": false
+  },
+  "events": [
+    {
+      "event": "probe-install",
+      "name": "ModelRuntime2",
+      "refreshName": "refresh",
+      "rpcArg": true,
+      "reused": false,
+      "ms": 0
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 3608
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 0,
+      "ms": 3610
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 1,
+      "keys": [
+        "signal"
+      ],
+      "signal": 1,
+      "seenSession": false,
+      "aborted": false,
+      "candidate": true,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:106:30)",
+        "at main2 (/$bunfs/root/entry-x282c8b9.js:11261:25)"
+      ],
+      "ms": 3611
+    },
+    {
+      "event": "startup-held",
+      "runtime": 1,
+      "signal": 1,
+      "pendingOffline": 0,
+      "ms": 3611
+    },
+    {
+      "event": "probe-session",
+      "runtime": 1,
+      "mode": "rpc",
+      "ms": 3612
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 3619
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "ms": 3619
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 1,
+      "pendingOffline": 0,
+      "ms": 3619
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 3620
+    },
+    {
+      "event": "startup-enter",
+      "runtime": 1,
+      "originalSignal": 1,
+      "forwardedSignal": 2,
+      "sameSignal": false,
+      "ms": 3620
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 3622
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 3622
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 3622
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 3622
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 3622
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 3622
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 3622
+    },
+    {
+      "event": "registration-implicit",
+      "runtime": 1,
+      "method": "registerProvider",
+      "provider": "scope-provider",
+      "narrowed": true,
+      "ms": 3869
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": [
+        "scope-provider"
+      ],
+      "pending": 1,
+      "delayed": 0,
+      "ms": 3869
+    },
+    {
+      "event": "registration-return",
+      "provider": "scope-provider",
+      "returnedUndefined": true,
+      "visible": true,
+      "ms": 3869
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 0,
+      "ms": 3870
+    },
+    {
+      "event": "fetch-resolve",
+      "number": 1,
+      "ms": 4423
+    },
+    {
+      "event": "store-write-start",
+      "runtime": 1,
+      "stopped": false,
+      "aborted": false,
+      "ms": 4424
+    },
+    {
+      "event": "store-write-finish",
+      "runtime": 1,
+      "stopped": false,
+      "ms": 4425
+    },
+    {
+      "event": "startup-finish",
+      "runtime": 1,
+      "aborted": false,
+      "stopped": false,
+      "ms": 4426
+    },
+    {
+      "event": "sample",
+      "visible": true,
+      "hidden": true,
+      "availableVisible": true,
+      "storedVisible": true,
+      "storedHidden": true,
+      "ms": 5620
+    },
+    {
+      "event": "probe-shutdown",
+      "runtime": 1,
+      "reason": "quit",
+      "ms": 5629
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 5630
+    }
+  ],
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "id": "models",
+      "success": true,
+      "visible": true,
+      "hidden": true,
+      "openaiCount": 42
+    }
+  ]
+}

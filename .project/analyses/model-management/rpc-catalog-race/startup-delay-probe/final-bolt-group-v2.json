@@ -1,0 +1,251 @@
+{
+  "arguments": {
+    "runtime": "bolt",
+    "case": "group",
+    "mode": "rpc",
+    "prototype": "delay",
+    "action": "none",
+    "offline": false,
+    "implicit_delay": 0,
+    "release_delay": 0,
+    "trailing_delay": 0,
+    "fetch_delay": 800,
+    "sample_ms": 2000,
+    "early_models": true,
+    "eof": "none",
+    "replace": "none",
+    "store_delay": 0,
+    "narrow": false,
+    "prepatched": false,
+    "keep_picker_open": false
+  },
+  "events": [
+    {
+      "event": "probe-install",
+      "name": "ModelRuntime2",
+      "refreshName": "refresh",
+      "rpcArg": true,
+      "reused": false,
+      "ms": 0
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 4082
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 0,
+      "ms": 4084
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 4121
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 4123
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 2,
+      "keys": [
+        "signal"
+      ],
+      "signal": 1,
+      "seenSession": false,
+      "aborted": false,
+      "candidate": true,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:117:30)",
+        "at main2 (/$bunfs/root/entry-x282c8b9.js:11261:25)"
+      ],
+      "ms": 4124
+    },
+    {
+      "event": "startup-held",
+      "runtime": 2,
+      "signal": 1,
+      "pendingOffline": 0,
+      "ms": 4124
+    },
+    {
+      "event": "probe-session",
+      "runtime": 2,
+      "mode": "rpc",
+      "ms": 4125
+    },
+    {
+      "event": "registration-implicit",
+      "runtime": 2,
+      "method": "registerVirtualModel",
+      "provider": "group",
+      "narrowed": false,
+      "ms": 4132
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 4132
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 4132
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "groupVisible": true,
+      "ms": 4132
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 2,
+      "pendingOffline": 1,
+      "ms": 4132
+    },
+    {
+      "event": "startup-drain",
+      "runtime": 2,
+      "pending": 1,
+      "ms": 4134
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 4139
+    },
+    {
+      "event": "startup-enter",
+      "runtime": 2,
+      "originalSignal": 1,
+      "forwardedSignal": 2,
+      "sameSignal": false,
+      "ms": 4139
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 4140
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 4141
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 4142
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 4143
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 4143
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 4144
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 4144
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 4146
+    },
+    {
+      "event": "fetch-resolve",
+      "number": 1,
+      "ms": 4945
+    },
+    {
+      "event": "store-write-start",
+      "runtime": 2,
+      "stopped": false,
+      "aborted": false,
+      "ms": 4945
+    },
+    {
+      "event": "store-write-finish",
+      "runtime": 2,
+      "stopped": false,
+      "ms": 4946
+    },
+    {
+      "event": "startup-finish",
+      "runtime": 2,
+      "aborted": false,
+      "stopped": false,
+      "ms": 4947
+    },
+    {
+      "event": "sample",
+      "visible": true,
+      "hidden": false,
+      "availableVisible": true,
+      "storedVisible": true,
+      "storedHidden": true,
+      "ms": 6134
+    },
+    {
+      "event": "probe-shutdown",
+      "runtime": 2,
+      "reason": "quit",
+      "ms": 6158
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 6159
+    }
+  ],
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "id": "early",
+      "success": true,
+      "visible": false,
+      "hidden": false,
+      "openaiCount": 42
+    },
+    {
+      "id": "models",
+      "success": true,
+      "visible": true,
+      "hidden": false,
+      "openaiCount": 42
+    }
+  ]
+}

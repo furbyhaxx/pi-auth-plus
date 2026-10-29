@@ -1,0 +1,85 @@
+{
+  "arguments": {
+    "runtime": "bolt",
+    "case": "none",
+    "barrier": true,
+    "offline": false,
+    "gate_ms": 0,
+    "wait_gate": false,
+    "late_ms": 0,
+    "delay_implicit_ms": 0,
+    "action": "none",
+    "fetch_ms": 20000,
+    "sample_ms": 1600,
+    "early_eof": true
+  },
+  "events": [
+    {
+      "event": "prototype-install",
+      "name": "ModelRuntime2",
+      "ms": 0
+    },
+    {
+      "event": "outer-start",
+      "signal": 1,
+      "providers": "all",
+      "explicitNetwork": "default",
+      "ms": 1760
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "tracked": 1,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [
+        1
+      ],
+      "keys": [
+        "registeringWithoutRefresh",
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 1760
+    },
+    {
+      "event": "barrier-start",
+      "tracked": 1,
+      "ms": 1760
+    },
+    {
+      "event": "models-enter",
+      "signal": 1,
+      "controllers": 0,
+      "ms": 1761
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 1762
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1762
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1762
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1762
+    }
+  ],
+  "eofWithin2s": false,
+  "exit": -15,
+  "stderr": "",
+  "rpc": []
+}

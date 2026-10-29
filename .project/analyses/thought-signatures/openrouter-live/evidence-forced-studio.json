@@ -1,0 +1,126 @@
+{
+  "mode": "forced",
+  "route": "google-ai-studio",
+  "model": "google/gemini-4-argon",
+  "catalog": {
+    "status": 200,
+    "modelFound": true,
+    "supportsTools": true,
+    "supportsToolChoice": true,
+    "reasoning": {
+      "mandatory": true,
+      "supported_efforts": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "default_effort": "medium"
+    }
+  },
+  "requests": [
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/completions",
+      "body": {
+        "model": "google/gemini-4-argon",
+        "stream": true,
+        "provider": {
+          "only": [
+            "google-ai-studio"
+          ],
+          "allow_fallbacks": false
+        },
+        "toolNames": [
+          "count"
+        ],
+        "messages": [
+          {
+            "role": "system"
+          },
+          {
+            "role": "user",
+            "content": "[omitted]"
+          }
+        ]
+      },
+      "status": 200,
+      "contentType": "text/event-stream"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/completions",
+      "body": {
+        "model": "google/gemini-4-argon",
+        "stream": true,
+        "provider": {
+          "only": [
+            "google-ai-studio"
+          ],
+          "allow_fallbacks": false
+        },
+        "toolNames": [
+          "count"
+        ],
+        "messages": [
+          {
+            "role": "system"
+          },
+          {
+            "role": "user",
+            "content": "[omitted]"
+          },
+          {
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "count",
+                  "arguments": "{\"value\":1}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id_present": true,
+            "content": "finished once"
+          }
+        ]
+      },
+      "status": 200,
+      "contentType": "text/event-stream"
+    }
+  ],
+  "stream": {
+    "encryptedSignatures": 2,
+    "extraSignatures": 0,
+    "providers": [
+      "Google AI Studio"
+    ]
+  },
+  "stripped": [
+    {
+      "removedEncrypted": 1,
+      "removedExtra": 0
+    }
+  ],
+  "turns": [
+    {
+      "outcome": "completed",
+      "stopReason": "toolUse"
+    },
+    {
+      "outcome": "completed",
+      "stopReason": "stop"
+    }
+  ],
+  "toolRuns": 1,
+  "extensionErrors": [],
+  "physicalHooks": true,
+  "final": {
+    "stopReason": "stop",
+    "textIsDone": true
+  },
+  "contextEdits": 0
+}

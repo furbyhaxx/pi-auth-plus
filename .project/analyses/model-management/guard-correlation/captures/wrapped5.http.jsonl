@@ -1,0 +1,11 @@
+{"path":"/synthetic/v1/messages?beta=true","tag":"SLOW","model":"hf:acme/test","env":false,"effort":null,"client":null,"userAgent":"other","session":false,"modelHeader":null}
+{"path":"/synthetic/v1/messages?beta=true","tag":"FAST","model":"hf:acme/test","env":false,"effort":null,"client":null,"userAgent":"other","session":false,"modelHeader":null}
+{"path":"/impostor/chat/completions","tag":"IMPOSTOR","model":"hf:acme/test","env":false,"effort":null,"client":"other-app","userAgent":"other","session":false,"modelHeader":"model-kept"}
+{"path":"/opencode/chat/completions","tag":"OPENCODE_API","model":"hf:acme/test","env":true,"effort":"high","client":"cli","userAgent":"opencode","session":true,"modelHeader":null}
+{"path":"/opencode/chat/completions","tag":"OPENCODE_SIDE","model":"hf:acme/test","env":true,"effort":null,"client":"cli","userAgent":"opencode","session":true,"modelHeader":null}
+{"path":"/opencode/chat/completions","tag":"RETRY_ME","model":"hf:acme/test","env":true,"effort":null,"client":"cli","userAgent":"opencode","session":true,"modelHeader":null}
+{"path":"/synthetic/v1/messages?beta=true","tag":"RETRY_ME","model":"hf:acme/test","env":false,"effort":null,"client":null,"userAgent":"other","session":false,"modelHeader":null}
+{"path":"/impostor/chat/completions","tag":"IMPOSTOR","model":"hf:acme/test","env":false,"effort":null,"client":"other-app","userAgent":"other","session":false,"modelHeader":"model-kept"}
+{"path":"/synthetic/v1/messages?beta=true","tag":"IMPOSTOR","model":"hf:acme/test","env":false,"effort":null,"client":null,"userAgent":"other","session":false,"modelHeader":null}
+{"path":"/synthetic/v1/messages?beta=true","tag":"IMPOSTOR","model":"hf:acme/test","env":false,"effort":null,"client":null,"userAgent":"other","session":false,"modelHeader":null}
+{"path":"/synthetic/v1/messages?beta=true","tag":"OTHER","model":"hf:acme/test","env":false,"effort":null,"client":null,"userAgent":"other","session":false,"modelHeader":null}

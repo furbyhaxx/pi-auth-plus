@@ -1,0 +1,293 @@
+{
+  "arguments": {
+    "runtime": "bolt",
+    "case": "none",
+    "mode": "rpc",
+    "prototype": "delay",
+    "action": "none",
+    "offline": false,
+    "implicit_delay": 0,
+    "release_delay": 0,
+    "trailing_delay": 0,
+    "fetch_delay": 3000,
+    "sample_ms": 5000,
+    "early_models": false,
+    "eof": "none",
+    "replace": "active",
+    "narrow": false,
+    "keep_picker_open": false
+  },
+  "events": [
+    {
+      "event": "probe-install",
+      "name": "ModelRuntime2",
+      "refreshName": "refresh",
+      "rpcArg": true,
+      "ms": 0
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 3263
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 0,
+      "ms": 3265
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 1,
+      "keys": [
+        "signal"
+      ],
+      "signal": 1,
+      "seenSession": false,
+      "aborted": false,
+      "candidate": true,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:102:28)",
+        "at main2 (/$bunfs/root/entry-x282c8b9.js:11261:25)"
+      ],
+      "ms": 3266
+    },
+    {
+      "event": "startup-held",
+      "runtime": 1,
+      "signal": 1,
+      "pendingOffline": 0,
+      "ms": 3266
+    },
+    {
+      "event": "probe-session",
+      "runtime": 1,
+      "mode": "rpc",
+      "ms": 3266
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 3273
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "ms": 3273
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 1,
+      "pendingOffline": 0,
+      "ms": 3273
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 3274
+    },
+    {
+      "event": "startup-enter",
+      "runtime": 1,
+      "originalSignal": 1,
+      "forwardedSignal": 2,
+      "sameSignal": false,
+      "ms": 3274
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 3275
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 3275
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 3275
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 3275
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 3275
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 3275
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 3275
+    },
+    {
+      "event": "fetch-abort",
+      "number": 1,
+      "reason": "AbortError",
+      "message": "The operation was aborted.",
+      "ms": 3288
+    },
+    {
+      "event": "probe-shutdown",
+      "runtime": 1,
+      "reason": "new",
+      "ms": 3288
+    },
+    {
+      "event": "startup-finish",
+      "runtime": 1,
+      "aborted": true,
+      "stopped": true,
+      "ms": 3289
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 3289
+    },
+    {
+      "event": "probe-install",
+      "name": "ModelRuntime2",
+      "refreshName": "",
+      "rpcArg": true,
+      "ms": 3290
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 3291
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 3291
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 3293
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 3293
+    },
+    {
+      "event": "probe-session",
+      "runtime": 2,
+      "mode": "rpc",
+      "ms": 3293
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 3295
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "ms": 3295
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 2,
+      "pendingOffline": 0,
+      "ms": 3295
+    },
+    {
+      "event": "probe-session",
+      "runtime": 2,
+      "mode": "rpc",
+      "ms": 3295
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 3296
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "ms": 3296
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 2,
+      "pendingOffline": 0,
+      "ms": 3296
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": false,
+      "storedHidden": false,
+      "ms": 8299
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": false,
+      "storedHidden": false,
+      "ms": 8299
+    },
+    {
+      "event": "probe-shutdown",
+      "runtime": 2,
+      "reason": "quit",
+      "ms": 8322
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 8323
+    }
+  ],
+  "triggerObserved": true,
+  "exit": 0,
+  "stderr": "",
+  "replace": {
+    "success": true,
+    "data": {
+      "cancelled": false
+    },
+    "error": null
+  },
+  "rpc": [
+    {
+      "id": "models",
+      "success": true,
+      "visible": false,
+      "hidden": false,
+      "openaiCount": 42
+    }
+  ]
+}

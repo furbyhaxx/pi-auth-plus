@@ -1,0 +1,80 @@
+{"hook":"pre_register","provider":"opencode","named":true,"hasRefresh":true,"modelCount":1}
+{"hook":"post_register","provider":"opencode","named":false,"native":true,"modelCount":1}
+{"hook":"pre_register","provider":"synthetic","named":true,"hasRefresh":false,"modelCount":1}
+{"hook":"post_register","provider":"synthetic","named":false,"native":true,"modelCount":1}
+{"hook":"route","als":null,"reason":"user","target":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"requestKeys":["failed","messages","model","previous","reason","signal","state","thinkingLevel"],"sameContextSignal":true}
+{"hook":"before_provider_headers","als":null,"keys":["headers","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"headerKeys":["x-opencode-session"],"client":null,"session":true}
+{"hook":"route","als":null,"reason":"direct","target":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"requestKeys":["failed","messages","model","previous","reason","signal","thinkingLevel"],"sameContextSignal":true}
+{"hook":"route","als":null,"reason":"direct","target":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"requestKeys":["failed","messages","model","previous","reason","signal","thinkingLevel"],"sameContextSignal":true}
+{"hook":"route","als":null,"reason":"direct","target":{"provider":"impostor","id":"hf:acme/test","api":"openai-completions"},"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"requestKeys":["failed","messages","model","previous","reason","signal","thinkingLevel"],"sameContextSignal":true}
+{"hook":"route","als":null,"reason":"direct","target":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"requestKeys":["failed","messages","model","previous","reason","signal","thinkingLevel"],"sameContextSignal":true}
+{"hook":"wrapper_enter","kind":"stream","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"hasParentPayload":true}
+{"hook":"wrapper_enter","kind":"streamSimple","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentPayload":true}
+{"hook":"wrapper_enter","kind":"streamSimple","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentPayload":true}
+{"hook":"wrapper_enter","kind":"streamSimple","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"hasParentPayload":true}
+{"hook":"helper_onPayload","als":null,"tag":"OPENCODE physical API","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"payloadModel":"hf:acme/test"}
+{"hook":"helper_onPayload","als":null,"tag":"SLOW synthetic with a much longer input","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"payloadModel":"hf:acme/test"}
+{"hook":"helper_onPayload","als":null,"tag":"FAST synthetic","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"payloadModel":"hf:acme/test"}
+{"hook":"helper_onPayload","als":null,"tag":"IMPOSTOR duplicate-model","physical":{"provider":"impostor","id":"hf:acme/test","api":"openai-completions"},"payloadModel":"hf:acme/test"}
+{"hook":"wrapper_onPayload","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"callbackModel":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"hasParentCallback":true,"model":"hf:acme/test","tag":"other"}
+{"hook":"wrapper_onPayload","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentCallback":true,"model":"hf:acme/test","tag":"SLOW"}
+{"hook":"wrapper_onPayload","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentCallback":true,"model":"hf:acme/test","tag":"FAST"}
+{"hook":"helper_onPayload","als":null,"tag":"OPENCODE virtual side","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"payloadModel":"hf:acme/test"}
+{"hook":"wrapper_onPayload","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"callbackModel":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"hasParentCallback":true,"model":"hf:acme/test","tag":"other"}
+{"hook":"wrapper_onResponse","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"status":200,"hasParentCallback":true}
+{"hook":"helper_onResponse","tag":"FAST synthetic","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"status":200}
+{"hook":"wrapper_done","model":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"input":26,"total":31,"tag":"FAST"}
+{"hook":"helper_done","tag":"FAST synthetic","provider":"synthetic","id":"hf:acme/test","input":26,"stop":"stop"}
+{"hook":"helper_onResponse","tag":"IMPOSTOR duplicate-model","physical":{"provider":"impostor","id":"hf:acme/test","api":"openai-completions"},"status":200}
+{"hook":"helper_done","tag":"IMPOSTOR duplicate-model","provider":"impostor","id":"hf:acme/test","input":0,"stop":"stop"}
+{"hook":"wrapper_onResponse","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"callbackModel":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"status":200,"hasParentCallback":true}
+{"hook":"helper_onResponse","tag":"OPENCODE physical API","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"status":200}
+{"hook":"helper_done","tag":"OPENCODE physical API","provider":"opencode","id":"hf:acme/test","input":0,"stop":"stop"}
+{"hook":"wrapper_onResponse","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"callbackModel":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"status":200,"hasParentCallback":true}
+{"hook":"helper_onResponse","tag":"OPENCODE virtual side","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"status":200}
+{"hook":"helper_done","tag":"OPENCODE virtual side","provider":"opencode","id":"hf:acme/test","input":0,"stop":"stop"}
+{"hook":"wrapper_onResponse","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"status":200,"hasParentCallback":true}
+{"hook":"helper_onResponse","tag":"SLOW synthetic with a much longer input","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"status":200}
+{"hook":"wrapper_done","model":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"input":51,"total":56,"tag":"SLOW"}
+{"hook":"helper_done","tag":"SLOW synthetic with a much longer input","provider":"synthetic","id":"hf:acme/test","input":51,"stop":"stop"}
+{"hook":"helpers_finished","count":5}
+{"hook":"wrapper_enter","kind":"streamSimple","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"hasParentPayload":true}
+{"hook":"before_provider_request","als":null,"keys":["payload","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"payloadModel":"hf:acme/test","payloadKeys":["max_completion_tokens","messages","model","prompt_cache_key","prompt_cache_retention","stream","stream_options","tools"]}
+{"hook":"wrapper_onPayload","physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"callbackModel":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"hasParentCallback":true,"model":"hf:acme/test","tag":"other"}
+{"hook":"message_end_observer","ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"physical":{"provider":"opencode","id":"hf:acme/test","api":"openai-completions"},"input":0,"cacheWrite":0,"total":0,"stop":"error"}
+{"hook":"route","als":null,"reason":"retry","target":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"requestKeys":["failed","messages","model","previous","reason","signal","state","thinkingLevel"],"sameContextSignal":true}
+{"hook":"before_provider_headers","als":null,"keys":["headers","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"headerKeys":[],"client":null,"session":false}
+{"hook":"wrapper_enter","kind":"streamSimple","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentPayload":true}
+{"hook":"before_provider_request","als":null,"keys":["payload","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"payloadModel":"hf:acme/test","payloadKeys":["max_tokens","messages","model","stream","system","tools"]}
+{"hook":"wrapper_onPayload","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentCallback":true,"model":"hf:acme/test","tag":"other"}
+{"hook":"wrapper_onResponse","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"status":200,"hasParentCallback":true}
+{"hook":"after_provider_response","keys":["headers","status","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"status":200}
+{"hook":"provider_stream_event","keys":["api","data","model","provider","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"dataType":"message_start"}
+{"hook":"wrapper_done","model":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"input":2732,"total":2737,"tag":"other"}
+{"hook":"message_end_observer","ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"input":2732,"cacheWrite":0,"total":2737,"stop":"stop"}
+{"hook":"route","als":null,"reason":"user","target":{"provider":"impostor","id":"hf:acme/test","api":"openai-completions"},"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"requestKeys":["failed","messages","model","previous","reason","signal","state","thinkingLevel"],"sameContextSignal":true}
+{"hook":"before_provider_headers","als":null,"keys":["headers","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"headerKeys":["x-opencode-client","x-probe-model"],"client":"other-app","session":false}
+{"hook":"before_provider_request","als":null,"keys":["payload","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"payloadModel":"hf:acme/test","payloadKeys":["max_completion_tokens","messages","model","prompt_cache_key","prompt_cache_retention","store","stream","stream_options","tools"]}
+{"hook":"after_provider_response","keys":["headers","status","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"status":200}
+{"hook":"message_end_observer","ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"physical":{"provider":"impostor","id":"hf:acme/test","api":"openai-completions"},"input":0,"cacheWrite":0,"total":0,"stop":"stop"}
+{"hook":"route","als":null,"reason":"user","target":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"requestKeys":["failed","messages","model","previous","reason","signal","state","thinkingLevel"],"sameContextSignal":true}
+{"hook":"before_provider_headers","als":null,"keys":["headers","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"headerKeys":[],"client":null,"session":false}
+{"hook":"wrapper_enter","kind":"streamSimple","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentPayload":true}
+{"hook":"before_provider_request","als":null,"keys":["payload","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"payloadModel":"hf:acme/test","payloadKeys":["max_tokens","messages","model","stream","system","tools"]}
+{"hook":"wrapper_onPayload","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentCallback":true,"model":"hf:acme/test","tag":"other"}
+{"hook":"wrapper_onResponse","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"status":200,"hasParentCallback":true}
+{"hook":"after_provider_response","keys":["headers","status","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"status":200}
+{"hook":"provider_stream_event","keys":["api","data","model","provider","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"dataType":"message_start"}
+{"hook":"wrapper_done","model":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"input":2759,"total":2764,"tag":"other"}
+{"hook":"message_end_observer","ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"input":2759,"cacheWrite":0,"total":2764,"stop":"stop"}
+{"hook":"route","als":null,"reason":"direct","target":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"requestKeys":["failed","messages","model","previous","reason","signal","thinkingLevel"],"sameContextSignal":false}
+{"hook":"before_provider_headers","als":null,"keys":["headers","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"headerKeys":[],"client":null,"session":false}
+{"hook":"wrapper_enter","kind":"streamSimple","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentPayload":false}
+{"hook":"wrapper_onPayload","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentCallback":false,"model":"hf:acme/test","tag":"other"}
+{"hook":"wrapper_onResponse","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"status":200,"hasParentCallback":false}
+{"hook":"wrapper_done","model":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"input":1290,"total":1295,"tag":"other"}
+{"hook":"before_provider_headers","als":null,"keys":["headers","type"],"ctx":{"provider":"probe-group","id":"g","api":"pi-virtual"},"headerKeys":[],"client":null,"session":false}
+{"hook":"wrapper_enter","kind":"streamSimple","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentPayload":false}
+{"hook":"wrapper_onPayload","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"hasParentCallback":false,"model":"hf:acme/test","tag":"other"}
+{"hook":"wrapper_onResponse","physical":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"callbackModel":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"status":200,"hasParentCallback":false}
+{"hook":"wrapper_done","model":{"provider":"synthetic","id":"hf:acme/test","api":"anthropic-messages"},"input":1029,"total":1034,"tag":"other"}

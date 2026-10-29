@@ -1,0 +1,169 @@
+{
+  "arguments": {
+    "runtime": "stock",
+    "case": "both",
+    "barrier": true,
+    "offline": false,
+    "gate_ms": 700,
+    "wait_gate": true,
+    "late_ms": 0,
+    "delay_implicit_ms": 0,
+    "action": "none",
+    "fetch_ms": 800,
+    "sample_ms": 1600,
+    "early_eof": false,
+    "defer_app": false,
+    "early_models": false,
+    "replace": false,
+    "queue_cancel": "none",
+    "registration": "none"
+  },
+  "events": [
+    {
+      "event": "prototype-install",
+      "name": "_ModelRuntime",
+      "ms": 0
+    },
+    {
+      "event": "outer-start",
+      "runtime": 1,
+      "signal": 1,
+      "providers": "all",
+      "explicitNetwork": "default",
+      "ms": 78
+    },
+    {
+      "event": "models-enter",
+      "signal": 1,
+      "controllers": 0,
+      "ms": 79
+    },
+    {
+      "event": "models-gate",
+      "delay": 700,
+      "signal": 1,
+      "ms": 79
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "runtime": 1,
+      "tracked": 1,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [
+        1
+      ],
+      "promiseFields": [],
+      "signalFields": [],
+      "keys": [
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 80
+    },
+    {
+      "event": "barrier-start",
+      "tracked": 1,
+      "ms": 80
+    },
+    {
+      "event": "models-gate-release",
+      "signal": 1,
+      "aborted": false,
+      "ms": 783
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 786
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 787
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 788
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 788
+    },
+    {
+      "event": "fetch-resolve",
+      "number": 1,
+      "ms": 1591
+    },
+    {
+      "event": "store-write-start",
+      "runtime": 1,
+      "provider": "synthetic",
+      "ms": 1592
+    },
+    {
+      "event": "store-write-finish",
+      "runtime": 1,
+      "provider": "synthetic",
+      "ms": 1593
+    },
+    {
+      "event": "outer-finish",
+      "runtime": 1,
+      "signal": 1,
+      "aborted": false,
+      "ms": 1595
+    },
+    {
+      "event": "barrier-done",
+      "ms": 1595
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 1616
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 1618
+    },
+    {
+      "event": "sample",
+      "visible": true,
+      "hidden": false,
+      "availableVisible": true,
+      "storedVisible": true,
+      "storedHidden": true,
+      "ms": 3223
+    },
+    {
+      "event": "pre-shutdown",
+      "reason": "quit",
+      "ms": 3229
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 3230
+    }
+  ],
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "id": "models",
+      "success": true,
+      "visible": true,
+      "hidden": false,
+      "openaiCount": 0
+    }
+  ]
+}

@@ -1,0 +1,169 @@
+{
+  "arguments": {
+    "runtime": "stock",
+    "case": "both",
+    "barrier": true,
+    "offline": false,
+    "gate_ms": 0,
+    "wait_gate": false,
+    "late_ms": 0,
+    "delay_implicit_ms": 700,
+    "action": "manual",
+    "fetch_ms": 800,
+    "sample_ms": 1600,
+    "early_eof": false
+  },
+  "events": [
+    {
+      "event": "prototype-install",
+      "name": "_ModelRuntime",
+      "ms": 0
+    },
+    {
+      "event": "outer-start",
+      "signal": 1,
+      "providers": "all",
+      "explicitNetwork": "default",
+      "ms": 125
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "tracked": 1,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [
+        1
+      ],
+      "keys": [
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 126
+    },
+    {
+      "event": "barrier-start",
+      "tracked": 1,
+      "ms": 126
+    },
+    {
+      "event": "models-enter",
+      "signal": 1,
+      "controllers": 0,
+      "ms": 127
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 131
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 131
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 134
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 134
+    },
+    {
+      "event": "fetch-resolve",
+      "number": 1,
+      "ms": 930
+    },
+    {
+      "event": "outer-finish",
+      "signal": 1,
+      "aborted": false,
+      "ms": 935
+    },
+    {
+      "event": "barrier-done",
+      "ms": 935
+    },
+    {
+      "event": "delay-implicit",
+      "delay": 700,
+      "ms": 938
+    },
+    {
+      "event": "delay-implicit",
+      "delay": 700,
+      "ms": 1647
+    },
+    {
+      "event": "delay-implicit",
+      "delay": 700,
+      "ms": 2357
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 2371
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 2373
+    },
+    {
+      "event": "manual-refresh-start",
+      "ms": 2622
+    },
+    {
+      "event": "fetch-start",
+      "number": 2,
+      "ms": 2623
+    },
+    {
+      "event": "fetch-abort",
+      "number": 2,
+      "reason": "AbortError",
+      "message": "This operation was aborted",
+      "ms": 3059
+    },
+    {
+      "event": "manual-refresh-finish",
+      "aborted": false,
+      "errors": [],
+      "ms": 3062
+    },
+    {
+      "event": "sample",
+      "visible": true,
+      "hidden": false,
+      "availableVisible": true,
+      "storedVisible": true,
+      "storedHidden": true,
+      "ms": 3975
+    },
+    {
+      "event": "pre-shutdown",
+      "ms": 3985
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 3986
+    }
+  ],
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "success": true,
+      "visible": true,
+      "hidden": false
+    }
+  ]
+}

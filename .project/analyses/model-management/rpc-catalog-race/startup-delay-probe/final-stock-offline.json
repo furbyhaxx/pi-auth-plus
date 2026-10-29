@@ -1,0 +1,334 @@
+{
+  "arguments": {
+    "runtime": "stock",
+    "case": "both",
+    "mode": "rpc",
+    "prototype": "delay",
+    "action": "none",
+    "offline": true,
+    "implicit_delay": 0,
+    "release_delay": 0,
+    "trailing_delay": 0,
+    "fetch_delay": 800,
+    "sample_ms": 2000,
+    "early_models": false,
+    "eof": "none",
+    "replace": "none",
+    "store_delay": 0,
+    "narrow": false,
+    "prepatched": false,
+    "keep_picker_open": false
+  },
+  "events": [
+    {
+      "event": "probe-install",
+      "name": "_ModelRuntime",
+      "refreshName": "refresh",
+      "rpcArg": true,
+      "reused": false,
+      "ms": 0
+    },
+    {
+      "event": "registration-implicit",
+      "runtime": 1,
+      "method": "registerProvider",
+      "provider": "opencode",
+      "narrowed": false,
+      "ms": 272
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 272
+    },
+    {
+      "event": "registration-implicit",
+      "runtime": 1,
+      "method": "registerProvider",
+      "provider": "synthetic",
+      "narrowed": false,
+      "ms": 279
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 2,
+      "delayed": 0,
+      "ms": 279
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 3,
+      "delayed": 0,
+      "ms": 285
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 4,
+      "delayed": 0,
+      "ms": 291
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 5,
+      "delayed": 0,
+      "ms": 291
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 4,
+      "ms": 463
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 3,
+      "ms": 464
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 2,
+      "ms": 467
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 1,
+      "ms": 468
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 0,
+      "ms": 475
+    },
+    {
+      "event": "probe-session",
+      "runtime": 1,
+      "mode": "rpc",
+      "ms": 502
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 519
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 539
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 539
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 559
+    },
+    {
+      "event": "registration-implicit",
+      "runtime": 1,
+      "method": "registerProvider",
+      "provider": "openai",
+      "narrowed": false,
+      "ms": 579
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 579
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": [
+        "synthetic",
+        "claude",
+        "antigravity",
+        "openai"
+      ],
+      "pending": 2,
+      "delayed": 0,
+      "ms": 585
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 2,
+      "keys": [
+        "allowNetwork",
+        "providers",
+        "signal"
+      ],
+      "signal": 1,
+      "seenSession": true,
+      "aborted": false,
+      "candidate": false,
+      "stack": [
+        "at prototype.refresh (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:117:30)",
+        "at Object.refreshModels (/mnt/Projects/furbyhaxx/pi-auth-plus/src/models/catalog/filter.ts:71:36)",
+        "at provider.refreshModels (file:///mnt/Projects/furbyhaxx/pi-auth-plus/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-MM3LKT73.js:493:16883)",
+        "at async ModelsImpl.runProviderRefreshPhase (file:///mnt/Projects/furbyhaxx/pi-auth-plus/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-4GGCU36O.js:11:24428)",
+        "at async file:///mnt/Projects/furbyhaxx/pi-auth-plus/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-4GGCU36O.js:11:25434"
+      ],
+      "ms": 608
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": [
+        "openai"
+      ],
+      "pending": 1,
+      "delayed": 0,
+      "ms": 608
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 2,
+      "keys": [
+        "allowNetwork",
+        "providers",
+        "signal"
+      ],
+      "signal": 2,
+      "seenSession": true,
+      "aborted": false,
+      "candidate": false,
+      "stack": [
+        "at prototype.refresh (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:117:30)",
+        "at Object.refreshModels (/mnt/Projects/furbyhaxx/pi-auth-plus/src/models/catalog/filter.ts:71:36)",
+        "at provider.refreshModels (file:///mnt/Projects/furbyhaxx/pi-auth-plus/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-MM3LKT73.js:493:16883)",
+        "at async ModelsImpl.runProviderRefreshPhase (file:///mnt/Projects/furbyhaxx/pi-auth-plus/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-4GGCU36O.js:11:24428)",
+        "at async file:///mnt/Projects/furbyhaxx/pi-auth-plus/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-4GGCU36O.js:11:25434"
+      ],
+      "ms": 630
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": [
+        "openai"
+      ],
+      "pending": 2,
+      "delayed": 0,
+      "ms": 630
+    },
+    {
+      "event": "refresh-finish",
+      "runtime": 2,
+      "signal": 1,
+      "aborted": true,
+      "ms": 641
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 1,
+      "ms": 641
+    },
+    {
+      "event": "refresh-finish",
+      "runtime": 2,
+      "signal": 2,
+      "aborted": false,
+      "ms": 659
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 659
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 1,
+      "ms": 687
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 0,
+      "ms": 694
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 703
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "groupVisible": false,
+      "ms": 703
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 1,
+      "pendingOffline": 0,
+      "ms": 703
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 710
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": false,
+      "storedHidden": false,
+      "ms": 2715
+    },
+    {
+      "event": "probe-shutdown",
+      "runtime": 1,
+      "reason": "quit",
+      "ms": 2745
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 2748
+    }
+  ],
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "id": "models",
+      "success": true,
+      "visible": false,
+      "hidden": false,
+      "openaiCount": 0
+    }
+  ]
+}

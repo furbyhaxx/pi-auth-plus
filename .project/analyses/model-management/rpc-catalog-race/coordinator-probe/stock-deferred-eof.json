@@ -1,0 +1,240 @@
+{
+  "arguments": {
+    "runtime": "stock",
+    "case": "none",
+    "barrier": false,
+    "offline": false,
+    "gate_ms": 0,
+    "wait_gate": false,
+    "late_ms": 0,
+    "delay_implicit_ms": 0,
+    "action": "none",
+    "fetch_ms": 20000,
+    "sample_ms": 1600,
+    "early_eof": true,
+    "defer_app": true,
+    "early_models": false,
+    "replace": false
+  },
+  "events": [
+    {
+      "event": "prototype-install",
+      "name": "_ModelRuntime",
+      "ms": 0
+    },
+    {
+      "event": "outer-start",
+      "signal": 1,
+      "providers": "all",
+      "explicitNetwork": "default",
+      "ms": 157
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "tracked": 1,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [
+        1
+      ],
+      "keys": [
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 158
+    },
+    {
+      "event": "app-queued",
+      "number": 1,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 158
+    },
+    {
+      "event": "app-queued",
+      "number": 2,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 158
+    },
+    {
+      "event": "app-queued",
+      "number": 3,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 158
+    },
+    {
+      "event": "app-queued",
+      "number": 4,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 158
+    },
+    {
+      "event": "app-queued",
+      "number": 5,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 158
+    },
+    {
+      "event": "app-queued",
+      "number": 6,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 158
+    },
+    {
+      "event": "app-queued",
+      "number": 7,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 158
+    },
+    {
+      "event": "app-queued",
+      "number": 8,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 158
+    },
+    {
+      "event": "app-queued",
+      "number": 9,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 158
+    },
+    {
+      "event": "app-queued",
+      "number": 10,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 159
+    },
+    {
+      "event": "app-queued",
+      "number": 11,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 159
+    },
+    {
+      "event": "app-queued",
+      "number": 12,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 159
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 159
+    },
+    {
+      "event": "models-enter",
+      "signal": 1,
+      "controllers": 0,
+      "ms": 161
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 164
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 165
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 167
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 167
+    },
+    {
+      "event": "pre-shutdown",
+      "reason": "quit",
+      "ms": 169
+    },
+    {
+      "event": "app-skipped",
+      "number": 1,
+      "ms": 169
+    },
+    {
+      "event": "app-skipped",
+      "number": 2,
+      "ms": 171
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 171
+    },
+    {
+      "event": "app-skipped",
+      "number": 3,
+      "ms": 171
+    },
+    {
+      "event": "app-skipped",
+      "number": 4,
+      "ms": 172
+    },
+    {
+      "event": "app-skipped",
+      "number": 5,
+      "ms": 172
+    },
+    {
+      "event": "app-skipped",
+      "number": 6,
+      "ms": 172
+    },
+    {
+      "event": "app-skipped",
+      "number": 7,
+      "ms": 172
+    },
+    {
+      "event": "app-skipped",
+      "number": 8,
+      "ms": 172
+    },
+    {
+      "event": "app-skipped",
+      "number": 9,
+      "ms": 172
+    },
+    {
+      "event": "app-skipped",
+      "number": 10,
+      "ms": 172
+    },
+    {
+      "event": "app-skipped",
+      "number": 11,
+      "ms": 172
+    },
+    {
+      "event": "app-skipped",
+      "number": 12,
+      "ms": 172
+    }
+  ],
+  "eofWithin2s": true,
+  "exit": 0,
+  "stderr": "",
+  "rpc": []
+}

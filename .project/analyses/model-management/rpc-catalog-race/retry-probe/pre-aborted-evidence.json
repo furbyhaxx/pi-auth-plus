@@ -1,0 +1,324 @@
+{
+  "document": {
+    "type": "analysis",
+    "id": "analysis-rpc-catalog-pre-aborted-evidence",
+    "title": "Pre-aborted registry refresh evidence",
+    "description": "A pre-aborted refresh against an active catalog request",
+    "status": "published",
+    "revision": 1,
+    "version": 1,
+    "created": "2026-10-28T15:38:45+01:00",
+    "updated": "2026-10-28T15:38:45+01:00",
+    "createdBy": "pi",
+    "updatedBy": "pi",
+    "created_at": "2026-10-28T15:38:45+01:00",
+    "updated_at": "2026-10-28T15:38:45+01:00",
+    "created_by": "pi",
+    "updated_by": "pi",
+    "changelog": [
+      {
+        "revision": 1,
+        "reason": "document creation",
+        "changes": [
+          "Capture pre-aborted refresh effects"
+        ]
+      }
+    ]
+  },
+  "runs": [
+    {
+      "runtime": "bolt",
+      "command": "python3 /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/retry-probe/run.py --case none --action pre-aborted --runtime bolt",
+      "toolExit": 0,
+      "result": {
+        "arguments": {
+          "case": "none",
+          "runtime": "bolt",
+          "candidate": false,
+          "offline": false,
+          "delay_implicit": 0,
+          "action": "pre-aborted",
+          "fail_first": false,
+          "fetch_delay": 800,
+          "sample_ms": 2200,
+          "retry_timeout": 15000,
+          "max_attempts": 3,
+          "early_exit_ms": 0
+        },
+        "events": [
+          {
+            "event": "instrument-provider",
+            "ms": 0
+          },
+          {
+            "event": "before-session",
+            "mode": "rpc",
+            "ms": 18
+          },
+          {
+            "event": "network-phase",
+            "phase": 1,
+            "hasRegistry": false,
+            "retryActive": false,
+            "ms": 19
+          },
+          {
+            "event": "fetch-start",
+            "number": 1,
+            "ms": 19
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 20
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 20
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 20
+          },
+          {
+            "event": "candidate-session",
+            "pending": false,
+            "attempts": 0,
+            "ms": 27
+          },
+          {
+            "event": "driver-session",
+            "mode": "rpc",
+            "ms": 27
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "api.synthetic.new",
+            "path": "/v2/quotas",
+            "ms": 29
+          },
+          {
+            "event": "pre-aborted-refresh-start",
+            "ms": 178
+          },
+          {
+            "event": "registry-refresh",
+            "allowNetwork": "default",
+            "providers": [
+              "synthetic"
+            ],
+            "ms": 178
+          },
+          {
+            "event": "phase-abort",
+            "phase": 1,
+            "hasRegistry": true,
+            "retryActive": false,
+            "reason": "AbortError",
+            "message": "The operation was aborted.",
+            "ms": 178
+          },
+          {
+            "event": "fetch-abort",
+            "number": 1,
+            "reason": "AbortError",
+            "message": "The operation was aborted.",
+            "ms": 178
+          },
+          {
+            "event": "phase-error",
+            "phase": 1,
+            "name": "AbortError",
+            "ms": 179
+          },
+          {
+            "event": "pre-aborted-refresh-finish",
+            "aborted": true,
+            "errors": [],
+            "ms": 179
+          },
+          {
+            "event": "sample",
+            "visible": false,
+            "hidden": false,
+            "availableVisible": false,
+            "storedVisible": false,
+            "storedHidden": false,
+            "ms": 2231
+          },
+          {
+            "event": "candidate-shutdown",
+            "active": false,
+            "attempts": 0,
+            "ms": 2245
+          },
+          {
+            "event": "driver-shutdown",
+            "ms": 2245
+          }
+        ],
+        "exit": 0,
+        "stderr": "",
+        "rpc": [
+          {
+            "success": true,
+            "visible": false,
+            "hidden": false
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "stock",
+      "command": "python3 /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/retry-probe/run.py --case none --action pre-aborted --runtime stock",
+      "toolExit": 0,
+      "result": {
+        "arguments": {
+          "case": "none",
+          "runtime": "stock",
+          "candidate": false,
+          "offline": false,
+          "delay_implicit": 0,
+          "action": "pre-aborted",
+          "fail_first": false,
+          "fetch_delay": 800,
+          "sample_ms": 2200,
+          "retry_timeout": 15000,
+          "max_attempts": 3,
+          "early_exit_ms": 0
+        },
+        "events": [
+          {
+            "event": "instrument-provider",
+            "ms": 0
+          },
+          {
+            "event": "before-session",
+            "mode": "rpc",
+            "ms": 115
+          },
+          {
+            "event": "network-phase",
+            "phase": 1,
+            "hasRegistry": false,
+            "retryActive": false,
+            "ms": 117
+          },
+          {
+            "event": "fetch-start",
+            "number": 1,
+            "ms": 118
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 118
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 120
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 120
+          },
+          {
+            "event": "candidate-session",
+            "pending": false,
+            "attempts": 0,
+            "ms": 127
+          },
+          {
+            "event": "driver-session",
+            "mode": "rpc",
+            "ms": 127
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "api.synthetic.new",
+            "path": "/v2/quotas",
+            "ms": 129
+          },
+          {
+            "event": "pre-aborted-refresh-start",
+            "ms": 278
+          },
+          {
+            "event": "registry-refresh",
+            "allowNetwork": "default",
+            "providers": [
+              "synthetic"
+            ],
+            "ms": 278
+          },
+          {
+            "event": "phase-abort",
+            "phase": 1,
+            "hasRegistry": true,
+            "retryActive": false,
+            "reason": "AbortError",
+            "message": "This operation was aborted",
+            "ms": 279
+          },
+          {
+            "event": "fetch-abort",
+            "number": 1,
+            "reason": "AbortError",
+            "message": "This operation was aborted",
+            "ms": 279
+          },
+          {
+            "event": "phase-error",
+            "phase": 1,
+            "name": "AbortError",
+            "ms": 281
+          },
+          {
+            "event": "pre-aborted-refresh-finish",
+            "aborted": true,
+            "errors": [],
+            "ms": 282
+          },
+          {
+            "event": "sample",
+            "visible": false,
+            "hidden": false,
+            "availableVisible": false,
+            "storedVisible": false,
+            "storedHidden": false,
+            "ms": 2339
+          },
+          {
+            "event": "candidate-shutdown",
+            "active": false,
+            "attempts": 0,
+            "ms": 2345
+          },
+          {
+            "event": "driver-shutdown",
+            "ms": 2345
+          }
+        ],
+        "exit": 0,
+        "stderr": "",
+        "rpc": [
+          {
+            "success": true,
+            "visible": false,
+            "hidden": false
+          }
+        ]
+      }
+    }
+  ]
+}

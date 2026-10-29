@@ -1,0 +1,298 @@
+{
+  "arguments": {
+    "runtime": "bolt",
+    "case": "none",
+    "mode": "rpc",
+    "prototype": "delay",
+    "action": "none",
+    "offline": false,
+    "implicit_delay": 0,
+    "release_delay": 0,
+    "trailing_delay": 0,
+    "fetch_delay": 3000,
+    "sample_ms": 4200,
+    "early_models": false,
+    "eof": "none",
+    "replace": "active",
+    "store_delay": 0,
+    "narrow": false,
+    "prepatched": false,
+    "keep_picker_open": false
+  },
+  "events": [
+    {
+      "event": "probe-install",
+      "name": "ModelRuntime2",
+      "refreshName": "refresh",
+      "rpcArg": true,
+      "reused": false,
+      "ms": 0
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 1466
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 0,
+      "ms": 1470
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 1,
+      "keys": [
+        "signal"
+      ],
+      "signal": 1,
+      "seenSession": false,
+      "aborted": false,
+      "candidate": true,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:117:30)",
+        "at main2 (/$bunfs/root/entry-x282c8b9.js:11261:25)"
+      ],
+      "ms": 1471
+    },
+    {
+      "event": "startup-held",
+      "runtime": 1,
+      "signal": 1,
+      "pendingOffline": 0,
+      "ms": 1471
+    },
+    {
+      "event": "probe-session",
+      "runtime": 1,
+      "mode": "rpc",
+      "ms": 1472
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 1478
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "groupVisible": false,
+      "ms": 1478
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 1,
+      "pendingOffline": 0,
+      "ms": 1478
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 1480
+    },
+    {
+      "event": "startup-enter",
+      "runtime": 1,
+      "originalSignal": 1,
+      "forwardedSignal": 2,
+      "sameSignal": false,
+      "ms": 1480
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 1481
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 1481
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 1481
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 1481
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1481
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1481
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1481
+    },
+    {
+      "event": "fetch-abort",
+      "number": 1,
+      "reason": "AbortError",
+      "message": "The operation was aborted.",
+      "ms": 1499
+    },
+    {
+      "event": "probe-shutdown",
+      "runtime": 1,
+      "reason": "new",
+      "ms": 1499
+    },
+    {
+      "event": "post-shutdown-runtime-work",
+      "runtime": 1,
+      "method": "updateModelSnapshot",
+      "ms": 1499
+    },
+    {
+      "event": "post-shutdown-runtime-work",
+      "runtime": 1,
+      "method": "queueAvailabilityRefresh",
+      "ms": 1499
+    },
+    {
+      "event": "startup-finish",
+      "runtime": 1,
+      "aborted": true,
+      "stopped": true,
+      "ms": 1499
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 1499
+    },
+    {
+      "event": "probe-install",
+      "name": "ModelRuntime2",
+      "refreshName": "",
+      "rpcArg": true,
+      "reused": true,
+      "ms": 1501
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 1502
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 1503
+    },
+    {
+      "event": "probe-session",
+      "runtime": 2,
+      "mode": "rpc",
+      "ms": 1504
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 1506
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "groupVisible": false,
+      "ms": 1506
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 2,
+      "pendingOffline": 0,
+      "ms": 1506
+    },
+    {
+      "event": "probe-session",
+      "runtime": 2,
+      "mode": "rpc",
+      "ms": 1506
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 1507
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "groupVisible": false,
+      "ms": 1507
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 2,
+      "pendingOffline": 0,
+      "ms": 1507
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": false,
+      "storedHidden": false,
+      "ms": 5708
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": false,
+      "storedHidden": false,
+      "ms": 5708
+    },
+    {
+      "event": "probe-shutdown",
+      "runtime": 2,
+      "reason": "quit",
+      "ms": 5712
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 5712
+    }
+  ],
+  "triggerObserved": true,
+  "exit": 0,
+  "stderr": "",
+  "replace": {
+    "success": true,
+    "data": {
+      "cancelled": false
+    },
+    "error": null
+  },
+  "rpc": [
+    {
+      "id": "models",
+      "success": true,
+      "visible": false,
+      "hidden": false,
+      "openaiCount": 42
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "arguments": {
+    "runtime": "bolt",
+    "case": "both",
+    "mode": "rpc",
+    "prototype": "observe",
+    "action": "none",
+    "offline": false,
+    "implicit_delay": 0,
+    "release_delay": 0,
+    "trailing_delay": 0,
+    "fetch_delay": 800,
+    "sample_ms": 2000,
+    "early_models": true,
+    "eof": "none",
+    "replace": "none",
+    "narrow": false,
+    "keep_picker_open": false
+  },
+  "events": [
+    {
+      "event": "probe-install",
+      "name": "ModelRuntime2",
+      "refreshName": "refresh",
+      "ms": 0
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 1,
+      "keys": [
+        "signal"
+      ],
+      "signal": 1,
+      "seenSession": false,
+      "aborted": false,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:49:28)",
+        "at main2 (/$bunfs/root/entry-x282c8b9.js:11261:25)"
+      ],
+      "ms": 1465
+    },
+    {
+      "event": "probe-session",
+      "runtime": 1,
+      "mode": "rpc",
+      "ms": 1465
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 1465
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 1466
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 1466
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 1466
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1466
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1466
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1466
+    },
+    {
+      "event": "fetch-abort",
+      "number": 1,
+      "reason": "AbortError",
+      "message": "The operation was aborted.",
+      "ms": 1472
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 2,
+      "keys": [
+        "allowNetwork",
+        "providers",
+        "signal"
+      ],
+      "signal": 2,
+      "seenSession": true,
+      "aborted": false,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:49:28)",
+        "at refreshModels (/mnt/Projects/furbyhaxx/pi-auth-plus/src/models/catalog/filter.ts:71:43)",
+        "at <anonymous> (/$bunfs/root/entry-nzbgkkkt.js:4254:50)",
+        "at runProviderRefreshPhase (/$bunfs/root/entry-4aq4b14m.js:1015:33)",
+        "at <anonymous> (/$bunfs/root/entry-4aq4b14m.js:1044:43)"
+      ],
+      "ms": 1473
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 2,
+      "keys": [
+        "allowNetwork",
+        "providers",
+        "signal"
+      ],
+      "signal": 3,
+      "seenSession": true,
+      "aborted": false,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:49:28)",
+        "at refreshModels (/mnt/Projects/furbyhaxx/pi-auth-plus/src/models/catalog/filter.ts:71:43)",
+        "at <anonymous> (/$bunfs/root/entry-nzbgkkkt.js:4254:50)",
+        "at runProviderRefreshPhase (/$bunfs/root/entry-4aq4b14m.js:1015:33)",
+        "at <anonymous> (/$bunfs/root/entry-4aq4b14m.js:1044:43)"
+      ],
+      "ms": 1473
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 1480
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "ms": 1480
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 1481
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": false,
+      "storedHidden": false,
+      "ms": 3484
+    },
+    {
+      "event": "probe-shutdown",
+      "runtime": 1,
+      "reason": "quit",
+      "ms": 3488
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 3488
+    }
+  ],
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "id": "early",
+      "success": true,
+      "visible": false,
+      "hidden": false,
+      "openaiCount": 0
+    },
+    {
+      "id": "models",
+      "success": true,
+      "visible": false,
+      "hidden": false,
+      "openaiCount": 0
+    }
+  ]
+}

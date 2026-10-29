@@ -1,0 +1,236 @@
+{
+  "arguments": {
+    "runtime": "bolt",
+    "case": "none",
+    "mode": "picker",
+    "prototype": "delay",
+    "action": "none",
+    "offline": false,
+    "implicit_delay": 0,
+    "release_delay": 0,
+    "trailing_delay": 0,
+    "fetch_delay": 800,
+    "sample_ms": 3500,
+    "early_models": false,
+    "eof": "none",
+    "replace": "none",
+    "store_delay": 0,
+    "narrow": false,
+    "prepatched": false,
+    "keep_picker_open": true
+  },
+  "events": [
+    {
+      "event": "probe-install",
+      "name": "ModelRuntime2",
+      "refreshName": "refresh",
+      "rpcArg": false,
+      "reused": false,
+      "ms": 0
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 2528
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 0,
+      "ms": 2530
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/report-install",
+      "ms": 2532
+    },
+    {
+      "event": "probe-session",
+      "runtime": 1,
+      "mode": "tui",
+      "ms": 2533
+    },
+    {
+      "event": "driver-session",
+      "mode": "tui",
+      "ms": 2540
+    },
+    {
+      "event": "post-session",
+      "mode": "tui",
+      "groupVisible": false,
+      "ms": 2540
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 1,
+      "pendingOffline": 0,
+      "ms": 2540
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 1,
+      "keys": [
+        "signal"
+      ],
+      "signal": 1,
+      "seenSession": true,
+      "aborted": false,
+      "candidate": false,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:117:30)",
+        "at refresh (/$bunfs/root/entry-t8gqtrvf.js:6661:45)",
+        "at run (/$bunfs/root/entry-t8gqtrvf.js:11142:27)",
+        "at main2 (/$bunfs/root/entry-x282c8b9.js:11297:30)"
+      ],
+      "ms": 2543
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 2544
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 2544
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 2544
+    },
+    {
+      "event": "fetch-fail",
+      "number": 1,
+      "ms": 2544
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 2544
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 2544
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 2544
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 2544
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 2546
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 1,
+      "keys": [
+        "signal"
+      ],
+      "signal": 2,
+      "seenSession": true,
+      "aborted": false,
+      "candidate": false,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:117:30)",
+        "at refresh (/$bunfs/root/entry-t8gqtrvf.js:6661:45)",
+        "at refreshModels (/$bunfs/root/entry-t8gqtrvf.js:6809:48)",
+        "at new ModelSelectorComponent2 (/$bunfs/root/entry-t8gqtrvf.js:6778:23)",
+        "at <anonymous> (/$bunfs/root/entry-t8gqtrvf.js:14406:51)",
+        "at showSelector (/$bunfs/root/entry-t8gqtrvf.js:13933:27)"
+      ],
+      "ms": 2570
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 2572
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 2572
+    },
+    {
+      "event": "fetch-start",
+      "number": 2,
+      "ms": 2572
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 2572
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 2572
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 2572
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 2572
+    },
+    {
+      "event": "fetch-resolve",
+      "number": 2,
+      "ms": 3373
+    },
+    {
+      "event": "store-write-start",
+      "runtime": 1,
+      "stopped": false,
+      "aborted": false,
+      "ms": 3373
+    },
+    {
+      "event": "store-write-finish",
+      "runtime": 1,
+      "stopped": false,
+      "ms": 3374
+    },
+    {
+      "event": "sample",
+      "visible": true,
+      "hidden": true,
+      "availableVisible": true,
+      "storedVisible": true,
+      "storedHidden": true,
+      "ms": 6042
+    }
+  ],
+  "pickerFetchObserved": true,
+  "pickerPane": "\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nOnly showing models from configured providers. Use /login to add providers.                         \n\n>                        \n\n\u2192 \u2713 gpt-5.5 [openai]     \n    gpt-4 [openai]       \n    gpt-4-turbo [openai] \n    gpt-4.1 [openai]     \n    gpt-4.1-mini [openai]\n    gpt-4.1-nano [openai]\n    gpt-4o [openai]      \n    gpt-4o-2024-05-13 [openai]                    \n    gpt-4o-2024-08-06 [openai]                    \n    gpt-4o-2024-11-20 [openai]                    \n  (1/139)                \n\n  Model Name: GPT-5.5    \n\n  Refreshing model catalogs\u2026                      \n\n  Enter to select \u00b7 Ctrl+S to set as default \u00b7 Escape/Ctrl+C to cancel                              \n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nopenrouter: login \u00b7 deepseek: login \u00b7 codex: login \u00b7 claude: 5h/login 7d/login\nantigravity: gem/login arg/login \u00b7 synthetic: \u2026 \u00b7 xai: login\n~/project\n0.0%/272k (auto)                                                           (openai) gpt-5.5 \u2022 medium\n",
+  "closedPane": "Extensions]             \n  post.ts, pre.ts, src   \n\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nOnly showing models from configured providers. Use /login to add providers.                         \n\n>                        \n\n\u2192 \u2713 gpt-5.5 [openai]     \n    gpt-4 [openai]       \n    gpt-4-turbo [openai] \n    gpt-4.1 [openai]     \n    gpt-4.1-mini [openai]\n    gpt-4.1-nano [openai]\n    gpt-4o [openai]      \n    gpt-4o-2024-05-13 [openai]                    \n    gpt-4o-2024-08-06 [openai]                    \n    gpt-4o-2024-11-20 [openai]                    \n  (1/127)                \nCould not refresh 2 model catalogs (openai, opencode); showing cached models.                       \n\n  Enter to select \u00b7 Ctrl+S to set as default \u00b7 Escape/Ctrl+C to cancel                              \n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nopenrouter: login \u00b7 deepseek: login \u00b7 codex: login \u00b7 claude: 5h/login 7d/login\nantigravity: gem/login arg/login \u00b7 synthetic: \u2026 \u00b7 xai: login\n~/project\n0.0%/272k (auto)                                                           (openai) gpt-5.5 \u2022 medium\n"
+}

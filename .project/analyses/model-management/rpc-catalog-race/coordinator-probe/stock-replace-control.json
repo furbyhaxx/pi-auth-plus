@@ -1,0 +1,216 @@
+{
+  "arguments": {
+    "runtime": "stock",
+    "case": "none",
+    "barrier": false,
+    "offline": false,
+    "gate_ms": 0,
+    "wait_gate": false,
+    "late_ms": 0,
+    "delay_implicit_ms": 0,
+    "action": "none",
+    "fetch_ms": 3000,
+    "sample_ms": 5000,
+    "early_eof": false,
+    "defer_app": false,
+    "early_models": false,
+    "replace": true,
+    "queue_cancel": "none",
+    "registration": "none"
+  },
+  "events": [
+    {
+      "event": "prototype-install",
+      "name": "_ModelRuntime",
+      "ms": 0
+    },
+    {
+      "event": "outer-start",
+      "runtime": 1,
+      "signal": 1,
+      "providers": "all",
+      "explicitNetwork": "default",
+      "ms": 92
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "runtime": 1,
+      "tracked": 1,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [
+        1
+      ],
+      "keys": [
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 93
+    },
+    {
+      "event": "models-enter",
+      "signal": 1,
+      "controllers": 0,
+      "ms": 94
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 96
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 97
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 98
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 98
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 107
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 109
+    },
+    {
+      "event": "pre-shutdown",
+      "reason": "new",
+      "ms": 121
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 121
+    },
+    {
+      "event": "prototype-install",
+      "name": "_ModelRuntime",
+      "ms": 127
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "runtime": 2,
+      "tracked": 0,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [],
+      "keys": [
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 142
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 144
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "runtime": 2,
+      "tracked": 0,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [],
+      "keys": [
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 144
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 146
+    },
+    {
+      "event": "fetch-resolve",
+      "number": 1,
+      "ms": 3100
+    },
+    {
+      "event": "store-write-start",
+      "runtime": 1,
+      "provider": "synthetic",
+      "ms": 3100
+    },
+    {
+      "event": "store-write-finish",
+      "runtime": 1,
+      "provider": "synthetic",
+      "ms": 3101
+    },
+    {
+      "event": "outer-finish",
+      "runtime": 1,
+      "signal": 1,
+      "aborted": false,
+      "ms": 3103
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": true,
+      "storedHidden": true,
+      "ms": 5149
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": true,
+      "storedHidden": true,
+      "ms": 5150
+    },
+    {
+      "event": "pre-shutdown",
+      "reason": "quit",
+      "ms": 5158
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 5158
+    }
+  ],
+  "replace": {
+    "success": true,
+    "data": {
+      "cancelled": false
+    },
+    "error": null
+  },
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "id": "models",
+      "success": true,
+      "visible": false,
+      "hidden": false,
+      "openaiCount": 0
+    }
+  ]
+}

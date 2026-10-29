@@ -1,0 +1,1 @@
+stock rpc: IP-family network syscalls=0, connect syscalls=0, AF_UNIX connects=0

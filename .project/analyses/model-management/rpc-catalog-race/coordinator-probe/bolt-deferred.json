@@ -1,0 +1,371 @@
+{
+  "arguments": {
+    "runtime": "bolt",
+    "case": "both",
+    "barrier": false,
+    "offline": false,
+    "gate_ms": 0,
+    "wait_gate": false,
+    "late_ms": 0,
+    "delay_implicit_ms": 0,
+    "action": "none",
+    "fetch_ms": 800,
+    "sample_ms": 1600,
+    "early_eof": false,
+    "defer_app": true,
+    "early_models": true,
+    "replace": false
+  },
+  "events": [
+    {
+      "event": "prototype-install",
+      "name": "ModelRuntime2",
+      "ms": 0
+    },
+    {
+      "event": "outer-start",
+      "signal": 1,
+      "providers": "all",
+      "explicitNetwork": "default",
+      "ms": 1810
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "tracked": 1,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [
+        1
+      ],
+      "keys": [
+        "registeringWithoutRefresh",
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 1,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 2,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 3,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 4,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 5,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 6,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 7,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 8,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 9,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 10,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 11,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "app-queued",
+      "number": 12,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 1811
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 1811
+    },
+    {
+      "event": "models-enter",
+      "signal": 1,
+      "controllers": 0,
+      "ms": 1811
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 1812
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 1812
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 1813
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/openai",
+      "ms": 1813
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1813
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1813
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1813
+    },
+    {
+      "event": "fetch-resolve",
+      "number": 1,
+      "ms": 2614
+    },
+    {
+      "event": "outer-finish",
+      "signal": 1,
+      "aborted": false,
+      "ms": 2616
+    },
+    {
+      "event": "app-run",
+      "number": 1,
+      "ms": 2616
+    },
+    {
+      "event": "app-finish",
+      "number": 1,
+      "stopped": false,
+      "ms": 2623
+    },
+    {
+      "event": "app-run",
+      "number": 2,
+      "ms": 2623
+    },
+    {
+      "event": "app-finish",
+      "number": 2,
+      "stopped": false,
+      "ms": 2623
+    },
+    {
+      "event": "app-run",
+      "number": 3,
+      "ms": 2623
+    },
+    {
+      "event": "app-finish",
+      "number": 3,
+      "stopped": false,
+      "ms": 2623
+    },
+    {
+      "event": "app-run",
+      "number": 4,
+      "ms": 2623
+    },
+    {
+      "event": "app-finish",
+      "number": 4,
+      "stopped": false,
+      "ms": 2626
+    },
+    {
+      "event": "app-run",
+      "number": 5,
+      "ms": 2626
+    },
+    {
+      "event": "app-finish",
+      "number": 5,
+      "stopped": false,
+      "ms": 2626
+    },
+    {
+      "event": "app-run",
+      "number": 6,
+      "ms": 2626
+    },
+    {
+      "event": "app-finish",
+      "number": 6,
+      "stopped": false,
+      "ms": 2626
+    },
+    {
+      "event": "app-run",
+      "number": 7,
+      "ms": 2626
+    },
+    {
+      "event": "app-finish",
+      "number": 7,
+      "stopped": false,
+      "ms": 2626
+    },
+    {
+      "event": "app-run",
+      "number": 8,
+      "ms": 2626
+    },
+    {
+      "event": "app-finish",
+      "number": 8,
+      "stopped": false,
+      "ms": 2626
+    },
+    {
+      "event": "app-run",
+      "number": 9,
+      "ms": 2626
+    },
+    {
+      "event": "app-finish",
+      "number": 9,
+      "stopped": false,
+      "ms": 2626
+    },
+    {
+      "event": "app-run",
+      "number": 10,
+      "ms": 2626
+    },
+    {
+      "event": "app-finish",
+      "number": 10,
+      "stopped": false,
+      "ms": 2626
+    },
+    {
+      "event": "app-run",
+      "number": 11,
+      "ms": 2626
+    },
+    {
+      "event": "app-finish",
+      "number": 11,
+      "stopped": false,
+      "ms": 2627
+    },
+    {
+      "event": "app-run",
+      "number": 12,
+      "ms": 2627
+    },
+    {
+      "event": "app-finish",
+      "number": 12,
+      "stopped": false,
+      "ms": 2627
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 2627
+    },
+    {
+      "event": "sample",
+      "visible": true,
+      "hidden": false,
+      "availableVisible": true,
+      "storedVisible": true,
+      "storedHidden": true,
+      "ms": 3413
+    },
+    {
+      "event": "pre-shutdown",
+      "reason": "quit",
+      "ms": 3419
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 3419
+    }
+  ],
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "id": "early",
+      "success": true,
+      "visible": false,
+      "hidden": false,
+      "openaiCount": 42
+    },
+    {
+      "id": "models",
+      "success": true,
+      "visible": true,
+      "hidden": false,
+      "openaiCount": 0
+    }
+  ]
+}

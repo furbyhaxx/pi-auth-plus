@@ -1,0 +1,128 @@
+{
+  "arguments": {
+    "runtime": "bolt",
+    "case": "both",
+    "barrier": true,
+    "offline": false,
+    "gate_ms": 0,
+    "fetch_ms": 800,
+    "sample_ms": 1600,
+    "early_eof": false
+  },
+  "events": [
+    {
+      "event": "prototype-install",
+      "name": "ModelRuntime2",
+      "ms": 0
+    },
+    {
+      "event": "outer-start",
+      "signal": 1,
+      "providers": "all",
+      "explicitNetwork": "default",
+      "ms": 1563
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "tracked": 1,
+      "controllers": 0,
+      "syntheticController": false,
+      "signalIds": [
+        1
+      ],
+      "keys": [
+        "registeringWithoutRefresh",
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 1564
+    },
+    {
+      "event": "barrier-start",
+      "tracked": 1,
+      "ms": 1564
+    },
+    {
+      "event": "models-enter",
+      "signal": 1,
+      "controllers": 0,
+      "ms": 1564
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 1565
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1565
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1565
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 1565
+    },
+    {
+      "event": "fetch-resolve",
+      "number": 1,
+      "ms": 2368
+    },
+    {
+      "event": "outer-finish",
+      "signal": 1,
+      "aborted": false,
+      "ms": 2375
+    },
+    {
+      "event": "barrier-done",
+      "ms": 2375
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 2390
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 2391
+    },
+    {
+      "event": "sample",
+      "visible": true,
+      "hidden": false,
+      "availableVisible": true,
+      "storedVisible": true,
+      "storedHidden": true,
+      "ms": 3996
+    },
+    {
+      "event": "pre-shutdown",
+      "ms": 4004
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 4005
+    }
+  ],
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "success": true,
+      "visible": true,
+      "hidden": false
+    }
+  ]
+}

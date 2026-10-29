@@ -1,0 +1,262 @@
+{
+  "arguments": {
+    "runtime": "bolt",
+    "case": "both",
+    "mode": "rpc",
+    "prototype": "delay",
+    "action": "none",
+    "offline": true,
+    "implicit_delay": 0,
+    "release_delay": 0,
+    "trailing_delay": 0,
+    "fetch_delay": 800,
+    "sample_ms": 2000,
+    "early_models": false,
+    "eof": "none",
+    "replace": "none",
+    "store_delay": 0,
+    "narrow": false,
+    "prepatched": false,
+    "keep_picker_open": false
+  },
+  "events": [
+    {
+      "event": "probe-install",
+      "name": "ModelRuntime2",
+      "refreshName": "refresh",
+      "rpcArg": true,
+      "reused": false,
+      "ms": 0
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 4567
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 0,
+      "ms": 4569
+    },
+    {
+      "event": "probe-session",
+      "runtime": 1,
+      "mode": "rpc",
+      "ms": 4570
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 4572
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 4572
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 4572
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 4573
+    },
+    {
+      "event": "registration-implicit",
+      "runtime": 1,
+      "method": "registerProvider",
+      "provider": "openai",
+      "narrowed": false,
+      "ms": 4579
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": "all",
+      "pending": 1,
+      "delayed": 0,
+      "ms": 4579
+    },
+    {
+      "event": "offline-start",
+      "runtime": 1,
+      "providers": [
+        "synthetic",
+        "claude",
+        "antigravity",
+        "openai"
+      ],
+      "pending": 2,
+      "delayed": 0,
+      "ms": 4580
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 2,
+      "keys": [
+        "allowNetwork",
+        "providers",
+        "signal"
+      ],
+      "signal": 1,
+      "seenSession": true,
+      "aborted": false,
+      "candidate": false,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:117:30)",
+        "at refreshModels (/mnt/Projects/furbyhaxx/pi-auth-plus/src/models/catalog/filter.ts:71:43)",
+        "at <anonymous> (/$bunfs/root/entry-nzbgkkkt.js:4254:50)",
+        "at runProviderRefreshPhase (/$bunfs/root/entry-4aq4b14m.js:1015:33)",
+        "at <anonymous> (/$bunfs/root/entry-4aq4b14m.js:1044:43)"
+      ],
+      "ms": 4581
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": [
+        "openai"
+      ],
+      "pending": 1,
+      "delayed": 0,
+      "ms": 4581
+    },
+    {
+      "event": "refresh-call",
+      "runtime": 2,
+      "keys": [
+        "allowNetwork",
+        "providers",
+        "signal"
+      ],
+      "signal": 2,
+      "seenSession": true,
+      "aborted": false,
+      "candidate": false,
+      "stack": [
+        "at <anonymous> (/mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/startup-delay-probe/pre.ts:117:30)",
+        "at refreshModels (/mnt/Projects/furbyhaxx/pi-auth-plus/src/models/catalog/filter.ts:71:43)",
+        "at <anonymous> (/$bunfs/root/entry-nzbgkkkt.js:4254:50)",
+        "at runProviderRefreshPhase (/$bunfs/root/entry-4aq4b14m.js:1015:33)",
+        "at <anonymous> (/$bunfs/root/entry-4aq4b14m.js:1044:43)"
+      ],
+      "ms": 4582
+    },
+    {
+      "event": "offline-start",
+      "runtime": 2,
+      "providers": [
+        "openai"
+      ],
+      "pending": 2,
+      "delayed": 0,
+      "ms": 4582
+    },
+    {
+      "event": "refresh-finish",
+      "runtime": 2,
+      "signal": 1,
+      "aborted": true,
+      "ms": 4582
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 1,
+      "ms": 4582
+    },
+    {
+      "event": "refresh-finish",
+      "runtime": 2,
+      "signal": 2,
+      "aborted": false,
+      "ms": 4582
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 2,
+      "pending": 0,
+      "ms": 4582
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 1,
+      "ms": 4583
+    },
+    {
+      "event": "offline-finish",
+      "runtime": 1,
+      "pending": 0,
+      "ms": 4584
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 4589
+    },
+    {
+      "event": "post-session",
+      "mode": "rpc",
+      "groupVisible": false,
+      "ms": 4589
+    },
+    {
+      "event": "startup-ready",
+      "runtime": 1,
+      "pendingOffline": 0,
+      "ms": 4589
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 4591
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": false,
+      "storedHidden": false,
+      "ms": 6591
+    },
+    {
+      "event": "probe-shutdown",
+      "runtime": 1,
+      "reason": "quit",
+      "ms": 6613
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 6614
+    }
+  ],
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "id": "models",
+      "success": true,
+      "visible": false,
+      "hidden": false,
+      "openaiCount": 0
+    }
+  ]
+}

@@ -1,0 +1,364 @@
+{
+  "document": {
+    "type": "analysis",
+    "id": "analysis-rpc-catalog-picker-wait-evidence",
+    "title": "User-controlled picker refresh evidence",
+    "description": "A Pi-owned model-picker refresh completes when the user keeps the picker open",
+    "status": "published",
+    "revision": 1,
+    "version": 1,
+    "created": "2026-10-28T15:46:37+01:00",
+    "updated": "2026-10-28T15:46:37+01:00",
+    "createdBy": "pi",
+    "updatedBy": "pi",
+    "created_at": "2026-10-28T15:46:37+01:00",
+    "updated_at": "2026-10-28T15:46:37+01:00",
+    "created_by": "pi",
+    "updated_by": "pi",
+    "changelog": [
+      {
+        "revision": 1,
+        "reason": "document creation",
+        "changes": [
+          "Capture successful user-controlled picker refresh"
+        ]
+      }
+    ]
+  },
+  "runs": [
+    {
+      "runtime": "bolt",
+      "command": "python3 /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/retry-probe/run.py --case none --action picker --fail-first --sample-ms 3500 --keep-picker-open --runtime bolt",
+      "toolExit": 0,
+      "result": {
+        "arguments": {
+          "case": "none",
+          "runtime": "bolt",
+          "candidate": false,
+          "offline": false,
+          "delay_implicit": 0,
+          "action": "picker",
+          "fail_first": true,
+          "keep_picker_open": true,
+          "fetch_delay": 800,
+          "sample_ms": 3500,
+          "retry_timeout": 15000,
+          "max_attempts": 3,
+          "early_exit_ms": 0
+        },
+        "events": [
+          {
+            "event": "instrument-provider",
+            "ms": 0
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/report-install",
+            "ms": 29
+          },
+          {
+            "event": "before-session",
+            "mode": "tui",
+            "ms": 31
+          },
+          {
+            "event": "candidate-session",
+            "pending": false,
+            "attempts": 0,
+            "ms": 47
+          },
+          {
+            "event": "driver-session",
+            "mode": "tui",
+            "ms": 47
+          },
+          {
+            "event": "registry-refresh",
+            "allowNetwork": "default",
+            "providers": "all",
+            "ms": 51
+          },
+          {
+            "event": "network-phase",
+            "phase": 1,
+            "hasRegistry": true,
+            "retryActive": false,
+            "ms": 52
+          },
+          {
+            "event": "fetch-start",
+            "number": 1,
+            "ms": 53
+          },
+          {
+            "event": "fetch-fail",
+            "number": 1,
+            "ms": 53
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 53
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 53
+          },
+          {
+            "event": "phase-error",
+            "phase": 1,
+            "name": "ProviderHttpError",
+            "ms": 53
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 53
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "api.synthetic.new",
+            "path": "/v2/quotas",
+            "ms": 55
+          },
+          {
+            "event": "registry-refresh",
+            "allowNetwork": "default",
+            "providers": "all",
+            "ms": 59
+          },
+          {
+            "event": "network-phase",
+            "phase": 2,
+            "hasRegistry": true,
+            "retryActive": false,
+            "ms": 61
+          },
+          {
+            "event": "fetch-start",
+            "number": 2,
+            "ms": 62
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 62
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 62
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 62
+          },
+          {
+            "event": "fetch-resolve",
+            "number": 2,
+            "ms": 866
+          },
+          {
+            "event": "publish",
+            "phase": 2,
+            "accepted": true,
+            "ms": 867
+          },
+          {
+            "event": "phase-complete",
+            "phase": 2,
+            "ms": 867
+          },
+          {
+            "event": "sample",
+            "visible": true,
+            "hidden": true,
+            "availableVisible": true,
+            "storedVisible": true,
+            "storedHidden": true,
+            "ms": 3549
+          }
+        ],
+        "pickerFetchObserved": true,
+        "pickerPane": "\n\n────────────────────────────────────────────────────────────────────────────────────────────────────\n\nOnly showing models from configured providers. Use /login to add providers.                         \n\n>                        \n\n→ ✓ kimi-k2.6 [opencode] \n    claude-fable-5 [opencode]                     \n    claude-fable-5-1 [opencode]                   \n    claude-haiku-4-5 [opencode]                   \n    claude-haiku-5-5 [opencode]                   \n    claude-opus-4-5 [opencode]                    \n    claude-opus-4-6 [opencode]                    \n    claude-opus-4-7 [opencode]                    \n    claude-opus-4-8 [opencode]                    \n    claude-opus-5 [opencode]                      \n  (1/97)                 \n\n  Model Name: Kimi K2.6  \n\n  Refreshing model catalogs…                      \n\n  Enter to select · Ctrl+S to set as default · Escape/Ctrl+C to cancel                              \n────────────────────────────────────────────────────────────────────────────────────────────────────\nopenrouter: … · deepseek: … · codex: login · claude: 5h/login 7d/login\nantigravity: gem/login arg/login · synthetic: … · xai: …\n~/project\n0.0%/262k (auto)                                                       (opencode) kimi-k2.6 • medium\n",
+        "closedPane": "─────────────────────────────────────────────────────\n\nOnly showing models from configured providers. Use /login to add providers.                         \n\n>                        \n\n→ ✓ kimi-k2.6 [opencode] \n    claude-fable-5 [opencode]                     \n    claude-fable-5-1 [opencode]                   \n    claude-haiku-4-5 [opencode]                   \n    claude-haiku-5-5 [opencode]                   \n    claude-opus-4-5 [opencode]                    \n    claude-opus-4-6 [opencode]                    \n    claude-opus-4-7 [opencode]                    \n    claude-opus-4-8 [opencode]                    \n    claude-opus-5 [opencode]                      \n  (1/85)                 \nCould not refresh opencode; showing cached models.\n\n  Enter to select · Ctrl+S to set as default · Escape/Ctrl+C to cancel                              \n────────────────────────────────────────────────────────────────────────────────────────────────────\nopenrouter: login · deepseek: login · codex: login · claude: 5h/login 7d/login\nantigravity: gem/login arg/login · synthetic: … · xai: login\n~/project\n0.0%/262k (auto)                                                       (opencode) kimi-k2.6 • medium\n"
+      }
+    },
+    {
+      "runtime": "stock",
+      "command": "python3 /mnt/Projects/furbyhaxx/pi-auth-plus/.project/analyses/model-management/rpc-catalog-race/retry-probe/run.py --case none --action picker --fail-first --sample-ms 3500 --keep-picker-open --runtime stock",
+      "toolExit": 0,
+      "result": {
+        "arguments": {
+          "case": "none",
+          "runtime": "stock",
+          "candidate": false,
+          "offline": false,
+          "delay_implicit": 0,
+          "action": "picker",
+          "fail_first": true,
+          "keep_picker_open": true,
+          "fetch_delay": 800,
+          "sample_ms": 3500,
+          "retry_timeout": 15000,
+          "max_attempts": 3,
+          "early_exit_ms": 0
+        },
+        "events": [
+          {
+            "event": "instrument-provider",
+            "ms": 0
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/report-install",
+            "ms": 53
+          },
+          {
+            "event": "before-session",
+            "mode": "tui",
+            "ms": 76
+          },
+          {
+            "event": "candidate-session",
+            "pending": false,
+            "attempts": 0,
+            "ms": 95
+          },
+          {
+            "event": "driver-session",
+            "mode": "tui",
+            "ms": 95
+          },
+          {
+            "event": "registry-refresh",
+            "allowNetwork": "default",
+            "providers": "all",
+            "ms": 102
+          },
+          {
+            "event": "network-phase",
+            "phase": 1,
+            "hasRegistry": true,
+            "retryActive": false,
+            "ms": 132
+          },
+          {
+            "event": "fetch-start",
+            "number": 1,
+            "ms": 132
+          },
+          {
+            "event": "fetch-fail",
+            "number": 1,
+            "ms": 132
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 133
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 134
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 134
+          },
+          {
+            "event": "phase-error",
+            "phase": 1,
+            "name": "ProviderHttpError",
+            "ms": 134
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "api.synthetic.new",
+            "path": "/v2/quotas",
+            "ms": 144
+          },
+          {
+            "event": "registry-refresh",
+            "allowNetwork": "default",
+            "providers": "all",
+            "ms": 167
+          },
+          {
+            "event": "network-phase",
+            "phase": 2,
+            "hasRegistry": true,
+            "retryActive": false,
+            "ms": 188
+          },
+          {
+            "event": "fetch-start",
+            "number": 2,
+            "ms": 188
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 188
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 188
+          },
+          {
+            "event": "blocked-other-network",
+            "host": "pi.dev",
+            "path": "/api/models/providers/opencode",
+            "ms": 189
+          },
+          {
+            "event": "fetch-resolve",
+            "number": 2,
+            "ms": 991
+          },
+          {
+            "event": "publish",
+            "phase": 2,
+            "accepted": true,
+            "ms": 992
+          },
+          {
+            "event": "phase-complete",
+            "phase": 2,
+            "ms": 992
+          },
+          {
+            "event": "sample",
+            "visible": true,
+            "hidden": true,
+            "availableVisible": true,
+            "storedVisible": true,
+            "storedHidden": true,
+            "ms": 3609
+          }
+        ],
+        "pickerFetchObserved": true,
+        "pickerPane": "\n\n────────────────────────────────────────────────────────────────────────────────────────────────────\n\nOnly showing models from configured providers. Use /login to add providers.                         \n\n>                        \n\n→ ✓ kimi-k2.6 [opencode] \n    claude-fable-5 [opencode]                     \n    claude-fable-5-1 [opencode]                   \n    claude-haiku-4-5 [opencode]                   \n    claude-haiku-5-5 [opencode]                   \n    claude-opus-4-5 [opencode]                    \n    claude-opus-4-6 [opencode]                    \n    claude-opus-4-7 [opencode]                    \n    claude-opus-4-8 [opencode]                    \n    claude-opus-5 [opencode]                      \n  (1/97)                 \n\n  Model Name: Kimi K2.6  \n\n  Refreshing model catalogs…                      \n\n  Enter to select · Ctrl+S to set as default · Escape/Ctrl+C to cancel                              \n────────────────────────────────────────────────────────────────────────────────────────────────────\nopenrouter: login · deepseek: login · codex: login · claude: 5h/login 7d/login\nantigravity: gem/login arg/login · synthetic: … · xai: login\n~/project\n0.0%/262k (auto)                                                       (opencode) kimi-k2.6 • medium\n",
+        "closedPane": "─────────────────────────────────────────────────────\n\nOnly showing models from configured providers. Use /login to add providers.                         \n\n>                        \n\n→ ✓ kimi-k2.6 [opencode] \n    claude-fable-5 [opencode]                     \n    claude-fable-5-1 [opencode]                   \n    claude-haiku-4-5 [opencode]                   \n    claude-haiku-5-5 [opencode]                   \n    claude-opus-4-5 [opencode]                    \n    claude-opus-4-6 [opencode]                    \n    claude-opus-4-7 [opencode]                    \n    claude-opus-4-8 [opencode]                    \n    claude-opus-5 [opencode]                      \n  (1/85)                 \nCould not refresh opencode; showing cached models.\n\n  Enter to select · Ctrl+S to set as default · Escape/Ctrl+C to cancel                              \n────────────────────────────────────────────────────────────────────────────────────────────────────\nopenrouter: login · deepseek: login · codex: login · claude: 5h/login 7d/login\nantigravity: gem/login arg/login · synthetic: … · xai: login\n~/project\n0.0%/262k (auto)                                                       (opencode) kimi-k2.6 • medium\n"
+      }
+    }
+  ]
+}

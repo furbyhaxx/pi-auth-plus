@@ -1,0 +1,773 @@
+{
+  "arguments": {
+    "runtime": "stock",
+    "case": "none",
+    "barrier": false,
+    "offline": false,
+    "gate_ms": 0,
+    "wait_gate": false,
+    "late_ms": 0,
+    "delay_implicit_ms": 0,
+    "action": "none",
+    "fetch_ms": 3000,
+    "sample_ms": 5000,
+    "early_eof": false,
+    "defer_app": true,
+    "early_models": false,
+    "replace": true
+  },
+  "events": [
+    {
+      "event": "prototype-install",
+      "name": "_ModelRuntime",
+      "ms": 0
+    },
+    {
+      "event": "outer-start",
+      "signal": 1,
+      "providers": "all",
+      "explicitNetwork": "default",
+      "ms": 158
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "tracked": 1,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [
+        1
+      ],
+      "keys": [
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 159
+    },
+    {
+      "event": "app-queued",
+      "number": 1,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "app-queued",
+      "number": 2,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "app-queued",
+      "number": 3,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "app-queued",
+      "number": 4,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "app-queued",
+      "number": 5,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "app-queued",
+      "number": 6,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "app-queued",
+      "number": 7,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "app-queued",
+      "number": 8,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "app-queued",
+      "number": 9,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "app-queued",
+      "number": 10,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "app-queued",
+      "number": 11,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "app-queued",
+      "number": 12,
+      "reason": "startup",
+      "tracked": 1,
+      "ms": 160
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 160
+    },
+    {
+      "event": "models-enter",
+      "signal": 1,
+      "controllers": 0,
+      "ms": 163
+    },
+    {
+      "event": "fetch-start",
+      "number": 1,
+      "ms": 166
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 166
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 169
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "pi.dev",
+      "path": "/api/models/providers/opencode",
+      "ms": 169
+    },
+    {
+      "event": "pre-shutdown",
+      "reason": "new",
+      "ms": 180
+    },
+    {
+      "event": "app-skipped",
+      "number": 1,
+      "ms": 180
+    },
+    {
+      "event": "app-skipped",
+      "number": 2,
+      "ms": 180
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 180
+    },
+    {
+      "event": "app-skipped",
+      "number": 3,
+      "ms": 180
+    },
+    {
+      "event": "app-skipped",
+      "number": 4,
+      "ms": 181
+    },
+    {
+      "event": "app-skipped",
+      "number": 5,
+      "ms": 181
+    },
+    {
+      "event": "app-skipped",
+      "number": 6,
+      "ms": 181
+    },
+    {
+      "event": "app-skipped",
+      "number": 7,
+      "ms": 181
+    },
+    {
+      "event": "app-skipped",
+      "number": 8,
+      "ms": 181
+    },
+    {
+      "event": "app-skipped",
+      "number": 9,
+      "ms": 181
+    },
+    {
+      "event": "app-skipped",
+      "number": 10,
+      "ms": 181
+    },
+    {
+      "event": "app-skipped",
+      "number": 11,
+      "ms": 181
+    },
+    {
+      "event": "app-skipped",
+      "number": 12,
+      "ms": 181
+    },
+    {
+      "event": "prototype-install",
+      "name": "_ModelRuntime",
+      "ms": 188
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "tracked": 0,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [],
+      "keys": [
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 209
+    },
+    {
+      "event": "app-queued",
+      "number": 1,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 209
+    },
+    {
+      "event": "app-queued",
+      "number": 2,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 209
+    },
+    {
+      "event": "app-queued",
+      "number": 3,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 209
+    },
+    {
+      "event": "app-run",
+      "number": 1,
+      "ms": 209
+    },
+    {
+      "event": "app-queued",
+      "number": 4,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 5,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 6,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 7,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 8,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 9,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 10,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 11,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 12,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 210
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "tracked": 0,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [],
+      "keys": [
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 1,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 2,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 3,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-run",
+      "number": 1,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 4,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 5,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 6,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 7,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 8,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 9,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 10,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 11,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "app-queued",
+      "number": 12,
+      "reason": "new",
+      "tracked": 0,
+      "ms": 210
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 210
+    },
+    {
+      "event": "app-finish",
+      "number": 1,
+      "stopped": false,
+      "ms": 212
+    },
+    {
+      "event": "app-run",
+      "number": 2,
+      "ms": 212
+    },
+    {
+      "event": "app-finish",
+      "number": 2,
+      "stopped": false,
+      "ms": 212
+    },
+    {
+      "event": "app-run",
+      "number": 3,
+      "ms": 212
+    },
+    {
+      "event": "app-finish",
+      "number": 3,
+      "stopped": false,
+      "ms": 213
+    },
+    {
+      "event": "app-run",
+      "number": 4,
+      "ms": 213
+    },
+    {
+      "event": "app-finish",
+      "number": 1,
+      "stopped": false,
+      "ms": 214
+    },
+    {
+      "event": "app-run",
+      "number": 2,
+      "ms": 214
+    },
+    {
+      "event": "app-finish",
+      "number": 2,
+      "stopped": false,
+      "ms": 214
+    },
+    {
+      "event": "app-run",
+      "number": 3,
+      "ms": 214
+    },
+    {
+      "event": "app-finish",
+      "number": 3,
+      "stopped": false,
+      "ms": 214
+    },
+    {
+      "event": "app-run",
+      "number": 4,
+      "ms": 214
+    },
+    {
+      "event": "app-finish",
+      "number": 4,
+      "stopped": false,
+      "ms": 221
+    },
+    {
+      "event": "app-run",
+      "number": 5,
+      "ms": 221
+    },
+    {
+      "event": "app-finish",
+      "number": 5,
+      "stopped": false,
+      "ms": 221
+    },
+    {
+      "event": "app-run",
+      "number": 6,
+      "ms": 221
+    },
+    {
+      "event": "app-finish",
+      "number": 6,
+      "stopped": false,
+      "ms": 221
+    },
+    {
+      "event": "app-run",
+      "number": 7,
+      "ms": 221
+    },
+    {
+      "event": "app-finish",
+      "number": 7,
+      "stopped": false,
+      "ms": 221
+    },
+    {
+      "event": "app-run",
+      "number": 8,
+      "ms": 221
+    },
+    {
+      "event": "app-finish",
+      "number": 8,
+      "stopped": false,
+      "ms": 221
+    },
+    {
+      "event": "app-run",
+      "number": 9,
+      "ms": 221
+    },
+    {
+      "event": "app-finish",
+      "number": 9,
+      "stopped": false,
+      "ms": 221
+    },
+    {
+      "event": "app-run",
+      "number": 10,
+      "ms": 221
+    },
+    {
+      "event": "app-finish",
+      "number": 10,
+      "stopped": false,
+      "ms": 221
+    },
+    {
+      "event": "app-run",
+      "number": 11,
+      "ms": 221
+    },
+    {
+      "event": "app-finish",
+      "number": 11,
+      "stopped": false,
+      "ms": 223
+    },
+    {
+      "event": "app-run",
+      "number": 12,
+      "ms": 223
+    },
+    {
+      "event": "app-finish",
+      "number": 12,
+      "stopped": false,
+      "ms": 223
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 225
+    },
+    {
+      "event": "app-finish",
+      "number": 4,
+      "stopped": false,
+      "ms": 234
+    },
+    {
+      "event": "app-run",
+      "number": 5,
+      "ms": 234
+    },
+    {
+      "event": "app-finish",
+      "number": 5,
+      "stopped": false,
+      "ms": 234
+    },
+    {
+      "event": "app-run",
+      "number": 6,
+      "ms": 234
+    },
+    {
+      "event": "app-finish",
+      "number": 6,
+      "stopped": false,
+      "ms": 234
+    },
+    {
+      "event": "app-run",
+      "number": 7,
+      "ms": 234
+    },
+    {
+      "event": "app-finish",
+      "number": 7,
+      "stopped": false,
+      "ms": 234
+    },
+    {
+      "event": "app-run",
+      "number": 8,
+      "ms": 234
+    },
+    {
+      "event": "app-finish",
+      "number": 8,
+      "stopped": false,
+      "ms": 234
+    },
+    {
+      "event": "app-run",
+      "number": 9,
+      "ms": 234
+    },
+    {
+      "event": "app-finish",
+      "number": 9,
+      "stopped": false,
+      "ms": 234
+    },
+    {
+      "event": "app-run",
+      "number": 10,
+      "ms": 234
+    },
+    {
+      "event": "app-finish",
+      "number": 10,
+      "stopped": false,
+      "ms": 234
+    },
+    {
+      "event": "app-run",
+      "number": 11,
+      "ms": 234
+    },
+    {
+      "event": "app-finish",
+      "number": 11,
+      "stopped": false,
+      "ms": 235
+    },
+    {
+      "event": "app-run",
+      "number": 12,
+      "ms": 235
+    },
+    {
+      "event": "app-finish",
+      "number": 12,
+      "stopped": false,
+      "ms": 235
+    },
+    {
+      "event": "fetch-resolve",
+      "number": 1,
+      "ms": 3171
+    },
+    {
+      "event": "outer-finish",
+      "signal": 1,
+      "aborted": false,
+      "ms": 3174
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": true,
+      "storedHidden": true,
+      "ms": 5215
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": true,
+      "storedHidden": true,
+      "ms": 5216
+    },
+    {
+      "event": "pre-shutdown",
+      "reason": "quit",
+      "ms": 5234
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 5235
+    }
+  ],
+  "replace": {
+    "success": true,
+    "data": {
+      "cancelled": false
+    },
+    "error": null
+  },
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "id": "models",
+      "success": true,
+      "visible": false,
+      "hidden": false,
+      "openaiCount": 0
+    }
+  ]
+}

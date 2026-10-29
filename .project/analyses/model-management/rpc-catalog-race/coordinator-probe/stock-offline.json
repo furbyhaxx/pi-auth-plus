@@ -1,0 +1,83 @@
+{
+  "arguments": {
+    "runtime": "stock",
+    "case": "both",
+    "barrier": true,
+    "offline": true,
+    "gate_ms": 0,
+    "wait_gate": false,
+    "late_ms": 0,
+    "delay_implicit_ms": 0,
+    "action": "none",
+    "fetch_ms": 800,
+    "sample_ms": 1600,
+    "early_eof": false
+  },
+  "events": [
+    {
+      "event": "prototype-install",
+      "name": "_ModelRuntime",
+      "ms": 0
+    },
+    {
+      "event": "session-snapshot",
+      "samePrototype": true,
+      "tracked": 0,
+      "controllers": 0,
+      "syntheticController": false,
+      "syntheticControllerSignal": 0,
+      "signalIds": [],
+      "keys": [
+        "availabilityRefreshSeq",
+        "credentialOperations"
+      ],
+      "ms": 142
+    },
+    {
+      "event": "barrier-start",
+      "tracked": 0,
+      "ms": 143
+    },
+    {
+      "event": "barrier-done",
+      "ms": 143
+    },
+    {
+      "event": "driver-session",
+      "mode": "rpc",
+      "ms": 179
+    },
+    {
+      "event": "blocked-other-network",
+      "host": "api.synthetic.new",
+      "path": "/v2/quotas",
+      "ms": 182
+    },
+    {
+      "event": "sample",
+      "visible": false,
+      "hidden": false,
+      "availableVisible": false,
+      "storedVisible": false,
+      "storedHidden": false,
+      "ms": 1788
+    },
+    {
+      "event": "pre-shutdown",
+      "ms": 1793
+    },
+    {
+      "event": "driver-shutdown",
+      "ms": 1793
+    }
+  ],
+  "exit": 0,
+  "stderr": "",
+  "rpc": [
+    {
+      "success": true,
+      "visible": false,
+      "hidden": false
+    }
+  ]
+}

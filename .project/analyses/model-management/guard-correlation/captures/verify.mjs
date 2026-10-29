@@ -1,0 +1,56 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const root = "/tmp/pi-guard-correlation.k1ejpwE7";
+const rows = (mode,kind) => readFileSync(`${root}/${mode}.${kind}.jsonl`,"utf8").trim().split("\n").map(JSON.parse);
+const event = (rows,hook) => rows.filter(x=>x.hook===hook);
+const http = (rows,path,tag) => rows.find(x=>x.path.includes(path)&&x.tag===tag);
+const l=rows("legacy5","http"), w=rows("wrapped5","http"), n=rows("named5","http"), t=rows("wrapped5","trace"), a=rows("als6","trace"), raw=rows("raw5","events");
+for (const mode of ["legacy5","wrapped5","named5","als6","raw5"]) {
+  const out=rows(mode,"stdout");
+  assert(out.some(x=>x.type==="auto_retry_start"));
+  assert(out.some(x=>x.type==="compact-response" && x.success));
+  const end=out.find(x=>x.type==="exit");
+  assert.deepEqual([end.code,end.requests,end.settled,end.stderrBytes],[0,11,3,0]);
+}
+console.log("PASS retry, compaction, 11 loopback requests and clean exit in all five modes");
+assert.equal(http(l,"opencode","RETRY_ME").env,false);
+assert.equal(http(w,"opencode","RETRY_ME").env,true);
+for (const tag of ["OPENCODE_API","OPENCODE_SIDE"]) {
+  assert.equal(http(l,"opencode",tag).env,false);
+  assert.equal(http(w,"opencode",tag).env,true);
+  assert.equal(http(w,"opencode",tag).client,"cli");
+}
+assert.equal(http(l,"impostor","IMPOSTOR").client,"other-app");
+assert(l.some(x=>x.path.includes("impostor")&&x.client==="cli"));
+assert(w.filter(x=>x.path.includes("impostor")).every(x=>x.client==="other-app"&&x.userAgent!=="opencode"));
+console.log("PASS legacy virtual + direct OpenCode miss env; current header hook spoofs impostor; wrapper scopes identity");
+const helpers=event(t,"helper_done");
+assert.equal(helpers.find(x=>x.tag.startsWith("FAST")).input,26);
+assert.equal(helpers.find(x=>x.tag.startsWith("SLOW")).input,51);
+assert(helpers.findIndex(x=>x.tag.startsWith("FAST")) < helpers.findIndex(x=>x.tag.startsWith("SLOW")));
+assert.equal(helpers.find(x=>x.tag.startsWith("IMPOSTOR")).provider,"impostor");
+assert(event(t,"wrapper_enter").some(x=>x.kind==="stream"&&x.physical.provider==="opencode"));
+assert(event(t,"wrapper_enter").some(x=>x.kind==="streamSimple"&&x.physical.provider==="opencode"));
+console.log("PASS overlapping same-id helpers retain their own prompt counts (FAST=26, SLOW=51)");
+const compactW=rows("wrapped5","stdout").find(x=>x.type==="compact-response");
+const compactL=rows("legacy5","stdout").find(x=>x.type==="compact-response");
+assert.equal(compactL.usage.cacheWrite,20);assert.equal(compactW.usage.cacheWrite,0);
+assert(event(t,"wrapper_onPayload").some(x=>!x.hasParentCallback&&x.physical.provider==="synthetic"));
+console.log("PASS compaction has no parent payload callback; local wrapper corrects direct usage");
+assert.equal(http(l,"opencode","OPENCODE_API").effort,"high");
+assert.equal(http(w,"opencode","OPENCODE_API").effort,"high");
+assert.equal(http(n,"opencode","OPENCODE_API").effort,null);
+assert.equal(http(l,"opencode","OPENCODE_API").modelHeader,"model-kept");
+assert.equal(http(w,"opencode","OPENCODE_API").modelHeader,null);
+assert(event(t,"post_register").every(x=>x.named===false&&x.native===true));
+console.log("PASS native registration discards named model header; named streamSimple override drops stream effort");
+assert.equal(event(a,"before_provider_headers")[0].als,null);
+assert.equal(event(a,"before_provider_request")[0].als,null);
+const leak=event(a,"helper_onPayload").find(x=>x.tag==="OPENCODE physical API");
+assert.equal(leak.als.provider,"impostor");assert.equal(leak.physical.provider,"opencode");
+console.log("PASS route-enterWith absent in main hooks and misattributes a parallel physical helper");
+assert.deepEqual(Object.keys(raw.find(x=>x.type==="before_provider_request")).sort(),["payload","type"]);
+assert.deepEqual(Object.keys(raw.find(x=>x.type==="before_provider_headers")).sort(),["headers","type"]);
+assert.deepEqual(Object.keys(raw.find(x=>x.type==="after_provider_response")).sort(),["headers","status","type"]);
+assert.equal(raw.find(x=>x.type==="provider_stream_event").provider,"synthetic");
+console.log("PASS captured event envelopes omit physical identity until provider_stream_event/message_end");

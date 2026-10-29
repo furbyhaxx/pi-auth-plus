@@ -275,9 +275,21 @@ describe("quota bus client", () => {
 			off();
 			bus.emit(TOKEN_CHANNELS.context, { v: 1, reason: "request", report });
 		}
+		bus.emit(TOKEN_CHANNELS.context, {
+			v: 1,
+			reason: "thinking_level_select",
+			report: null,
+		});
+		bus.emit(TOKEN_CHANNELS.context, {
+			v: 1,
+			reason: "thinking_level_select",
+			report: legacy,
+		});
 		expect(contexts).toEqual([
 			{ v: 1, reason: "request", report: withDiagnostic },
 			{ v: 1, reason: "request", report: legacy },
+			{ v: 1, reason: "thinking_level_select", report: null },
+			{ v: 1, reason: "thinking_level_select", report: legacy },
 		]);
 
 		for (const diagnostics of [
@@ -309,7 +321,7 @@ describe("quota bus client", () => {
 			off();
 			bus.emit(TOKEN_CHANNELS.context, { v: 1, reason: "request", report });
 		}
-		expect(contexts).toHaveLength(2);
+		expect(contexts).toHaveLength(4);
 		offContext();
 	});
 	test("subscriptions validate broadcasts and unsubscribe", () => {

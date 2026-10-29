@@ -5,6 +5,7 @@ import type { BreakdownPart, ContextReport } from "../engine/index.ts";
 export type TrackerReason =
 	| "session_start"
 	| "model_select"
+	| "thinking_level_select"
 	| "message_end"
 	| "turn_end"
 	| "session_compact"

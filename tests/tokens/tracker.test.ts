@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ContextReport, TokenEngine } from "../../src/tokens/engine/index.ts";
 import { createTokenTracker } from "../../src/tokens/tracker/index.ts";
+import type { TrackerReason } from "../../src/tokens/tracker/types.ts";
 
 const report: ContextReport = {
 	provider: "fake",
@@ -17,6 +18,7 @@ const report: ContextReport = {
 };
 const ctx = {
 	model: { provider: "fake", id: "m" },
+	thinkingLevel: "low",
 	sessionManager: {
 		getSessionId: () => "session",
 		getLeafId: () => "leaf",
@@ -28,19 +30,21 @@ function context(
 	modelId: string,
 	sessionId: string,
 	getLeafId: () => string | null = () => "leaf",
+	thinkingLevel: NonNullable<ExtensionContext["thinkingLevel"]> = "low",
 ): ExtensionContext {
 	return {
 		model: { provider: "fake", id: modelId },
+		thinkingLevel,
 		sessionManager: { getSessionId: () => sessionId, getLeafId },
 	} as ExtensionContext;
 }
 
 function rig(context: TokenEngine["context"] = async () => report) {
-	const handlers = new Map<string, (ctx: ExtensionContext) => unknown>();
+	const handlers = new Map<string, (event: unknown, ctx: ExtensionContext) => unknown>();
 	const pi: Pick<ExtensionAPI, "on"> = {
 		on(event: string, handler: unknown) {
 			if (typeof handler !== "function") throw new Error("Expected event handler");
-			handlers.set(event, (current) => handler({ type: event }, current));
+			handlers.set(event, (eventData, current) => handler(eventData, current));
 			return () => {
 				handlers.delete(event);
 			};
@@ -58,7 +62,8 @@ function rig(context: TokenEngine["context"] = async () => report) {
 		tracker,
 		engine,
 		handlers,
-		run: (event: string, current = ctx) => handlers.get(event)?.(current),
+		run: (event: string, current = ctx, data: unknown = { type: event }) =>
+			handlers.get(event)?.(data, current),
 	};
 }
 
@@ -123,6 +128,55 @@ test("model changes invalidate immediately, suppress stale work, and same-model 
 		await wait(30);
 		expect(tracker.latest()).toBe(nextReport);
 		expect(changes).toContainEqual([nextReport, "turn_end"]);
+	} finally {
+		tracker.dispose();
+	}
+});
+
+test("thinking level changes invalidate same-model reports and suppress stale work", async () => {
+	const { tracker, run, engine } = rig();
+	const changes: Array<[ContextReport | undefined, TrackerReason]> = [];
+	const lowContext = context("m", "session", () => "leaf", "low");
+	const highContext = context("m", "session", () => "leaf", "high");
+	const pending: Array<{
+		context: ExtensionContext;
+		signal: AbortSignal | undefined;
+		resolve: (value: ContextReport) => void;
+	}> = [];
+	tracker.onChange((value, reason) => changes.push([value, reason]));
+	try {
+		run("session_start", lowContext);
+		await tracker.refresh();
+		engine.context = (current, signal) =>
+			new Promise((resolve) => pending.push({ context: current, signal, resolve }));
+		const staleRefresh = tracker.refresh();
+		expect(pending).toHaveLength(1);
+
+		run("thinking_level_select", highContext, {
+			type: "thinking_level_select",
+			level: "high",
+			previousLevel: "low",
+		});
+		expect(tracker.latest()).toBeUndefined();
+		expect(pending[0]?.signal?.aborted).toBe(true);
+		expect(changes.at(-1)).toEqual([undefined, "thinking_level_select"]);
+
+		await wait(30);
+		expect(pending).toHaveLength(2);
+		expect(pending[1]?.context).toBe(highContext);
+		const fresh = { ...report, computedAt: 44 };
+		pending[1]?.resolve(fresh);
+		await wait(0);
+		expect(tracker.latest()).toBe(fresh);
+
+		pending[0]?.resolve(report);
+		expect(await staleRefresh).toBeUndefined();
+		expect(tracker.latest()).toBe(fresh);
+		expect(changes).toEqual([
+			[report, "request"],
+			[undefined, "thinking_level_select"],
+			[fresh, "thinking_level_select"],
+		]);
 	} finally {
 		tracker.dispose();
 	}

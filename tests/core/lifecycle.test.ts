@@ -59,6 +59,7 @@ function lifecycleFixture(activeModel?: {
 		string,
 		Array<(payload?: Record<string, unknown>, context?: typeof ctx) => unknown>
 	>();
+	let activeTools = ["read", "bash"];
 	const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 	const notices: string[] = [];
 	const noticeTones: (string | undefined)[] = [];
@@ -146,7 +147,10 @@ function lifecycleFixture(activeModel?: {
 		getSettings: () => ({}),
 		getCommands: () => [],
 		events: bus,
-		registerTool: unexpected,
+		registerTool: (tool) => {
+			if (tool.defaultActive !== false && !activeTools.includes(tool.name))
+				activeTools.push(tool.name);
+		},
 		registerShortcut: unexpected,
 		registerMessageRenderer: unexpected,
 		registerMarkdownTransformer: unexpected,
@@ -158,9 +162,11 @@ function lifecycleFixture(activeModel?: {
 		getSessionName: unexpected,
 		setLabel: unexpected,
 		exec: unexpected,
-		getActiveTools: () => [],
+		getActiveTools: () => [...activeTools],
 		getAllTools: () => [],
-		setActiveTools: unexpected,
+		setActiveTools: (names) => {
+			activeTools = [...names];
+		},
 		setModel: async (next) => {
 			switches.push(next);
 			ctx.model = next;
@@ -585,9 +591,8 @@ test("session settings saves run the shared effects for each setting path", asyn
 		events.length = 0;
 		const store = deps.settings.store();
 		const persistence = spyOn(store, "save");
-		await store.save("runtime", { "models.groups": [group] });
 		waitForVisibility = true;
-		const applied = deps.settings.onSaved(["models.groups"], "runtime");
+		const applied = save("runtime", { "models.groups": [group] });
 		await visibilityEntered.promise;
 		expect(events).toEqual(["line", "visibility"]);
 		waitForVisibility = false;
@@ -719,7 +724,7 @@ test("committed settings report each failed effect and continue to later effects
 		expect(notices.at(-1)).toContain("Saved to runtime scope");
 		expect(notices.at(-1)).toContain("family unavailable");
 		events.length = 0;
-		await deps.settings.onSaved(["models.rules"], "runtime");
+		await deps.saveSettings("runtime", { "models.rules": [] });
 		expect(notices.at(-1)).toContain("catalog unavailable");
 		expect(events).toEqual([
 			"line",

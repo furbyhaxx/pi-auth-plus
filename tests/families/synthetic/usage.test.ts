@@ -142,10 +142,20 @@ function store(loaded = true): TokenizerStore {
 
 async function registered(tokenizers?: TokenizerStore, host?: FamilyHost) {
 	type Handler = (event: ExtensionEvent, ctx: ExtensionContext) => unknown;
+	type RegisteredTool = Parameters<ExtensionAPI["registerTool"]>[0];
 	const handlers = new Map<string, Handler>();
+	let activeTools = ["read", "bash"];
 	const pi = {
 		registerFlag: () => {},
 		getFlag: () => false,
+		registerTool: (tool: RegisteredTool) => {
+			if (tool.defaultActive !== false && !activeTools.includes(tool.name))
+				activeTools.push(tool.name);
+		},
+		getActiveTools: () => [...activeTools],
+		setActiveTools: (names: string[]) => {
+			activeTools = [...names];
+		},
 		on: (name: string, handler: Handler) => handlers.set(name, handler),
 	} as unknown as ExtensionAPI;
 	const family = createSyntheticFamily({}, undefined, undefined, undefined, tokenizers);

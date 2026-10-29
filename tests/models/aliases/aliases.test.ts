@@ -329,6 +329,7 @@ test("the entrypoint shares accepted aliases and warns once per rejection and re
 	);
 	const warnings: string[] = [];
 	const handlers = new Map<string, Array<(payload?: Record<string, unknown>) => unknown>>();
+	let activeTools = ["read", "bash"];
 	const runtime = {
 		stream: (_model: Model<Api>, _context: Context) => createAssistantMessageEventStream(),
 		streamSimple: (_model: Model<Api>, _context: Context) => createAssistantMessageEventStream(),
@@ -383,7 +384,10 @@ test("the entrypoint shares accepted aliases and warns once per rejection and re
 		getSettings: () => ({ packages: ["pi-quotas"] }),
 		getCommands: () => [],
 		events: createEventBus(),
-		registerTool: unexpected,
+		registerTool: (tool) => {
+			if (tool.defaultActive !== false && !activeTools.includes(tool.name))
+				activeTools.push(tool.name);
+		},
 		registerShortcut: unexpected,
 		registerMessageRenderer: unexpected,
 		registerMarkdownTransformer: unexpected,
@@ -395,9 +399,11 @@ test("the entrypoint shares accepted aliases and warns once per rejection and re
 		getSessionName: unexpected,
 		setLabel: unexpected,
 		exec: unexpected,
-		getActiveTools: unexpected,
+		getActiveTools: () => [...activeTools],
 		getAllTools: unexpected,
-		setActiveTools: unexpected,
+		setActiveTools: (names) => {
+			activeTools = [...names];
+		},
 		setModel: unexpected,
 		getThinkingLevel: unexpected,
 		setThinkingLevel: unexpected,
@@ -422,6 +428,7 @@ test("the entrypoint shares accepted aliases and warns once per rejection and re
 			!host.resolveModel ||
 			!deps?.models?.details?.aliases ||
 			!deps.settings ||
+			!deps.saveSettings ||
 			!config
 		) {
 			throw new Error("Alias runtime was not installed");
@@ -454,10 +461,9 @@ test("the entrypoint shares accepted aliases and warns once per rejection and re
 		await config.refreshModels?.({ ...refreshContext, stored: { models: [] } });
 		expect(aliasWarnings()).toHaveLength(3);
 		const missing = { provider: "synthetic", id: "missing", source: "absent" };
-		await host.settings().save("runtime", { "models.aliases": [collision, valid, missing] });
 		const notified = Promise.withResolvers<void>();
 		notifyAlias = notified.resolve;
-		deps.settings.onSaved(["models.aliases"], "runtime");
+		await deps.saveSettings("runtime", { "models.aliases": [collision, valid, missing] });
 		await notified.promise;
 		notifyAlias = undefined;
 		expect(aliasWarnings()).toHaveLength(4);

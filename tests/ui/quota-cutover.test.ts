@@ -6,6 +6,7 @@ import { QuotaEngine } from "../../src/quotas/engine.ts";
 
 function rig(packages: string[]) {
 	const handlers = new Map<string, Array<(payload?: Record<string, unknown>) => unknown>>();
+	let activeTools = ["read", "bash"];
 	const bus = createEventBus();
 	const notices: [string, string | undefined][] = [];
 	const ctx = {
@@ -40,7 +41,10 @@ function rig(packages: string[]) {
 		getSettings: () => ({ packages }),
 		getCommands: () => [],
 		events: bus,
-		registerTool: unexpected,
+		registerTool: (tool) => {
+			if (tool.defaultActive !== false && !activeTools.includes(tool.name))
+				activeTools.push(tool.name);
+		},
 		registerShortcut: unexpected,
 		registerMessageRenderer: unexpected,
 		registerMarkdownTransformer: unexpected,
@@ -52,9 +56,11 @@ function rig(packages: string[]) {
 		getSessionName: unexpected,
 		setLabel: unexpected,
 		exec: unexpected,
-		getActiveTools: unexpected,
+		getActiveTools: () => [...activeTools],
 		getAllTools: unexpected,
-		setActiveTools: unexpected,
+		setActiveTools: (names) => {
+			activeTools = [...names];
+		},
 		setModel: unexpected,
 		getThinkingLevel: unexpected,
 		setThinkingLevel: unexpected,

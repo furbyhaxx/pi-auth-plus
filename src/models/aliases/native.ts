@@ -12,7 +12,26 @@ import {
 	type StreamOptions,
 	type TranscriptContext,
 } from "@earendil-works/pi-ai";
-import { type AliasIssue, expandAliases, type ModelAlias, rewriteAliasPayload } from "./index.ts";
+import {
+	type AliasCatalogEntry,
+	type AliasIssue,
+	expandAliases,
+	type ModelAlias,
+	resolveAliases,
+	rewriteAliasPayload,
+} from "./index.ts";
+
+function modelKey(model: AliasCatalogEntry): string {
+	return JSON.stringify([model.provider, model.id, model.type ?? "chat"]);
+}
+
+function matchesAlias(model: AliasCatalogEntry, alias: ModelAlias): boolean {
+	return (
+		(model.type === undefined || model.type === "chat") &&
+		model.provider === alias.provider &&
+		model.id === alias.id
+	);
+}
 
 /** Wrap a provider while reading alias settings and its dynamic catalog on each operation. */
 export function wrapNativeAliases<TApi extends Api>(
@@ -23,22 +42,32 @@ export function wrapNativeAliases<TApi extends Api>(
 	function resolved() {
 		const catalog = provider.getModels();
 		const all = provider.getAllModels?.() ?? catalog;
-		const nonChat = all.filter((model) => !isModelType(model, "chat"));
-		const candidates: ModelAlias[] = [];
-		const collisions: AliasIssue[] = [];
-		for (const alias of aliases()) {
-			if (alias.provider !== provider.id) continue;
-			if (nonChat.some((model) => model.provider === alias.provider && model.id === alias.id)) {
-				collisions.push({ kind: "collision", alias });
-			} else {
-				candidates.push(alias);
-			}
-		}
-		const expanded = expandAliases(catalog, candidates);
-		const issues = [...collisions, ...expanded.issues];
-		report?.(issues);
-		const rejected = new Set(expanded.issues.map((issue) => issue.alias));
-		return { catalog, aliases: candidates.filter((alias) => !rejected.has(alias)) };
+		const resolution = resolveAliases(
+			all,
+			aliases().filter((alias) => alias.provider === provider.id),
+		);
+		report?.(resolution.issues);
+		return { catalog, all, aliases: resolution.aliases };
+	}
+
+	function policyInputs<T extends AliasCatalogEntry>(
+		current: ReturnType<typeof resolved>,
+		models: readonly T[],
+	) {
+		const requested = current.aliases.filter((alias) =>
+			models.some((model) => matchesAlias(model, alias)),
+		);
+		const originals = models.filter(
+			(model) => !current.aliases.some((alias) => matchesAlias(model, alias)),
+		);
+		const incoming = new Set(originals.map(modelKey));
+		// Borrow hidden sources for policy evaluation without returning them.
+		const sources = current.catalog.filter(
+			(model) =>
+				!incoming.has(modelKey(model)) &&
+				requested.some((alias) => alias.provider === model.provider && alias.source === model.id),
+		);
+		return { requested, originals, sources, incoming };
 	}
 
 	function optionsFor<T extends StreamOptions>(
@@ -120,44 +149,46 @@ export function wrapNativeAliases<TApi extends Api>(
 		},
 		getAllModels() {
 			const current = resolved();
-			const all = provider.getAllModels?.() ?? current.catalog;
 			const added = expandAliases(current.catalog, current.aliases).models.slice(
 				current.catalog.length,
 			);
-			return [...all, ...added];
+			return [...current.all, ...added];
 		},
 		filterModels(models, credential) {
 			const current = resolved();
-			const ids = new Set(current.aliases.map((alias) => alias.id));
-			const originals = models.filter((model) => !ids.has(model.id));
-			const available = provider.filterModels?.(originals, credential) ?? originals;
-			return expandAliases(available, current.aliases).models;
+			const { requested, originals, sources, incoming } = policyInputs(current, models);
+			const physical = [...originals, ...sources];
+			const available = provider.filterModels?.(physical, credential) ?? physical;
+			return [
+				...available.filter((model) => incoming.has(modelKey(model))),
+				...expandAliases(available, requested).models.slice(available.length),
+			];
 		},
 		filterAllModels(models, credential) {
 			const current = resolved();
-			const ids = new Set(current.aliases.map((alias) => alias.id));
-			const originals = models.filter((model) => !isModelType(model, "chat") || !ids.has(model.id));
+			const { requested, originals, sources, incoming } = policyInputs(current, models);
+			const physical = [...originals, ...sources];
 			if (provider.filterAllModels) {
-				const available = provider.filterAllModels(originals, credential);
+				const available = provider.filterAllModels(physical, credential);
 				const chats = available.filter((model): model is Model<TApi> => isModelType(model, "chat"));
-				return [...available, ...expandAliases(chats, current.aliases).models.slice(chats.length)];
+				return [
+					...available.filter((model) => incoming.has(modelKey(model))),
+					...expandAliases(chats, requested).models.slice(chats.length),
+				];
 			}
-			const chats = originals.filter((model): model is Model<TApi> => isModelType(model, "chat"));
+			const chats = physical.filter((model): model is Model<TApi> => isModelType(model, "chat"));
 			const available = provider.filterModels?.(chats, credential) ?? chats;
-			const availableById = new Map(available.map((model) => [model.id, model]));
+			const availableById = new Map(available.map((model) => [modelKey(model), model]));
 			const filtered: (typeof originals)[number][] = [];
 			for (const model of originals) {
 				if (!isModelType(model, "chat")) {
 					filtered.push(model);
 				} else {
-					const transformed = availableById.get(model.id);
+					const transformed = availableById.get(modelKey(model));
 					if (transformed) filtered.push(transformed);
 				}
 			}
-			return [
-				...filtered,
-				...expandAliases(available, current.aliases).models.slice(available.length),
-			];
+			return [...filtered, ...expandAliases(available, requested).models.slice(available.length)];
 		},
 		stream(model, context, options) {
 			const alias = resolved().aliases.find(

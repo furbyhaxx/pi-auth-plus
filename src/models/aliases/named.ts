@@ -1,6 +1,6 @@
 /** Alias expansion for extension-registered provider catalogs. */
 import type { ProviderConfig, ProviderModelConfig } from "@earendil-works/pi-coding-agent";
-import type { AliasIssue, ModelAlias } from "./index.ts";
+import { type AliasIssue, type ModelAlias, resolveAliases } from "./index.ts";
 
 /** Preserve provider configuration while adding aliases of unambiguous physical chat models. */
 export function wrapNamedAliases(
@@ -11,24 +11,17 @@ export function wrapNamedAliases(
 ): ProviderConfig {
 	function expand(physical: ProviderModelConfig[]): ProviderModelConfig[] {
 		const models = [...physical];
-		const issues: AliasIssue[] = [];
-		const counts = new Map<string, number>();
-		for (const model of physical) counts.set(model.id, (counts.get(model.id) ?? 0) + 1);
-		const ids = new Set(counts.keys());
-		for (const alias of aliases()) {
-			if (alias.provider !== providerId) continue;
-			if (ids.has(alias.id)) {
-				issues.push({ kind: "collision", alias });
-				continue;
-			}
-			const source =
-				counts.get(alias.source) === 1
-					? physical.find((model) => model.id === alias.source)
-					: undefined;
-			if (!source || (source.type !== undefined && source.type !== "chat")) {
-				issues.push({ kind: "missing-source", alias });
-				continue;
-			}
+		const resolution = resolveAliases(
+			physical.map((model) => ({
+				provider: providerId,
+				id: model.id,
+				...(model.type !== undefined ? { type: model.type } : {}),
+			})),
+			aliases().filter((alias) => alias.provider === providerId),
+		);
+		for (const alias of resolution.aliases) {
+			const source = physical.find((model) => model.id === alias.source);
+			if (!source || (source.type !== undefined && source.type !== "chat")) continue;
 			models.push({
 				...source,
 				id: alias.id,
@@ -36,9 +29,8 @@ export function wrapNamedAliases(
 				...(alias.contextWindow !== undefined ? { contextWindow: alias.contextWindow } : {}),
 				...(alias.maxTokens !== undefined ? { maxTokens: alias.maxTokens } : {}),
 			});
-			ids.add(alias.id);
 		}
-		report?.(issues);
+		report?.(resolution.issues);
 		return models;
 	}
 

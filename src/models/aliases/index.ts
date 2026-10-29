@@ -10,19 +10,30 @@ export interface ModelAlias {
 	readonly maxTokens?: number;
 }
 
-/** The model fields needed to expand an alias. */
-export interface AliasCatalogModel {
+/** Provider-scoped physical identity and model type for alias validation. */
+export interface AliasCatalogEntry {
 	readonly provider: string;
 	readonly id: string;
+	readonly type?: string;
+}
+
+/** The model fields needed to expand an alias. */
+export interface AliasCatalogModel extends AliasCatalogEntry {
 	readonly name: string;
 	readonly contextWindow: number;
 	readonly maxTokens: number;
 }
 
-/** An alias that could not be added to the catalog. */
+/** A collision, or a missing, ambiguous or nonchat source. */
 export interface AliasIssue {
 	readonly kind: "collision" | "missing-source";
 	readonly alias: ModelAlias;
+}
+
+/** Accepted aliases and the rejected entries from one physical catalog. */
+export interface AliasResolution {
+	readonly aliases: readonly ModelAlias[];
+	readonly issues: readonly AliasIssue[];
 }
 
 /** Catalog metadata is retained while alias-controlled fields can change. */
@@ -75,25 +86,46 @@ export function parseAliases(raw: unknown): readonly ModelAlias[] | undefined {
 	return aliases;
 }
 
+/** Resolve provider-scoped aliases against the unexpanded physical catalog. */
+export function resolveAliases(
+	catalog: readonly AliasCatalogEntry[],
+	aliases: readonly ModelAlias[],
+): AliasResolution {
+	const accepted: ModelAlias[] = [];
+	const issues: AliasIssue[] = [];
+	for (const alias of aliases) {
+		if (
+			catalog.some((model) => model.provider === alias.provider && model.id === alias.id) ||
+			accepted.some((entry) => entry.provider === alias.provider && entry.id === alias.id)
+		) {
+			issues.push({ kind: "collision", alias });
+			continue;
+		}
+		const sources = catalog.filter(
+			(model) => model.provider === alias.provider && model.id === alias.source,
+		);
+		const source = sources[0];
+		if (sources.length !== 1 || !source || (source.type !== undefined && source.type !== "chat")) {
+			issues.push({ kind: "missing-source", alias });
+			continue;
+		}
+		accepted.push(alias);
+	}
+	return { aliases: accepted, issues };
+}
+
 /** Append aliases of original models and report any that cannot be added. */
 export function expandAliases<T extends AliasCatalogModel>(
 	catalog: readonly T[],
 	aliases: readonly ModelAlias[],
 ): { readonly models: readonly ExpandedModel<T>[]; readonly issues: readonly AliasIssue[] } {
+	const resolution = resolveAliases(catalog, aliases);
 	const models: ExpandedModel<T>[] = [...catalog];
-	const issues: AliasIssue[] = [];
-	for (const alias of aliases) {
-		if (models.some((model) => model.provider === alias.provider && model.id === alias.id)) {
-			issues.push({ kind: "collision", alias });
-			continue;
-		}
+	for (const alias of resolution.aliases) {
 		const source = catalog.find(
 			(model) => model.provider === alias.provider && model.id === alias.source,
 		);
-		if (!source) {
-			issues.push({ kind: "missing-source", alias });
-			continue;
-		}
+		if (!source) continue;
 		models.push({
 			...source,
 			id: alias.id,
@@ -102,7 +134,7 @@ export function expandAliases<T extends AliasCatalogModel>(
 			maxTokens: alias.maxTokens ?? source.maxTokens,
 		});
 	}
-	return { models, issues };
+	return { models, issues: resolution.issues };
 }
 
 /** Rewrite a selected alias only when the body still names that alias. */

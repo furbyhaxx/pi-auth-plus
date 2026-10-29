@@ -148,6 +148,9 @@ test("count diagnostics show sanitized recovery and clear when the latest report
 	const scrolled = view.render(36, 1);
 	expect(scrolled.lines[0]).toContain("Recovery");
 	expect(scrolled.above).toBe(8);
+	const shortFeedback = scrolled.fullFeedback?.map(stripVTControlCharacters).join("\n") ?? "";
+	expect(shortFeedback).toContain("POST https://count.example.test/v1/count returned 401.");
+	expect(shortFeedback).toContain("Run /login test-provider to authenticate.");
 
 	f.change({ ...report, tokens: { tokens: 1300, source: "provider" } });
 	expect(tokensText(f.tracker)).not.toContain("Recovery");

@@ -20,11 +20,13 @@ function plural(value: number, noun: string): string {
 
 function count(value: TokenCount): string {
 	const source =
-		value.source === "provider" || value.source === "count-endpoint"
-			? `exact (${value.source === "provider" ? "usage" : "count API"})`
-			: value.source === "tokenizer"
-				? "tokenizer estimate"
-				: "estimate";
+		value.source === "provider"
+			? "exact (usage)"
+			: value.source === "count-endpoint"
+				? "count API"
+				: value.source === "tokenizer"
+					? "tokenizer estimate"
+					: "estimate";
 	return `${number(value.tokens)} · ${source}`;
 }
 

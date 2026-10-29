@@ -1,7 +1,7 @@
 /** Shared token-counting contracts between the token engine, tokenizers and families. */
 import type { Api, Context, Model } from "@earendil-works/pi-ai";
 
-/** Where a count comes from, in precedence order; only the first two are exact. */
+/** Where a count comes from, in precedence order; native counts describe their supplied request. */
 export type TokenSource = "provider" | "count-endpoint" | "tokenizer" | "estimate";
 
 /** A token count labelled with its source. */

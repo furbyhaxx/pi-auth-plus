@@ -96,7 +96,7 @@ test("live context totals, sources, Pi delta and asynchronous contributions fit 
 		expect(initial).toContain(value);
 	f.resolve([{ kind: "system", count: { tokens: 200, source: "count-endpoint" }, items: 1 }]);
 	await Promise.resolve();
-	expect(text(f.view)).toContain("200 · exact (count API) · 1 item");
+	expect(text(f.view)).toContain("200 · count API · 1 item");
 	for (const width of [36, 57, 80, 140]) {
 		for (const line of f.view.render(width, 100).lines)
 			expect(visibleWidth(line)).toBeLessThanOrEqual(width);

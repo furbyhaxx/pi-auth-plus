@@ -3,6 +3,7 @@ import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../core/config/index.ts";
 import { formatSaveOutcome, type SaveOutcome } from "../../core/config/save.ts";
 import { type GroupMember, type ModelGroup, parseGroups } from "../../models/groups/config.ts";
+import type { GroupMemberHealth } from "../../models/groups/member.ts";
 import { sanitize } from "../frame/index.ts";
 import { GroupDetail } from "./group-detail.ts";
 import type { ModelCatalogItem } from "./models.ts";
@@ -12,11 +13,19 @@ import type { TabBody, TabView, TabViewHost } from "./view.ts";
 export interface GroupsTabDeps {
 	groups(): readonly ModelGroup[];
 	catalog(): readonly ModelCatalogItem[];
-	health?(member: GroupMember): "healthy" | "unavailable" | "unknown";
+	health?(member: GroupMember): GroupMemberHealth;
 	save(groups: readonly ModelGroup[], scope: SaveScope): Promise<SaveOutcome>;
 }
 
 const clean = (value: string): string => sanitize(value).replace(/\n/g, " ");
+const healthStates: readonly GroupMemberHealth["state"][] = [
+	"healthy",
+	"exhausted",
+	"needs-auth",
+	"unavailable",
+	"unknown",
+];
+const unknownHealth: GroupMemberHealth = { state: "unknown", routable: false };
 
 /** A staged group editor with explicit scoped saves. */
 export class GroupsView implements TabView {
@@ -180,20 +189,39 @@ export class GroupsView implements TabView {
 		const groups = this.#groups();
 		this.#selected = Math.max(0, Math.min(this.#selected, groups.length - 1));
 		const rows: string[] = [];
+		const rowStarts: number[] = [];
 		for (const [index, group] of groups.entries()) {
-			let healthy = 0;
-			let unknown = 0;
-			for (const member of group.members) {
-				const health = this.#deps.health?.(member) ?? "unknown";
-				if (health === "healthy") healthy++;
-				else if (health === "unknown") unknown++;
+			rowStarts.push(rows.length);
+			const memberHealth = group.members.map((member) => ({
+				member,
+				health: this.#deps.health?.(member) ?? unknownHealth,
+			}));
+			const counts: Record<GroupMemberHealth["state"], number> = {
+				healthy: 0,
+				unknown: 0,
+				unavailable: 0,
+				"needs-auth": 0,
+				exhausted: 0,
+			};
+			for (const { health } of memberHealth) counts[health.state]++;
+			const summary =
+				healthStates
+					.filter((state) => counts[state] > 0)
+					.map((state) => `${counts[state]} ${state}`)
+					.join(" · ") || "no member health";
+			rows.push(
+				` ${index === this.#selected ? theme.fg("accent", "❯") : " "} ${clean(group.id)} · ${summary}${group.name ? ` · ${clean(group.name)}` : ""} · ${group.strategy} · ${group.members.length} members`,
+			);
+			for (const { member, health } of memberHealth) {
+				const eligibility = health.routable
+					? health.state === "unknown"
+						? "best-effort"
+						: "routable"
+					: "not routable";
+				rows.push(
+					` ${health.state} · ${eligibility} ${clean(member.provider)}/${clean(member.id)}`,
+				);
 			}
-			rows.push(
-				` ${index === this.#selected ? theme.fg("accent", "❯") : " "} ${clean(group.id)}${group.name ? ` · ${clean(group.name)}` : ""} · ${group.strategy} · ${group.members.length} members · ${healthy}/${group.members.length} healthy${unknown ? ` · ${unknown} unknown` : ""}`,
-			);
-			rows.push(
-				`   ${group.members.map((member) => `${clean(member.provider)}/${clean(member.id)}`).join(" → ")}`,
-			);
 		}
 		if (!rows.length) rows.push(" No groups configured.");
 		const details =
@@ -204,9 +232,10 @@ export class GroupsView implements TabView {
 					: [];
 		const reserved = Math.min(details.length, Math.max(0, bodyRows - 1));
 		const available = Math.max(0, bodyRows - reserved);
-		const selectedRow = this.#selected * 2;
+		const selectedRow = rowStarts[this.#selected] ?? 0;
 		this.#offset = Math.max(0, Math.min(this.#offset, selectedRow));
-		const selectedEnd = selectedRow + (groups.length > 0 && available >= 2 ? 1 : 0);
+		const selectedEnd =
+			selectedRow + (groups[this.#selected]?.members.length && available >= 2 ? 1 : 0);
 		this.#offset = Math.max(this.#offset, selectedEnd - available + 1);
 		this.#offset = Math.max(0, Math.min(this.#offset, rows.length - available));
 		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);

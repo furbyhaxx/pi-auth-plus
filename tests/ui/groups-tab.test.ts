@@ -10,7 +10,8 @@ import {
 } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../src/core/config/index.ts";
 import type { SaveOutcome } from "../../src/core/config/save.ts";
-import type { ModelGroup } from "../../src/models/groups/config.ts";
+import type { GroupMember, ModelGroup } from "../../src/models/groups/config.ts";
+import type { GroupMemberHealth } from "../../src/models/groups/member.ts";
 import { GroupsView } from "../../src/ui/dashboard/groups.ts";
 import type { ModelCatalogItem } from "../../src/ui/dashboard/models.ts";
 import type { TabViewHost } from "../../src/ui/dashboard/view.ts";
@@ -29,6 +30,10 @@ function open(
 		{ provider: "vendor", id: "one", name: "One", contextWindow: 1000 },
 	],
 	bindings: KeybindingsConfig = {},
+	health: (member: GroupMember) => GroupMemberHealth = (member) =>
+		member.id === "one"
+			? { state: "healthy", routable: true }
+			: { state: "unknown", routable: true },
 ) {
 	let stored = [...initial];
 	let fail = false;
@@ -59,7 +64,7 @@ function open(
 	const view = new GroupsView(host, {
 		groups: () => stored,
 		catalog,
-		health: (member) => (member.id === "one" ? "healthy" : "unknown"),
+		health,
 		save: async (groups, scope) => {
 			const outcome: SaveOutcome = fail
 				? { committed: false, error: "disk error; retry" }
@@ -524,25 +529,71 @@ describe("groups tab", () => {
 		await done;
 		view.dispose();
 	});
-	test("renders health, ordered members, scroll and sanitization at narrow and wide widths", () => {
+	test("renders each health state and eligibility, scroll, and fit at supported widths", () => {
+		const healthById: Record<string, GroupMemberHealth> = {
+			one: { state: "healthy", routable: true },
+			dry: { state: "exhausted", routable: false },
+			auth: { state: "needs-auth", routable: false },
+			maybe: { state: "unknown", routable: true },
+			hold: { state: "unknown", routable: false },
+			lost: { state: "unavailable", routable: false },
+			unknown: { state: "unknown", routable: true },
+		};
 		const groups = Array.from(
 			{ length: 9 },
 			(_, i): ModelGroup => ({
 				...group(`group-${i}`),
 				name: `Name\x1b]0;evil\x07`,
-				members: [
-					{ provider: "vendor", id: "one", tier: 1 },
-					{ provider: "other", id: "unknown", tier: 2 },
-				],
+				members:
+					i === 0
+						? [
+								{ provider: "v", id: "one", tier: 1 },
+								{ provider: "v", id: "dry", tier: 2 },
+								{ provider: "v", id: "auth", tier: 3 },
+								{ provider: "v", id: "maybe", tier: 4 },
+								{ provider: "v", id: "hold", tier: 5 },
+								{ provider: "v", id: "lost", tier: 6 },
+							]
+						: [
+								{ provider: "vendor", id: "one", tier: 1 },
+								{ provider: "other", id: "unknown", tier: 2 },
+							],
 			}),
 		);
-		const r = open(groups);
-		expect(r.text()).toContain("1/2 healthy");
-		expect(r.text()).toContain("1 unknown");
-		expect(r.text()).toContain("vendor/one → other/unknown");
+		const r = open(
+			groups,
+			undefined,
+			{},
+			(member) => healthById[member.id] ?? { state: "unknown", routable: false },
+		);
+		const lines = r.view.render(140, 60).lines.map(stripVTControlCharacters);
+		const summary = lines.find((line) => line.includes("group-0"));
+		expect(summary).toContain("1 healthy · 1 exhausted · 1 needs-auth · 1 unavailable · 2 unknown");
+		expect(summary).not.toContain("3 healthy");
+		expect(lines.indexOf(" healthy · routable v/one")).toBeLessThan(
+			lines.indexOf(" exhausted · not routable v/dry"),
+		);
+		expect(lines).toContain(" healthy · routable v/one");
+		expect(lines).toContain(" exhausted · not routable v/dry");
+		expect(lines).toContain(" needs-auth · not routable v/auth");
+		expect(lines).toContain(" unknown · best-effort v/maybe");
+		expect(lines).toContain(" unknown · not routable v/hold");
+		expect(lines).toContain(" unavailable · not routable v/lost");
 		expect(r.text()).not.toContain("evil");
+		r.press("\r");
+		expect(r.text()).toContain("v/lost");
+		r.press("\x1b");
+		const narrowLines = r.view.render(36, 60).lines.map(stripVTControlCharacters);
+		for (const line of narrowLines) expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+		expect(narrowLines.find((line) => line.includes("group-0"))).toContain("1 healthy");
+		expect(narrowLines).toContain(" healthy · routable v/one");
+		expect(narrowLines).toContain(" exhausted · not routable v/dry");
+		expect(narrowLines).toContain(" needs-auth · not routable v/auth");
+		expect(narrowLines).toContain(" unknown · best-effort v/maybe");
+		expect(narrowLines).toContain(" unknown · not routable v/hold");
+		expect(narrowLines).toContain(" unavailable · not routable v/lost");
 		for (let i = 0; i < 9; i++) {
-			for (const width of [40, 80]) {
+			for (const width of [36, 57, 80, 140]) {
 				const body = r.view.render(width, 4);
 				expect(body.lines.length).toBeLessThanOrEqual(4);
 				for (const line of [...body.lines, body.state ?? "", body.description ?? ""])
@@ -550,6 +601,6 @@ describe("groups tab", () => {
 			}
 			r.press("j");
 		}
-		expect(r.view.render(40, 4).above).toBeGreaterThan(0);
+		expect(r.view.render(36, 4).above).toBeGreaterThan(0);
 	});
 });

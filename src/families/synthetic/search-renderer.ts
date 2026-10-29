@@ -83,6 +83,19 @@ function record(value: unknown): Record<string, unknown> | undefined {
 		: undefined;
 }
 
+function pathPart(path: string, width: number, continuationWidth: number): string {
+	const part = sliceByColumn(path, 0, width, true);
+	const slash = path.lastIndexOf("/");
+	if (
+		slash >= 0 &&
+		slash < part.length &&
+		part.length < path.length &&
+		visibleWidth(path.slice(slash + 1)) <= continuationWidth
+	)
+		return path.slice(0, slash + 1);
+	return part;
+}
+
 function lines(build: (width: number) => string[], outputPad: number): Component {
 	return {
 		render(width) {
@@ -105,17 +118,24 @@ export function renderSearchCall(name: string, theme: Theme, context: Context): 
 		const [symbol, tone] = MARKERS[phase];
 		const label = phase === "done" && state.count === 0 ? "empty" : phase;
 		const heading = `${theme.fg(tone, symbol)} ${theme.bold(theme.fg("toolTitle", name))} ${theme.fg(tone, label)}`;
+		const truncated = phase === "done" && state.truncated ? " · truncated" : "";
+		const inlineWarning = truncated && visibleWidth(heading + truncated) <= width ? truncated : "";
 		const rawCount =
 			phase === "done" && state.count !== undefined && state.count > 0 ? ` · ${state.count}` : "";
 		const count =
-			rawCount && visibleWidth(`${heading}${rawCount} results`) <= width
+			rawCount && visibleWidth(`${heading}${inlineWarning}${rawCount} results`) <= width
 				? `${rawCount} results`
-				: rawCount;
-		const truncated = phase === "done" && state.truncated ? " · truncated" : "";
+				: visibleWidth(`${heading}${inlineWarning}${rawCount}`) <= width
+					? rawCount
+					: "";
 		const expand = phase === "done" && state.expandable && !context.expanded ? " · expand" : "";
-		return [
-			`${heading}${theme.fg("muted", count + truncated + expand)}${state.query ? ` ${theme.fg("accent", `“${state.query}”`)}` : ""}`,
+		const warning = inlineWarning ? theme.fg("warning", inlineWarning) : "";
+		const result = [
+			`${heading}${warning}${theme.fg("muted", count + expand)}${state.query ? ` ${theme.fg("accent", `“${state.query}”`)}` : ""}`,
 		];
+		if (truncated && !inlineWarning)
+			result.push(`  ${theme.fg("dim", "⎿")}  ${theme.fg("warning", "truncated")}`);
+		return result;
 	}, context.outputPad);
 }
 
@@ -176,13 +196,25 @@ export function renderSearchResult(
 			typeof code === "string" && Object.hasOwn(reason, code)
 				? reason[code as keyof typeof reason]
 				: "search failed";
-		return lines(
-			() => [
+		const detail =
+			options.expanded && details?.["kind"] === "error" && typeof details["message"] === "string"
+				? previewText(details["message"], 4096)
+				: undefined;
+		return lines((width) => {
+			const recovery =
+				visibleWidth("Retry or run /login synthetic") <= width - 5
+					? "Retry or run /login synthetic"
+					: "Retry; /login synthetic";
+			const output = [
 				`  ${theme.fg("dim", "⎿")}  ${theme.fg("error", message)}`,
-				`     ${theme.fg("muted", "Retry or run /login synthetic")}`,
-			],
-			context.outputPad,
-		);
+				`     ${theme.fg("muted", recovery)}`,
+			];
+			if (detail) {
+				for (const row of wrapTextWithAnsi(detail, Math.max(1, width - 5)))
+					output.push(`     ${theme.fg("muted", row)}`);
+			}
+			return output;
+		}, context.outputPad);
 	}
 	if (
 		!options.expanded ||
@@ -208,27 +240,41 @@ export function renderSearchResult(
 	let cachedRows: string[] = [];
 	return lines((width) => {
 		if (cachedWidth === width) return cachedRows;
+		const textWidth = Math.max(1, width - 5);
+		const footer: string[] = [];
+		if (hidden > 0) footer.push(`… ${hidden} more results`);
+		if (state.truncated) footer.push("Model output truncated");
+		if (path) {
+			const label = "Full text: ";
+			const first = pathPart(path, Math.max(0, textWidth - visibleWidth(label)), textWidth);
+			footer.push(label + first);
+			let rest = path.slice(first.length);
+			while (rest) {
+				const part = pathPart(rest, textWidth, textWidth);
+				if (!part) {
+					footer.push("…");
+					break;
+				}
+				footer.push(part);
+				rest = rest.slice(part.length);
+			}
+		}
 		const shown: string[] = [];
+		const resultBudget = Math.max(0, MAX_EXPANDED_LINES - footer.length);
 		let omitted = false;
 		for (const row of rows) {
-			const wrapped = wrapTextWithAnsi(row, Math.max(1, width - 5));
-			if (shown.length + wrapped.length > MAX_EXPANDED_LINES) {
+			const wrapped = wrapTextWithAnsi(row, textWidth);
+			if (shown.length + wrapped.length > resultBudget) {
 				omitted = true;
 				break;
 			}
 			shown.push(...wrapped);
 		}
-		if (omitted) shown.push("… more results omitted");
-		if (hidden > 0) shown.push(`… ${hidden} more results`);
-		if (state.truncated) shown.push("Model output truncated");
-		if (path) {
-			const room = Math.max(0, width - 5 - visibleWidth("Full text: "));
-			const value =
-				visibleWidth(path) > room && room > 1
-					? `…${sliceByColumn(path, visibleWidth(path) - room + 1, room - 1, true)}`
-					: truncateToWidth(path, room, "…");
-			shown.push(`Full text: ${value}`);
+		if (omitted && resultBudget > 0) {
+			if (shown.length === resultBudget) shown.pop();
+			shown.push("… more results omitted");
 		}
+		shown.push(...footer);
 		cachedWidth = width;
 		cachedRows = shown.map(
 			(row, index) =>

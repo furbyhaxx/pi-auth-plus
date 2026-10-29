@@ -994,6 +994,166 @@ describe("families/synthetic", () => {
 		expect(await bodyPending).toMatchObject({ isError: true, details: { kind: "aborted" } });
 	});
 
+	test("keeps collapsed truncation warnings visible at every width and padding", async () => {
+		const { tools } = await registered(undefined, { setting: true });
+		const tool = tools[0];
+		if (!tool?.renderCall || !tool.renderResult) throw new Error("renderers missing");
+		const tones: string[] = [];
+		const theme = {
+			fg: (color: string, text: string) => {
+				tones.push(`${color}:${text}`);
+				return text;
+			},
+			bold: (text: string) => text,
+		};
+		for (const width of [36, 57, 80, 140]) {
+			for (const outputPad of [0, 1, 2, 4]) {
+				const render = (truncated: boolean) => {
+					const context = {
+						state: {},
+						outputPad,
+						argsComplete: true,
+						executionStarted: true,
+						isError: false,
+						expanded: false,
+					};
+					const call = tool.renderCall?.({ query: "search" }, theme as never, context as never);
+					const result = tool.renderResult?.(
+						{
+							content: [{ type: "text", text: "PAGE BODY PRIVATE" }],
+							details: { kind: "success", query: "search", resultCount: 2, results: [], truncated },
+						},
+						{ expanded: false, isPartial: false },
+						theme as never,
+						context as never,
+					);
+					return [...(call?.render(width) ?? []), ...(result?.render(width) ?? [])];
+				};
+				const ordinary = render(false);
+				const truncated = render(true);
+				for (const line of [...ordinary, ...truncated])
+					expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				expect(truncated.join("\n")).not.toBe(ordinary.join("\n"));
+				expect(truncated.join("\n")).toContain("truncated");
+				expect(truncated.join("\n")).not.toContain("PAGE BODY PRIVATE");
+			}
+		}
+		expect(tones.some((tone) => tone.startsWith("success:"))).toBe(true);
+		expect(tones.some((tone) => tone.startsWith("warning:") && tone.includes("truncated"))).toBe(
+			true,
+		);
+	});
+
+	test("wraps the complete sanitized full-text path within the expanded line budget", async () => {
+		const { tools } = await registered(undefined, { setting: true });
+		const tool = tools[0];
+		if (!tool?.renderResult) throw new Error("renderer missing");
+		const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text };
+		const prefix = `/tmp/${"a".repeat(48)}  界 \u200b${"b".repeat(2100)}`;
+		const secret = "syn_0123456789abcdefghijkl";
+		const path = `${prefix}/${secret}/\x1b]0;EVIL\x07full-search.md`;
+		const expectedPath = `${prefix}/[redacted]/full-search.md`;
+		for (const width of [36, 57, 80, 140]) {
+			for (const outputPad of [0, 1, 2, 4]) {
+				const context = { state: {}, outputPad, isError: false, expanded: true };
+				const component = tool.renderResult(
+					{
+						content: [{ type: "text", text: "PAGE BODY PRIVATE" }],
+						details: {
+							kind: "success",
+							resultCount: 80,
+							truncated: true,
+							fullOutputPath: path,
+							results: Array.from({ length: 50 }, (_, index) => ({
+								title: `Title ${index}`,
+								url: `https://example.test/${"x".repeat(280)}`,
+							})),
+						},
+					},
+					{ expanded: true, isPartial: false },
+					theme as never,
+					context as never,
+				);
+				const rendered = component.render(width).map(stripVTControlCharacters);
+				expect(component.render(width).map(stripVTControlCharacters)).toEqual(rendered);
+				component.render(width === 36 ? 57 : 36);
+				expect(component.render(width).map(stripVTControlCharacters)).toEqual(rendered);
+				for (const line of rendered) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				const pathIndex = rendered.findIndex((line) => line.includes("Full text: "));
+				expect(pathIndex).toBeGreaterThanOrEqual(0);
+				const first = rendered[pathIndex] ?? "";
+				const reconstructed = [
+					first.slice(first.indexOf("Full text: ") + "Full text: ".length),
+					...rendered.slice(pathIndex + 1).map((line) => line.slice(outputPad + 5)),
+				].join("");
+				expect(reconstructed === expectedPath).toBe(true);
+				expect(rendered.length).toBeLessThanOrEqual(200);
+				const text = rendered.join("\n");
+				expect(text).toContain("more results omitted");
+				expect(text).toContain("30 more results");
+				expect(text).not.toContain(secret);
+				expect(text).not.toContain("EVIL");
+				expect(text).not.toContain("PAGE BODY PRIVATE");
+			}
+		}
+	});
+
+	test("shows sanitized structured HTTP diagnostics on expansion", async () => {
+		const { tools, startSession } = await registered(
+			async () => new Response("body", { status: 503 }),
+			{
+				setting: true,
+			},
+		);
+		startSession();
+		const tool = tools[0];
+		if (!tool?.renderResult) throw new Error("renderer missing");
+		const result = await tool.execute("call", { query: "search" }, undefined, undefined, {
+			modelRegistry: { getProviderAuth: async () => ({ auth: { apiKey: "test-key" } }) },
+		} as never);
+		expect(result).toMatchObject({ isError: true, details: { kind: "error", status: 503 } });
+		const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text };
+		for (const width of [36, 57, 80, 140]) {
+			for (const outputPad of [0, 1, 2, 4]) {
+				const render = (expanded: boolean, value: AgentToolResult<unknown>) =>
+					tool
+						.renderResult?.(
+							value,
+							{ expanded, isPartial: false },
+							theme as never,
+							{ state: {}, outputPad, isError: true, expanded } as never,
+						)
+						.render(width) ?? [];
+				const collapsed = render(false, result);
+				const expanded = render(true, result);
+				for (const line of [...collapsed, ...expanded])
+					expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				expect(collapsed.join("\n")).toContain("HTTP 503");
+				expect(collapsed.join("\n")).toContain("/login synthetic");
+				const text = expanded.join("").replace(/\s/gu, "");
+				expect(text).toContain("synthetic:HTTP503");
+				expect(text).toContain("https://api.synthetic.new/v2/search");
+				expect(text).toContain("HTTP503");
+				expect(text).toContain("/loginsynthetic");
+				const untrusted = render(true, {
+					content: [{ type: "text", text: "PAGE BODY PRIVATE" }],
+					details: {
+						kind: "error",
+						code: "http",
+						status: 503,
+						message:
+							"Synthetic: HTTP 503 at https://bob:pass@example.test/?token=syn_0123456789abcdefghijkl; retry.\x1b]0;EVIL\x07",
+					},
+				}).join("\n");
+				expect(untrusted.replace(/\s/gu, "")).toContain("[redacted]");
+				expect(untrusted).not.toContain("pass@");
+				expect(untrusted).not.toContain("syn_0123456789abcdefghijkl");
+				expect(untrusted).not.toContain("EVIL");
+				expect(untrusted).not.toContain("PAGE BODY PRIVATE");
+			}
+		}
+	});
+
 	test("renderer covers every phase, widths and untrusted text without page output", async () => {
 		const { tools, startSession } = await registered(undefined, { setting: true });
 		startSession();

@@ -39,11 +39,13 @@ Files are partial JSON objects with nested sections, not dotted top-level keys:
 ```
 
 Invalid fields warn and inherit the lower layer. Missing files contribute nothing.
-Malformed files warn rather than replacing inherited settings. Saves merge changed keys
-into the chosen scope, preserve unknown keys, and refuse to overwrite malformed files.
-A higher layer can hide a saved value; the panel warns about shadowed changes. Backspace
-previews the built-in default and stages removal of the key from the selected save scope;
-after saving, any lower-priority value can become effective.
+Malformed files warn rather than replacing inherited settings. File-scope saves re-read
+the target under a cross-process lock, merge changed keys, preserve unknown keys, and
+write atomically; malformed files are not overwritten. Save feedback lists keys shadowed
+by higher-priority scopes. Once a file write succeeds, lock-cleanup or follow-up effect
+failures are committed warnings, not failed saves. Backspace previews the built-in default
+and stages removal of the key from the selected save scope; after saving, any lower-priority
+value can become effective.
 Runtime settings disappear with the session. The read-only quota CLI loads only user
 settings; it cannot establish project trust.
 
@@ -54,6 +56,10 @@ listed range. Booleans must be JSON booleans; enum values are exact strings.
 
 | Key | Default | Accepted values and effect |
 |---|---|---|
+| `dashboard.density` | `"comfortable"` | `"comfortable"` or `"compact"`; controls dashboard row spacing, with compact using less vertical space. |
+| `dashboard.maxBodyRows` | `0` | Integer, 0–60; `0` fits the available space automatically, otherwise caps body rows. Primary identity and state remain visible or revealable at every density and cap. |
+| `dashboard.showProvenance` | `false` | Boolean; intended to show source/provider provenance metadata for entries. |
+| `dashboard.showMatchedRule` | `false` | Boolean; intended to show the model visibility rule matched by an entry. |
 | `quotas.refreshIntervalSec` | `60` | Number, 15–3600 seconds; ordinary endpoint freshness, with provider floors still applied. `0` clamps to 15; it does not disable polling. |
 | `quotas.refreshOnRequest` | `true` | Boolean; refresh active provider after a turn, subject to freshness/floors. |
 | `quotas.providers` | `[]` | Array of strings or comma/whitespace-separated string; provider ids or aliases. Empty means all quota sources. Unknown and quota-less names are ignored; a nonempty list with no recognized quota source enables none. Sources retain registry order, not list order. |
@@ -72,11 +78,15 @@ listed range. Booleans must be JSON booleans; enum values are exact strings.
 | `openai.verbosity` | `"default"` | `"default"`, `"low"`, `"medium"`, `"high"`. Default leaves the provider request unchanged. Overrides are applied only to Responses requests for the selected model; other requests are untouched. |
 | `openai.verbosityProviders` | `["openai", "openai-codex"]` | Provider IDs for the verbosity override. An empty list disables it. |
 | `claude.replacePatterns` | `[]` | Array of literal text rules: nonblank `match`, optional string `replacement`. With a replacement, rewrite matching system-prompt text; without one, drop paragraphs containing the match. These are not regular expressions. One malformed rule rejects the field. |
-| `synthetic.webSearch` | `false` | Boolean; offer `synthetic_web_search` at session start. Requires a Synthetic credential. `--synthetic-web-search` also enables it for one run. |
+| `synthetic.webSearch` | `false` | Boolean; controls active membership of `synthetic_web_search`. The tool is registered inactive; membership is synchronized at session start and after setting changes. This setting or the one-run `--synthetic-web-search` flag enables it, so the flag can keep it active when this setting is false. Execution requires a Synthetic credential. |
+| `tokens.warningPercent` | `70` | Number, 0–100%; fallback-footer context usage at or above this percentage gets warning color. Must be strictly below `tokens.errorPercent`. |
+| `tokens.errorPercent` | `90` | Number, 0–100%; fallback-footer context usage at or above this percentage gets error color. Must be strictly above `tokens.warningPercent`. |
 
-Credit thresholds are display thresholds only, without currency conversion. There is
-no separate narrow line template. For interactive save/edit keys see
-[commands](commands.md#settings-keys).
+Credit thresholds are display-only and do not convert currencies. The critical credit
+threshold must be strictly below the healthy threshold, and the token warning threshold
+must be strictly below the error threshold. Saves reject contradictory pairs; conflicting
+loaded values are ignored in favor of inherited values. There is no separate narrow line
+template. For interactive save/edit keys see [commands](commands.md#settings-keys).
 
 ## Storage
 
@@ -86,9 +96,11 @@ no separate narrow line template. For interactive save/edit keys see
 | `<agentDir>/models.json` | Pi's model/provider overrides |
 | `<agentDir>/models-store.json` | Pi's persisted dynamic catalogs; no separate catalog cache |
 | `<agentDir>/quotas-codex-auth.json` | Codex quota credential written by `/quota codex login` (shared with pi-quotas); read when no Pi `openai-codex` login exists |
-| `<agentDir>/cache/auth-plus/quotas.json` | Host-shared quota snapshots, headers, drainage, leases and backoff |
+| `<agentDir>/cache/auth-plus/quotas.json` | Host-shared quota snapshots, header observations, drainage history, refresh leases and backoff |
 | `$XDG_STATE_HOME/pi-auth-plus/migrations.json` | Completed one-time carry-overs; default `~/.local/state/pi-auth-plus/migrations.json` |
-| `$XDG_DATA_HOME/pi-auth-plus/` | Data directory; default `~/.local/share/pi-auth-plus/` |
+| `$XDG_STATE_HOME/pi-auth-plus/claude-device-id` | Claude device identity; default `~/.local/state/pi-auth-plus/claude-device-id` |
+| `$XDG_CACHE_HOME/pi-auth-plus/tokenizers/` | Downloaded tokenizer artifacts; default `~/.cache/pi-auth-plus/tokenizers/` |
+| In memory | Token-count memoization; count results are not persisted |
 | System temporary directory | Synthetic web-search full-page text files, returned by the tool |
 
 Private cache directories use mode 0700 and cache files mode 0600. Web-search page files
@@ -107,8 +119,8 @@ those remain Pi's settings.
 |---|---|
 | `PI_CODING_AGENT_DIR` | Agent directory override, including credentials, user settings and quota cache |
 | `HOME`, `USERPROFILE` | Home resolution, in that order |
-| `XDG_STATE_HOME` | State base directory, default `~/.local/state` |
-| `XDG_DATA_HOME` | Data base directory, default `~/.local/share` |
+| `XDG_STATE_HOME` | State base directory for migration markers and Claude device identity; default `~/.local/state` |
+| `XDG_CACHE_HOME` | Tokenizer artifact cache base directory; default `~/.cache`. It does not relocate the quota snapshot, which remains under `<agentDir>/cache/auth-plus/quotas.json`. |
 | `ANTHROPIC_API_KEY` | API-key access for `claude`; subscription quota requires OAuth instead |
 | `ANTHROPIC_CLAUDE_CODE_VERSION` | Overrides the Claude Code version reported by subscription requests; otherwise the newer of the bundled version and installed `claude --version` is used |
 | `ANTHROPIC_BASE_URL` | Custom Claude subscription transport origin; only HTTP(S) without embedded credentials is accepted. Replaces origin, not request paths. |
@@ -119,4 +131,8 @@ those remain Pi's settings.
 | `FORCE_COLOR` | Only `0` is handled: disables quota CLI color; other values do not force non-TTY color |
 
 `SYNTHETIC_WEB_SEARCH` is not read. Use `synthetic.webSearch` or the CLI flag.
-`XDG_CACHE_HOME` does not relocate the quota cache: it stays beneath the agent directory.
+
+The physical-model override editor supports only a subset of Pi's broader model schema.
+Fields such as `thinkingLevelMap`, `inputLimits`, tiered costs, prompt cache, general
+sampling, headers and compatibility settings still require direct file editing; see
+[Model overrides](models.md#model-overrides) for the editor's supported fields.

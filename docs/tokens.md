@@ -60,7 +60,10 @@ Notes:
 
 Tokenizers are downloaded from Hugging Face the first time a model needs one:
 
-- Location: `$XDG_CACHE_HOME/pi-auth-plus/tokenizers/` (default `~/.cache/...`).
+- Location: `$XDG_CACHE_HOME/pi-auth-plus/tokenizers/` (default
+  `~/.cache/pi-auth-plus/tokenizers/`).
+- Token-count memoization is in memory and is not persisted; this disk cache stores
+  tokenizer artifacts, not count results.
 - A revision is resolved and pinned in the cache. Downloads are checked against the
   Hugging Face file identity; cached files are checked with SHA-256.
 - After the download, counting runs offline. Selecting a model starts the download in
@@ -90,6 +93,12 @@ Outside the TUI, `/tokens` prints the latest count without recounting.
 With `quotas.linePlacement = "below-editor-last"`, pi-auth-plus shows its context
 percentage in its fallback footer. A leading `~` marks a character estimate. Other
 placements, and footer hosts such as pi-workbench, keep their own context percentage.
+
+`tokens.warningPercent` defaults to `70` and `tokens.errorPercent` to `90`. Each accepts
+0–100%; the fallback footer uses warning color at or above the warning threshold and error
+color at or above the error threshold. The warning value must be strictly less than the
+error value. Saving a contradictory pair is rejected; conflicting loaded values inherit
+from a lower scope. These thresholds change color, not token counts or context limits.
 
 ## Event bus
 

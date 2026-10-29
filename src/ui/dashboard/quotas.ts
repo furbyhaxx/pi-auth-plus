@@ -1,6 +1,13 @@
 /** Owns the live quota dashboard body, provider selection and quota actions. */
-import { matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import type { SETTINGS } from "../../core/config/catalog.ts";
+import {
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+	wrapTextWithAnsi,
+} from "@earendil-works/pi-tui";
+import { SETTINGS } from "../../core/config/catalog.ts";
+import type { SaveScope } from "../../core/config/index.ts";
+import { formatSaveOutcome, type SaveOutcome } from "../../core/config/save.ts";
 import type { DrainageMetrics } from "../../quotas/drainage.ts";
 import { type LineTheme, renderGradientBar, styleByStress } from "../../quotas/line/format.ts";
 import {
@@ -33,8 +40,8 @@ export interface QuotasTabDeps {
 	lineConfig(): LineConfig;
 	/** Current line placement. */
 	linePlacement(): LinePlacement;
-	/** Persist and apply a line placement. */
-	setLinePlacement(next: LinePlacement): Promise<void>;
+	/** Save a line placement to the chosen scope and report its outcome. */
+	setLinePlacement(next: LinePlacement, scope: SaveScope): Promise<SaveOutcome>;
 	/** Current time in milliseconds. */
 	now(): number;
 }
@@ -44,6 +51,11 @@ const PLACEMENTS: readonly LinePlacement[] = [
 	"below-editor-last",
 	"above-editor",
 	"off",
+];
+const SCOPES: readonly { readonly key: string; readonly value: SaveScope }[] = [
+	{ key: "r", value: "runtime" },
+	{ key: "u", value: "user" },
+	{ key: "p", value: "project" },
 ];
 
 interface ProviderRange {
@@ -113,7 +125,16 @@ export class QuotasView implements TabView {
 	#ranges = new Map<string, ProviderRange>();
 	#reveal = true;
 	#disposed = false;
-	#placementError = "";
+	#mode: "list" | "placement" | "scope" = "list";
+	#placementIndex = 0;
+	#placementInitial: LinePlacement | undefined;
+	#draftPlacement: LinePlacement | undefined;
+	#scopeIndex = 0;
+	#saving = false;
+	#message = "";
+	#messageOffset = 0;
+	#messageRows = 0;
+	#messageCapacity = 0;
 
 	/** Open on all providers, or one provider without fetching. */
 	constructor(host: TabViewHost, theme: LineTheme, deps: QuotasTabDeps, solo?: string) {
@@ -210,8 +231,7 @@ export class QuotasView implements TabView {
 		return { lines, ranges };
 	}
 
-	/** Render a width-safe slice and the tab's rule state and hints. */
-	render(width: number, bodyRows: number): TabBody {
+	#renderProviders(width: number, bodyRows: number): TabBody {
 		const { lines, ranges } = this.#content(width);
 		this.#ranges = ranges;
 		this.#bodyRows = Math.max(1, bodyRows);
@@ -249,9 +269,130 @@ export class QuotasView implements TabView {
 					? [{ key: "x", action: "reset", priority: 3 }]
 					: []),
 			],
-			...(this.#placementError
-				? { description: this.#host.theme.fg("error", this.#placementError) }
+		};
+	}
+
+	#renderChooser(width: number, bodyRows: number): TabBody {
+		const { theme } = this.#host;
+		const placement = this.#mode === "placement";
+		const selected = placement ? this.#placementIndex : this.#scopeIndex;
+		const choices = placement
+			? PLACEMENTS.map((value) => {
+					const label = SETTINGS["quotas.linePlacement"].options?.find(
+						(option) => option.value === value,
+					)?.label;
+					return `${label ?? value}${value === this.#deps.linePlacement() ? " · current" : ""}`;
+				})
+			: SCOPES.map((scope) => `${scope.key} ${scope.value}`);
+		const offset = Math.max(0, Math.min(selected, selected - bodyRows + 1));
+		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
+		return {
+			lines: choices
+				.slice(offset, offset + bodyRows)
+				.map((choice, index) =>
+					truncateToWidth(
+						` ${offset + index === selected ? theme.fg("accent", "❯") : " "} ${choice}`,
+						Math.max(0, width),
+						"…",
+					),
+				),
+			above: offset,
+			below: Math.max(0, choices.length - offset - bodyRows),
+			modal: true,
+			state: truncateToWidth(
+				theme.fg(
+					"dim",
+					this.#saving
+						? "saving"
+						: placement
+							? this.#deps.linePlacement()
+							: `staged: ${this.#draftPlacement ?? ""}`,
+				),
+				Math.max(0, width),
+				"…",
+			),
+			description: truncateToWidth(
+				theme.fg("muted", placement ? "Choose line placement." : "Choose save scope."),
+				Math.max(0, width),
+				"…",
+			),
+			hints: [
+				{ key: binding("tui.select.confirm"), action: placement ? "choose" : "save", priority: 0 },
+				{ key: binding("tui.select.cancel"), action: "back", priority: 0 },
+				{
+					key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
+					action: "move",
+					priority: 1,
+				},
+				...(!placement ? [{ key: "r/u/p", action: "scope", priority: 1 }] : []),
+			],
+		};
+	}
+
+	/** Render a width-safe slice and the tab's rule state and hints. */
+	render(width: number, bodyRows: number): TabBody {
+		const messageLines = this.#message
+			? wrapTextWithAnsi(text(this.#message), Math.max(1, width - 1))
+			: [];
+		this.#messageRows = messageLines.length;
+		this.#messageCapacity = Math.min(
+			messageLines.length,
+			bodyRows > 0 ? Math.max(1, Math.floor(bodyRows / 2)) : 0,
+		);
+		this.#messageOffset = Math.min(
+			this.#messageOffset,
+			Math.max(0, this.#messageRows - this.#messageCapacity),
+		);
+		const available = Math.max(0, bodyRows - this.#messageCapacity);
+		const body =
+			this.#mode === "list"
+				? this.#renderProviders(width, available)
+				: this.#renderChooser(width, available);
+		const message = messageLines
+			.slice(this.#messageOffset, this.#messageOffset + this.#messageCapacity)
+			.map((line) =>
+				truncateToWidth(` ${this.#host.theme.fg("warning", line)}`, Math.max(0, width), "…"),
+			);
+		const paged = this.#messageRows > this.#messageCapacity && this.#messageCapacity > 0;
+		const scope = this.#mode === "scope" && available === 0 ? SCOPES[this.#scopeIndex] : undefined;
+		const resultState = paged
+			? `result ${this.#messageOffset + 1}-${Math.min(this.#messageRows, this.#messageOffset + this.#messageCapacity)}/${this.#messageRows}`
+			: "";
+		return {
+			...body,
+			lines: [...body.lines, ...message],
+			...(scope || paged
+				? {
+						state: truncateToWidth(
+							this.#host.theme.fg(
+								"dim",
+								[scope ? `scope: ${scope.value}` : "", resultState].filter(Boolean).join(" · "),
+							),
+							Math.max(0, width),
+							"…",
+						),
+					}
 				: {}),
+			...(this.#message
+				? {
+						description: truncateToWidth(
+							this.#host.theme.fg("warning", text(this.#message)),
+							Math.max(0, width),
+							"…",
+						),
+					}
+				: {}),
+			hints:
+				this.#messageRows > this.#messageCapacity && this.#messageCapacity > 0
+					? [
+							...body.hints,
+							{
+								key: `${this.#host.binding("tui.select.pageUp")}/${this.#host.binding("tui.select.pageDown")}`,
+								action: "result",
+								priority: 0,
+							},
+						]
+					: body.hints,
 		};
 	}
 
@@ -287,25 +428,126 @@ export class QuotasView implements TabView {
 		this.#refreshHost();
 	}
 
-	async #cyclePlacement(): Promise<void> {
-		const next =
-			PLACEMENTS[(PLACEMENTS.indexOf(this.#deps.linePlacement()) + 1) % PLACEMENTS.length] ??
-			"below-editor-first";
-		try {
-			await this.#deps.setLinePlacement(next);
-			if (!this.#disposed) this.#placementError = "";
-		} catch (error: unknown) {
-			if (!this.#disposed)
-				this.#placementError = `Line placement failed: ${text(error instanceof Error ? error.message : String(error))}; retry p.`;
-		}
-		this.#refreshHost();
+	#setMessage(message: string): void {
+		this.#message = message;
+		this.#messageOffset = 0;
+		this.#messageRows = 0;
+		this.#messageCapacity = 0;
 	}
 
-	/** Handle provider actions; frame navigation and close keys remain unconsumed. */
+	async #savePlacement(scope: SaveScope): Promise<void> {
+		const placement = this.#draftPlacement;
+		if (placement === undefined) return;
+		this.#saving = true;
+		this.#setMessage("");
+		this.#refreshHost();
+		try {
+			const outcome = await this.#deps.setLinePlacement(placement, scope);
+			if (this.#disposed) return;
+			this.#setMessage(
+				outcome.committed
+					? formatSaveOutcome(outcome)
+					: `Save failed: ${formatSaveOutcome(outcome)}`,
+			);
+			if (outcome.committed) {
+				this.#draftPlacement = undefined;
+				this.#placementInitial = undefined;
+				this.#mode = "list";
+			}
+		} catch (error: unknown) {
+			if (!this.#disposed)
+				this.#setMessage(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
+		} finally {
+			this.#saving = false;
+			this.#refreshHost();
+		}
+	}
+
+	/** True while a placement change is awaiting a scope or is being saved. */
+	hasDrafts(): boolean {
+		return this.#draftPlacement !== undefined;
+	}
+
+	/** True until the placement save and its effects finish. */
+	isSaving(): boolean {
+		return this.#saving;
+	}
+
+	/** Discard only this tab's placement draft. */
+	discardDrafts(): void {
+		if (this.#saving) return;
+		this.#draftPlacement = undefined;
+		this.#placementInitial = undefined;
+		this.#mode = "list";
+		this.#setMessage("");
+	}
+
+	/** Handle provider actions and the local placement and scope choosers. */
 	handleInput(data: string): boolean {
+		if (this.#disposed || this.#saving) return true;
 		const { keys } = this.#host;
+		const cancel = keys.matches(data, "tui.select.cancel");
+		const confirm = keys.matches(data, "tui.select.confirm");
+		const pageUp =
+			keys.matches(data, "tui.select.pageUp") || keys.matches(data, "tui.editor.pageUp");
+		const pageDown =
+			keys.matches(data, "tui.select.pageDown") || keys.matches(data, "tui.editor.pageDown");
+		if (!cancel && !confirm && (pageUp || pageDown) && this.#messageRows > this.#messageCapacity) {
+			this.#messageOffset = Math.max(
+				0,
+				Math.min(
+					this.#messageRows - this.#messageCapacity,
+					this.#messageOffset + (pageUp ? -1 : 1) * Math.max(1, this.#messageCapacity),
+				),
+			);
+			return true;
+		}
+		if (this.#mode !== "list") {
+			if (cancel) {
+				if (this.#mode === "scope") {
+					this.#mode = "placement";
+					this.#setMessage("");
+				} else if (this.hasDrafts()) {
+					this.#host.confirmDiscard?.(() => {
+						if (!this.#disposed) this.discardDrafts();
+					});
+				} else this.discardDrafts();
+			} else if (confirm) {
+				if (this.#mode === "placement") {
+					const choice = PLACEMENTS[this.#placementIndex];
+					if (choice === undefined) return true;
+					this.#draftPlacement = choice;
+					this.#scopeIndex = 0;
+					this.#mode = "scope";
+					this.#setMessage("");
+				} else {
+					const scope = SCOPES[this.#scopeIndex];
+					if (scope) void this.#savePlacement(scope.value);
+				}
+			} else if (keys.matches(data, "tui.select.up") || data === "k") {
+				if (this.#mode === "placement") {
+					this.#placementIndex = Math.max(0, this.#placementIndex - 1);
+					const choice = PLACEMENTS[this.#placementIndex];
+					this.#draftPlacement = choice === this.#placementInitial ? undefined : choice;
+				} else this.#scopeIndex = Math.max(0, this.#scopeIndex - 1);
+			} else if (keys.matches(data, "tui.select.down") || data === "j") {
+				if (this.#mode === "placement") {
+					this.#placementIndex = Math.min(PLACEMENTS.length - 1, this.#placementIndex + 1);
+					const choice = PLACEMENTS[this.#placementIndex];
+					this.#draftPlacement = choice === this.#placementInitial ? undefined : choice;
+				} else this.#scopeIndex = Math.min(SCOPES.length - 1, this.#scopeIndex + 1);
+			} else if (this.#mode === "scope") {
+				const index = SCOPES.findIndex((option) => option.key === data);
+				const scope = SCOPES[index];
+				if (scope) {
+					this.#scopeIndex = index;
+					void this.#savePlacement(scope.value);
+				}
+			}
+			return true;
+		}
 		if (
-			keys.matches(data, "tui.select.cancel") ||
+			cancel ||
 			keys.matches(data, "tui.input.tab") ||
 			keys.matches(data, "tui.editor.cursorLeft") ||
 			keys.matches(data, "tui.editor.cursorRight") ||
@@ -323,18 +565,24 @@ export class QuotasView implements TabView {
 			void this.#refresh(this.#selected === undefined ? [] : [this.#selected]);
 		} else if (data === "R")
 			void this.#refresh(this.#deps.report().providers.map((provider) => provider.id));
-		else if (data === "p") void this.#cyclePlacement();
-		else if (data === "x") {
+		else if (data === "p") {
+			this.#placementInitial = this.#deps.linePlacement();
+			this.#placementIndex = Math.max(0, PLACEMENTS.indexOf(this.#placementInitial));
+			this.#mode = "placement";
+			this.#setMessage("");
+		} else if (data === "x") {
 			this.#providers();
 			const id = this.#selected;
 			if (id && this.#deps.resetSupport(id)) this.#host.finish({ reset: id });
 			else if (id) {
-				this.#placementError = unsupportedResetMessage(
-					id,
-					this.#deps
-						.report()
-						.providers.filter((provider) => this.#deps.resetSupport(provider.id))
-						.map((provider) => provider.id),
+				this.#setMessage(
+					unsupportedResetMessage(
+						id,
+						this.#deps
+							.report()
+							.providers.filter((provider) => this.#deps.resetSupport(provider.id))
+							.map((provider) => provider.id),
+					),
 				);
 				this.#refreshHost();
 			}

@@ -23,8 +23,7 @@ export function createSettingsSaver(
 	capture: () => {
 		store: AppSettings;
 		signal: AbortSignal;
-		// biome-ignore lint/suspicious/noConfusingVoidType: Effects may return Promise<void>.
-		apply: (keys: readonly string[], scope: SaveScope) => Promise<readonly string[] | void>;
+		apply: (keys: readonly string[], scope: SaveScope) => Promise<readonly string[]>;
 	},
 ): SettingsSaver {
 	let pending: Promise<void> = Promise.resolve();
@@ -55,8 +54,7 @@ export function createSettingsSaver(
 				);
 			} else {
 				try {
-					const result = await apply(keys, scope);
-					if (result) warnings.push(...result);
+					warnings.push(...(await apply(keys, scope)));
 				} catch (error) {
 					const reason = error instanceof Error ? error.message : String(error);
 					warnings.push(`Settings effects failed: ${reason}; retry or reopen the session`);

@@ -34,6 +34,7 @@ describe("settings saver", () => {
 					started.resolve();
 					await release.promise;
 				}
+				return [];
 			},
 		};
 		const save = createSettingsSaver(() => current);
@@ -58,6 +59,7 @@ describe("settings saver", () => {
 			signal: new AbortController().signal,
 			apply: async (keys, scope) => {
 				events.push(`new:${scope}:${keys.join(",")}`);
+				return [];
 			},
 		};
 		const third = save("runtime", { "synthetic.webSearch": true });
@@ -110,6 +112,7 @@ describe("settings saver", () => {
 				events.push(`old:${keys.join(",")}`);
 				started.resolve();
 				await release.promise;
+				return [];
 			},
 		};
 		const save = createSettingsSaver(() => current);
@@ -122,6 +125,7 @@ describe("settings saver", () => {
 			signal: new AbortController().signal,
 			apply: async (keys) => {
 				events.push(`new:${keys.join(",")}`);
+				return [];
 			},
 		};
 		const replacement = save("runtime", { "quotas.alwaysShortIds": true });
@@ -159,11 +163,11 @@ describe("settings saver", () => {
 			await release.promise;
 		});
 		const oldApply = spyOn(
-			{ apply: async (_keys: readonly string[], _scope: SaveScope) => {} },
+			{ apply: async (_keys: readonly string[], _scope: SaveScope) => [] },
 			"apply",
 		);
 		const newApply = spyOn(
-			{ apply: async (_keys: readonly string[], _scope: SaveScope) => {} },
+			{ apply: async (_keys: readonly string[], _scope: SaveScope) => [] },
 			"apply",
 		);
 		const controller = new AbortController();
@@ -197,6 +201,7 @@ describe("settings saver", () => {
 			signal: new AbortController().signal,
 			apply: async () => {
 				if (++attempts === 1) throw new Error("refresh failed");
+				return [];
 			},
 		}));
 		const first = save("user", { "synthetic.webSearch": true });
@@ -222,6 +227,7 @@ describe("settings saver", () => {
 			signal: new AbortController().signal,
 			apply: async (keys) => {
 				events.push(keys.join(","));
+				return [];
 			},
 		}));
 		const first = save("user", { "synthetic.webSearch": true });
@@ -270,6 +276,7 @@ describe("settings saver", () => {
 			signal: new AbortController().signal,
 			apply: async (keys, scope) => {
 				events.push([keys, scope]);
+				return [];
 			},
 		}));
 		const outcome = await save("user", { "synthetic.webSearch": null });
@@ -283,7 +290,7 @@ describe("settings saver", () => {
 	test("does not save or apply for an already aborted owner", async () => {
 		const store = new SettingsStore(SETTINGS, { user: join(dir, "user.json") });
 		const saveSpy = spyOn(store, "save");
-		const apply = spyOn({ run: async () => {} }, "run");
+		const apply = spyOn({ run: async () => [] }, "run");
 		const controller = new AbortController();
 		controller.abort();
 		const save = createSettingsSaver(() => ({ store, signal: controller.signal, apply }));

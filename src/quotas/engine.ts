@@ -67,7 +67,7 @@ export class QuotaEngine {
 			now: options.now,
 			rateLimitStatuses: BACKOFF_POLICY.rateLimitStatuses,
 		});
-		this.cache.onChange(() => this.notify());
+		this.cache.onChange(() => this.notify(this.controller.signal));
 	}
 
 	/** Enabled providers and their effective quota state; no disk or network work. */
@@ -112,8 +112,11 @@ export class QuotaEngine {
 		const signal = this.controller.signal;
 		try {
 			const outcome = await resets.consume(this.context(id, signal), creditId);
-			if (!signal.aborted && outcome.code === "reset") {
-				for (const listener of this.resetListeners) listener(outcome, requester);
+			if (outcome.code === "reset") {
+				for (const listener of this.resetListeners) {
+					if (signal.aborted) break;
+					listener(outcome, requester);
+				}
 			}
 			return outcome;
 		} finally {
@@ -125,7 +128,7 @@ export class QuotaEngine {
 				}
 			} catch {
 				// Refresh storage failures must not hide a spend verdict or invite a consume retry.
-				this.notify();
+				this.notify(signal);
 			}
 		}
 	}
@@ -209,15 +212,16 @@ export class QuotaEngine {
 			}
 			if (!snapshot) continue;
 			try {
-				const changed = await this.cache.patch(provider.id, (current) => {
-					if (signal.aborted) return undefined;
-					return {
+				const changed = await this.cache.patch(
+					provider.id,
+					(current) => ({
 						...current,
 						headers: { snapshot, observedAt: now },
 						drainage: recordDrainageHistory(current?.drainage ?? [], snapshot, now),
-					};
-				});
-				return changed ? provider.id : undefined;
+					}),
+					signal,
+				);
+				return changed && !signal.aborted ? provider.id : undefined;
 			} catch {
 				// Cache failures on the response hook must not reject into Pi's event loop.
 				return undefined;
@@ -236,10 +240,10 @@ export class QuotaEngine {
 		const run = this.runRefresh(id, source, options, signal).finally(() => {
 			if (this.refreshing.get(id) !== run) return;
 			this.refreshing.delete(id);
-			this.notify();
+			this.notify(signal);
 		});
 		this.refreshing.set(id, run);
-		this.notify();
+		this.notify(signal);
 		return run;
 	}
 
@@ -247,7 +251,7 @@ export class QuotaEngine {
 	async tick(): Promise<void> {
 		const signal = this.controller.signal;
 		if (signal.aborted) return;
-		await this.cache.sync();
+		await this.cache.sync(false, signal);
 		if (signal.aborted) return;
 		await Promise.all(
 			this.providers().flatMap((provider) => {
@@ -265,13 +269,14 @@ export class QuotaEngine {
 		this.stop();
 		this.controller = new AbortController();
 		const signal = this.controller.signal;
-		await this.cache.sync();
+		await this.cache.sync(false, signal);
 		if (signal.aborted) return;
 		// Fire and forget: Pi awaits session_start, and endpoints can take seconds.
 		for (const provider of this.providers())
-			void this.refresh(provider.id).catch(() => this.notify());
+			void this.refresh(provider.id).catch(() => this.notify(signal));
+		if (signal.aborted) return;
 		this.timer = setInterval(() => {
-			void this.tick().catch(() => this.notify());
+			void this.tick().catch(() => this.notify(signal));
 		}, 5_000);
 		this.timer.unref();
 	}
@@ -302,42 +307,59 @@ export class QuotaEngine {
 		options: RefreshOptions,
 		signal: AbortSignal,
 	): Promise<void> {
-		const acquired = await this.cache.tryAcquire(id, {
-			minAgeMs: this.minAge(source, options.minAgeMs),
-			...(options.force === undefined ? {} : { force: options.force }),
-		});
+		const acquired = await this.cache.tryAcquire(
+			id,
+			{
+				minAgeMs: this.minAge(source, options.minAgeMs),
+				...(options.force === undefined ? {} : { force: options.force }),
+			},
+			signal,
+		);
 		if (!acquired || signal.aborted) return;
 		try {
 			const snapshot = await source.fetch(this.context(id, signal));
 			if (signal.aborted) return;
 			// Headers observed while this fetch was in flight are newer than its snapshot; keep them.
-			await this.cache.putWith(id, (current) => ({
-				snapshot,
-				...(current?.headers && current.headers.observedAt > snapshot.fetchedAt
-					? { headers: current.headers }
-					: {}),
-				drainage: recordDrainageHistory(current?.drainage ?? [], snapshot, this.options.now()),
-			}));
+			await this.cache.putWith(
+				id,
+				(current) => ({
+					snapshot,
+					...(current?.headers && current.headers.observedAt > snapshot.fetchedAt
+						? { headers: current.headers }
+						: {}),
+					drainage: recordDrainageHistory(current?.drainage ?? [], snapshot, this.options.now()),
+				}),
+				signal,
+			);
 		} catch (error) {
 			if (signal.aborted) return;
-			await this.cache.fail(id, {
-				backoffMs:
-					error instanceof ProviderHttpError
-						? backoffFor(
-								{
-									status: error.status,
-									...(error.retryAfterMs === undefined ? {} : { retryAfterMs: error.retryAfterMs }),
-								},
-								BACKOFF_POLICY,
-							)
-						: 30_000,
-				...(error instanceof ProviderHttpError ? { status: error.status } : {}),
-				error: error instanceof Error ? error.message : String(error),
-			});
+			await this.cache.fail(
+				id,
+				{
+					backoffMs:
+						error instanceof ProviderHttpError
+							? backoffFor(
+									{
+										status: error.status,
+										...(error.retryAfterMs === undefined
+											? {}
+											: { retryAfterMs: error.retryAfterMs }),
+									},
+									BACKOFF_POLICY,
+								)
+							: 30_000,
+					...(error instanceof ProviderHttpError ? { status: error.status } : {}),
+					error: error instanceof Error ? error.message : String(error),
+				},
+				signal,
+			);
 		}
 	}
 
-	private notify(): void {
-		for (const listener of this.listeners) listener();
+	private notify(signal?: AbortSignal): void {
+		for (const listener of this.listeners) {
+			if (signal?.aborted) return;
+			listener();
+		}
 	}
 }

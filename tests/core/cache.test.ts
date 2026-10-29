@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { backoffFor, HostCache } from "../../src/core/cache/index.ts";
+import { withFileLock } from "../../src/core/cache/lock.ts";
 
 let path: string;
 let clock: number;
@@ -29,6 +30,92 @@ beforeEach(() => {
 });
 
 describe("core/cache", () => {
+	test("aborted queued mutations do not merge, write, notify or poison the queue", async () => {
+		await cache().put("other", { used: 1 });
+		const before = readFileSync(path, "utf8");
+		const pendingCache = cache();
+		const events: string[] = [];
+		pendingCache.onChange((key) => events.push(key));
+		const entered = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		const held = withFileLock(path, async () => {
+			entered.resolve();
+			await release.promise;
+		});
+		await entered.promise;
+		const controller = new AbortController();
+		let called = false;
+		const pending = [
+			pendingCache.tryAcquire("acquire", { minAgeMs: 0 }, controller.signal),
+			pendingCache.putWith(
+				"put",
+				() => {
+					called = true;
+					return { used: 2 };
+				},
+				controller.signal,
+			),
+			pendingCache.patch(
+				"patch",
+				() => {
+					called = true;
+					return { used: 3 };
+				},
+				controller.signal,
+			),
+			pendingCache.fail("fail", { backoffMs: 30_000 }, controller.signal),
+		];
+		controller.abort();
+		release.resolve();
+		await held;
+		const results = await Promise.all(pending);
+
+		expect(results).toEqual([false, undefined, false, undefined]);
+		expect(called).toBe(false);
+		expect([...pendingCache.all()]).toEqual([]);
+		expect(pendingCache.backoff("fail")).toBeUndefined();
+		expect(events).toEqual([]);
+		expect(readFileSync(path, "utf8")).toBe(before);
+		await pendingCache.put("next", { used: 4 });
+		expect(pendingCache.get("next")?.value).toEqual({ used: 4 });
+	});
+
+	test("an aborted merge stops notifying and a later sync reads the remaining entries", async () => {
+		const writer = cache();
+		await writer.put("first", { used: 1 });
+		await writer.put("second", { used: 2 });
+		const reader = cache();
+		const controller = new AbortController();
+		const events: string[] = [];
+		reader.onChange((key) => {
+			events.push(key);
+			if (key === "first") controller.abort();
+		});
+		await reader.sync(false, controller.signal);
+		expect(events).toEqual(["first"]);
+		expect(reader.get("second")).toBeUndefined();
+		await reader.sync();
+		expect(events).toEqual(["first", "second"]);
+		expect(reader.get("second")?.value).toEqual({ used: 2 });
+	});
+
+	test("a committed write remains stored when a listener aborts its signal", async () => {
+		const writer = cache();
+		const controller = new AbortController();
+		const events: string[] = [];
+		writer.onChange(() => {
+			events.push("first");
+			controller.abort();
+		});
+		writer.onChange(() => events.push("second"));
+		await writer.putWith("committed", () => ({ used: 1 }), controller.signal);
+		expect(events).toEqual(["first"]);
+		expect(writer.get("committed")?.value).toEqual({ used: 1 });
+		const reader = cache();
+		await reader.sync();
+		expect(reader.get("committed")?.value).toEqual({ used: 1 });
+	});
+
 	test("concurrent writers in separate sessions never lose each other's entries", async () => {
 		const a = cache();
 		const b = cache();

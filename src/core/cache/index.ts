@@ -81,20 +81,24 @@ export class HostCache<T> {
 	}
 
 	/** Merge what other sessions wrote; returns whether any entry changed. */
-	async sync(force = false): Promise<boolean> {
+	async sync(force = false, signal?: AbortSignal): Promise<boolean> {
+		if (signal?.aborted) return false;
 		const mtime = await stat(this.options.path).then(
 			(s) => s.mtimeMs,
 			() => undefined,
 		);
-		if (mtime === undefined || (!force && mtime === this.lastMtimeMs)) return false;
+		if (signal?.aborted || mtime === undefined || (!force && mtime === this.lastMtimeMs))
+			return false;
 		const read = await readJsonFile(this.options.path);
-		this.lastMtimeMs = mtime;
-		return read.kind === "ok" ? this.merge(read.value) : false;
+		if (signal?.aborted) return false;
+		const changed = read.kind === "ok" ? this.merge(read.value, signal) : false;
+		if (!signal?.aborted) this.lastMtimeMs = mtime;
+		return changed;
 	}
 
 	/** True when this session should fetch `key`; it then holds a lease other sessions respect. */
-	async tryAcquire(key: string, options: AcquireOptions): Promise<boolean> {
-		return this.mutate(() => {
+	async tryAcquire(key: string, options: AcquireOptions, signal?: AbortSignal): Promise<boolean> {
+		const acquired = await this.mutate(() => {
 			const now = this.now();
 			const backoff = this.backoff(key);
 			const rateLimitStatuses = this.options.rateLimitStatuses ?? DEFAULT_RATE_LIMIT_STATUSES;
@@ -109,18 +113,24 @@ export class HostCache<T> {
 				const entry = this.entries.get(key);
 				if (entry && now - entry.fetchedAt < options.minAgeMs) return false;
 			}
+			if (signal?.aborted) return false;
 			this.leases.set(key, now + (this.options.leaseMs ?? DEFAULT_LEASE_MS));
 			return true;
-		});
+		}, signal);
+		return acquired ?? false;
 	}
 
 	/** Store a fresh value; releases the lease and clears backoff. */
-	async put(key: string, value: T): Promise<void> {
-		await this.putWith(key, () => value);
+	async put(key: string, value: T, signal?: AbortSignal): Promise<void> {
+		await this.putWith(key, () => value, signal);
 	}
 
 	/** Like `put`, but derives the value from the entry current under the file lock. */
-	async putWith(key: string, change: (current: T | undefined) => T): Promise<void> {
+	async putWith(
+		key: string,
+		change: (current: T | undefined) => T,
+		signal?: AbortSignal,
+	): Promise<void> {
 		const entry = await this.mutate(() => {
 			const now = this.now();
 			const next: CacheEntry<T> = {
@@ -129,16 +139,21 @@ export class HostCache<T> {
 				updatedAt: now,
 				parserVersion: this.options.parserVersion(key),
 			};
+			if (signal?.aborted) return undefined;
 			this.entries.set(key, next);
 			this.leases.delete(key);
 			this.backoffs.delete(key);
 			return next;
-		});
-		this.notify(key, entry);
+		}, signal);
+		if (entry !== undefined) this.notify(key, entry, signal);
 	}
 
 	/** Change a value without refreshing endpoint freshness, releasing a lease or clearing backoff. */
-	async patch(key: string, change: (current: T | undefined) => T | undefined): Promise<boolean> {
+	async patch(
+		key: string,
+		change: (current: T | undefined) => T | undefined,
+		signal?: AbortSignal,
+	): Promise<boolean> {
 		const entry = await this.mutate(() => {
 			const current = this.entries.get(key);
 			const value = change(current?.value);
@@ -149,11 +164,12 @@ export class HostCache<T> {
 				updatedAt: this.now(),
 				parserVersion: current?.parserVersion ?? this.options.parserVersion(key),
 			};
+			if (signal?.aborted) return undefined;
 			this.entries.set(key, patched);
 			return patched;
-		});
+		}, signal);
 		if (entry === undefined) return false;
-		this.notify(key, entry);
+		this.notify(key, entry, signal);
 		return true;
 	}
 
@@ -161,34 +177,42 @@ export class HostCache<T> {
 	async fail(
 		key: string,
 		failure: { readonly backoffMs: number; readonly status?: number; readonly error?: string },
+		signal?: AbortSignal,
 	): Promise<void> {
 		await this.mutate(() => {
+			const until = this.now() + failure.backoffMs;
+			if (signal?.aborted) return;
 			this.leases.delete(key);
 			this.backoffs.set(key, {
-				until: this.now() + failure.backoffMs,
+				until,
 				...(failure.status === undefined ? {} : { status: failure.status }),
 				...(failure.error === undefined ? {} : { error: failure.error }),
 			});
-		});
+		}, signal);
 	}
 
 	/** Read-merge-write under the file lock, serialized within this process. */
-	private mutate<R>(change: () => R): Promise<R> {
-		const op = this.writeChain.then(() =>
-			withFileLock(this.options.path, async () => {
-				await this.sync(true);
+	private mutate<R>(change: () => R, signal?: AbortSignal): Promise<R | undefined> {
+		const op = this.writeChain.then(() => {
+			if (signal?.aborted) return undefined;
+			return withFileLock(this.options.path, async () => {
+				if (signal?.aborted) return undefined;
+				await this.sync(true, signal);
+				if (signal?.aborted) return undefined;
 				const result = change();
+				if (signal?.aborted) return undefined;
 				await atomicWriteFile(this.options.path, JSON.stringify(this.payload()), {
 					mode: 0o600,
 					dirMode: 0o700,
 				});
-				this.lastMtimeMs = await stat(this.options.path).then(
+				const mtime = await stat(this.options.path).then(
 					(s) => s.mtimeMs,
 					() => -1,
 				);
+				if (!signal?.aborted) this.lastMtimeMs = mtime;
 				return result;
-			}),
-		);
+			});
+		});
 		this.writeChain = op.then(
 			() => undefined,
 			() => undefined,
@@ -196,11 +220,13 @@ export class HostCache<T> {
 		return op;
 	}
 
-	private merge(raw: unknown): boolean {
+	private merge(raw: unknown, signal?: AbortSignal): boolean {
 		if (!isRecord(raw) || raw["version"] !== 1) return false;
 		let changed = false;
 		for (const [key, value] of Object.entries(asRecord(raw["entries"]))) {
+			if (signal?.aborted) return changed;
 			const incoming = this.parseEntry(key, value);
+			if (signal?.aborted) return changed;
 			if (incoming === undefined) continue;
 			const existing = this.entries.get(key);
 			// On equal timestamps the file wins unless it holds this entry as written: local entries only change in mutate.
@@ -212,14 +238,16 @@ export class HostCache<T> {
 			)
 				continue;
 			this.entries.set(key, incoming);
-			this.notify(key, incoming);
+			this.notify(key, incoming, signal);
 			changed = true;
 		}
 		for (const [key, until] of Object.entries(asRecord(raw["leases"]))) {
+			if (signal?.aborted) return changed;
 			if (typeof until === "number")
 				this.leases.set(key, Math.max(this.leases.get(key) ?? 0, until));
 		}
 		for (const [key, value] of Object.entries(asRecord(raw["backoff"]))) {
+			if (signal?.aborted) return changed;
 			const backoff = parseBackoff(value);
 			if (backoff && backoff.until >= (this.backoffs.get(key)?.until ?? 0)) {
 				this.backoffs.set(key, backoff);
@@ -249,8 +277,11 @@ export class HostCache<T> {
 		};
 	}
 
-	private notify(key: string, entry: CacheEntry<T>): void {
-		for (const listener of this.listeners) listener(key, entry);
+	private notify(key: string, entry: CacheEntry<T>, signal?: AbortSignal): void {
+		for (const listener of this.listeners) {
+			if (signal?.aborted) return;
+			listener(key, entry);
+		}
 	}
 }
 

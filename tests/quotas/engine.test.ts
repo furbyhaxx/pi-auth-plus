@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, statSync, utimesSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { withFileLock } from "../../src/core/cache/lock.ts";
 import { SETTINGS } from "../../src/core/config/catalog.ts";
 import { SettingsStore } from "../../src/core/config/index.ts";
 import { detectConflicts, loadsPackage } from "../../src/core/conflicts/index.ts";
@@ -448,6 +449,225 @@ describe("quota engine", () => {
 		await pending;
 		expect(engine.view()[0]?.snapshot).toBeUndefined();
 		expect(engine.view()[0]?.refreshing).toBe(false);
+	});
+
+	for (const phase of ["acquire", "snapshot", "failure", "headers"] as const) {
+		test(`stopping while ${phase} is queued leaves no late cache change or event`, async () => {
+			const engine = setup(() => ({ ...snapshot(), source: "headers" })).engine;
+			const started = Promise.withResolvers<void>();
+			const result = Promise.withResolvers<ProviderQuotaSnapshot>();
+			let pending: Promise<unknown>;
+			if (phase === "snapshot" || phase === "failure") {
+				fetchQuota = async () => {
+					started.resolve();
+					return result.promise;
+				};
+				pending = engine.refresh("fake");
+				await started.promise;
+			} else {
+				pending = Promise.resolve();
+			}
+			await setup().engine.cache.put("other", { drainage: [] });
+			utimesSync(path, new Date(0), new Date(1_000));
+			const before = readFileSync(path, "utf8");
+			const mtime = statSync(path).mtimeMs;
+			const entered = Promise.withResolvers<void>();
+			const release = Promise.withResolvers<void>();
+			const held = withFileLock(path, async () => {
+				entered.resolve();
+				await release.promise;
+			});
+			await entered.promise;
+			let events = 0;
+			engine.onChange(() => events++);
+			const queued = Promise.withResolvers<void>();
+			const putWith = engine.cache.putWith.bind(engine.cache);
+			const fail = engine.cache.fail.bind(engine.cache);
+			const putSpy = spyOn(engine.cache, "putWith").mockImplementation((...args) => {
+				queued.resolve();
+				return putWith(...args);
+			});
+			const failSpy = spyOn(engine.cache, "fail").mockImplementation((...args) => {
+				queued.resolve();
+				return fail(...args);
+			});
+			if (phase === "acquire") pending = engine.refresh("fake");
+			if (phase === "headers") pending = engine.ingestHeaders({ "x-used": "50" });
+			if (phase === "snapshot") result.resolve(snapshot());
+			if (phase === "failure") result.reject(new Error("failed"));
+			if (phase === "snapshot" || phase === "failure") await queued.promise;
+			engine.stop();
+			const eventsAtStop = events;
+			release.resolve();
+			await held;
+			await pending;
+			putSpy.mockRestore();
+			failSpy.mockRestore();
+
+			expect(events).toBe(eventsAtStop);
+			expect(engine.view()[0]?.snapshot).toBeUndefined();
+			expect(engine.view()[0]?.backoff).toBeUndefined();
+			expect(engine.cache.get("other")).toBeUndefined();
+			expect(readFileSync(path, "utf8")).toBe(before);
+			expect(statSync(path).mtimeMs).toBe(mtime);
+
+			fetchQuota = async () => snapshot();
+			await engine.start();
+			await engine.refresh("fake");
+			await engine.refresh("fake", { force: true });
+			expect(engine.view()[0]?.snapshot).toEqual(snapshot());
+		});
+	}
+
+	test("a restarted session survives an older snapshot waiting inside the lock", async () => {
+		const engine = setup().engine;
+		const started = Promise.withResolvers<void>();
+		const result = Promise.withResolvers<ProviderQuotaSnapshot>();
+		fetchQuota = async () => {
+			started.resolve();
+			return result.promise;
+		};
+		const pending = engine.refresh("fake");
+		await started.promise;
+		const entered = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		const sync = engine.cache.sync.bind(engine.cache);
+		const syncSpy = spyOn(engine.cache, "sync").mockImplementation(async (...args) => {
+			if (args[0]) {
+				entered.resolve();
+				await release.promise;
+			}
+			return sync(...args);
+		});
+		let events = 0;
+		engine.onChange(() => events++);
+		result.resolve(snapshot());
+		await entered.promise;
+		engine.stop();
+		clock += 30_001;
+		const nextStarted = Promise.withResolvers<void>();
+		const nextResult = Promise.withResolvers<ProviderQuotaSnapshot>();
+		fetchQuota = async () => {
+			nextStarted.resolve();
+			return nextResult.promise;
+		};
+		await engine.start();
+		const next = engine.refresh("fake");
+		const eventsAtRestart = events;
+		release.resolve();
+		await pending;
+		await nextStarted.promise;
+		expect(events).toBe(eventsAtRestart);
+		expect(engine.view()[0]?.refreshing).toBe(true);
+		expect(engine.view()[0]?.snapshot).toBeUndefined();
+		expect(engine.view()[0]?.backoff).toBeUndefined();
+		expect(readFileSync(path, "utf8")).not.toContain('"snapshot"');
+		nextResult.resolve(snapshot());
+		await next;
+		syncSpy.mockRestore();
+		expect(engine.view()[0]?.snapshot).toEqual(snapshot());
+	});
+
+	for (const method of ["start", "tick"] as const) {
+		test(`${method} discards synchronization finishing after stop`, async () => {
+			await setup().engine.cache.put("other", { drainage: [] });
+			const engine = setup().engine;
+			const entered = Promise.withResolvers<void>();
+			const release = Promise.withResolvers<void>();
+			const sync = engine.cache.sync.bind(engine.cache);
+			const syncSpy = spyOn(engine.cache, "sync").mockImplementation(async (...args) => {
+				entered.resolve();
+				await release.promise;
+				return sync(...args);
+			});
+			let events = 0;
+			engine.onChange(() => events++);
+			const pending = engine[method]();
+			await entered.promise;
+			engine.stop();
+			const eventsAtStop = events;
+			release.resolve();
+			await pending;
+			syncSpy.mockRestore();
+			expect(events).toBe(eventsAtStop);
+			expect(engine.cache.get("other")).toBeUndefined();
+			expect(calls).toBe(0);
+			await engine.start();
+			expect(engine.cache.get("other")).toBeDefined();
+			await engine.refresh("fake");
+		});
+	}
+
+	test("a stopped startup refresh does not report a late storage error", async () => {
+		const engine = setup().engine;
+		const entered = Promise.withResolvers<void>();
+		const failure = Promise.withResolvers<boolean>();
+		const acquire = spyOn(engine.cache, "tryAcquire").mockImplementation(() => {
+			entered.resolve();
+			return failure.promise;
+		});
+		let events = 0;
+		engine.onChange(() => events++);
+		await engine.start();
+		await entered.promise;
+		const pending = engine.refresh("fake");
+		engine.stop();
+		const eventsAtStop = events;
+		failure.reject(new Error("Cache unavailable"));
+		await expect(pending).rejects.toThrow("Cache unavailable");
+		expect(events).toBe(eventsAtStop);
+		acquire.mockRestore();
+	});
+
+	test("a reset notification stops when its session is stopped", async () => {
+		const outcome: ResetOutcome = {
+			provider: "fake",
+			code: "reset",
+			creditId: "one",
+			windowsReset: 1,
+		};
+		const engine = setup(undefined, [], {
+			list: async () => ({ provider: "fake", fetchedAt: clock, available: 1, credits: [] }),
+			consume: async () => outcome,
+		}).engine;
+		const events: string[] = [];
+		engine.onResetConsumed(() => {
+			events.push("first");
+			engine.stop();
+		});
+		engine.onResetConsumed(() => events.push("second"));
+		expect(await engine.consumeReset("fake", "one")).toEqual(outcome);
+		expect(events).toEqual(["first"]);
+		expect(calls).toBe(0);
+	});
+
+	test("a stopped reset's failed follow-up does not emit a late event", async () => {
+		const outcome: ResetOutcome = {
+			provider: "fake",
+			code: "reset",
+			creditId: "one",
+			windowsReset: 1,
+		};
+		const engine = setup(undefined, [], {
+			list: async () => ({ provider: "fake", fetchedAt: clock, available: 1, credits: [] }),
+			consume: async () => outcome,
+		}).engine;
+		const started = Promise.withResolvers<void>();
+		const failed = Promise.withResolvers<void>();
+		const refresh = spyOn(engine, "refresh").mockImplementation(() => {
+			started.resolve();
+			return failed.promise;
+		});
+		let events = 0;
+		engine.onChange(() => events++);
+		const pending = engine.consumeReset("fake", "one");
+		await started.promise;
+		engine.stop();
+		const eventsAtStop = events;
+		failed.reject(new Error("Cache unavailable"));
+		expect(await pending).toEqual(outcome);
+		expect(events).toBe(eventsAtStop);
+		refresh.mockRestore();
 	});
 
 	test("ordinary errors use 30 seconds; forced refresh can recover", async () => {

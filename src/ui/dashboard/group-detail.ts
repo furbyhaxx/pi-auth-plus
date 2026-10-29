@@ -68,28 +68,52 @@ export class GroupDetail {
 	readonly #host: TabViewHost;
 	readonly #catalog: () => readonly ModelCatalogItem[];
 	readonly #done: (group: ModelGroup) => void;
+	readonly #back: () => void;
 	readonly #input = new Input({ prompt: "", placeholder: "" });
 	readonly #original: Draft;
 	#draft: Draft;
+	#inputInitial = "";
 	#selected = 0;
 	#offset = 0;
 	#editing = false;
 	#message = "";
+	#disposed = false;
 
 	constructor(
 		host: TabViewHost,
 		initial: ModelGroup | undefined,
 		catalog: () => readonly ModelCatalogItem[],
 		done: (group: ModelGroup) => void,
+		back: () => void,
 	) {
 		this.#host = host;
 		this.#catalog = catalog;
 		this.#done = done;
+		this.#back = back;
 		this.#original = draft(initial);
 		this.#draft = draft(initial);
 	}
 	#dirty(): boolean {
 		return JSON.stringify(this.#draft) !== JSON.stringify(this.#original);
+	}
+	/** True when this editor or its active input contains unsaved changes. */
+	hasDrafts(): boolean {
+		return this.#dirty() || (this.#editing && this.#input.getValue() !== this.#inputInitial);
+	}
+	/** Group detail has no asynchronous operation of its own. */
+	isSaving(): boolean {
+		return false;
+	}
+	/** Reset all local fields to the value this editor was opened with. */
+	discardDrafts(): void {
+		this.#draft = draftFromDraft(this.#original);
+		this.#editing = false;
+		this.#inputInitial = "";
+		this.#input.setValue("");
+		this.#input.focused = false;
+		this.#selected = 0;
+		this.#offset = 0;
+		this.#message = "";
 	}
 	#rows(): Row[] {
 		const d = this.#draft;
@@ -136,6 +160,7 @@ export class GroupDetail {
 								: "";
 		this.#input.setValue("");
 		if (value) this.#input.handleInput(`\x1b[200~${clean(value)}\x1b[201~`);
+		this.#inputInitial = this.#input.getValue();
 		this.#input.focused = true;
 		this.#editing = true;
 		this.#message = "";
@@ -171,6 +196,8 @@ export class GroupDetail {
 		else if (row.kind === "tier" && member) member.tier = value;
 		else if (row.kind === "thinking" && member) member.thinking = value;
 		this.#editing = false;
+		this.#inputInitial = "";
+		this.#input.focused = false;
 		this.#message = "";
 		return true;
 	}
@@ -237,8 +264,9 @@ export class GroupDetail {
 		this.#message = "";
 		this.#done(group);
 	}
-	/** Consume all keys except a request to close without staged edits. */
+	/** Consume editor input, returning through the explicit back callback. */
 	handleInput(data: string): boolean {
+		if (this.#disposed) return true;
 		const { keys } = this.#host;
 		const cancel = keys.matches(data, "tui.select.cancel");
 		const enter = keys.matches(data, "tui.select.confirm");
@@ -247,6 +275,9 @@ export class GroupDetail {
 		if (!row) return true;
 		if (this.#editing) {
 			if (cancel) {
+				this.#input.setValue(this.#inputInitial);
+				this.#inputInitial = "";
+				this.#input.focused = false;
 				this.#editing = false;
 				this.#message = "";
 			} else if (enter) this.#finishEdit(row);
@@ -256,10 +287,17 @@ export class GroupDetail {
 			return true;
 		}
 		if (cancel) {
-			if (!this.#dirty()) return false;
-			this.#draft = draftFromDraft(this.#original);
-			this.#selected = 0;
-			this.#message = "Discarded staged changes";
+			if (!this.hasDrafts()) {
+				this.#back();
+				return true;
+			}
+			if (this.#host.confirmDiscard) {
+				this.#host.confirmDiscard(() => {
+					if (this.#disposed) return;
+					this.discardDrafts();
+					this.#back();
+				});
+			}
 			return true;
 		}
 		if (matchesKey(data, "ctrl+s")) {
@@ -398,7 +436,10 @@ export class GroupDetail {
 		};
 	}
 	/** Release editor resources when the owner closes the view. */
-	dispose(): void {}
+	dispose(): void {
+		this.#disposed = true;
+		this.#input.focused = false;
+	}
 }
 function draftFromDraft(value: Draft): Draft {
 	return {

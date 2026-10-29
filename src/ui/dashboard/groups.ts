@@ -1,6 +1,7 @@
 /** Staged model group list and scoped persistence. */
 import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../core/config/index.ts";
+import { formatSaveOutcome, type SaveOutcome } from "../../core/config/save.ts";
 import { type GroupMember, type ModelGroup, parseGroups } from "../../models/groups/config.ts";
 import { sanitize } from "../frame/index.ts";
 import { GroupDetail } from "./group-detail.ts";
@@ -12,7 +13,7 @@ export interface GroupsTabDeps {
 	groups(): readonly ModelGroup[];
 	catalog(): readonly ModelCatalogItem[];
 	health?(member: GroupMember): "healthy" | "unavailable" | "unknown";
-	save(groups: readonly ModelGroup[], scope: SaveScope): Promise<void>;
+	save(groups: readonly ModelGroup[], scope: SaveScope): Promise<SaveOutcome>;
 }
 
 const clean = (value: string): string => sanitize(value).replace(/\n/g, " ");
@@ -43,7 +44,13 @@ export class GroupsView implements TabView {
 	#edit(index: number | undefined): void {
 		const initial = index === undefined ? undefined : this.#groups()[index];
 		this.#detailMessage = "";
-		this.#detail = new GroupDetail(
+		let detail: GroupDetail;
+		const back = () => {
+			if (this.#detail !== detail) return;
+			detail.dispose();
+			this.#detail = undefined;
+		};
+		detail = new GroupDetail(
 			this.#host,
 			initial,
 			() => this.#deps.catalog(),
@@ -59,10 +66,11 @@ export class GroupsView implements TabView {
 				this.#staged = parsed;
 				this.#selected = index ?? parsed.length - 1;
 				this.#message = "";
-				this.#detail?.dispose();
-				this.#detail = undefined;
+				back();
 			},
+			back,
 		);
+		this.#detail = detail;
 	}
 
 	async #save(scope: SaveScope): Promise<void> {
@@ -70,10 +78,10 @@ export class GroupsView implements TabView {
 		if (!groups) return;
 		this.#saving = true;
 		try {
-			await this.#deps.save(groups, scope);
+			const outcome = await this.#deps.save(groups, scope);
 			if (this.#disposed) return;
-			this.#staged = undefined;
-			this.#message = `Saved to ${scope} scope`;
+			if (outcome.committed) this.#staged = undefined;
+			this.#message = formatSaveOutcome(outcome);
 		} catch (error) {
 			if (!this.#disposed)
 				this.#message = `Save failed: ${error instanceof Error ? error.message : String(error)}`;
@@ -84,17 +92,33 @@ export class GroupsView implements TabView {
 		}
 	}
 
+	/** True when this view or its child editor contains unsaved changes. */
+	hasDrafts(): boolean {
+		return this.#staged !== undefined || Boolean(this.#detail?.hasDrafts());
+	}
+	/** True while this view or its child editor is saving. */
+	isSaving(): boolean {
+		return this.#saving || Boolean(this.#detail?.isSaving());
+	}
+	/** Discard the staged list and every nested editor draft. */
+	discardDrafts(): void {
+		if (this.isSaving()) return;
+		this.#staged = undefined;
+		this.#message = "";
+		this.#detailMessage = "";
+		const detail = this.#detail;
+		this.#detail = undefined;
+		detail?.discardDrafts();
+		detail?.dispose();
+	}
 	/** Handle list actions, detail editing and scope selection before frame navigation. */
 	handleInput(data: string): boolean {
+		if (this.#disposed || this.isSaving()) return true;
 		if (this.#detail) {
 			this.#detailMessage = "";
-			if (!this.#detail.handleInput(data)) {
-				this.#detail.dispose();
-				this.#detail = undefined;
-			}
+			this.#detail.handleInput(data);
 			return true;
 		}
-		if (this.#saving) return true;
 		const { keys } = this.#host;
 		const cancel = keys.matches(data, "tui.select.cancel");
 		if (this.#mode === "save") {
@@ -104,12 +128,7 @@ export class GroupsView implements TabView {
 			else if (data === "p") void this.#save("project");
 			return true;
 		}
-		if (cancel) {
-			if (!this.#staged) return false;
-			this.#staged = undefined;
-			this.#message = "Discarded staged changes";
-			return true;
-		}
+		if (cancel) return false;
 		if (matchesKey(data, "ctrl+s")) {
 			if (this.#staged) {
 				this.#mode = "save";

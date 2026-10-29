@@ -43,7 +43,20 @@ function open(
 		finish: () => {},
 	};
 	const groups: ModelGroup[] = [];
-	const view = new GroupDetail(host, initial, models, (group) => groups.push(group));
+	let pendingDiscard: (() => void) | undefined;
+	let backs = 0;
+	host.confirmDiscard = (discard) => {
+		pendingDiscard = discard;
+	};
+	const view = new GroupDetail(
+		host,
+		initial,
+		models,
+		(group) => groups.push(group),
+		() => {
+			backs++;
+		},
+	);
 	const press = (key: string) => view.handleInput(key);
 	const select = (label: string) => {
 		for (let i = 0; i < 60; i++) press("k");
@@ -62,7 +75,20 @@ function open(
 		press("\r");
 	};
 	const text = () => view.render(120, 60).lines.map(stripVTControlCharacters).join("\n");
-	return { view, groups, press, select, edit, text };
+	return {
+		view,
+		groups,
+		press,
+		select,
+		edit,
+		text,
+		confirmDiscard: () => {
+			const discard = pendingDiscard;
+			pendingDiscard = undefined;
+			discard?.();
+		},
+		backs: () => backs,
+	};
 }
 
 describe("group detail", () => {
@@ -202,6 +228,19 @@ describe("group detail", () => {
 		r.press("d");
 		expect(r.text()).not.toContain("Member 1");
 	});
+	test("counts a changed active input but not an unchanged focused input", () => {
+		const r = open();
+		expect(r.view.hasDrafts()).toBe(false);
+		r.select("Group ID");
+		r.press("\r");
+		expect(r.view.hasDrafts()).toBe(false);
+		r.press("\x15");
+		r.press("\x1b[200~team\x1b[201~");
+		expect(r.view.hasDrafts()).toBe(true);
+		expect(r.press("\x1b")).toBe(true);
+		expect(r.view.hasDrafts()).toBe(false);
+		expect(r.view.isSaving()).toBe(false);
+	});
 	test("shows rebound cursor bindings as separate hints and handles them", () => {
 		const r = open(undefined, undefined, {
 			"tui.editor.cursorLeft": "ctrl+b",
@@ -270,9 +309,11 @@ describe("group detail", () => {
 		}
 		expect(r.press("\x1b")).toBe(true);
 		expect(r.press("\x1b")).toBe(true);
-		expect(r.text()).toContain("Discarded staged changes");
+		expect(r.view.hasDrafts()).toBe(true);
+		r.confirmDiscard();
+		expect(r.view.hasDrafts()).toBe(false);
 		expect(r.text()).toContain("Member 2");
-		expect(r.press("\x1b")).toBe(false);
+		expect(r.backs()).toBe(1);
 		r.view.dispose();
 	});
 });

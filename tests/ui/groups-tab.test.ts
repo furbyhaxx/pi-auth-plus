@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
 import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../src/core/config/index.ts";
+import type { SaveOutcome } from "../../src/core/config/save.ts";
 import type { ModelGroup } from "../../src/models/groups/config.ts";
 import { GroupsView } from "../../src/ui/dashboard/groups.ts";
 import type { TabViewHost } from "../../src/ui/dashboard/view.ts";
@@ -18,6 +19,14 @@ function open(initial: readonly ModelGroup[] = []) {
 	let stored = [...initial];
 	let fail = false;
 	let refresh: (() => void) | undefined;
+	let pendingDiscard: (() => void) | undefined;
+	let saveBehavior: (groups: readonly ModelGroup[], scope: SaveScope) => Promise<SaveOutcome> =
+		async (_groups, scope) => ({
+			committed: true,
+			scope,
+			shadowed: [],
+			warnings: [],
+		});
 	const saves: { groups: readonly ModelGroup[]; scope: SaveScope }[] = [];
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS);
 	const host: TabViewHost = {
@@ -29,15 +38,23 @@ function open(initial: readonly ModelGroup[] = []) {
 			refresh = undefined;
 		},
 		finish: () => {},
+		confirmDiscard: (discard) => {
+			pendingDiscard = discard;
+		},
 	};
 	const view = new GroupsView(host, {
 		groups: () => stored,
 		catalog: () => [{ provider: "vendor", id: "one", name: "One", contextWindow: 1000 }],
 		health: (member) => (member.id === "one" ? "healthy" : "unknown"),
 		save: async (groups, scope) => {
-			if (fail) throw new Error("disk error; retry");
-			stored = [...groups];
-			saves.push({ groups, scope });
+			const outcome: SaveOutcome = fail
+				? { committed: false, error: "disk error; retry" }
+				: await saveBehavior(groups, scope);
+			if (outcome.committed) {
+				stored = [...groups];
+				saves.push({ groups, scope });
+			}
+			return outcome;
 		},
 	});
 	const press = (key: string) => view.handleInput(key);
@@ -62,14 +79,15 @@ function open(initial: readonly ModelGroup[] = []) {
 		press(`\x1b[200~${value}\x1b[201~`);
 		press("\r");
 	};
-	const save = async (key: string) => {
+	const beginSave = (key: string) => {
 		press("\x13");
 		const done = new Promise<void>((resolve) => {
 			refresh = resolve;
 		});
 		press(key);
-		await done;
+		return done;
 	};
+	const save = async (key: string) => await beginSave(key);
 	return {
 		view,
 		press,
@@ -77,10 +95,22 @@ function open(initial: readonly ModelGroup[] = []) {
 		select,
 		edit,
 		save,
+		beginSave,
 		saves,
 		stored: () => stored,
 		fail: (value: boolean) => {
 			fail = value;
+		},
+		setSaveBehavior: (behavior: typeof saveBehavior) => {
+			saveBehavior = behavior;
+		},
+		confirmDiscard: () => {
+			const discard = pendingDiscard;
+			pendingDiscard = undefined;
+			discard?.();
+		},
+		cancelDiscard: () => {
+			pendingDiscard = undefined;
 		},
 	};
 }
@@ -103,10 +133,52 @@ describe("groups tab", () => {
 			expect(r.saves[0]?.scope).toBe(scope);
 			expect(r.stored()[0]?.id).toBe("team");
 			r.press("d");
-			expect(r.press("\x1b")).toBe(true);
+			expect(r.press("\x1b")).toBe(false);
+			expect(r.view.hasDrafts()).toBe(true);
+			r.view.discardDrafts();
+			expect(r.view.hasDrafts()).toBe(false);
 			expect(r.text()).toContain("team");
 			expect(r.press("\x1b")).toBe(false);
 		}
+	});
+	test("local child discard preserves parent staging and global discard clears both", () => {
+		const r = open([group("first"), group("second")]);
+		r.press("\r");
+		r.edit("Display name", "Parent draft");
+		r.press("\x13");
+		r.press("j");
+		r.press("\r");
+		r.edit("Display name", "Child draft");
+		expect(r.view.hasDrafts()).toBe(true);
+		expect(r.press("\x1b")).toBe(true);
+		expect(r.text()).toContain("Child draft");
+		r.cancelDiscard();
+		expect(r.view.hasDrafts()).toBe(true);
+		expect(r.text()).toContain("Child draft");
+		r.press("\x1b");
+		r.confirmDiscard();
+		expect(r.text()).toContain("Parent draft");
+		expect(r.text()).not.toContain("Child draft");
+		expect(r.view.hasDrafts()).toBe(true);
+		r.view.discardDrafts();
+		expect(r.view.hasDrafts()).toBe(false);
+		expect(r.text()).not.toContain("Parent draft");
+	});
+	test("changed nested input counts as a draft but focus alone does not", () => {
+		const r = open();
+		r.press("a");
+		expect(r.view.hasDrafts()).toBe(false);
+		r.select("Group ID");
+		r.press("\r");
+		expect(r.view.hasDrafts()).toBe(false);
+		r.press("\x15");
+		r.press("\x1b[200~team\x1b[201~");
+		expect(r.view.hasDrafts()).toBe(true);
+		expect(r.press("\x1b")).toBe(true);
+		expect(r.view.hasDrafts()).toBe(false);
+		expect(r.text()).not.toContain("team");
+		r.press("\x1b");
+		expect(r.view.hasDrafts()).toBe(false);
 	});
 	test("edits and deletes, rejects duplicate rename and creation", async () => {
 		const r = open([group("first"), group("second")]);
@@ -124,25 +196,24 @@ describe("groups tab", () => {
 		r.press("\x13");
 		expect(r.text()).toContain("duplicate");
 		r.press("\x1b");
-		r.press("\x1b");
+		r.confirmDiscard();
 		r.press("j");
 		r.press("d");
 		await r.save("u");
 		expect(r.stored().map((item) => item.id)).toEqual(["renamed"]);
 	});
-	test("failed save retains staged list, cancel and retry; modal keys never leak", async () => {
+	test("failed save retains staged list and modal keys never leak", async () => {
 		const r = open([group("first")]);
 		r.press("\r");
 		expect(r.press("\t")).toBe(true);
 		expect(r.press("\x1b[C")).toBe(true);
 		r.edit("Display name", "Changed");
-		r.press("\x1b");
-		expect(r.text()).toContain("Discarded");
-		r.press("\x1b");
+		r.press("\x13");
 		r.press("d");
 		r.fail(true);
 		await r.save("p");
 		expect(r.text()).toContain("disk error");
+		expect(r.view.hasDrafts()).toBe(true);
 		expect(r.stored()).toHaveLength(1);
 		r.press("\x13");
 		expect(r.view.render(80, 4).modal).toBe(true);
@@ -152,8 +223,47 @@ describe("groups tab", () => {
 		await r.save("r");
 		expect(r.stored()).toEqual([]);
 	});
+	test("delayed failed and committed-warning outcomes update staged state exactly", async () => {
+		const r = open([group("first")]);
+		r.press("d");
+		let started = Promise.withResolvers<void>();
+		let result = Promise.withResolvers<SaveOutcome>();
+		r.setSaveBehavior(() => {
+			started.resolve();
+			return result.promise;
+		});
+		const failed = r.beginSave("u");
+		await started.promise;
+		expect(r.view.isSaving()).toBe(true);
+		expect(r.view.handleInput("d")).toBe(true);
+		expect(r.view.hasDrafts()).toBe(true);
+		result.resolve({ committed: false, error: "disk error" });
+		await failed;
+		expect(r.view.isSaving()).toBe(false);
+		expect(r.view.hasDrafts()).toBe(true);
+		expect(r.text()).toContain("disk error");
+
+		started = Promise.withResolvers<void>();
+		result = Promise.withResolvers<SaveOutcome>();
+		const committed = r.beginSave("p");
+		await started.promise;
+		expect(r.view.isSaving()).toBe(true);
+		expect(r.view.handleInput("d")).toBe(true);
+		result.resolve({
+			committed: true,
+			scope: "project",
+			shadowed: ["models.groups", "models.other"],
+			warnings: ["effects failed", "reopen the session"],
+		});
+		await committed;
+		expect(r.view.isSaving()).toBe(false);
+		expect(r.view.hasDrafts()).toBe(false);
+		expect(r.text()).toContain("shadowed by higher scope: models.groups, models.other");
+		expect(r.text()).toContain("warning: effects failed");
+		expect(r.text()).toContain("warning: reopen the session");
+	});
 	test("blocks navigation while an asynchronous save is pending", async () => {
-		let finishSave: (() => void) | undefined;
+		let finishSave: ((outcome: SaveOutcome) => void) | undefined;
 		let refreshed: (() => void) | undefined;
 		const keys = new KeybindingsManager(TUI_KEYBINDINGS);
 		const host: TabViewHost = {
@@ -167,7 +277,7 @@ describe("groups tab", () => {
 			groups: () => [group("first")],
 			catalog: () => [],
 			save: () =>
-				new Promise<void>((resolve) => {
+				new Promise<SaveOutcome>((resolve) => {
 					finishSave = resolve;
 				}),
 		});
@@ -181,7 +291,7 @@ describe("groups tab", () => {
 		const done = new Promise<void>((resolve) => {
 			refreshed = resolve;
 		});
-		finishSave?.();
+		finishSave?.({ committed: true, scope: "runtime", shadowed: [], warnings: [] });
 		await done;
 		view.dispose();
 	});

@@ -4,7 +4,7 @@ import { type AutocompleteItem, Text } from "@earendil-works/pi-tui";
 import type { CredentialStatus } from "../../core/auth/index.ts";
 import { type AppSettings, SETTINGS } from "../../core/config/catalog.ts";
 import type { Field, FieldValue, SaveScope } from "../../core/config/index.ts";
-import { formatSaveOutcome, type SettingsSaver } from "../../core/config/save.ts";
+import { formatSaveOutcome, type SaveOutcome, type SettingsSaver } from "../../core/config/save.ts";
 import type { Registry } from "../../core/registry/index.ts";
 import { loginCodex } from "../../families/openai/codex-auth/index.ts";
 import type { LineTheme } from "../../quotas/line/format.ts";
@@ -220,6 +220,117 @@ function dashboardModel(deps: AuthCommandDeps): DashboardModel {
 	};
 }
 
+function cancelledSave(): SaveOutcome {
+	return { committed: false, error: "Settings save cancelled because the session ended" };
+}
+
+async function sessionCall<T>(signal: AbortSignal | undefined, call: () => Promise<T>): Promise<T> {
+	signal?.throwIfAborted();
+	const result = await call();
+	signal?.throwIfAborted();
+	return result;
+}
+
+function sessionModels(source: ModelsTabDeps, signal: AbortSignal | undefined): ModelsTabDeps {
+	const details = source.details;
+	const aliases = details?.aliases;
+	return {
+		rules: () => (signal?.aborted ? [] : source.rules()),
+		catalog: () => (signal?.aborted ? [] : source.catalog()),
+		evaluate: (rules, provider, id) =>
+			signal?.aborted ? { visible: false } : source.evaluate(rules, provider, id),
+		save: (rules, scope) => sessionCall(signal, () => source.save(rules, scope)),
+		...(details
+			? {
+					details: {
+						...(aliases
+							? {
+									aliases: {
+										list: () => (signal?.aborted ? [] : aliases.list()),
+										supported: (provider: string) =>
+											!signal?.aborted && aliases.supported(provider),
+										save: (next, scope) =>
+											signal?.aborted
+												? Promise.resolve(cancelledSave())
+												: aliases.save(next, scope),
+									},
+								}
+							: {}),
+						read: (provider, id) => sessionCall(signal, () => details.read(provider, id)),
+						...(details.current
+							? {
+									current: (provider: string, id: string) =>
+										signal?.aborted ? undefined : details.current?.(provider, id),
+								}
+							: {}),
+						save: (provider, id, changes) =>
+							sessionCall(signal, () => details.save(provider, id, changes)),
+					},
+				}
+			: {}),
+	};
+}
+
+function sessionGroups(source: GroupsTabDeps, signal: AbortSignal | undefined): GroupsTabDeps {
+	return {
+		groups: () => (signal?.aborted ? [] : source.groups()),
+		catalog: () => (signal?.aborted ? [] : source.catalog()),
+		...(source.health
+			? {
+					health: (member) =>
+						signal?.aborted ? "unknown" : (source.health?.(member) ?? "unknown"),
+				}
+			: {}),
+		save: (groups, scope) =>
+			signal?.aborted ? Promise.resolve(cancelledSave()) : source.save(groups, scope),
+	};
+}
+
+function sessionQuotas(source: QuotaPanelDeps, signal: AbortSignal | undefined): QuotaPanelDeps {
+	return {
+		report: () => (signal?.aborted ? { v: 1, generatedAt: 0, providers: [] } : source.report()),
+		resetSupport: (id) => !signal?.aborted && source.resetSupport(id),
+		refreshing: (id) => !signal?.aborted && source.refreshing(id),
+		refresh: (id, force) => sessionCall(signal, () => source.refresh(id, force)),
+		onChange: (listener) =>
+			signal?.aborted
+				? () => {}
+				: source.onChange(() => {
+						if (!signal?.aborted) listener();
+					}),
+		lineConfig: () =>
+			signal?.aborted
+				? {
+						percentDisplay: SETTINGS["quotas.percentDisplay"].default,
+						creditHealthyUsd: SETTINGS["quotas.creditHealthyUsd"].default,
+						creditCriticalUsd: SETTINGS["quotas.creditCriticalUsd"].default,
+					}
+				: source.lineConfig(),
+		linePlacement: () =>
+			signal?.aborted ? SETTINGS["quotas.linePlacement"].default : source.linePlacement(),
+		setLinePlacement: (next) => sessionCall(signal, () => source.setLinePlacement(next)),
+		now: () => (signal?.aborted ? 0 : source.now()),
+		text: (provider) => (signal?.aborted ? "" : source.text(provider)),
+		listResets: (provider) => sessionCall(signal, () => source.listResets(provider)),
+		consumeReset: (provider, credit, requester) =>
+			sessionCall(signal, () => source.consumeReset(provider, credit, requester)),
+	};
+}
+
+function sessionTokens(source: TokenTracker, signal: AbortSignal | undefined): TokenTracker {
+	return {
+		latest: () => (signal?.aborted ? undefined : source.latest()),
+		refresh: (reason) => sessionCall(signal, () => source.refresh(reason)),
+		breakdown: (countSignal) => sessionCall(signal, () => source.breakdown(countSignal)),
+		onChange: (listener) =>
+			signal?.aborted
+				? () => {}
+				: source.onChange((report, reason) => {
+						if (!signal?.aborted) listener(report, reason);
+					}),
+	};
+}
+
 export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): void {
 	pi.registerEntryRenderer<{ text?: unknown }>(
 		NOTE_TYPE,
@@ -390,8 +501,10 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 					);
 			} else return report(ctx, `Usage: /auth ${tab}.`, "error");
 		}
+		let quotaSource: QuotaPanelDeps | string | undefined;
 		if (tab === "quotas" && select !== undefined) {
 			const quotas = deps.quotas?.();
+			quotaSource = quotas;
 			if (
 				quotas &&
 				typeof quotas !== "string" &&
@@ -410,60 +523,90 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 				? {
 						store: () => store,
 						save: (scope, changes) =>
-							signal?.aborted
-								? Promise.resolve({
-										committed: false,
-										error: "Settings save cancelled because the session ended",
-									})
-								: source.save(scope, changes),
-						...(source.preview ? { preview: source.preview } : {}),
+							signal?.aborted ? Promise.resolve(cancelledSave()) : source.save(scope, changes),
+						...(source.preview
+							? {
+									preview: (template, width, theme) =>
+										signal?.aborted
+											? { rows: [], unknown: [] }
+											: (source.preview?.(template, width, theme) ?? { rows: [], unknown: [] }),
+								}
+							: {}),
 					}
 				: undefined;
 		const model = dashboardModel(deps);
 		if (ctx.mode !== "tui" || !ctx.hasUI)
 			return report(ctx, headless(tab, model, store, select), "info");
+		if (signal?.aborted) return;
+		const dashboardSources = { registry: deps.registry, status: deps.status, now: deps.now };
+		const tokenSource = deps.tokens?.();
+		const modelSource = deps.models;
+		const groupSource = deps.groups;
+		const tokens = tokenSource ? sessionTokens(tokenSource, signal) : undefined;
+		const models = modelSource ? sessionModels(modelSource, signal) : undefined;
+		const groups = groupSource ? sessionGroups(groupSource, signal) : undefined;
+		quotaSource ??= deps.quotas?.();
+		const quotas =
+			typeof quotaSource === "string" || !quotaSource
+				? quotaSource
+				: sessionQuotas(quotaSource, signal);
+		if (signal?.aborted) return;
 		let current: { tab: TabId; select?: string } = { tab, ...(select ? { select } : {}) };
 		for (;;) {
 			const opened = current;
-			const result = await ctx.ui.custom<DashboardResult>((tui, theme, keys, done) => {
-				const views = staticViews(dashboardModel(deps));
-				views.tokens = (host) => new TokensView(host, deps.tokens?.());
-				const models = deps.models;
-				if (models) views.models = (host) => new ModelsView(host, models);
-				const quotas = deps.quotas?.();
-				if (typeof quotas === "string")
-					views.quotas = (host) => new RowsView(host, { rows: [], empty: quotas });
-				else if (quotas)
-					views.quotas = (host) =>
-						new QuotasView(
-							host,
-							theme,
-							quotas,
-							opened.tab === "quotas" ? opened.select : undefined,
-						);
-				const groups = deps.groups;
-				if (groups) views.groups = (host) => new GroupsView(host, groups);
-				if (settings)
-					views.settings = (host) =>
-						new SettingsView(
-							host,
-							{
-								store: settings.store,
-								save: settings.save,
-								...(settings.preview
-									? {
-											previewTemplate: (source: string, width: number) =>
-												settings.preview?.(source, width, theme) ?? { rows: [], unknown: [] },
-										}
-									: {}),
-							},
-							opened.tab === "settings" ? opened.select : undefined,
-						);
-				return new AuthDashboard(tui, theme, keys, done, views, opened.tab, model.providers.length);
-			});
+			let panel: AuthDashboard | undefined;
+			const dispose = () => panel?.dispose();
+			signal?.addEventListener("abort", dispose, { once: true });
+			let result: DashboardResult;
+			try {
+				result = await ctx.ui.custom<DashboardResult>((tui, theme, keys, done) => {
+					const views = staticViews(signal?.aborted ? model : dashboardModel(dashboardSources));
+					views.tokens = (host) => new TokensView(host, tokens);
+					if (models) views.models = (host) => new ModelsView(host, models);
+					if (typeof quotas === "string")
+						views.quotas = (host) => new RowsView(host, { rows: [], empty: quotas });
+					else if (quotas)
+						views.quotas = (host) =>
+							new QuotasView(
+								host,
+								theme,
+								quotas,
+								opened.tab === "quotas" ? opened.select : undefined,
+							);
+					if (groups) views.groups = (host) => new GroupsView(host, groups);
+					if (settings)
+						views.settings = (host) =>
+							new SettingsView(
+								host,
+								{
+									store: settings.store,
+									save: settings.save,
+									...(settings.preview
+										? {
+												previewTemplate: (source: string, width: number) =>
+													settings.preview?.(source, width, theme) ?? { rows: [], unknown: [] },
+											}
+										: {}),
+								},
+								opened.tab === "settings" ? opened.select : undefined,
+							);
+					panel = new AuthDashboard(
+						tui,
+						theme,
+						keys,
+						done,
+						views,
+						opened.tab,
+						model.providers.length,
+					);
+					if (signal?.aborted) panel.dispose();
+					return panel;
+				});
+			} finally {
+				signal?.removeEventListener("abort", dispose);
+			}
 			if (signal?.aborted || !result) return;
 			if ("reset" in result) {
-				const quotas = deps.quotas?.();
 				if (quotas && typeof quotas !== "string")
 					await reset(ctx, result.reset, "panel", quotas, signal);
 				if (signal?.aborted) return;

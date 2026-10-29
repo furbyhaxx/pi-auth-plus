@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import {
 	CombinedAutocompleteProvider,
@@ -796,6 +796,454 @@ describe("ui/commands", () => {
 		await f.run("auth", "settings");
 		expect(offered).toEqual(["User (all projects)", "This session only"]);
 		expect(saves).toBe(0);
+	});
+
+	test("dashboard actions cannot mutate a replacement session", async () => {
+		for (const action of ["rules", "groups", "alias", "override", "quotas"] as const) {
+			for (const mode of ["active", "replaced", "guard"] as const) {
+				let controller = new AbortController();
+				const signal = controller.signal;
+				// Exercise the service guards independently of panel disposal.
+				const listener =
+					mode === "guard"
+						? spyOn(signal, "addEventListener").mockImplementation(() => {})
+						: undefined;
+				const calls: string[] = [];
+				let staleReads = 0;
+				const read = () => {
+					if (signal.aborted) staleReads++;
+				};
+				const { quotas: quotaBase } = quotaFixture();
+				const quotas: QuotaPanelDeps = {
+					...quotaBase,
+					report: () => {
+						read();
+						return quotaBase.report();
+					},
+					resetSupport: () => {
+						read();
+						return true;
+					},
+					refreshing: () => {
+						read();
+						return false;
+					},
+					lineConfig: () => {
+						read();
+						return quotaBase.lineConfig();
+					},
+					linePlacement: () => {
+						read();
+						return quotaBase.linePlacement();
+					},
+					now: () => {
+						read();
+						return 0;
+					},
+					refresh: async () => {
+						calls.push("refresh");
+					},
+					setLinePlacement: async () => {
+						calls.push("placement");
+					},
+					listResets: async () => {
+						calls.push("list");
+						throw new Error("unexpected reset");
+					},
+					consumeReset: async () => {
+						calls.push("reset");
+						throw new Error("unexpected reset");
+					},
+				};
+				const models: NonNullable<AuthCommandDeps["models"]> = {
+					rules: () => {
+						read();
+						return ["vendor/*"];
+					},
+					catalog: () => {
+						read();
+						return [{ provider: "vendor", id: "one", name: "One", contextWindow: 1000 }];
+					},
+					evaluate: () => {
+						read();
+						return { visible: true };
+					},
+					save: async () => {
+						calls.push("rules");
+					},
+					details: {
+						read: async () => {
+							read();
+							return undefined;
+						},
+						save: async () => {
+							calls.push("override");
+						},
+						aliases: {
+							list: () => {
+								read();
+								return [{ provider: "vendor", source: "one", id: "copy" }];
+							},
+							supported: () => {
+								read();
+								return true;
+							},
+							save: async (_aliases, scope) => {
+								calls.push("alias");
+								return { committed: true, scope, shadowed: [], warnings: [] };
+							},
+						},
+					},
+				};
+				const groups: NonNullable<AuthCommandDeps["groups"]> = {
+					groups: () => {
+						read();
+						return [
+							{
+								id: "team",
+								strategy: "sticky",
+								triggers: [],
+								members: [{ provider: "vendor", id: "one", tier: 1 }],
+							},
+						];
+					},
+					catalog: models.catalog,
+					save: async (_groups, scope) => {
+						calls.push("groups");
+						return { committed: true, scope, shadowed: [], warnings: [] };
+					},
+				};
+				const f = rig(
+					"tui",
+					{ models, groups, quotas: () => quotas, signal: () => controller.signal },
+					[],
+					true,
+					async (panel) => {
+						let invoke: () => void;
+						if (action === "rules") {
+							panel.handleInput(" ");
+							panel.handleInput("\x13");
+							invoke = () => panel.handleInput("r");
+						} else if (action === "groups") {
+							panel.handleInput("d");
+							panel.handleInput("\x13");
+							invoke = () => panel.handleInput("r");
+						} else if (action === "quotas") {
+							invoke = () => {
+								panel.handleInput("r");
+								panel.handleInput("R");
+								panel.handleInput("p");
+								panel.handleInput("x");
+							};
+						} else {
+							panel.handleInput("v");
+							panel.handleInput("\r");
+							await Promise.resolve();
+							await Promise.resolve();
+							await Promise.resolve();
+							if (action === "alias") {
+								for (let i = 0; i < 10; i++) panel.handleInput("j");
+								panel.handleInput("\r");
+								panel.handleInput("\r");
+								panel.handleInput("new-copy");
+								panel.handleInput("\r");
+								panel.handleInput("\x13");
+								invoke = () => panel.handleInput("r");
+							} else {
+								panel.handleInput("d");
+								invoke = () => panel.handleInput("\x13");
+							}
+						}
+						if (mode !== "active") {
+							controller.abort();
+							controller = new AbortController();
+						}
+						invoke();
+						await Promise.resolve();
+						await Promise.resolve();
+						await Promise.resolve();
+						if (mode === "guard" && action === "override") {
+							const rendered = panel.render(140).join("\n");
+							expect(rendered).toContain("Save failed:");
+							expect(rendered).not.toContain("Saved overrides");
+						} else if (mode === "guard" && (action === "groups" || action === "alias")) {
+							expect(panel.render(140).join("\n")).toContain("Settings save cancelled");
+						}
+					},
+				);
+				try {
+					await f.run(
+						"auth",
+						action === "groups" ? "groups" : action === "quotas" ? "quotas" : "models",
+					);
+				} finally {
+					listener?.mockRestore();
+				}
+				expect(calls).toEqual(
+					mode !== "active"
+						? []
+						: action === "quotas"
+							? ["refresh", "refresh", "placement"]
+							: [action],
+				);
+				expect(staleReads).toBe(0);
+			}
+		}
+	});
+
+	test("quota callbacks recheck ownership after a reentrant session replacement", async () => {
+		for (const action of ["refresh", "placement"] as const) {
+			let controller = new AbortController();
+			let armed = false;
+			const calls: string[] = [];
+			const { quotas: base } = quotaFixture();
+			const replace = () => {
+				if (!armed) return;
+				armed = false;
+				controller.abort();
+				controller = new AbortController();
+			};
+			const quotas: QuotaPanelDeps = {
+				...base,
+				report: () => {
+					if (action === "refresh") replace();
+					return base.report();
+				},
+				linePlacement: () => {
+					if (action === "placement") replace();
+					return base.linePlacement();
+				},
+				refresh: async () => {
+					calls.push("refresh");
+				},
+				setLinePlacement: async () => {
+					calls.push("placement");
+				},
+			};
+			const f = rig(
+				"tui",
+				{ quotas: () => quotas, signal: () => controller.signal },
+				[],
+				true,
+				async (panel) => {
+					armed = true;
+					panel.handleInput(action === "refresh" ? "R" : "p");
+					await Promise.resolve();
+					await Promise.resolve();
+				},
+			);
+			await f.run("auth", "quotas");
+			expect(armed).toBe(false);
+			expect(calls).toEqual([]);
+		}
+	});
+
+	test("late model reads and quota refreshes cannot advance the old dashboard", async () => {
+		for (const operation of ["read", "refresh"] as const) {
+			let controller = new AbortController();
+			const release = Promise.withResolvers<void>();
+			let renderRequests = 0;
+			let started = 0;
+			let changes: (() => void) | undefined;
+			let unsubscribes = 0;
+			const { quotas: quotaBase } = quotaFixture();
+			const quotas: QuotaPanelDeps = {
+				...quotaBase,
+				refresh: async () => {
+					started++;
+					await release.promise;
+				},
+				onChange: (listener) => {
+					changes = listener;
+					return () => {
+						unsubscribes++;
+					};
+				},
+			};
+			const models: NonNullable<AuthCommandDeps["models"]> = {
+				rules: () => [],
+				catalog: () => [{ provider: "vendor", id: "one", name: "One", contextWindow: 1000 }],
+				evaluate: () => ({ visible: true }),
+				save: async () => {},
+				details: {
+					read: async () => {
+						started++;
+						await release.promise;
+						return { name: "late result" };
+					},
+					save: async () => {},
+				},
+			};
+			const f = rig(
+				"tui",
+				{ models, quotas: () => quotas, signal: () => controller.signal },
+				[],
+				true,
+				async (panel) => {
+					if (operation === "read") {
+						panel.handleInput("v");
+						panel.handleInput("\r");
+					} else panel.handleInput("r");
+					expect(started).toBe(1);
+					controller.abort();
+					controller = new AbortController();
+					const afterAbort = renderRequests;
+					changes?.();
+					release.resolve();
+					for (let i = 0; i < 6; i++) await Promise.resolve();
+					expect(renderRequests).toBe(afterAbort);
+					expect(panel.render(140).join("\n")).not.toContain("late result");
+				},
+				() => {
+					renderRequests++;
+				},
+			);
+			await f.run("auth", operation === "read" ? "models" : "quotas");
+			expect(unsubscribes).toBe(1);
+		}
+	});
+
+	test("a delayed panel factory never reads or subscribes to the replacement session", async () => {
+		let controller = new AbortController();
+		const signal = controller.signal;
+		const entered = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		let staleReads = 0;
+		const read = () => {
+			if (signal.aborted) staleReads++;
+		};
+		const { quotas: base } = quotaFixture();
+		const f = rig("tui", {
+			signal: () => controller.signal,
+			status: () => {
+				read();
+				return { state: "missing" };
+			},
+			quotas: () => ({
+				...base,
+				onChange: () => {
+					read();
+					return () => {};
+				},
+			}),
+			models: {
+				rules: () => {
+					read();
+					return [];
+				},
+				catalog: () => {
+					read();
+					return [];
+				},
+				evaluate: () => {
+					read();
+					return { visible: true };
+				},
+				save: async () => {
+					throw new Error("unexpected save");
+				},
+			},
+		});
+		Object.assign(f.ctx.ui, {
+			custom: async (
+				factory: (
+					host: PanelHost,
+					theme: PanelTheme,
+					keys: KeybindingsManager,
+					done: (result: DashboardResult) => void,
+				) => AuthDashboard,
+			) => {
+				entered.resolve();
+				await release.promise;
+				const panel = factory(
+					{ terminal: { rows: 40 }, requestRender: () => {} },
+					{ fg: (_color, value) => value, bg: (_color, value) => value, bold: (value) => value },
+					new KeybindingsManager(TUI_KEYBINDINGS),
+					() => {},
+				);
+				panel.handleInput(" ");
+				panel.render(140);
+				panel.dispose();
+				return undefined;
+			},
+		});
+		const running = f.run("auth", "models");
+		await entered.promise;
+		controller.abort();
+		controller = new AbortController();
+		release.resolve();
+		await running;
+		expect(staleReads).toBe(0);
+	});
+
+	test("headless commands read the current session after replacement", async () => {
+		let controller = new AbortController();
+		let rules = ["old/*"];
+		const f = rig("rpc", {
+			signal: () => controller.signal,
+			models: {
+				rules: () => rules,
+				catalog: () => [],
+				evaluate: () => ({ visible: true }),
+				save: async () => {},
+			},
+		});
+		await f.run("auth", "models");
+		controller.abort();
+		controller = new AbortController();
+		rules = ["fresh/*"];
+		await f.run("auth", "models");
+		expect(f.notices[0]?.[0]).toContain("old/*");
+		expect(f.notices[1]?.[0]).toContain("fresh/*");
+	});
+
+	test("panel reset keeps the quota service captured when the dashboard opened", async () => {
+		const { quotas: quotaBase } = quotaFixture();
+		const calls: string[] = [];
+		const old: QuotaPanelDeps = {
+			...quotaBase,
+			resetSupport: () => true,
+			listResets: async (provider) => {
+				calls.push("old list");
+				return {
+					provider,
+					fetchedAt: 0,
+					available: 1,
+					credits: [{ id: "credit", type: "reset", status: "available" }],
+				};
+			},
+			consumeReset: async (provider, creditId) => {
+				calls.push("old reset");
+				return { provider, creditId, windowsReset: 1, code: "reset" };
+			},
+		};
+		const replacement: QuotaPanelDeps = {
+			...old,
+			consumeReset: async (provider, creditId) => {
+				calls.push("new reset");
+				return { provider, creditId, windowsReset: 1, code: "reset" };
+			},
+		};
+		let current = old;
+		let gets = 0;
+		let panels = 0;
+		const f = rig("tui", {
+			quotas: () => {
+				gets++;
+				return current;
+			},
+		});
+		Object.assign(f.ctx.ui, {
+			custom: async () => (++panels === 1 ? { reset: "claude" } : undefined),
+			select: async () => {
+				current = replacement;
+				return "Spend 1 credit now (cannot be undone)";
+			},
+		});
+		await f.run("auth", "quotas");
+		expect(calls).toEqual(["old list", "old reset"]);
+		expect(gets).toBe(1);
+		expect(panels).toBe(2);
 	});
 
 	test("an old open settings panel uses its captured store and refuses the fresh saver", async () => {

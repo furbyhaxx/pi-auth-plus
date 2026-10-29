@@ -5,7 +5,7 @@ title: "Extension audit remediation"
 description: "Resolve all findings from the extension completeness and quality audit with regression and acceptance evidence."
 type: "plan"
 created: "2026-10-29T16:40:10+01:00"
-updated: "2026-10-29T17:38:10+01:00"
+updated: "2026-10-29T18:34:46+01:00"
 createdBy: "pi"
 updatedBy: "pi"
 document:
@@ -14,9 +14,9 @@ document:
   title: "Extension audit remediation"
   description: "Finding-level closure ledger and rolling-wave implementation boundaries."
   status: "draft"
-  revision: 3
+  revision: 4
   created_at: "2026-10-29T16:40:10+01:00"
-  updated_at: "2026-10-29T17:38:10+01:00"
+  updated_at: "2026-10-29T18:34:46+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -29,6 +29,9 @@ document:
     - revision: 3
       reason: "Integrate accepted physical identities, offline enforcement and editor contracts"
       changes: ["Record approved UX, focused evidence and remaining production adoption"]
+    - revision: 4
+      reason: "Integrate committed persistence, isolated effects and recursive editor ownership"
+      changes: ["Record combined runtime regressions and current production adoption units"]
 ---
 
 # Scope and acceptance
@@ -49,10 +52,12 @@ stays explicit. No new bundled skill is required or promised.
 done   Locked transactions, accepted alias identities, offline policy, session fences
        ├─ Synthetic dispatch and token counters consume validated physical targets
        └─ Group visibility, typed save outcomes and dashboard draft/busy contracts
-now    Complete runtime effects, threshold validation and truthful quota/group state
-       └─ Approved shared picker and typed collection primitives
-next   Adopt shared saves/draft hooks and primitives in production editors
-       └─ Compact layouts, provenance and approved appearance/threshold controls
+done   Committed persistence warnings, independent effects and catalog retry outcomes
+       └─ Settings/Groups/Models/Alias recursive draft and busy contracts
+now    Production picker/typed-collection adoption and creation-time panel ownership
+       └─ Shared health UI, compact layouts, appearance and metadata consumers
+next   Complete scoped placement/rule outcomes and compact feedback/help
+       └─ Documentation/design reconciliation and acceptance evidence
 later  Documentation/design reconciliation and complete real-host acceptance
 ```
 
@@ -71,16 +76,16 @@ sequentially. The Workbench project task P1 owns this effort; task notes retain 
 | F04 | Visible aliases retain source credential eligibility independently of visibility | Fixed: `bd551af`; composed native policy regression in aliases suite; P1b |
 | F05 | Offline mode suppresses automatic network activity | Fixed: `dd47f02`, `e4d2ee7`; local tokenizer cache retained, automatic quota/native-count traffic suppressed; tokenizer 13 passed/118 assertions, runtime 41 passed/239 assertions; real-host acceptance pending |
 | F06 | Codex login is cancelled with its invocation's session | Wired and harness-verified: `22fe006`; captured signal and delayed mock-login regression; real host replacement acceptance pending |
-| F07 | All group mutation paths refresh registrations identically | Open |
+| F07 | All group mutation paths refresh registrations identically | Integrated: shared saver/effects, one group refresh per normal save, independent catalog/group failures and retryable per-group warnings; parent combined runtime gate 97 passed/618 assertions; final host acceptance pending |
 | F08 | Visibility policy governs virtual groups consistently | Fixed: `ce0a6a7`; filtered registration/removal/restoration and selected-group warning/fallback; 13 passed/96 assertions and isolated host hidden/unhidden listing passed |
-| F09 | Search tool enable/disable applies symmetrically and truthfully | Open |
+| F09 | Search tool enable/disable applies symmetrically and truthfully | Integrated: `74adb8a`, inactive factory registration, live activation membership and disabled execution refusal; Synthetic 25 passed/934 assertions, parent compatibility suites 57 passed/371 assertions; final host acceptance pending |
 | F10 | Policy-controlled scopes and effective values agree | Fixed: `ab8a4dd`; field-owned allowed scopes used by read/source/load/save, forbidden legacy values removable; 17 passed/99 assertions |
 | F11 | Every scoped save reports higher-layer shadowing | Open |
 | F12 | Group members pass the router's physical-model eligibility boundary | Implemented: `c140244`; shared editor/router predicate rejects reserved group provider and virtual API, preserves physical aliases; 27 passed; settlement adoption remains |
 | F13 | Counter selection, cache identity and native requests use physical alias targets | Fixed: `4f9ca07`; resolve before cache/family selection, keep logical report identity; regression-first 3 failures then 16 passed/84 assertions |
 | F14 | Physical group requests receive verbosity and refresh attribution | Open |
 | F15 | UI health and router health share truthful definitions and member detail | Open |
-| F16 | Threshold relationships are validated rather than silently rewritten | Open |
+| F16 | Threshold relationships are validated rather than silently rewritten | Integrated: relation metadata validates loaded/locked target and higher layers, contradictory edits fail before write; credit and token threshold config regressions pass in parent combined 97-test gate |
 | F17 | Stopped sessions cannot commit queued quota mutations | Fixed: `f7066d4`; real held-file-lock tests for acquire/snapshot/failure/headers, cancellation and restart; P1c |
 | F18 | Token reports invalidate immediately when model identity changes | Fixed: `8f21555`; immediate invalidation, branch replacement and stale-result regressions; P1h |
 | F19 | Rule preview compilation is bounded by state changes, not model count | Fixed: `f8b3e88`; batched rulesets and unchanged-frame cache regressions; measured warm compilation count 1,111 to zero; timings below; P1g |
@@ -96,7 +101,7 @@ sequentially. The Workbench project task P1 owns this effort; task notes retain 
 | F29 | Short terminals preserve confirmation/scope/cancel controls | Open |
 | F30 | Row/input widths use actual remaining visible columns | Open |
 | F31 | Rule effects, alias/override provenance and routing indicators match current design | Open |
-| F32 | Appearance/visible metadata/height and warning thresholds are configurable | Open; user approved density, maximum body rows, provenance/matched-rule toggles and configurable 70/90 context thresholds; primary identity/state remain visible |
+| F32 | Appearance/visible metadata/height and warning thresholds are configurable | Partial: `a162eb8` defines all six approved controls; `229a060` consumes live 70/90 context thresholds (21 narrow tests passed). Frame/metadata consumers pending; primary identity/state remain visible |
 | F33 | Synthetic search has complete self-rendered tool states and expected error results | Fixed: `c89819f`; self-rendered semantic states, structured expected failure/cancellation, redacted details; 15 passed/860 assertions; live terminal acceptance pending |
 | F34 | Public docs, agent guidance and design/status/storage claims match shipped behavior | Open; final integration |
 | R01 | Late editor continuations cannot save into a replacement session | Guarded: `22fe006`; delayed dashboard/editor/scope/save harness tests; real host boundary acceptance pending |
@@ -116,6 +121,18 @@ sequentially. The Workbench project task P1 owns this effort; task notes retain 
   [the dashboard preview](../../designs/audit-remediation/index.html). Independent Chromium/CDP
   retested all six defects: `VERDICT PASS failures=0 pageExceptions=0`, loopback requests only.
   The user approved the interaction and appearance direction through `ask_user`.
+- Runtime outcome integration: `136aea8` preserves committed persistence after lock failures;
+  `702f5d2` isolates effects; `bc42884` retains failed group registrations; `6ee6143` returns catalog
+  warnings and retries failed work. Parent config/saver/lifecycle/catalog/group-registration run:
+  **97 passed, zero failed, 618 assertions**, `/tmp/auth-runtime-outcomes-integration.log`.
+- Panel adoption: `5a8a23a`, `e8f1e56`, `73ce614`, wired by `2a7abf5`; editor integration:
+  **117 passed, one failed**. Failure is a Settings fixture assuming every catalog section fits
+  in one viewport after six fields were added; correction belongs to typed collection adoption.
+- Tool lifecycle compatibility: `060b810`, `6ef48cf`; **57 passed, zero failed, 371 assertions**.
+  The online quota test now explicitly opts out of suite-wide offline mode.
+- Adaptive frame `8529508`: frame/dashboard regressions pass; worker exercised isolated tmux
+  at 8/12/24 rows and 36/57/80/140 columns. Compact feedback and long rebound hint reachability
+  still need the final integrated pass.
 - These are focused regression runs, not the final full gate or live acceptance.
 
 ## Rule-preview performance

@@ -74,4 +74,23 @@ describe("OpenAI response verbosity", () => {
 			text: { verbosity: "low" },
 		});
 	});
+
+	test("session-model fallback is disabled when physical hooks are available", async () => {
+		const host = {
+			...(await testHost({ "openai.verbosity": "high" })),
+			physicalHooksAvailable: () => true,
+		};
+		let handler:
+			| ((event: { payload: unknown }, context: { model: typeof openai }) => unknown)
+			| undefined;
+		const pi = {
+			on: (_name: string, fn: typeof handler) => {
+				handler = fn;
+			},
+		} as unknown as ExtensionAPI;
+		await createOpenaiFamily().register?.(pi, host);
+		expect(
+			handler?.({ payload: { model: "sample", input: [] } }, { model: openai }),
+		).toBeUndefined();
+	});
 });

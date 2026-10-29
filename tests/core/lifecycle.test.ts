@@ -21,7 +21,11 @@ import { QuotaEngine } from "../../src/quotas/engine.ts";
 import { defaultTokenizerStore } from "../../src/tokens/tokenizer/index.ts";
 import type { CounterDeps } from "../../src/tokens/types.ts";
 
-function lifecycleFixture(activeModel?: { readonly provider: string; readonly id: string }) {
+function lifecycleFixture(activeModel?: {
+	readonly provider: string;
+	readonly id: string;
+	readonly api?: string;
+}) {
 	const requests: (ModelsSimpleStreamOptions | undefined)[] = [];
 	const runtime = {
 		stream(_model: Model<Api>, _context: Context, options?: ModelsSimpleStreamOptions) {
@@ -203,33 +207,34 @@ function lifecycleFixture(activeModel?: { readonly provider: string; readonly id
 	};
 }
 
-function groupSettings(
-	rules: readonly string[],
-	hiddenDefault = "warn",
-	rulesScope?: "user" | "trusted-project",
-) {
+function settingsFixture(settings: Record<string, unknown>): () => void {
 	const previous = process.env["PI_CODING_AGENT_DIR"];
-	const dir = mkdtempSync(join(tmpdir(), "group-visibility-"));
+	const dir = mkdtempSync(join(tmpdir(), "physical-effects-"));
+	writeFileSync(join(dir, "auth-plus.json"), JSON.stringify(settings));
 	process.env["PI_CODING_AGENT_DIR"] = dir;
-	writeFileSync(
-		join(dir, "auth-plus.json"),
-		JSON.stringify({
-			models: {
-				groups: ["alpha", "beta"].map((id) => ({
-					id,
-					members: [{ provider: "test-provider", id: "model" }],
-				})),
-				rules,
-				hiddenDefault,
-				...(rulesScope ? { rulesScope } : {}),
-			},
-		}),
-	);
 	return () => {
 		if (previous === undefined) delete process.env["PI_CODING_AGENT_DIR"];
 		else process.env["PI_CODING_AGENT_DIR"] = previous;
 		rmSync(dir, { recursive: true, force: true });
 	};
+}
+
+function groupSettings(
+	rules: readonly string[],
+	hiddenDefault = "warn",
+	rulesScope?: "user" | "trusted-project",
+) {
+	return settingsFixture({
+		models: {
+			groups: ["alpha", "beta"].map((id) => ({
+				id,
+				members: [{ provider: "test-provider", id: "model" }],
+			})),
+			rules,
+			hiddenDefault,
+			...(rulesScope ? { rulesScope } : {}),
+		},
+	});
 }
 
 async function saveRules(fixture: ReturnType<typeof lifecycleFixture>, rules: readonly string[]) {
@@ -350,6 +355,15 @@ for (const policy of ["warn", "fallback", "fallback-physical", "fallback-no-cand
 	});
 }
 
+async function respond(fixture: ReturnType<typeof lifecycleFixture>, provider: string) {
+	const model = { ...fixture.model, provider };
+	fixture.runtime.stream(model, { messages: [] });
+	const response = fixture.requests.at(-1)?.onResponse;
+	if (!response) throw new Error("Missing physical response hook");
+	await response({ status: 200, headers: {} }, model);
+	return response;
+}
+
 test("session replacement fences physical responses, resets and shutdown work", async () => {
 	const {
 		requests,
@@ -463,7 +477,7 @@ for (const mode of ["environment", "flag", "online"] as const) {
 		process.env["PI_OFFLINE"] = mode === "environment" ? "YeS" : "0";
 		if (mode === "flag") process.argv.push("--offline");
 		const offline = mode !== "online";
-		const { pi, run, bus, authLookups } = lifecycleFixture({
+		const { pi, run, bus, authLookups, model, runtime, requests } = lifecycleFixture({
 			provider: "claude",
 			id: `test-${mode}`,
 		});
@@ -519,6 +533,13 @@ for (const mode of ["environment", "flag", "online"] as const) {
 
 			refresh.mockClear();
 			await run("agent_end");
+			expect(refresh).not.toHaveBeenCalled();
+			const physicalModel = { ...model, provider: "claude", id: `test-${mode}` };
+			runtime.stream(physicalModel, { messages: [] });
+			const responseHook = requests.at(-1)?.onResponse;
+			if (!responseHook) throw new Error("Missing physical response hook");
+			await responseHook({ status: 200, headers: {} }, physicalModel);
+			await run("agent_end");
 			if (offline) expect(refresh).not.toHaveBeenCalled();
 			else expect(refresh).toHaveBeenCalledWith("claude", { minAgeMs: 2000 });
 
@@ -541,6 +562,196 @@ for (const mode of ["environment", "flag", "online"] as const) {
 			process.argv.splice(0, process.argv.length, ...originalArgv);
 			if (originalOffline === undefined) delete process.env["PI_OFFLINE"];
 			else process.env["PI_OFFLINE"] = originalOffline;
+		}
+	});
+}
+
+test("group requests apply OpenAI verbosity to the physical payload", async () => {
+	const cleanup = settingsFixture({ openai: { verbosity: "high" } });
+	const fixture = lifecycleFixture({ provider: "group", id: "team", api: "pi-virtual" });
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		const model = { ...fixture.model, provider: "openai", api: "openai-responses" };
+		const payload = { model: model.id, input: [], text: { format: { type: "json_object" } } };
+		fixture.runtime.stream(model, { messages: [] });
+		const transform = fixture.requests.at(-1)?.onPayload;
+		if (!transform) throw new Error("Missing physical payload hook");
+		expect(await transform(payload, model)).toEqual({
+			...payload,
+			text: { ...payload.text, verbosity: "high" },
+		});
+		const override = { ...model, samplingParams: { text: { verbosity: "low" } } };
+		fixture.runtime.stream(override, { messages: [] });
+		const overridden = fixture.requests.at(-1)?.onPayload;
+		if (!overridden) throw new Error("Missing physical override hook");
+		expect(await overridden(payload, override)).toEqual({
+			...payload,
+			text: { ...payload.text, verbosity: "low" },
+		});
+		writeFileSync(
+			join(process.env["PI_CODING_AGENT_DIR"] ?? "", "auth-plus.json"),
+			JSON.stringify({ openai: { verbosity: "medium" } }),
+		);
+		await fixture.run("session_start");
+		fixture.runtime.stream(model, { messages: [] });
+		const updated = fixture.requests.at(-1)?.onPayload;
+		if (!updated) throw new Error("Missing updated physical payload hook");
+		expect(await updated(payload, model)).toEqual({
+			...payload,
+			text: { ...payload.text, verbosity: "medium" },
+		});
+	} finally {
+		await fixture.run("session_shutdown");
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+test("group responses refresh each physical quota once and fence old sessions", async () => {
+	const previousOffline = process.env["PI_OFFLINE"];
+	process.env["PI_OFFLINE"] = "0";
+	const fixture = lifecycleFixture({ provider: "group", id: "team", api: "pi-virtual" });
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	const ingest = spyOn(QuotaEngine.prototype, "ingestHeaders").mockResolvedValue(undefined);
+	const refresh = spyOn(QuotaEngine.prototype, "refresh").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		await fixture.run("agent_end");
+		expect(refresh).not.toHaveBeenCalled();
+		for (const provider of [
+			"synthetic",
+			"claude",
+			"openai",
+			"openai-codex",
+			"synthetic",
+			"antigravity",
+			"unknown",
+		])
+			await respond(fixture, provider);
+		await fixture.run("agent_end");
+		expect(refresh.mock.calls).toEqual([
+			["synthetic", { minAgeMs: 2000 }],
+			["claude", { minAgeMs: 2000 }],
+			["codex", { minAgeMs: 2000 }],
+			["antigravity", { minAgeMs: 2000 }],
+		]);
+		refresh.mockClear();
+		await fixture.run("agent_end");
+		expect(refresh).not.toHaveBeenCalled();
+		fixture.runtime.stream({ ...fixture.model, provider: "synthetic" }, { messages: [] });
+		const response = fixture.requests.at(-1)?.onResponse;
+		if (!response) throw new Error("Missing physical response hook");
+		await response({ status: 200, headers: {} }, { ...fixture.model, provider: "claude" });
+		expect(ingest.mock.calls.at(-1)).toEqual([{}, "claude", { strict: true }]);
+		await fixture.run("agent_end");
+		expect(refresh.mock.calls).toEqual([["claude", { minAgeMs: 2000 }]]);
+		refresh.mockClear();
+
+		const old = await respond(fixture, "synthetic");
+		await fixture.run("session_start");
+		await old({ status: 200, headers: {} }, { ...fixture.model, provider: "synthetic" });
+		await fixture.run("agent_end");
+		expect(refresh).not.toHaveBeenCalled();
+		await respond(fixture, "claude");
+		await fixture.run("agent_end");
+		expect(refresh.mock.calls).toEqual([["claude", { minAgeMs: 2000 }]]);
+
+		refresh.mockClear();
+		await respond(fixture, "synthetic");
+		await fixture.run("session_shutdown");
+		await fixture.run("session_start");
+		await fixture.run("agent_end");
+		expect(refresh).not.toHaveBeenCalled();
+	} finally {
+		await fixture.run("session_shutdown");
+		start.mockRestore();
+		ingest.mockRestore();
+		refresh.mockRestore();
+		if (previousOffline === undefined) delete process.env["PI_OFFLINE"];
+		else process.env["PI_OFFLINE"] = previousOffline;
+	}
+});
+
+for (const scenario of [
+	{
+		name: "disabled sources",
+		settings: { quotas: { providers: ["cc", "oai"] } },
+		offline: false,
+		conflict: false,
+		expected: ["claude", "codex"],
+	},
+	{
+		name: "request refresh disabled",
+		settings: { quotas: { refreshOnRequest: false } },
+		offline: false,
+		conflict: false,
+		expected: [],
+	},
+	{ name: "offline", settings: {}, offline: true, conflict: false, expected: [] },
+	{ name: "quota conflict", settings: {}, offline: false, conflict: true, expected: [] },
+] as const) {
+	test(`${scenario.name} restricts group response refresh`, async () => {
+		const previousOffline = process.env["PI_OFFLINE"];
+		process.env["PI_OFFLINE"] = scenario.offline ? "1" : "0";
+		const cleanup = settingsFixture(scenario.settings);
+		const fixture = lifecycleFixture({ provider: "group", id: "team", api: "pi-virtual" });
+		const conflict = scenario.conflict
+			? spyOn(fixture.pi, "getSettings").mockReturnValue({ packages: ["pi-quotas"] })
+			: undefined;
+		const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+		const ingest = spyOn(QuotaEngine.prototype, "ingestHeaders").mockResolvedValue(undefined);
+		const refresh = spyOn(QuotaEngine.prototype, "refresh").mockResolvedValue(undefined);
+		try {
+			await piAuthPlus(fixture.pi);
+			await fixture.run("session_start");
+			for (const provider of ["synthetic", "claude", "openai", "openai-codex"])
+				await respond(fixture, provider);
+			await fixture.run("agent_end");
+			expect(refresh.mock.calls).toEqual(scenario.expected.map((id) => [id, { minAgeMs: 2000 }]));
+		} finally {
+			await fixture.run("session_shutdown");
+			conflict?.mockRestore();
+			start.mockRestore();
+			ingest.mockRestore();
+			refresh.mockRestore();
+			cleanup();
+			if (previousOffline === undefined) delete process.env["PI_OFFLINE"];
+			else process.env["PI_OFFLINE"] = previousOffline;
+		}
+	});
+}
+
+for (const scenario of [
+	{ name: "enabled", providers: ["cc"], expected: ["claude"] },
+	{ name: "disabled", providers: ["synthetic"], expected: [] },
+] as const) {
+	test(`${scenario.name} session provider fallback without physical hooks`, async () => {
+		const previousOffline = process.env["PI_OFFLINE"];
+		process.env["PI_OFFLINE"] = "0";
+		const cleanup = settingsFixture({ quotas: { providers: scenario.providers } });
+		const fixture = lifecycleFixture({ provider: "claude", id: "model" });
+		Object.freeze(fixture.runtime);
+		const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+		const refresh = spyOn(QuotaEngine.prototype, "refresh").mockResolvedValue(undefined);
+		try {
+			await piAuthPlus(fixture.pi);
+			await fixture.run("session_start");
+			await fixture.run("agent_end");
+			expect(refresh.mock.calls).toEqual(scenario.expected.map((id) => [id, { minAgeMs: 2000 }]));
+			refresh.mockClear();
+			await fixture.run("session_shutdown");
+			await fixture.run("agent_end");
+			expect(refresh).not.toHaveBeenCalled();
+		} finally {
+			await fixture.run("session_shutdown");
+			start.mockRestore();
+			refresh.mockRestore();
+			cleanup();
+			if (previousOffline === undefined) delete process.env["PI_OFFLINE"];
+			else process.env["PI_OFFLINE"] = previousOffline;
 		}
 	});
 }

@@ -28,15 +28,25 @@ export function createOpenaiFamily(
 				},
 			},
 		],
-		register: (pi, host) => {
-			pi.on("before_provider_request", (event, ctx) =>
+		physical: (_model, host) => ({
+			payload: (payload, actualModel) =>
 				applyOpenaiVerbosity(
+					payload,
+					actualModel,
+					host.settings().get("openai.verbosity"),
+					host.settings().get("openai.verbosityProviders"),
+				),
+		}),
+		register: (pi, host) => {
+			pi.on("before_provider_request", (event, ctx) => {
+				if (host.physicalHooksAvailable?.()) return;
+				return applyOpenaiVerbosity(
 					event.payload,
 					ctx.model,
 					host.settings().get("openai.verbosity"),
 					host.settings().get("openai.verbosityProviders"),
-				),
-			);
+				);
+			});
 		},
 		tokens: (model) => {
 			if (model.provider !== "openai" && model.provider !== "openai-codex") return undefined;

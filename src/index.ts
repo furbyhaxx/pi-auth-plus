@@ -46,6 +46,7 @@ import { quotaLineConfig } from "./quotas/line/line.ts";
 import { formatPlainTextSummary } from "./quotas/line/summary.ts";
 import { carryOverPiQuotas } from "./quotas/migrate/index.ts";
 import { engineReport } from "./quotas/report.ts";
+import { enabledQuotaProviders } from "./quotas/settings.ts";
 import { registerTokenBus } from "./tokens/bus.ts";
 import { createTokenEngine } from "./tokens/engine/index.ts";
 import { defaultTokenizerStore } from "./tokens/tokenizer/index.ts";
@@ -72,9 +73,11 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	let sessionController = new AbortController();
 	let stopQuotaBus: (() => void) | undefined;
 	const shutdownOwners = new WeakMap<ExtensionContext, AbortSignal>();
+	const physicalResponseProviders = new Set<string>();
 	sessionController.abort();
 	const stopSession = () => {
 		sessionController.abort();
+		physicalResponseProviders.clear();
 		stopQuotaBus?.();
 		stopQuotaBus = undefined;
 	};
@@ -427,11 +430,26 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		void ingest.finally(() => pendingIngests.delete(ingest));
 	});
 	pi.on("agent_end", (_event, ctx) => {
-		if (offline || !quotasEnabled || !settings.get("quotas.refreshOnRequest")) return;
+		const providers = new Set(physicalResponseProviders);
+		physicalResponseProviders.clear();
+		if (
+			sessionController.signal.aborted ||
+			offline ||
+			!quotasEnabled ||
+			!settings.get("quotas.refreshOnRequest")
+		)
+			return;
+		if (!physicalHooksActive && ctx.model?.provider) providers.add(ctx.model.provider);
+		const enabled = new Set(
+			enabledQuotaProviders(registry, settings).map((provider) => provider.id),
+		);
+		const ids = new Set<string>();
+		for (const name of providers) {
+			const provider = registry.resolve(name)?.provider;
+			if (provider?.quota && enabled.has(provider.id)) ids.add(provider.id);
+		}
 		quotaContext = ctx;
-		const id = ctx.model?.provider;
-		const provider = id ? registry.resolve(id)?.provider : undefined;
-		if (provider?.quota) void quotas.refresh(provider.id, { minAgeMs: 2000 });
+		for (const id of ids) void quotas.refresh(id, { minAgeMs: 2000 });
 	});
 	const host = {
 		settings: () => settings,
@@ -475,13 +493,16 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		},
 		(model, context) => recovery.factory(model, context),
 		(model, context) => compatiblePhysicalHooks(model, context),
-		(model) => {
+		() => {
 			const signal = sessionController.signal;
 			return {
-				response: (response) => {
+				response: (response, actualModel) => {
 					if (signal.aborted || !quotasEnabled) return;
+					physicalResponseProviders.add(actualModel.provider);
 					// The physical provider owns this response; the session model may be a group or alias.
-					const ingest = quotas.ingestHeaders(response.headers, model.provider, { strict: true });
+					const ingest = quotas.ingestHeaders(response.headers, actualModel.provider, {
+						strict: true,
+					});
 					pendingIngests.add(ingest);
 					void ingest.finally(() => pendingIngests.delete(ingest));
 				},

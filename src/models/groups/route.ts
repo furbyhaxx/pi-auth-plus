@@ -12,6 +12,7 @@ import type { ExtensionVirtualModel } from "@earendil-works/pi-coding-agent";
 import type { ProviderQuotaSnapshot } from "../../quotas/types.ts";
 import { hasZeroModelRates } from "./balance.ts";
 import type { GroupMember, ModelGroup } from "./config.ts";
+import { isPhysicalGroupMember } from "./member.ts";
 import { eligiblePriorityCandidates, type ModelIdentity } from "./priority.ts";
 
 /** A resolved member and its current quota, if known. */
@@ -111,7 +112,7 @@ export function createGroupDefinition(
 	const catalog = deps.catalog();
 	const models = group.members.flatMap((member) => {
 		const model = catalog.find((entry) => same(entry, member));
-		return model ? [model] : [];
+		return model && isPhysicalGroupMember(model) ? [model] : [];
 	});
 	const contextWindow = positiveMinimum([
 		...models.map((model) => model.contextWindow),
@@ -133,7 +134,7 @@ export function createGroupDefinition(
 		route(request, ctx) {
 			const candidates: GroupRouteCandidate[] = group.members.flatMap((member) => {
 				const model = ctx.modelRegistry.find(member.provider, member.id);
-				if (!model || model.api === "pi-virtual") return [];
+				if (!model || !isPhysicalGroupMember(model)) return [];
 				const quota = deps.quota(member.provider);
 				return [{ member, model, ...(quota ? { quota } : {}) }];
 			});

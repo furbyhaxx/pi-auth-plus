@@ -115,6 +115,70 @@ describe("group routes", () => {
 			).model,
 		).toEqual(c);
 	});
+	test("routes around logical members to a physical alias with unknown quota", async () => {
+		const logicalGroup = model("group", "g");
+		const foreignVirtual = model("foreign", "virtual", { api: "pi-virtual" });
+		const alias = model("vendor", "org/alias");
+		const g: ModelGroup = {
+			...group,
+			members: [
+				{ provider: "group", id: "g", tier: 1 },
+				{ provider: "foreign", id: "virtual", tier: 1 },
+				{ provider: "vendor", id: "org/alias", tier: 2 },
+			],
+		};
+		const { route } = setup({ group: g, models: [logicalGroup, foreignVirtual, alias] });
+		expect((await route()).model).toEqual(alias);
+		expect((await route({ reason: "continuation", state: state(logicalGroup) })).model).toEqual(
+			alias,
+		);
+		const unavailable = setup({
+			group: g,
+			models: [logicalGroup, foreignVirtual, alias],
+			available: [],
+		});
+		expect((await unavailable.route()).model).toEqual(alias);
+	});
+	test.each([model("group", "g"), model("foreign", "virtual", { api: "pi-virtual" })])(
+		"reports no physical candidates for $provider/$id",
+		async (invalid) => {
+			const g: ModelGroup = {
+				...group,
+				members: [{ provider: invalid.provider, id: invalid.id, tier: 1 }],
+			};
+			const { route, definition } = setup({ group: g, models: [invalid] });
+			await expect(route()).rejects.toThrow("no physical models");
+			expect(definition.contextWindow).toBeUndefined();
+			expect(definition.maxTokens).toBeUndefined();
+			expect(definition.thinkingLevels).toContain("max");
+		},
+	);
+	test("excludes logical members from the group's advertised capabilities", () => {
+		const logicalGroup = model("group", "g", { contextWindow: 50, maxTokens: 25 });
+		const foreignVirtual = model("foreign", "virtual", {
+			api: "pi-virtual",
+			contextWindow: 40,
+			maxTokens: 20,
+			thinkingLevelMap: { xhigh: "xhigh" },
+		});
+		const alias = model("vendor", "org/alias", {
+			contextWindow: 1000,
+			maxTokens: 500,
+			reasoning: false,
+		});
+		const g: ModelGroup = {
+			...group,
+			members: [
+				{ provider: "group", id: "g", tier: 1 },
+				{ provider: "foreign", id: "virtual", tier: 1 },
+				{ provider: "vendor", id: "org/alias", tier: 2 },
+			],
+		};
+		const { definition } = setup({ group: g, models: [logicalGroup, foreignVirtual, alias] });
+		expect(definition.contextWindow).toBe(1000);
+		expect(definition.maxTokens).toBe(500);
+		expect(definition.thinkingLevels).toEqual(["off"]);
+	});
 	test("strategies choose within the eligible tier", async () => {
 		for (const [strategy, expected] of [
 			["sticky", b],

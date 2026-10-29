@@ -1,6 +1,7 @@
 /** Local editor for a single model group. */
 import { Input, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { type ModelGroup, parseGroups } from "../../models/groups/config.ts";
+import { isPhysicalGroupMember } from "../../models/groups/member.ts";
 import { sanitize } from "../frame/index.ts";
 import type { ModelCatalogItem } from "./models.ts";
 import type { TabBody, TabViewHost } from "./view.ts";
@@ -147,10 +148,16 @@ export class GroupDetail {
 			const slash = value.indexOf("/");
 			const provider = value.slice(0, slash);
 			const id = value.slice(slash + 1);
-			if (
-				slash <= 0 ||
-				!this.#catalog().some((item) => item.provider === provider && item.id === id)
-			) {
+			if (slash <= 0 || !id) {
+				this.#message = "Member not in catalog; enter provider/model-id";
+				return false;
+			}
+			const model = this.#catalog().find((item) => item.provider === provider && item.id === id);
+			if (!isPhysicalGroupMember(model ?? { provider })) {
+				this.#message = "Choose a physical model; virtual models cannot be members";
+				return false;
+			}
+			if (!model) {
 				this.#message = "Member not in catalog; enter provider/model-id";
 				return false;
 			}
@@ -174,14 +181,21 @@ export class GroupDetail {
 			this.#message = "Context window must be a positive integer";
 			return;
 		}
-		const limits = d.members.flatMap((member) => {
-			const model = this.#catalog().find(
-				(item) => item.provider === member.provider && item.id === member.id,
-			);
-			return model && Number.isFinite(model.contextWindow) && model.contextWindow > 0
+		const catalog = this.#catalog();
+		const resolved = d.members.map((member) => ({
+			member,
+			model: catalog.find((item) => item.provider === member.provider && item.id === member.id),
+		}));
+		const invalid = resolved.find(({ member, model }) => !isPhysicalGroupMember(model ?? member));
+		if (invalid) {
+			this.#message = `Delete nonphysical member; choose a physical model (${invalid.member.provider}/${invalid.member.id})`;
+			return;
+		}
+		const limits = resolved.flatMap(({ model }) =>
+			model && Number.isFinite(model.contextWindow) && model.contextWindow > 0
 				? [model.contextWindow]
-				: [];
-		});
+				: [],
+		);
 		const smallest = limits.length ? Math.min(...limits) : undefined;
 		if (d.cap.trim() && smallest !== undefined && integer(d.cap) > smallest) {
 			this.#message = `Context window cannot exceed smallest member (${smallest})`;
@@ -311,13 +325,27 @@ export class GroupDetail {
 	render(width: number, bodyRows: number): TabBody {
 		const { theme } = this.#host;
 		const rows = this.#rows();
+		const catalog = this.#draft.members.length ? this.#catalog() : [];
 		const lines = rows.map((row, index) => {
 			const prefix = ` ${index === this.#selected ? theme.fg("accent", "❯") : " "} ${row.label}`;
 			if (this.#editing && index === this.#selected) {
 				const input = this.#input.render(Math.max(1, width - visibleWidth(prefix) - 3))[0] ?? "";
 				return `${prefix} · ${input.split(cursor).map(clean).join(cursor)}`;
 			}
-			return `${prefix}${row.value ? ` · ${clean(row.value)}` : ""}`;
+			const member =
+				row.kind === "member" && row.index !== undefined
+					? this.#draft.members[row.index]
+					: undefined;
+			const model =
+				member &&
+				catalog.find((item) => item.provider === member.provider && item.id === member.id);
+			const status =
+				member && !isPhysicalGroupMember(model ?? member)
+					? "not physical; delete · "
+					: member && !model
+						? "not in catalog · "
+						: "";
+			return `${prefix}${row.value ? ` · ${status}${clean(row.value)}` : ""}`;
 		});
 		const details = this.#message ? [` ${theme.fg("warning", clean(this.#message))}`] : [];
 		const reserved = Math.min(details.length, Math.max(0, bodyRows - 1));

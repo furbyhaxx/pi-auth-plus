@@ -134,7 +134,10 @@ export class TokensView implements TabView {
 			for (const part of this.#parts ?? [])
 				rows.push({
 					label: part.kind,
-					value: `${count(part.count)} · ${plural(part.items, "item")}`,
+					value:
+						part.items === 0
+							? "none · 0 items"
+							: `${count(part.count)} · ${plural(part.items, "item")}`,
 					tone: "muted",
 				});
 		}

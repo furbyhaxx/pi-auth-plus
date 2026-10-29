@@ -108,6 +108,26 @@ test("live context totals, sources, Pi delta and asynchronous contributions fit 
 	expect(f.renders()).toBe(closed);
 });
 
+test("empty breakdown contributions do not claim provider usage", async () => {
+	const f = open();
+	f.view.render(140, 100);
+	f.change({ ...report, anchor: undefined });
+	f.resolve([
+		{ kind: "assistant", count: { tokens: 0, source: "provider" }, items: 0 },
+		{ kind: "user", count: { tokens: 77, source: "provider" }, items: 1 },
+	]);
+	await Promise.resolve();
+
+	const lines = text(f.view).split("\n");
+	const assistant = lines.find((line) => line.includes("assistant"));
+	const user = lines.find((line) => line.includes("user"));
+	expect(lines.join("\n")).toContain("No provider usage yet");
+	expect(assistant).toContain("none · 0 items");
+	expect(assistant).not.toContain("exact (usage)");
+	expect(user).toContain("77 · exact (usage) · 1 item");
+	f.view.dispose();
+});
+
 test("unavailable tracker and no session are explicit; inactive views do not count", () => {
 	const f = open();
 	expect(f.signal()).toBeUndefined();

@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	CURSOR_MARKER,
+	type KeybindingsConfig,
+	KeybindingsManager,
+	renderFakeCursor,
+	TUI_KEYBINDINGS,
+	visibleWidth,
+} from "@earendil-works/pi-tui";
 import type { ModelGroup } from "../../src/models/groups/config.ts";
 import { GroupDetail } from "../../src/ui/dashboard/group-detail.ts";
 import type { ModelCatalogItem } from "../../src/ui/dashboard/models.ts";
@@ -22,8 +29,12 @@ const catalog: readonly ModelCatalogItem[] = [
 	{ provider: "foreign", id: "logical", name: "Virtual", contextWindow: 50, api: "pi-virtual" },
 ];
 
-function open(initial?: ModelGroup, models: () => readonly ModelCatalogItem[] = () => catalog) {
-	const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+function open(
+	initial?: ModelGroup,
+	models: () => readonly ModelCatalogItem[] = () => catalog,
+	bindings: KeybindingsConfig = {},
+) {
+	const keys = new KeybindingsManager(TUI_KEYBINDINGS, bindings);
 	const host: TabViewHost = {
 		theme: { fg: (_color, text) => text, bg: (_color, text) => text, bold: (text) => text },
 		keys,
@@ -191,6 +202,20 @@ describe("group detail", () => {
 		r.press("d");
 		expect(r.text()).not.toContain("Member 1");
 	});
+	test("shows rebound cursor bindings as separate hints and handles them", () => {
+		const r = open(undefined, undefined, {
+			"tui.editor.cursorLeft": "ctrl+b",
+			"tui.editor.cursorRight": "ctrl+f",
+		});
+		r.select("Strategy");
+		expect(r.view.render(80, 60).hints).toContainEqual({
+			key: "ctrl+b/ctrl+f",
+			action: "change",
+			priority: 1,
+		});
+		r.press("\x06");
+		expect(r.text()).toContain("Strategy · failover");
+	});
 	test("saves member reordering and deletion", () => {
 		const initial: ModelGroup = {
 			id: "a",
@@ -236,10 +261,11 @@ describe("group detail", () => {
 		}
 		r.select("Group ID");
 		r.press("\r");
-		expect(r.view.render(80, 4).lines.join("")).toContain("\x1b_pi:c\x07");
-		for (const width of [40, 80]) {
+		for (const width of [36, 57, 80, 140]) {
 			const body = r.view.render(width, 4);
-			for (const line of [...body.lines, body.description ?? ""])
+			expect(body.lines.join("")).toContain(CURSOR_MARKER + renderFakeCursor(" "));
+			expect(body.lines.length).toBeLessThanOrEqual(4);
+			for (const line of [...body.lines, body.state ?? "", body.description ?? ""])
 				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 		}
 		expect(r.press("\x1b")).toBe(true);

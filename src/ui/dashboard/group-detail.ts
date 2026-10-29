@@ -41,7 +41,6 @@ const strategies = ["sticky", "failover", "balance", "random"] as const;
 const triggers = ["rate-limit", "quota", "auth"] as const;
 const costs = ["unset", "included", "free", "paid"] as const;
 const clean = (value: string) => sanitize(value).replace(/\n/g, " ");
-const cursor = "\x1b_pi:c\x07";
 function draft(group: ModelGroup | undefined): Draft {
 	return {
 		id: group?.id ?? "",
@@ -330,7 +329,7 @@ export class GroupDetail {
 			const prefix = ` ${index === this.#selected ? theme.fg("accent", "❯") : " "} ${row.label}`;
 			if (this.#editing && index === this.#selected) {
 				const input = this.#input.render(Math.max(1, width - visibleWidth(prefix) - 3))[0] ?? "";
-				return `${prefix} · ${input.split(cursor).map(clean).join(cursor)}`;
+				return `${prefix} · ${input}`;
 			}
 			const member =
 				row.kind === "member" && row.index !== undefined
@@ -386,7 +385,11 @@ export class GroupDetail {
 					]
 				: [
 						{ key: binding("tui.select.confirm"), action: "edit/toggle", priority: 0 },
-						{ key: "←/→", action: "change", priority: 1 },
+						{
+							key: `${binding("tui.editor.cursorLeft")}/${binding("tui.editor.cursorRight")}`,
+							action: "change",
+							priority: 1,
+						},
 						{ key: "d", action: "delete member", priority: 1 },
 						{ key: "shift+↑/↓", action: "reorder member", priority: 1 },
 						{ key: "ctrl+s", action: "stage group", priority: 0 },

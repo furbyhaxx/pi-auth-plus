@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { ContextReport, TokenEngine } from "../../src/tokens/engine/index.ts";
+import type { ContextReport, EngineContext, TokenEngine } from "../../src/tokens/engine/index.ts";
 import { createTokenTracker } from "../../src/tokens/tracker/index.ts";
 import type { TrackerReason } from "../../src/tokens/tracker/types.ts";
 
@@ -139,7 +139,7 @@ test("thinking level changes invalidate same-model reports and suppress stale wo
 	const lowContext = context("m", "session", () => "leaf", "low");
 	const highContext = context("m", "session", () => "leaf", "high");
 	const pending: Array<{
-		context: ExtensionContext;
+		context: EngineContext;
 		signal: AbortSignal | undefined;
 		resolve: (value: ContextReport) => void;
 	}> = [];

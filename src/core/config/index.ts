@@ -1,5 +1,9 @@
 /** Owns layered settings: defaults < user < project (trusted only) < runtime, one catalog. */
-import { atomicWriteFile, readJsonFile } from "../fs/index.ts";
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
+import lockfile from "proper-lockfile";
+import { atomicWriteFile, isErrno, readJsonFile } from "../fs/index.ts";
 import type { Field, FieldValue } from "./fields.ts";
 
 export * from "./fields.ts";
@@ -43,6 +47,36 @@ export class SettingsError extends Error {
 }
 
 type JsonObject = Record<string, unknown>;
+
+const STALE_MS = 30_000;
+const MAX_DELAY_MS = 1_000;
+
+async function acquire(
+	path: string,
+	onCompromised: (error: Error) => void,
+): Promise<() => Promise<void>> {
+	const deadline = Date.now() + STALE_MS;
+	for (let attempt = 0; ; attempt++) {
+		try {
+			return await lockfile.lock(path, {
+				realpath: false,
+				retries: 0,
+				stale: STALE_MS,
+				onCompromised,
+			});
+		} catch (error) {
+			if (!isErrno(error, "ELOCKED")) throw error;
+			const remaining = deadline - Date.now();
+			if (remaining <= 0) {
+				throw new SettingsError(
+					path,
+					`Cannot save ${path}: settings are locked by another process; wait for it to finish and retry`,
+				);
+			}
+			await sleep(Math.min(10 * 2 ** attempt, MAX_DELAY_MS, remaining));
+		}
+	}
+}
 
 export class SettingsStore<C extends Catalog> {
 	private readonly catalog: C;
@@ -110,29 +144,54 @@ export class SettingsStore<C extends Catalog> {
 	 * keys, and refuse to overwrite a malformed file.
 	 */
 	async save(scope: SaveScope, changes: Changes<C>): Promise<void> {
-		const entries = this.validate(changes, scope);
 		if (scope === "runtime") {
-			this.layers.runtime = applyToLayer(this.layers.runtime, entries);
+			this.layers.runtime = applyToLayer(this.layers.runtime, this.validate(changes, scope));
 			return;
 		}
 		const path = this.paths[scope];
 		if (path === undefined) {
 			throw new SettingsError("", "Project settings are unavailable until the project is trusted");
 		}
-		const read = await readJsonFile(path);
-		if (read.kind === "malformed" || (read.kind === "ok" && !isObject(read.value))) {
+		try {
+			await mkdir(dirname(path), { recursive: true });
+			let compromised: Error | undefined;
+			const release = await acquire(path, (error) => {
+				compromised = error;
+			});
+			let releaseFailure: unknown;
+			try {
+				const entries = this.validate(changes, scope);
+				const read = await readJsonFile(path);
+				if (read.kind === "malformed" || (read.kind === "ok" && !isObject(read.value))) {
+					throw new SettingsError(
+						path,
+						`Cannot save ${path}: the file is not valid JSON; fix it and retry`,
+					);
+				}
+				const doc = read.kind === "ok" ? structuredClone(read.value as JsonObject) : {};
+				for (const [key, value] of entries) {
+					if (value === null) deletePath(doc, key.split("."));
+					else setPath(doc, key.split("."), value);
+				}
+				if (compromised) throw compromised;
+				await atomicWriteFile(path, `${JSON.stringify(doc, null, "\t")}\n`);
+				if (compromised) throw compromised;
+				this.layers[scope] = this.parseLayer(doc, path, []);
+			} finally {
+				await release().catch((error: unknown) => {
+					releaseFailure = error;
+				});
+			}
+			if (compromised) throw compromised;
+			if (releaseFailure !== undefined) throw releaseFailure;
+		} catch (error) {
+			if (error instanceof SettingsError) throw error;
+			const reason = error instanceof Error ? error.message : String(error);
 			throw new SettingsError(
 				path,
-				`Cannot save ${path}: the file is not valid JSON; fix it and retry`,
+				`Cannot save ${path}: ${reason}; check the path and permissions, then retry`,
 			);
 		}
-		const doc = read.kind === "ok" ? structuredClone(read.value as JsonObject) : {};
-		for (const [key, value] of entries) {
-			if (value === null) deletePath(doc, key.split("."));
-			else setPath(doc, key.split("."), value);
-		}
-		await atomicWriteFile(path, `${JSON.stringify(doc, null, "\t")}\n`);
-		this.layers[scope] = this.parseLayer(doc, path, []);
 	}
 
 	private keys(): (keyof C & string)[] {

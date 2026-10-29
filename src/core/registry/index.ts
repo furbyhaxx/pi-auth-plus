@@ -54,6 +54,8 @@ export interface FamilyAdapter {
 	 * undefined lets the next family or the default estimate answer.
 	 */
 	readonly tokens?: (model: TokenModel, deps: CounterDeps) => TokenCounter | undefined;
+	/** Applies family-specific effects after a settings save, owned by the given session. */
+	readonly settingsChanged?: (keys: readonly string[], signal: AbortSignal) => void | Promise<void>;
 	/** Registers the family's remaining Pi hooks inside the awaited extension factory. */
 	readonly register?: (pi: ExtensionAPI, host: FamilyHost) => void | Promise<void>;
 	/**

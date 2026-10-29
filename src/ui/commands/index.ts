@@ -4,6 +4,7 @@ import { type AutocompleteItem, Text } from "@earendil-works/pi-tui";
 import type { CredentialStatus } from "../../core/auth/index.ts";
 import { type AppSettings, SETTINGS } from "../../core/config/catalog.ts";
 import { type SaveScope, SettingsError } from "../../core/config/index.ts";
+import type { SettingsSaver } from "../../core/config/save.ts";
 import type { Registry } from "../../core/registry/index.ts";
 import { loginCodex } from "../../families/openai/codex-auth/index.ts";
 import type { LineTheme } from "../../quotas/line/format.ts";
@@ -56,6 +57,7 @@ export interface AuthCommandDeps {
 	readonly models?: ModelsTabDeps;
 	readonly groups?: GroupsTabDeps;
 	readonly settings?: SettingsPanelDeps;
+	readonly saveSettings?: SettingsSaver;
 	readonly loginCodex?: typeof loginCodex;
 	readonly signal?: () => AbortSignal | undefined;
 }
@@ -304,7 +306,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 			if (error instanceof SettingsError) return report(ctx, error.message, "error");
 			throw error;
 		}
-		if (!signal?.aborted) settings.onSaved([name], scope);
+		if (!signal?.aborted) await settings.onSaved([name], scope);
 	};
 
 	const reset = async (

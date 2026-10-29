@@ -17,9 +17,15 @@ import {
 import { channelName, request } from "../../src/core/bus/index.ts";
 import { FAMILIES } from "../../src/families/index.ts";
 import piAuthPlus from "../../src/index.ts";
+import { CatalogVisibility } from "../../src/models/catalog/runtime.ts";
+import { GroupRegistrations } from "../../src/models/groups/registration.ts";
 import { QuotaEngine } from "../../src/quotas/engine.ts";
+import * as quotaLine from "../../src/quotas/line/index.ts";
 import { defaultTokenizerStore } from "../../src/tokens/tokenizer/index.ts";
+import * as tokenTracker from "../../src/tokens/tracker/index.ts";
 import type { CounterDeps } from "../../src/tokens/types.ts";
+import type { AuthCommandDeps } from "../../src/ui/commands/index.ts";
+import * as commandsModule from "../../src/ui/commands/index.ts";
 
 function lifecycleFixture(activeModel?: {
 	readonly provider: string;
@@ -49,7 +55,10 @@ function lifecycleFixture(activeModel?: {
 		contextWindow: 1000,
 		maxTokens: 100,
 	};
-	const handlers = new Map<string, Array<(payload?: Record<string, unknown>) => unknown>>();
+	const handlers = new Map<
+		string,
+		Array<(payload?: Record<string, unknown>, context?: typeof ctx) => unknown>
+	>();
 	const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 	const notices: string[] = [];
 	const noticeTones: (string | undefined)[] = [];
@@ -123,7 +132,7 @@ function lifecycleFixture(activeModel?: {
 		on: (event: string, handler: unknown) => {
 			if (typeof handler !== "function") return unexpected();
 			const list = handlers.get(event) ?? [];
-			list.push((payload) => handler({ type: event, ...payload }, ctx));
+			list.push((payload, context) => handler({ type: event, ...payload }, context ?? ctx));
 			handlers.set(event, list);
 			return () => {};
 		},
@@ -172,9 +181,9 @@ function lifecycleFixture(activeModel?: {
 		},
 	};
 	let shutdownWaiting: (() => void) | undefined;
-	const run = async (event: string) => {
+	const run = async (event: string, context = ctx) => {
 		for (const handler of handlers.get(event) ?? []) {
-			const result = handler({ reason: "switch" });
+			const result = handler({ reason: "switch" }, context);
 			if (event === "session_shutdown" && result instanceof Promise) shutdownWaiting?.();
 			await result;
 		}
@@ -467,6 +476,362 @@ test("session replacement fences physical responses, resets and shutdown work", 
 		ingest.mockRestore();
 		list.mockRestore();
 		consume.mockRestore();
+	}
+});
+
+test("session settings saves run the shared effects for each setting path", async () => {
+	const agentDir = mkdtempSync(join(tmpdir(), "auth-plus-effects-"));
+	const previousAgentDir = process.env["PI_CODING_AGENT_DIR"];
+	process.env["PI_CODING_AGENT_DIR"] = agentDir;
+	const { pi, run, ctx, model, notices } = lifecycleFixture();
+	const events: string[] = [];
+	const visibilityProviders: string[][] = [];
+	const visibilityEntered = Promise.withResolvers<void>();
+	const visibilityRelease = Promise.withResolvers<void>();
+	let waitForVisibility = false;
+	const family = FAMILIES[0];
+	if (!family) throw new Error("Missing family");
+	const previousHook = Object.getOwnPropertyDescriptor(family, "settingsChanged");
+	Object.defineProperty(family, "settingsChanged", {
+		configurable: true,
+		value: (keys: readonly string[], signal: AbortSignal) => {
+			expect(signal.aborted).toBe(false);
+			events.push(`family:${keys.join(",")}`);
+		},
+	});
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	const createLine = quotaLine.createQuotaLine;
+	const line = spyOn(quotaLine, "createQuotaLine").mockImplementation((...args) => {
+		const created = createLine(...args);
+		return { ...created, settingsChanged: () => events.push("line") };
+	});
+	const createTracker = tokenTracker.createTokenTracker;
+	const tracker = spyOn(tokenTracker, "createTokenTracker").mockImplementation((...args) => {
+		const created = createTracker(...args);
+		return {
+			...created,
+			refresh: async () => {
+				events.push("tokens");
+				return undefined;
+			},
+		};
+	});
+	const visibility = spyOn(CatalogVisibility.prototype, "apply").mockImplementation(
+		async (_context, providers = []) => {
+			events.push("visibility");
+			visibilityProviders.push([...providers]);
+			if (waitForVisibility) {
+				visibilityEntered.resolve();
+				await visibilityRelease.promise;
+			}
+		},
+	);
+	const applyGroups = GroupRegistrations.prototype.apply;
+	const groups = spyOn(GroupRegistrations.prototype, "apply").mockImplementation(function (
+		this: GroupRegistrations,
+		catalog,
+	) {
+		events.push("groups");
+		return applyGroups.call(this, catalog);
+	});
+	const virtualModels = spyOn(pi, "registerVirtualModel");
+	const group = {
+		id: "team",
+		strategy: "sticky" as const,
+		triggers: ["auth" as const],
+		members: [{ provider: model.provider, id: model.id, tier: 1 }],
+	};
+	ctx.modelRegistry.getAll = () => [model];
+	try {
+		await piAuthPlus(pi);
+		await run("session_start");
+		if (!deps?.saveSettings || !deps.settings || !deps.models || !deps.groups)
+			throw new Error("Settings integration was not installed");
+		const save = deps.saveSettings;
+		for (const [changes, key, expected] of [
+			[{ "models.groups": [group] }, "models.groups", ["line", "visibility", "groups", "tokens"]],
+			[
+				{ "models.rules": ["provider/model"] },
+				"models.rules",
+				["line", "visibility", "groups", "tokens"],
+			],
+			[
+				{ "models.rulesScope": "user" },
+				"models.rulesScope",
+				["line", "visibility", "groups", "tokens"],
+			],
+			[
+				{ "models.hiddenDefault": "fallback" },
+				"models.hiddenDefault",
+				["line", "visibility", "groups", "tokens"],
+			],
+			[{ "models.aliases": [] }, "models.aliases", ["line", "visibility", "groups", "tokens"]],
+			[{ "claude.replacePatterns": [] }, "claude.replacePatterns", ["line", "tokens"]],
+			[{ "quotas.linePlacement": "off" }, "quotas.linePlacement", ["line"]],
+			[{ "openai.verbosity": "low" }, "openai.verbosity", ["line"]],
+		] as const) {
+			events.length = 0;
+			const outcome = await save("runtime", changes);
+			expect(outcome).toEqual({ committed: true, scope: "runtime", shadowed: [], warnings: [] });
+			expect(events).toEqual([...expected, `family:${key}`]);
+			if (key === "models.aliases") expect(visibilityProviders.at(-1)?.length).toBeGreaterThan(0);
+		}
+		expect(virtualModels).toHaveBeenCalled();
+		expect(groups.mock.calls.at(-1)?.[0]).toEqual([model]);
+
+		events.length = 0;
+		const store = deps.settings.store();
+		const persistence = spyOn(store, "save");
+		await store.save("runtime", { "models.groups": [group] });
+		waitForVisibility = true;
+		const applied = deps.settings.onSaved(["models.groups"], "runtime");
+		await visibilityEntered.promise;
+		expect(events).toEqual(["line", "visibility"]);
+		waitForVisibility = false;
+		visibilityRelease.resolve();
+		await applied;
+		expect(persistence).toHaveBeenCalledTimes(1);
+		expect(events).toEqual(["line", "visibility", "groups", "tokens", "family:models.groups"]);
+		persistence.mockRestore();
+
+		for (const saveLegacy of [
+			() => deps?.groups?.save([group], "runtime"),
+			() => deps?.models?.save([], "runtime"),
+			() => deps?.models?.details?.aliases?.save([], "runtime"),
+		]) {
+			events.length = 0;
+			await saveLegacy();
+			expect(events.slice(0, 4)).toEqual(["line", "visibility", "groups", "tokens"]);
+			expect(events.filter((event) => event.startsWith("family:"))).toHaveLength(1);
+		}
+		const quotas = deps.quotas?.();
+		if (!quotas || typeof quotas === "string") throw new Error("Missing quota panel");
+		events.length = 0;
+		await quotas.setLinePlacement("off");
+		expect(events).toEqual(["line", "family:quotas.linePlacement"]);
+		expect(notices).toEqual([
+			"Saved to user scope; shadowed by higher scope: quotas.linePlacement",
+		]);
+		await expect(deps.groups.save([group], "project")).rejects.toThrow();
+	} finally {
+		visibilityRelease.resolve();
+		await run("session_shutdown");
+		capture.mockRestore();
+		line.mockRestore();
+		tracker.mockRestore();
+		visibility.mockRestore();
+		groups.mockRestore();
+		virtualModels.mockRestore();
+		if (previousHook) Object.defineProperty(family, "settingsChanged", previousHook);
+		else Reflect.deleteProperty(family, "settingsChanged");
+		if (previousAgentDir === undefined) delete process.env["PI_CODING_AGENT_DIR"];
+		else process.env["PI_CODING_AGENT_DIR"] = previousAgentDir;
+		rmSync(agentDir, { recursive: true });
+	}
+});
+
+test("committed settings report each failed effect and continue to later effects", async () => {
+	const { pi, run, notices } = lifecycleFixture();
+	const first = FAMILIES[0];
+	const second = FAMILIES[1];
+	if (!first || !second) throw new Error("Missing families");
+	const previousFirst = Object.getOwnPropertyDescriptor(first, "settingsChanged");
+	const previousSecond = Object.getOwnPropertyDescriptor(second, "settingsChanged");
+	const events: string[] = [];
+	Object.defineProperty(first, "settingsChanged", {
+		configurable: true,
+		value: () => {
+			events.push("first family");
+			throw new Error("family unavailable");
+		},
+	});
+	Object.defineProperty(second, "settingsChanged", {
+		configurable: true,
+		value: () => events.push("second family"),
+	});
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	const createLine = quotaLine.createQuotaLine;
+	const line = spyOn(quotaLine, "createQuotaLine").mockImplementation((...args) => ({
+		...createLine(...args),
+		settingsChanged: () => {
+			events.push("line");
+			throw new Error("line unavailable");
+		},
+	}));
+	const createTracker = tokenTracker.createTokenTracker;
+	const tracker = spyOn(tokenTracker, "createTokenTracker").mockImplementation((...args) => ({
+		...createTracker(...args),
+		refresh: async () => {
+			events.push("tokens");
+			throw new Error("tokens unavailable");
+		},
+	}));
+	let fail = false;
+	const visibility = spyOn(CatalogVisibility.prototype, "apply").mockImplementation(async () => {
+		if (fail) {
+			events.push("visibility");
+			throw new Error("catalog unavailable");
+		}
+	});
+	const groups = spyOn(GroupRegistrations.prototype, "apply").mockImplementation(() => {
+		if (fail) {
+			events.push("groups");
+			throw new Error("groups unavailable");
+		}
+	});
+	try {
+		await piAuthPlus(pi);
+		await run("session_start");
+		if (!deps?.saveSettings || !deps.settings || !deps.models)
+			throw new Error("Missing settings integration");
+		fail = true;
+		const outcome = await deps.saveSettings("runtime", { "models.rules": [] });
+		expect(outcome.committed).toBe(true);
+		if (!outcome.committed) throw new Error("Settings were not committed");
+		expect(outcome.warnings).toEqual([
+			expect.stringContaining("line unavailable"),
+			expect.stringContaining("catalog unavailable"),
+			expect.stringContaining("groups unavailable"),
+			expect.stringContaining("tokens unavailable"),
+			expect.stringContaining("family unavailable"),
+		]);
+		expect(events).toEqual([
+			"line",
+			"visibility",
+			"groups",
+			"tokens",
+			"first family",
+			"second family",
+		]);
+		events.length = 0;
+		await deps.models.save([], "runtime");
+		expect(notices.at(-1)).toContain("Saved to runtime scope");
+		expect(notices.at(-1)).toContain("family unavailable");
+		events.length = 0;
+		await deps.settings.onSaved(["models.rules"], "runtime");
+		expect(notices.at(-1)).toContain("catalog unavailable");
+		expect(events).toEqual([
+			"line",
+			"visibility",
+			"groups",
+			"tokens",
+			"first family",
+			"second family",
+		]);
+	} finally {
+		await run("session_shutdown");
+		capture.mockRestore();
+		line.mockRestore();
+		tracker.mockRestore();
+		visibility.mockRestore();
+		groups.mockRestore();
+		if (previousFirst) Object.defineProperty(first, "settingsChanged", previousFirst);
+		else Reflect.deleteProperty(first, "settingsChanged");
+		if (previousSecond) Object.defineProperty(second, "settingsChanged", previousSecond);
+		else Reflect.deleteProperty(second, "settingsChanged");
+	}
+});
+
+test("old settings effects stop before touching a replacement session", async () => {
+	const { pi, run, ctx, model } = lifecycleFixture();
+	const replacement = { ...ctx, modelRegistry: { ...ctx.modelRegistry, getAll: () => [model] } };
+	const entered = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	const events: string[] = [];
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	let delay = false;
+	const visibility = spyOn(CatalogVisibility.prototype, "apply").mockImplementation(async () => {
+		if (delay) {
+			entered.resolve();
+			await release.promise;
+		}
+	});
+	const applyGroups = GroupRegistrations.prototype.apply;
+	const groups = spyOn(GroupRegistrations.prototype, "apply").mockImplementation(function (
+		this: GroupRegistrations,
+		catalog,
+	) {
+		events.push(catalog?.includes(model) ? "replacement groups" : "old groups");
+		return applyGroups.call(this, catalog);
+	});
+	try {
+		await piAuthPlus(pi);
+		await run("session_start");
+		if (!deps?.saveSettings || !deps.settings) throw new Error("Missing settings saver");
+		const oldStore = deps.settings.store();
+		delay = true;
+		const pending = deps.saveSettings("runtime", { "models.groups": [] });
+		await entered.promise;
+		const queued = deps.saveSettings("runtime", { "synthetic.webSearch": true });
+		delay = false;
+		await run("session_start", replacement);
+		const newStore = deps.settings.store();
+		expect(newStore).not.toBe(oldStore);
+		events.length = 0;
+		release.resolve();
+		const result = await pending;
+		expect(result).toMatchObject({
+			committed: true,
+			warnings: [expect.stringMatching(/session/i)],
+		});
+		expect(await queued).toMatchObject({
+			committed: false,
+			error: expect.stringMatching(/session/i),
+		});
+		expect(oldStore.get("synthetic.webSearch")).toBe(false);
+		expect(newStore.get("synthetic.webSearch")).toBe(false);
+		expect(events).toEqual([]);
+	} finally {
+		release.resolve();
+		await run("session_shutdown", replacement);
+		capture.mockRestore();
+		visibility.mockRestore();
+		groups.mockRestore();
+	}
+});
+
+test("in-flight catalog warnings do not reach a replacement session", async () => {
+	const { pi, run, ctx, notices } = lifecycleFixture();
+	const entered = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	const replacement = { ...ctx, modelRegistry: { ...ctx.modelRegistry } };
+	let delay = false;
+	ctx.modelRegistry.refresh = async () => {
+		if (!delay) return { errors: new Map(), aborted: false };
+		entered.resolve();
+		await release.promise;
+		return { errors: new Map([["synthetic", new Error("old refresh failure")]]), aborted: false };
+	};
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	try {
+		await piAuthPlus(pi);
+		await run("session_start");
+		if (!deps?.saveSettings) throw new Error("Missing settings saver");
+		notices.length = 0;
+		delay = true;
+		const pending = deps.saveSettings("runtime", { "models.aliases": [] });
+		await entered.promise;
+		await run("session_start", replacement);
+		notices.length = 0;
+		release.resolve();
+		await pending;
+		expect(notices).toEqual([]);
+	} finally {
+		release.resolve();
+		await run("session_shutdown", replacement);
+		capture.mockRestore();
 	}
 });
 

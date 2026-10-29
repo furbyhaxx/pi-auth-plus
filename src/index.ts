@@ -12,7 +12,12 @@ import type {
 import { handleQuotaCli, registerQuotaCliFlags } from "./cli/index.ts";
 import { credentialStatus, readCredential } from "./core/auth/index.ts";
 import { type AppSettings, SETTINGS } from "./core/config/catalog.ts";
-import { SettingsStore } from "./core/config/index.ts";
+import { type SaveScope, SettingsStore } from "./core/config/index.ts";
+import {
+	createSettingsSaver,
+	formatSaveOutcome,
+	type SettingsChanges,
+} from "./core/config/save.ts";
 import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts/index.ts";
 import { cacheDir, modelsPath, projectSettingsPath, userSettingsPath } from "./core/paths/index.ts";
 import { type ProviderSink, Registry, registerFamilyProviders } from "./core/registry/index.ts";
@@ -120,8 +125,12 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	await settings.load();
 	let lastRules: readonly string[] | undefined;
 	let compiledRules = compileModelRules([]);
-	const isVisible = (provider: string, model: { readonly id: string }): boolean => {
-		const rules = effectiveModelRules(settings);
+	const isVisible = (
+		provider: string,
+		model: { readonly id: string },
+		store: AppSettings = settings,
+	): boolean => {
+		const rules = effectiveModelRules(store);
 		if (rules !== lastRules) {
 			lastRules = rules;
 			compiledRules = compileModelRules(rules);
@@ -246,8 +255,10 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	const applyModelRules = async (
 		ctx: ExtensionContext,
 		changedProviders: readonly string[] = [],
+		store: AppSettings = settings,
+		signal: AbortSignal = sessionController.signal,
 	): Promise<void> => {
-		const signal = sessionController.signal;
+		if (signal.aborted) return;
 		await catalogVisibility.apply(ctx, changedProviders);
 		if (signal.aborted) return;
 		groups.apply(ctx.modelRegistry.getAll());
@@ -255,14 +266,14 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		if (
 			!selected ||
 			(selected.provider !== "group" && !catalogVisibility.handles(selected.provider)) ||
-			isVisible(selected.provider, selected)
+			isVisible(selected.provider, selected, store)
 		)
 			return;
 		const identity = `${selected.provider}/${selected.id}`;
-		if (settings.get("models.hiddenDefault") === "fallback") {
+		if (store.get("models.hiddenDefault") === "fallback") {
 			const available = ctx.modelRegistry
 				.getAvailable()
-				.filter((model) => isVisible(model.provider, model));
+				.filter((model) => isVisible(model.provider, model, store));
 			const next = available.find((model) => model.provider === selected.provider) ?? available[0];
 			const switched = next && (await pi.setModel(next));
 			if (signal.aborted) return;
@@ -558,8 +569,65 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		add(quotaContext?.modelRegistry.getAll() ?? []);
 		return [...rows.values()];
 	};
+	const captureSettingsEffects = () => {
+		const store = settings;
+		const ctx = quotaContext;
+		const signal = sessionController.signal;
+		return {
+			store,
+			ctx,
+			signal,
+			apply: async (keys: readonly string[]): Promise<readonly string[]> => {
+				const warnings: string[] = [];
+				const effect = async (name: string, run: () => void | Promise<void>) => {
+					if (signal.aborted) return;
+					try {
+						await run();
+					} catch (error) {
+						if (!signal.aborted) {
+							const reason = error instanceof Error ? error.message : String(error);
+							warnings.push(`${name} failed: ${reason}; retry or reopen the session`);
+						}
+					}
+				};
+				await effect("Quota line refresh", () => quotaLine.settingsChanged());
+				const modelsChanged = keys.some((key) => key.startsWith("models."));
+				const aliasesChanged = keys.includes("models.aliases");
+				if (modelsChanged && ctx) {
+					await effect("Model catalog refresh", () =>
+						applyModelRules(ctx, aliasesChanged ? [...ownedProviders] : [], store, signal),
+					);
+					if (aliasesChanged)
+						await effect("Model alias warnings", () => warnAliasIssues(ctx, signal));
+				}
+				if (modelsChanged)
+					await effect("Model group refresh", () =>
+						groups.apply(ctx?.modelRegistry.getAll() ?? []),
+					);
+				if (modelsChanged || keys.includes("claude.replacePatterns"))
+					await effect("Token refresh", async () => {
+						await tokens.refresh();
+					});
+				for (const family of registry.families) {
+					if (family.settingsChanged)
+						await effect(`${family.label} settings`, () => family.settingsChanged?.(keys, signal));
+				}
+				return warnings;
+			},
+		};
+	};
+	const saveSettings = createSettingsSaver(captureSettingsEffects);
+	const saveLegacySettings = async (scope: SaveScope, changes: SettingsChanges): Promise<void> => {
+		const ctx = quotaContext;
+		const signal = sessionController.signal;
+		const outcome = await saveSettings(scope, changes);
+		if (!outcome.committed) throw new Error(outcome.error);
+		if (!signal.aborted && (outcome.shadowed.length > 0 || outcome.warnings.length > 0))
+			ctx?.ui.notify(formatSaveOutcome(outcome), "warning");
+	};
 	registerAuthCommands(pi, {
 		registry,
+		saveSettings,
 		signal: () => sessionController.signal,
 		groups: {
 			groups: () => settings.get("models.groups"),
@@ -573,10 +641,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				if (available === undefined) return "unknown";
 				return available ? "healthy" : "unavailable";
 			},
-			save: async (next, scope) => {
-				await settings.save(scope, { "models.groups": next });
-				groups.apply(quotaContext?.modelRegistry.getAll() ?? []);
-			},
+			save: (next, scope) => saveLegacySettings(scope, { "models.groups": next }),
 		},
 		models: {
 			rules: () => effectiveModelRules(settings),
@@ -592,25 +657,12 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 					...(result.ruleIndex === undefined ? {} : { ruleIndex: result.ruleIndex }),
 				};
 			},
-			save: async (rules, scope) => {
-				await settings.save(scope, { "models.rules": rules });
-				if (quotaContext) await applyModelRules(quotaContext);
-			},
+			save: (rules, scope) => saveLegacySettings(scope, { "models.rules": rules }),
 			details: {
 				aliases: {
 					list: () => settings.get("models.aliases"),
 					supported: (provider) => ownedProviders.has(provider),
-					save: async (aliases, scope) => {
-						const signal = sessionController.signal;
-						const ctx = quotaContext;
-						await settings.save(scope, { "models.aliases": aliases });
-						if (signal.aborted || !ctx) return;
-						try {
-							await applyModelRules(ctx, [...ownedProviders]);
-						} finally {
-							warnAliasIssues(ctx, signal);
-						}
-					},
+					save: (aliases, scope) => saveLegacySettings(scope, { "models.aliases": aliases }),
 				},
 				read: (provider, id) => readOverride(modelsPath(), provider, id),
 				current: (provider, id) =>
@@ -658,10 +710,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 						onChange: (listener) => quotas.onChange(listener),
 						lineConfig: () => quotaLineConfig(settings),
 						linePlacement: () => settings.get("quotas.linePlacement"),
-						setLinePlacement: async (next) => {
-							await settings.save("user", { "quotas.linePlacement": next });
-							quotaLine.settingsChanged();
-						},
+						setLinePlacement: (next) =>
+							saveLegacySettings("user", { "quotas.linePlacement": next }),
 						now: Date.now,
 						text: (provider) =>
 							formatPlainTextSummary(
@@ -674,27 +724,14 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				: "pi-quotas is loaded and still owns quotas. Remove it from your Pi settings to use these.",
 		settings: {
 			store: () => settings,
-			onSaved: (keys) => {
-				quotaLine.settingsChanged();
-				if (quotaContext && keys.some((key) => key.startsWith("models."))) {
-					const ctx = quotaContext;
-					const signal = sessionController.signal;
-					const aliasesChanged = keys.includes("models.aliases");
-					const changed = aliasesChanged ? [...ownedProviders] : [];
-					void applyModelRules(ctx, changed).then(
-						() => {
-							if (aliasesChanged) warnAliasIssues(ctx, signal);
-						},
-						(error: unknown) => {
-							if (signal.aborted) return;
-							if (aliasesChanged) warnAliasIssues(ctx, signal);
-							ctx.ui.notify(
-								`Model rules could not be refreshed: ${error instanceof Error ? error.message : String(error)}`,
-								"warning",
-							);
-						},
+			onSaved: async (keys, scope) => {
+				const owner = captureSettingsEffects();
+				const warnings = await owner.apply(keys);
+				if (!owner.signal.aborted && warnings.length > 0)
+					owner.ctx?.ui.notify(
+						formatSaveOutcome({ committed: true, scope, shadowed: [], warnings }),
+						"warning",
 					);
-				}
 			},
 			preview: (source, width, theme) => quotaLine.preview(source, width, theme),
 		},

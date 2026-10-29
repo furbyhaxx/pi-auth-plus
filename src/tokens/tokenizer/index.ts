@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { withFileLock } from "../../core/cache/lock.ts";
 import { atomicWriteFile, readJsonFile } from "../../core/fs/index.ts";
 import { type FetchFn, request } from "../../core/http/index.ts";
+import { isOffline } from "../../core/network/index.ts";
 import { xdgCacheDir } from "../../core/paths/index.ts";
 import type { TextTokenizer, TokenizerStore } from "../types.ts";
 
@@ -14,6 +15,8 @@ export interface TokenizerStoreOptions {
 	readonly dir: string;
 	/** Defaults to the runtime's fetch. */
 	readonly fetch?: FetchFn;
+	/** Whether cache misses may download artifacts, default true. */
+	readonly allowNetwork?: boolean;
 	/** Maximum bytes for each file, default 64 MiB. */
 	readonly maxFileBytes?: number;
 	/** How long a failed load is remembered before a later call retries, default 10 minutes. */
@@ -68,9 +71,9 @@ export function createTokenizerStore(options: TokenizerStoreOptions): TokenizerS
 		const cached = index.get(repo);
 		if (cached) {
 			const contents = await readCached(root, repo, cached, maxBytes);
-			// A missing or corrupted cache file falls through to a fresh, verified download.
 			if (contents) return instantiate(repo, cached.revision, contents);
 		}
+		if (options.allowNetwork === false) return undefined;
 		const api = `https://huggingface.co/api/models/${repo}`;
 		const revisionData: unknown = await (await get(`${api}/revision/main`)).json();
 		if (
@@ -159,7 +162,7 @@ export function createTokenizerStore(options: TokenizerStoreOptions): TokenizerS
 let defaultStore: TokenizerStore | undefined;
 /** Lazily creates the shared store using XDG cache storage and the runtime transport. */
 export function defaultTokenizerStore(): TokenizerStore {
-	defaultStore ??= createTokenizerStore({ dir: xdgCacheDir() });
+	defaultStore ??= createTokenizerStore({ dir: xdgCacheDir(), allowNetwork: !isOffline() });
 	return defaultStore;
 }
 

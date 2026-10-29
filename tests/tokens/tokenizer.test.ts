@@ -1,9 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FetchFn } from "../../src/core/http/index.ts";
+import { isOffline } from "../../src/core/network/index.ts";
 import { xdgCacheDir } from "../../src/core/paths/index.ts";
 import { createTokenizerStore } from "../../src/tokens/tokenizer/index.ts";
 
@@ -58,6 +60,86 @@ function transport(lfs: boolean, mismatch = false, config = false) {
 const offline: FetchFn = async () => {
 	throw new Error("offline");
 };
+
+test("offline cache misses do not fetch", async () => {
+	const dir = await directory();
+	const { fetch, calls } = transport(false);
+	const store = createTokenizerStore({ dir, fetch, allowNetwork: false });
+	expect(await store.load(repo)).toBeUndefined();
+	expect(store.peek(repo)).toBeUndefined();
+	expect(calls).toEqual([]);
+	expect(await readdir(dir)).toEqual([]);
+});
+
+test("offline loads use verified cache without fetching or repairing corruption", async () => {
+	const dir = await directory();
+	const online = transport(false);
+	expect(
+		(await createTokenizerStore({ dir, fetch: online.fetch }).load(repo))?.count("hello world"),
+	).toBe(2);
+	const { fetch, calls } = transport(false);
+	const cached = createTokenizerStore({ dir, fetch, allowNetwork: false });
+	const tokenizer = await cached.load(repo);
+	expect(tokenizer?.count("hello world")).toBe(2);
+	expect(cached.peek(repo)).toBe(tokenizer);
+	expect(calls).toEqual([]);
+
+	const index = join(dir, "tokenizers", "index.json");
+	const indexBefore = await readFile(index);
+	const path = join(dir, "tokenizers", encodeURIComponent(repo), revision, "tokenizer.json");
+	const tampered = fixture.toString("utf8").replace('"world":2', '"world":1');
+	expect(tampered).not.toBe(fixture.toString("utf8"));
+	expect(Buffer.byteLength(tampered)).toBe(fixture.length);
+	await writeFile(path, tampered);
+	const corrupted = createTokenizerStore({ dir, fetch, allowNetwork: false });
+	expect(await corrupted.load(repo)).toBeUndefined();
+	expect(corrupted.peek(repo)).toBeUndefined();
+	expect(calls).toEqual([]);
+	expect(await readFile(path, "utf8")).toBe(tampered);
+	expect(await readFile(index)).toEqual(indexBefore);
+});
+
+test("offline detection accepts the Pi flag and environment values", () => {
+	expect(isOffline([], {})).toBe(false);
+	expect(isOffline(["--offline"], { PI_OFFLINE: "false" })).toBe(true);
+	expect(isOffline(["--Offline"], {})).toBe(false);
+	for (const value of ["1", "true", "TRUE", "yes", "YeS"])
+		expect(isOffline([], { PI_OFFLINE: value })).toBe(true);
+	for (const value of ["0", "false", "no", " true "])
+		expect(isOffline([], { PI_OFFLINE: value })).toBe(false);
+});
+
+test("default store respects offline environment and arguments", async () => {
+	const dir = await directory();
+	const script = `
+		import { defaultTokenizerStore } from ${JSON.stringify(new URL("../../src/tokens/tokenizer/index.ts", import.meta.url).href)};
+		let calls = 0;
+		globalThis.fetch = async () => { calls++; throw new Error("unexpected fetch"); };
+		const tokenizer = await defaultTokenizerStore().load(${JSON.stringify(repo)});
+		console.log(JSON.stringify({ calls, count: tokenizer?.count("hello world") ?? null }));
+	`;
+	function run(envValue: string, args: string[]) {
+		const child = spawnSync(process.execPath, ["--eval", script, "--", ...args], {
+			env: { XDG_CACHE_HOME: dir, PI_OFFLINE: envValue },
+			encoding: "utf8",
+		});
+		expect(child.status).toBe(0);
+		return JSON.parse(child.stdout);
+	}
+	for (const [envValue, args] of [
+		["false", ["--offline"]],
+		["1", []],
+		["TrUe", []],
+		["YeS", []],
+	] as const) {
+		expect(run(envValue, [...args])).toEqual({ calls: 0, count: null });
+	}
+	expect(run("0", [])).toEqual({ calls: 1, count: null });
+
+	const online = transport(false);
+	await createTokenizerStore({ dir: join(dir, "pi-auth-plus"), fetch: online.fetch }).load(repo);
+	expect(run("YES", [])).toEqual({ calls: 0, count: 2 });
+});
 
 for (const lfs of [false, true]) {
 	test(`downloads, pins and serves offline (${lfs ? "LFS" : "git blob"})`, async () => {

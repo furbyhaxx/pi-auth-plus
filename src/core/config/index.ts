@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import lockfile from "proper-lockfile";
 import { atomicWriteFile, isErrno, readJsonFile } from "../fs/index.ts";
-import type { Field, FieldValue, SaveScope } from "./fields.ts";
+import type { Field, FieldRelationIssue, FieldValue, SaveScope } from "./fields.ts";
 
 export * from "./fields.ts";
 
@@ -90,9 +90,9 @@ export class SettingsStore<C extends Catalog> {
 	/** Reload both files. Invalid fields are skipped and reported; a malformed file empties its layer. */
 	async load(): Promise<readonly SettingsProblem[]> {
 		const problems: SettingsProblem[] = [];
+		const layers: Record<SaveScope, Layer<C>> = { user: {}, project: {}, runtime: {} };
 		for (const scope of ["user", "project"] as const) {
 			const path = this.paths[scope];
-			this.layers[scope] = {};
 			if (path === undefined) continue;
 			const read = await readJsonFile(path);
 			if (read.kind === "missing") continue;
@@ -103,8 +103,19 @@ export class SettingsStore<C extends Catalog> {
 				});
 				continue;
 			}
-			this.layers[scope] = this.parseLayer(read.value, path, scope, problems);
+			const layer = this.parseLayer(read.value, path, scope, problems);
+			layers[scope] = this.inheritInvalidRelations(layers, scope, layer, path, problems);
 		}
+		layers.runtime = this.inheritInvalidRelations(
+			layers,
+			"runtime",
+			this.layers.runtime,
+			"runtime",
+			problems,
+		);
+		this.layers.user = layers.user;
+		this.layers.project = layers.project;
+		this.layers.runtime = layers.runtime;
 		return problems;
 	}
 
@@ -154,7 +165,9 @@ export class SettingsStore<C extends Catalog> {
 	 */
 	async save(scope: SaveScope, changes: Changes<C>): Promise<void> {
 		if (scope === "runtime") {
-			this.layers.runtime = applyToLayer(this.layers.runtime, this.validate(changes, scope));
+			const layer = applyToLayer(this.layers.runtime, this.validate(changes, scope));
+			this.assertRelations(scope, layer, "");
+			this.layers.runtime = layer;
 			return;
 		}
 		const path = this.paths[scope];
@@ -182,10 +195,12 @@ export class SettingsStore<C extends Catalog> {
 					if (value === null) deletePath(doc, key.split("."));
 					else setPath(doc, key.split("."), value);
 				}
+				const layer = this.parseLayer(doc, path, scope, []);
+				this.assertRelations(scope, layer, path);
 				if (compromised) throw compromised;
 				await atomicWriteFile(path, `${JSON.stringify(doc, null, "\t")}\n`);
 				if (compromised) throw compromised;
-				this.layers[scope] = this.parseLayer(doc, path, scope, []);
+				this.layers[scope] = layer;
 			} finally {
 				await release().catch((error: unknown) => {
 					releaseFailure = error;
@@ -200,6 +215,78 @@ export class SettingsStore<C extends Catalog> {
 				path,
 				`Cannot save ${path}: ${reason}; check the path and permissions, then retry`,
 			);
+		}
+	}
+
+	private relationIssue(
+		layers: Record<SaveScope, Layer<C>>,
+		through: SaveScope,
+	): FieldRelationIssue | undefined {
+		const scopes: readonly SaveScope[] =
+			through === "user"
+				? ["user"]
+				: through === "project"
+					? ["project", "user"]
+					: ["runtime", "project", "user"];
+		const lookup = (key: string): FieldValue => {
+			const field = this.field(key);
+			for (const scope of scopes) {
+				if (!allowsScope(field, scope)) continue;
+				const value = (layers[scope] as Record<string, FieldValue | undefined>)[key];
+				if (value !== undefined) return value;
+			}
+			return field.default;
+		};
+		for (const key of this.keys()) {
+			const issue = this.field(key).validateRelation?.(lookup(key), lookup);
+			if (issue) return issue;
+		}
+		return undefined;
+	}
+
+	private assertRelations(scope: SaveScope, layer: Layer<C>, path: string): void {
+		const layers = { ...this.layers, [scope]: layer };
+		const checks: readonly SaveScope[] =
+			scope === "user"
+				? ["user", "project", "runtime"]
+				: scope === "project"
+					? ["project", "runtime"]
+					: ["runtime"];
+		for (const through of checks) {
+			const issue = this.relationIssue(layers, through);
+			if (issue) {
+				const location = path ? ` (${path})` : "";
+				throw new SettingsError(
+					path,
+					`Cannot save ${scope} settings${location}: ${relationMessage(issue)}; adjust them and retry`,
+				);
+			}
+		}
+	}
+
+	private inheritInvalidRelations(
+		current: Record<SaveScope, Layer<C>>,
+		scope: SaveScope,
+		parsed: Layer<C>,
+		path: string,
+		problems: SettingsProblem[],
+	): Layer<C> {
+		const layer: Record<string, FieldValue> = { ...(parsed as Record<string, FieldValue>) };
+		const layers = { ...current, [scope]: layer as Layer<C> };
+		for (;;) {
+			const issue = this.relationIssue(layers, scope);
+			if (!issue) return layer as Layer<C>;
+			const overridden = issue.keys.filter((key) => Object.hasOwn(layer, key));
+			if (overridden.length === 0) {
+				throw new SettingsError(path, `Invalid inherited settings: ${relationMessage(issue)}`);
+			}
+			for (const key of overridden) delete layer[key];
+			const key = overridden[0];
+			problems.push({
+				path,
+				...(key === undefined ? {} : { key }),
+				reason: `${relationMessage(issue)}; using inherited values`,
+			});
 		}
 	}
 
@@ -277,6 +364,10 @@ export class SettingsStore<C extends Catalog> {
 		}
 		return out;
 	}
+}
+
+function relationMessage(issue: FieldRelationIssue): string {
+	return `${issue.keys.join(", ")}: ${issue.reason}`;
 }
 
 function allowsScope(field: Field<FieldValue>, scope: SaveScope): boolean {

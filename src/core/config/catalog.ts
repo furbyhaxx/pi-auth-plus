@@ -79,6 +79,15 @@ export const SETTINGS = {
 		default: 5,
 		min: 0,
 		max: 100,
+		validateRelation: (critical, lookup) => {
+			const healthy = lookup("quotas.creditHealthyUsd");
+			return typeof healthy === "number" && critical < healthy
+				? undefined
+				: {
+						keys: ["quotas.creditCriticalUsd", "quotas.creditHealthyUsd"],
+						reason: "critical must be strictly less than healthy",
+					};
+		},
 	}),
 	"quotas.lineTemplate": stringField({
 		label: "Quota line template",

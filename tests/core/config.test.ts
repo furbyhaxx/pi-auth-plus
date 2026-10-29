@@ -241,6 +241,190 @@ describe("core/config", () => {
 		expect(await store.load()).toEqual([]);
 	});
 
+	test("rejects contradictory credit thresholds in every scope without writing", async () => {
+		write(user, { other: { keep: true } });
+		write(project, { other: { keep: true } });
+		const userBefore = readFileSync(user, "utf8");
+		const projectBefore = readFileSync(project, "utf8");
+		for (const scope of ["runtime", "user", "project"] as const) {
+			const store = new SettingsStore(SETTINGS, { user, project });
+			expect(await store.load()).toEqual([]);
+			const error: unknown = await store
+				.save(scope, { "quotas.creditHealthyUsd": 50, "quotas.creditCriticalUsd": 100 })
+				.catch((caught: unknown) => caught);
+			expect(error).toBeInstanceOf(SettingsError);
+			expect(String(error)).toContain("quotas.creditCriticalUsd");
+			expect(String(error)).toContain("quotas.creditHealthyUsd");
+			expect(String(error)).toContain("strictly less");
+			expect(store.get("quotas.creditHealthyUsd")).toBe(50);
+			expect(store.get("quotas.creditCriticalUsd")).toBe(5);
+			expect(readFileSync(user, "utf8")).toBe(userBefore);
+			expect(readFileSync(project, "utf8")).toBe(projectBefore);
+		}
+	});
+
+	test("valid related threshold edits save together and preserve unknown keys", async () => {
+		write(user, { quotas: { legacy: true }, other: { keep: true } });
+		const store = new SettingsStore(SETTINGS, { user });
+		await store.load();
+		await expect(store.save("user", { "quotas.creditCriticalUsd": 80 })).rejects.toThrow(
+			"quotas.creditHealthyUsd",
+		);
+		await store.save("user", {
+			"quotas.creditHealthyUsd": 100,
+			"quotas.creditCriticalUsd": 80,
+		});
+		expect(JSON.parse(readFileSync(user, "utf8"))).toEqual({
+			quotas: { legacy: true, creditHealthyUsd: 100, creditCriticalUsd: 80 },
+			other: { keep: true },
+		});
+		expect(store.get("quotas.creditHealthyUsd")).toBe(100);
+		expect(store.get("quotas.creditCriticalUsd")).toBe(80);
+	});
+
+	test("checks target and higher scope relationships even when masked", async () => {
+		write(user, { quotas: { creditHealthyUsd: 50, creditCriticalUsd: 5 } });
+		write(project, { quotas: { creditHealthyUsd: 100 } });
+		const store = new SettingsStore(SETTINGS, { user, project });
+		await store.load();
+		const userBefore = readFileSync(user, "utf8");
+		await expect(store.save("user", { "quotas.creditCriticalUsd": 60 })).rejects.toThrow(
+			"quotas.creditHealthyUsd",
+		);
+		expect(readFileSync(user, "utf8")).toBe(userBefore);
+
+		write(user, { quotas: { creditHealthyUsd: 100, creditCriticalUsd: 5 } });
+		write(project, { quotas: { creditCriticalUsd: 40 } });
+		await store.load();
+		await store.save("runtime", { "quotas.creditHealthyUsd": 100 });
+		const validBefore = readFileSync(user, "utf8");
+		await expect(store.save("user", { "quotas.creditHealthyUsd": 30 })).rejects.toThrow(
+			"quotas.creditCriticalUsd",
+		);
+		expect(readFileSync(user, "utf8")).toBe(validBefore);
+		expect(store.get("quotas.creditHealthyUsd")).toBe(100);
+		expect(store.get("quotas.creditCriticalUsd")).toBe(40);
+	});
+
+	test("checks inherited relationships when removing overrides", async () => {
+		write(user, { quotas: { creditHealthyUsd: 50, creditCriticalUsd: 5 } });
+		write(project, { quotas: { creditHealthyUsd: 100, creditCriticalUsd: 80 }, other: true });
+		const store = new SettingsStore(SETTINGS, { user, project });
+		await store.load();
+		const before = readFileSync(project, "utf8");
+		await expect(store.save("project", { "quotas.creditHealthyUsd": null })).rejects.toThrow(
+			"quotas.creditCriticalUsd",
+		);
+		expect(readFileSync(project, "utf8")).toBe(before);
+		await store.save("project", {
+			"quotas.creditHealthyUsd": null,
+			"quotas.creditCriticalUsd": null,
+		});
+		expect(JSON.parse(readFileSync(project, "utf8"))).toEqual({ other: true });
+		expect(store.get("quotas.creditHealthyUsd")).toBe(50);
+		expect(store.get("quotas.creditCriticalUsd")).toBe(5);
+
+		await store.save("runtime", {
+			"quotas.creditHealthyUsd": 100,
+			"quotas.creditCriticalUsd": 80,
+		});
+		await expect(store.save("runtime", { "quotas.creditHealthyUsd": null })).rejects.toThrow(
+			"quotas.creditCriticalUsd",
+		);
+		expect(store.get("quotas.creditHealthyUsd")).toBe(100);
+		expect(store.get("quotas.creditCriticalUsd")).toBe(80);
+		await store.save("runtime", {
+			"quotas.creditHealthyUsd": null,
+			"quotas.creditCriticalUsd": null,
+		});
+		expect(store.get("quotas.creditHealthyUsd")).toBe(50);
+		expect(store.get("quotas.creditCriticalUsd")).toBe(5);
+	});
+
+	test("loads conflicting thresholds as problems and inherits consistent values", async () => {
+		write(user, { quotas: { creditHealthyUsd: 50, creditCriticalUsd: 100 }, other: true });
+		write(project, { quotas: { creditCriticalUsd: 50 } });
+		const userBefore = readFileSync(user, "utf8");
+		const projectBefore = readFileSync(project, "utf8");
+		const store = new SettingsStore(SETTINGS, { user, project });
+		const problems = await store.load();
+		expect(problems.map((problem) => problem.path)).toEqual([user, project]);
+		for (const problem of problems) {
+			expect(problem.reason).toContain("quotas.creditHealthyUsd");
+			expect(problem.reason).toContain("quotas.creditCriticalUsd");
+			expect(problem.reason).toContain("inherited");
+		}
+		expect(store.get("quotas.creditHealthyUsd")).toBe(50);
+		expect(store.get("quotas.creditCriticalUsd")).toBe(5);
+		expect(store.sourceOf("quotas.creditHealthyUsd")).toBe("default");
+		expect(store.sourceOf("quotas.creditCriticalUsd")).toBe("default");
+		expect(readFileSync(user, "utf8")).toBe(userBefore);
+		expect(readFileSync(project, "utf8")).toBe(projectBefore);
+
+		write(user, { quotas: { creditHealthyUsd: 100, creditCriticalUsd: 80 } });
+		write(project, { quotas: { creditHealthyUsd: 50 } });
+		const inherited = await store.load();
+		expect(inherited.map((problem) => [problem.path, problem.key])).toEqual([
+			[project, "quotas.creditHealthyUsd"],
+		]);
+		expect(store.get("quotas.creditHealthyUsd")).toBe(100);
+		expect(store.get("quotas.creditCriticalUsd")).toBe(80);
+	});
+
+	test("reload drops a runtime override invalidated by changed file values", async () => {
+		write(user, { quotas: { creditHealthyUsd: 100, creditCriticalUsd: 5 } });
+		const store = new SettingsStore(SETTINGS, { user });
+		await store.load();
+		const pending = store.load();
+		await store.save("runtime", { "quotas.creditCriticalUsd": 80 });
+		expect(await pending).toEqual([]);
+		expect(store.sourceOf("quotas.creditCriticalUsd")).toBe("runtime");
+		write(user, { quotas: { creditHealthyUsd: 50, creditCriticalUsd: 5 } });
+		const reload = store.load();
+		expect(store.get("quotas.creditHealthyUsd")).toBe(100);
+		expect(store.get("quotas.creditCriticalUsd")).toBe(80);
+		const problems = await reload;
+		expect(problems.map((problem) => [problem.path, problem.key])).toEqual([
+			["runtime", "quotas.creditCriticalUsd"],
+		]);
+		expect(store.get("quotas.creditHealthyUsd")).toBe(50);
+		expect(store.get("quotas.creditCriticalUsd")).toBe(5);
+	});
+
+	test("validates the fresh locked file rather than a stale store layer", async () => {
+		const first = new SettingsStore(SETTINGS, { user });
+		const second = new SettingsStore(SETTINGS, { user });
+		await first.load();
+		await second.load();
+		await first.save("user", { "quotas.creditHealthyUsd": 100, "quotas.creditCriticalUsd": 80 });
+		const before = readFileSync(user, "utf8");
+		await expect(second.save("user", { "quotas.creditHealthyUsd": 60 })).rejects.toThrow(
+			"quotas.creditCriticalUsd",
+		);
+		expect(readFileSync(user, "utf8")).toBe(before);
+	});
+
+	test("relation metadata also validates other field types", async () => {
+		const fields = {
+			"example.enabled": booleanField({ label: "Enabled", description: "Enabled", default: false }),
+			"example.option": booleanField({
+				label: "Option",
+				description: "Requires enabled",
+				default: false,
+				validateRelation: (value, lookup) =>
+					value && lookup("example.enabled") !== true
+						? { keys: ["example.option", "example.enabled"], reason: "option requires enabled" }
+						: undefined,
+			}),
+		};
+		const store = new SettingsStore(fields, { user });
+		await expect(store.save("runtime", { "example.option": true })).rejects.toThrow(
+			"example.enabled",
+		);
+		await store.save("runtime", { "example.option": true, "example.enabled": true });
+		expect(store.values()).toEqual({ "example.enabled": true, "example.option": true });
+	});
+
 	test("runtime > project > user > default, each value reports its source", async () => {
 		write(user, { quotas: { refreshIntervalSec: 30, placement: "above-editor" } });
 		write(project, { quotas: { refreshIntervalSec: 10 } });

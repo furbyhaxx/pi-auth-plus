@@ -11,6 +11,15 @@ export type SaveScope = "user" | "project" | "runtime";
 export type FieldValue = boolean | number | string | readonly string[] | readonly object[];
 export type FieldKind = "boolean" | "number" | "enum" | "string" | "list" | "rules";
 
+/** Resolves a setting's effective value in the proposed scope. */
+export type FieldLookup = (key: string) => FieldValue;
+
+/** A rejected relationship and all of its participating setting keys. */
+export interface FieldRelationIssue {
+	readonly keys: readonly string[];
+	readonly reason: string;
+}
+
 export interface FieldOption<V extends string = string> {
 	readonly value: V;
 	readonly label: string;
@@ -29,6 +38,8 @@ export interface Field<T extends FieldValue> {
 	readonly step?: number;
 	/** The value, or undefined when `raw` is not valid for this field. */
 	parse(raw: unknown): T | undefined;
+	/** Return the participating keys, including this field, when the relationship is invalid. */
+	validateRelation?(value: T, lookup: FieldLookup): FieldRelationIssue | undefined;
 }
 
 interface Meta<T> {
@@ -36,6 +47,7 @@ interface Meta<T> {
 	readonly description: string;
 	readonly default: T;
 	readonly allowedScopes?: readonly SaveScope[];
+	validateRelation?(value: T, lookup: FieldLookup): FieldRelationIssue | undefined;
 }
 
 export function booleanField(meta: Meta<boolean>): Field<boolean> {

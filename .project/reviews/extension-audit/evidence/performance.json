@@ -1,0 +1,18 @@
+{
+  "measurement": "ModelsView rules-tab render with production single-reference preview compiler cache",
+  "runtime": "Bun 1.4.3",
+  "catalogSize": 555,
+  "terminalColumns": 140,
+  "bodyRows": 30,
+  "warmups": 5,
+  "samples": 30,
+  "selectedRule": "last",
+  "compilationsPerRender": 1111,
+  "results": [
+    { "rules": 1, "p50Ms": 0.433, "p95Ms": 2.003 },
+    { "rules": 10, "p50Ms": 5.825, "p95Ms": 8.473 },
+    { "rules": 25, "p50Ms": 16.940, "p95Ms": 19.253 },
+    { "rules": 50, "p50Ms": 37.098, "p95Ms": 42.210 }
+  ],
+  "note": "Rounded observed results from the audit run; component benchmark, not end-to-end terminal latency."
+}

@@ -1,0 +1,35 @@
+[38;5;94m[Extensions][39m
+[38;5;102m  src[39m
+
+
+[38;5;98m──[39m [1mAuth[0m [38;5;102m›[39m [1mSettings[0m [38;5;98m──────────────────────────────────────────────[39m [38;5;102m9 providers[39m [38;5;98m──
+[39m [38;5;60m Providers[39m  [38;5;60m Quotas[39m  [38;5;60m Tokens[39m  [38;5;60m Models[39m  [38;5;60m Groups[39m  [38;5;97m▸[1mSettings[0m
+ [1mQuotas[0m
+ [38;5;97m❯[39m Quota refresh interval       60                                      [38;5;102mdefault[39m
+   Refresh quotas after reques… on                                      [38;5;102mdefault[39m
+   Quota providers              []                                      [38;5;102mdefault[39m
+   Quota line placement         Below editor, first                     [38;5;102mdefault[39m
+   Quota percent                Used                                    [38;5;102mdefault[39m
+   Compact width                100                                     [38;5;102mdefault[39m
+   Always short ids             off                                     [38;5;102mdefault[39m
+   Healthy credit (USD)         50                                      [38;5;102mdefault[39m
+   Critical credit (USD)        5                                       [38;5;102mdefault[39m
+   Quota line template          {openrouter:id}: {openrouter:credits-r… [38;5;102mdefault[39m
+ [1mModels[0m
+   Model visibility rules       []                                      [38;5;102mdefault[39m
+   Model rules scope            User and trusted project                [38;5;102mdefault[39m
+   Hidden selected model        Warn and keep                           [38;5;102mdefault[39m
+   Model aliases                []                                      [38;5;102mdefault[39m
+   Model groups                 []                                      [38;5;102mdefault[39m
+ [1mOpenai[0m
+   Response verbosity           Pi default                              [38;5;102mdefault[39m
+   Verbosity providers          ["openai","openai-codex"]               [38;5;102mdefault[39m
+ [1mClaude[0m
+[38;5;67m───────────────────────────────────[39m [38;5;102m↓ 3 more[39m [38;5;67m───────────────────────────────────
+[39m [38;5;60mSeconds between endpoint refreshes; provider polling floors still apply[39m
+ [38;5;102mtab[39m [38;5;60mswitch[38;5;102m · enter[39m [38;5;60medit[38;5;102m · ctrl+s[39m [38;5;60msave[38;5;102m · ↑/↓[39m [38;5;60mmove[38;5;102m · ←/→[39m [38;5;60mchange[38;5;102m · esc[39m [38;5;60mclose[39m
+[38;5;98m────────────────────────────────────────────────────────────────────────────────
+[38;5;60mor[38;5;102m: [38;5;60mlogin[38;5;102m · [38;5;60mds[38;5;102m: [38;5;60mlogin[38;5;102m · [38;5;60mcox[38;5;102m: [38;5;60mlogin[38;5;102m · [38;5;60mcl[38;5;102m: 5h/[38;5;60mlogin[38;5;102m 7d/[38;5;60mlogin[39m
+[38;5;60mag[38;5;102m: gem/[38;5;60mlogin[38;5;102m arg/[38;5;60mlogin[38;5;102m · [38;5;60msyn[38;5;102m: [38;5;60m…[38;5;102m · [38;5;60mxai[38;5;102m: [38;5;60mlogin[39m
+[38;5;102m/tmp/pi-auth-tui-qa.YbjRaj/light/work[39m
+[38;5;102m0.0%/262k (auto)                                              kimi-k2.6 • medium

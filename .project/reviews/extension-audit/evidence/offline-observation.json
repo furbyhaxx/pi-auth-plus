@@ -1,0 +1,13 @@
+{
+  "runtime": "Pi 1.4.0 / Pi-Bolt 1.0.7, JIT off",
+  "mode": "rpc",
+  "flags": ["--offline", "--no-session", "-ne"],
+  "environment": "PI_OFFLINE=1; isolated HOME, XDG and agent directories; dummy Synthetic credential",
+  "transport": "global fetch intercepted before importing the extension; returns HTTP 503 without sending a network request",
+  "observed": {
+    "phase": "session_start",
+    "url": "https://api.synthetic.new/v2/quotas"
+  },
+  "contract": "Installed Pi docs/cli.md:241-242: --offline disables automatic network activity, including model catalog refreshes; equivalent to PI_OFFLINE=1.",
+  "conclusion": "Automatic quota refresh ignores Pi offline mode. This establishes an attempted outbound request, not an actual remote connection."
+}

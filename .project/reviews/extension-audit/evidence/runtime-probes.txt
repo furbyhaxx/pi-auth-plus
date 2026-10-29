@@ -1,0 +1,96 @@
+PERSISTENCE HANDOFF 2/2. Please persist as .project/reviews/extension-audit/runtime/evidence/reproductions.md (no real credentials/data). These are the original six successful in-memory commands and observed outputs, not newly rerun checks. Frontmatter:
+---
+document:
+  type: "analysis"
+  id: "extension-audit-runtime-reproductions"
+  title: "Runtime audit reproduction evidence"
+  description: "Six local in-memory reproductions and the focused test result, without network or real credentials"
+  status: "published"
+  revision: 1
+  created_at: "2026-10-29T15:20:54+01:00"
+  updated_at: "2026-10-29T15:20:54+01:00"
+  created_by: "second-opinion"
+  updated_by: "second-opinion"
+  changelog:
+    - revision: 1
+      reason: "Preserve runtime audit evidence"
+      changes: ["Record original commands and actual outputs without rerunning checks"]
+---
+
+Run from repository root. All six commands returned exit code 0. Mock endpoint credentials below are invented fixture strings, never real credentials.
+
+## Hidden native source removes visible alias
+```sh
+bun -e 'import {wrapNativeAliases} from "./src/models/aliases/native.ts"; import {filterNativeProvider} from "./src/models/catalog/owned-filter.ts"; const base={provider:"test",id:"base",name:"Base",api:"anthropic-messages",baseUrl:"https://example.invalid",input:["text"],reasoning:false,contextWindow:5000,maxTokens:500,cost:{input:0,output:0,cacheRead:0,cacheWrite:0}}; const p={id:"test",name:"Test",auth:{},getModels:()=>[base],filterModels:(m)=>m,stream:()=>{throw Error("unused")},streamSimple:()=>{throw Error("unused")}}; const wrapped=filterNativeProvider(wrapNativeAliases(p,()=>[{provider:"test",source:"base",id:"short"}]),m=>m.id!=="base"); console.log(JSON.stringify({catalog:wrapped.getModels().map(m=>m.id),available:wrapped.filterModels(wrapped.getModels(),{}).map(m=>m.id),allAvailable:wrapped.filterAllModels(wrapped.getAllModels(),{}).map(m=>m.id)}));'
+```
+Observed:
+```json
+{"catalog":["short"],"available":[],"allAvailable":[]}
+```
+
+## Rejected Synthetic alias rewrites physical request
+```sh
+bun -e 'import {wrapNamedAliases} from "./src/models/aliases/named.ts"; import {syntheticPhysicalHooks} from "./src/families/synthetic/physical.ts"; const fields={provider:"synthetic",name:"Fixture",api:"anthropic-messages",baseUrl:"https://example.invalid",input:["text"],reasoning:false,contextWindow:5000,maxTokens:500,cost:{input:0,output:0,cacheRead:0,cacheWrite:0}}; const aliases=[{provider:"synthetic",source:"physical-a",id:"physical-b"}]; const issues=[]; const wrapped=wrapNamedAliases("synthetic",{models:[{...fields,id:"physical-a"},{...fields,id:"physical-b"}]},()=>aliases,x=>issues.push(...x)); const selected={...fields,id:"physical-b"}; console.log(JSON.stringify({issues:issues.map(x=>x.kind),catalog:wrapped.models.map(m=>m.id),wire:await syntheticPhysicalHooks(selected,aliases).payload({model:selected.id},selected)}));'
+```
+Observed:
+```json
+{"issues":["collision"],"catalog":["physical-a","physical-b"],"wire":{"model":"physical-a"}}
+```
+
+## Claude count request uses alias identity
+```sh
+bun -e 'import {createAnthropicFamily} from "./src/families/anthropic/index.ts"; const requests=[]; const family=createAnthropicFamily({},async()=>"0"); const counter=family.tokens({provider:"claude",id:"short-alias"},{auth:async()=>({token:"fixture-key",extra:{type:"api_key"}}),fetch:async(_url,init)=>{requests.push(JSON.parse(init.body).model);return new Response(JSON.stringify({input_tokens:33}),{status:200,headers:{"content-type":"application/json"}})},tokenizers:{peek:()=>undefined,load:async()=>undefined}}); await counter.count("hello","prose"); console.log(JSON.stringify({requestModels:requests}));'
+```
+Observed:
+```json
+{"requestModels":["short-alias","short-alias"]}
+```
+The injected fetch records requests and returns local Response objects. No server was contacted; no actual server rejection is claimed.
+
+## Quota write callback remains live after stop
+```sh
+bun -e 'import {QuotaEngine} from "./src/quotas/engine.ts"; import {Registry} from "./src/core/registry/index.ts"; const snapshot={provider:"fake",fetchedAt:1,source:"endpoint",windows:[]}; const registry=new Registry([{id:"fake",label:"Fake",providers:[{id:"fake",label:"Fake",aliases:[],quota:{kind:"windows",shortLabel:"f",parserVersion:1,fetch:async()=>snapshot}}]}]); const engine=new QuotaEngine({registry,cachePath:"/unused",settings:()=>({get:k=>k==="quotas.providers"?[]:60}),now:()=>1,fetch:async()=>{throw Error("no network")},authFor:async()=>undefined}); const entered=Promise.withResolvers(); const release=Promise.withResolvers(); let written; engine.cache.tryAcquire=async()=>true; engine.cache.putWith=async(_id,change)=>{entered.resolve();await release.promise;written=change(undefined)}; const refresh=engine.refresh("fake"); await entered.promise; engine.stop(); release.resolve(); await refresh; console.log(JSON.stringify({snapshotProducedAfterStop:written?.snapshot?.provider}));'
+```
+Observed:
+```json
+{"snapshotProducedAfterStop":"fake"}
+```
+This simulates waiting in the cache mutation queue. Both cache methods are replaced in memory; /unused is never accessed or written. Actual HostCache.mutate awaits a write-chain/file lock/sync before invoking the callback (src/core/cache/index.ts:175–192), so that interleaving exists in production.
+
+## Token report remains old after model switch
+```sh
+bun -e 'import {createTokenTracker} from "./src/tokens/tracker/index.ts"; const handlers=new Map(); const engine={context:async ctx=>({provider:ctx.model.provider,model:ctx.model.id}),breakdown:async()=>[],counterFor:()=>{}}; const tracker=createTokenTracker({on:(name,fn)=>{handlers.set(name,fn);return ()=>{}}},{engine,debounceMs:10000}); handlers.get("session_start")({}, {model:{provider:"fake",id:"old"}}); await tracker.refresh(); handlers.get("model_select")({}, {model:{provider:"fake",id:"new"}}); console.log(JSON.stringify({afterModelSwitch:tracker.latest()})); tracker.dispose();'
+```
+Observed:
+```json
+{"afterModelSwitch":{"provider":"fake","model":"old"}}
+```
+The enlarged debounce makes the state transition explicit; production's default is 250 ms, followed by asynchronous counting. The tracker is disposed before process exit.
+
+## Alias retarget retains old token counter
+```sh
+bun -e 'import {createSyntheticFamily} from "./src/families/synthetic/index.ts"; import {createTokenEngine} from "./src/tokens/engine/index.ts"; let source="hf:fixture/first"; const family=createSyntheticFamily({}); family.register({registerFlag:()=>{},on:()=>{},getFlag:()=>false},{settings:()=>({get:()=>[{provider:"synthetic",id:"short",source}]})}); const deps={auth:async()=>undefined,fetch:async()=>{throw Error("no network")},tokenizers:{peek:repo=>({id:repo,count:()=>repo.endsWith("first")?10:20}),load:async()=>undefined}}; const engine=createTokenEngine({families:[family],deps,tools:()=>[]}); const model={provider:"synthetic",id:"short"}; console.log("before",engine.counterFor(model).id); source="hf:fixture/second"; console.log("after",engine.counterFor(model).id,"family-now",family.tokens(model,deps).id);'
+```
+Observed:
+```text
+before fixture/first
+after fixture/first family-now fixture/second
+```
+
+## Focused existing tests
+Original command:
+```sh
+bun test tests/models tests/tokens tests/quotas/engine.test.ts tests/core/registry/providers.test.ts
+```
+Actual summary:
+```text
+bun test v1.4.3 (c6da4a4d3)
+ 162 pass
+ 0 fail
+ 873 expect() calls
+Ran 162 tests across 24 files. [3.03s]
+```
+This is the actual summary, not a fabricated full log. Full per-test output was read in the original audit. Tests use tests/setup.ts HOME/XDG/PI_CODING_AGENT_DIR isolation and PI_OFFLINE=1. No test rerun occurred during the persistence follow-up.
+
+## Additional source-only Codex lifecycle evidence
+src/ui/commands/index.ts:60 declares optional AuthCommandDeps.signal. Lines 317,321,324,331 check it; line 319 conditionally forwards it to loginCodex. The complete registerAuthCommands dependency object at src/index.ts:420–540 has no signal property, and its shutdown handlers do not own a command/login controller. src/families/openai/codex-auth/oauth.ts:171–177 combines only options.signal (if supplied) and a 900000 ms deadline; lines 200–204 acquire the credential lock, check that signal, and persist credentials. Browser mode's callback server closes on its combined abort/timeout signal at lines 108–155. This proves the missing lifecycle connection, without executing login, opening a callback server, touching account state or invoking the network.

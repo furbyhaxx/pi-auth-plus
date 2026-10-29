@@ -1,0 +1,35 @@
+
+
+[38;5;98m──[39m [1mAuth[0m [38;5;102m›[39m [1mSettings[0m [38;5;98m──[39m [38;5;102m9 providers[39m [38;5;98m──
+[39m [38;5;97m▸[1mSettings[0m [38;5;102m6/6[39m
+ [1mQuotas[0m
+ [38;5;97m❯[39m Quota refres… 60         [38;5;102mdefault[39m
+   Refresh quot… on         [38;5;102mdefault[39m
+   Quota provid… []         [38;5;102mdefault[39m
+   Quota line p… Below edi… [38;5;102mdefault[39m
+   Quota percent Used       [38;5;102mdefault[39m
+   Compact width 100        [38;5;102mdefault[39m
+   Always short… off        [38;5;102mdefault[39m
+   Healthy cred… 50         [38;5;102mdefault[39m
+   Critical cre… 5          [38;5;102mdefault[39m
+   Quota line t… {openrout… [38;5;102mdefault[39m
+ [1mModels[0m
+   Model visibi… []         [38;5;102mdefault[39m
+   Model rules … User and … [38;5;102mdefault[39m
+   Hidden selec… Warn and … [38;5;102mdefault[39m
+   Model aliases []         [38;5;102mdefault[39m
+   Model groups  []         [38;5;102mdefault[39m
+ [1mOpenai[0m
+   Response ver… Pi default [38;5;102mdefault[39m
+   Verbosity pr… ["openai"… [38;5;102mdefault[39m
+ [1mClaude[0m
+[38;5;67m─────────────[39m [38;5;102m↓ 3 more[39m [38;5;67m─────────────
+[39m [38;5;60mSeconds between endpoint refreshes[39m…
+ [38;5;102mctrl+s[39m [38;5;60msave[38;5;102m · esc[39m [38;5;60mclose[39m
+[38;5;98m────────────────────────────────────
+[38;5;60mor[38;5;102m: [38;5;60mlogin[38;5;102m · [38;5;60mds[38;5;102m: [38;5;60mlogin[38;5;102m · [38;5;60mcox[38;5;102m: [38;5;60mlogin[39m
+[38;5;60mcl[38;5;102m: 5h/[38;5;60mlogin[38;5;102m 7d/[38;5;60mlogin[39m
+[38;5;60mag[38;5;102m: gem/[38;5;60mlogin[38;5;102m arg/[38;5;60mlogin[38;5;102m · [38;5;60msyn[38;5;102m: [38;5;60m…[39m
+[38;5;60mxai[38;5;102m: [38;5;60mlogin[39m
+[38;5;102m/tmp/pi-auth-tui-qa.YbjRaj/light/...
+0.0%/262k (auto)  kimi-k2.6 • medium

@@ -1,0 +1,94 @@
+CONFIG AUDIT EVIDENCE — preserve under .project/reviews/extension-audit/config/evidence/. These are the already-executed bun -e script bodies and verbatim observed outputs; do not imply they were rerun during preservation. All probes ran from /mnt/Projects/furbyhaxx/pi-auth-plus. Filesystem settings seams were mocked; scripts wrote no user state. Place scripts in fenced blocks in evidence/*.md with project nested document frontmatter, or preserve code separately with a frontmatter-bearing evidence index. Their relative imports assume execution with bun -e from repository root, as originally run.
+
+### concurrent-settings-save.md
+Original command: bun -e '<body below>'
+Exit: 0.
+Existing tool log: file:///home/furbyhaxx/.local/state/pi/workbench/jobs/3972251-d07a1cb3/j3.log
+```typescript
+import {mock} from "bun:test";
+let disk={unknown:42};
+mock.module(process.cwd()+"/src/core/fs/index.ts",()=>({readJsonFile:async()=>({kind:"ok",value:structuredClone(disk)}),atomicWriteFile:async(_p,s)=>{disk=JSON.parse(s)}}));
+const {SettingsStore}=await import("./src/core/config/index.ts");const {SETTINGS}=await import("./src/core/config/catalog.ts");
+const a=new SettingsStore(SETTINGS,{user:"in-memory"}),b=new SettingsStore(SETTINGS,{user:"in-memory"});
+await Promise.all([a.save("user",{"quotas.alwaysShortIds":true}),b.save("user",{"quotas.refreshOnRequest":false})]);
+console.log("Concurrent distinct-key saves:",JSON.stringify(disk));
+```
+Observed output:
+```text
+Concurrent distinct-key saves: {"unknown":42,"quotas":{"refreshOnRequest":false}}
+```
+Interpretation: both calls succeeded, unknown key survived, but alwaysShortIds was lost. The async mocked reads model both writers observing the same pre-write snapshot. This proves the read-modify-write interleaving defect, not filesystem timing probability.
+
+### scope-drafts-synthetic-verbosity.md
+Original command: bun -e '<body below>'
+Exit: 0.
+```typescript
+import {mock} from "bun:test";
+const docs={user:{models:{rules:["user/*"]}},project:{models:{rulesScope:"user",rules:["project/*"]}}};
+mock.module(process.cwd()+"/src/core/fs/index.ts",()=>({readJsonFile:async(p)=>({kind:"ok",value:structuredClone(docs[p]??{})}),atomicWriteFile:async()=>{throw new Error("No disk writes")}}));
+const {SettingsStore}=await import("./src/core/config/index.ts"); const {SETTINGS}=await import("./src/core/config/catalog.ts"); const {effectiveModelRules}=await import("./src/models/rules/settings.ts");
+const store=new SettingsStore(SETTINGS,{user:"user",project:"project"});await store.load(); console.log("Scope UI:",store.get("models.rulesScope"),store.sourceOf("models.rulesScope"),"Effective rules:",effectiveModelRules(store));
+const {KeybindingsManager,TUI_KEYBINDINGS}=await import("@earendil-works/pi-tui");const keys=new KeybindingsManager(TUI_KEYBINDINGS);const theme={fg:(_c,t)=>t,bg:(_c,t)=>t,bold:t=>t};
+const {SettingsView}=await import("./src/ui/dashboard/settings.ts");const {AuthDashboard,staticViews}=await import("./src/ui/dashboard/index.ts");let closed=0;let view;const views=staticViews({nowMs:0,providers:[]});views.settings=host=>(view=new SettingsView(host,{store:()=>store,onSaved:()=>{}},"quotas.refreshOnRequest")); const panel=new AuthDashboard({terminal:{rows:40},requestRender:()=>{}},theme,keys,()=>closed++,views,"settings",0);
+panel.handleInput(" ");console.log("Draft present:",view.render(140,30).lines.some(x=>x.includes("staged")));panel.handleInput("\t");panel.handleInput("\x1b");console.log("Closed with other-tab draft:",closed);
+const {createSyntheticFamily}=await import("./src/families/synthetic/index.ts");let enabled=true;let registered=[];const handlers={};const family=createSyntheticFamily({},async()=>{throw Error("network forbidden")});family.register({registerFlag:()=>{},getFlag:()=>false,on:(event,f)=>handlers[event]=f,registerTool:t=>registered.push(t.name)},{settings:()=>({get:()=>enabled})});handlers.session_start({},{});enabled=false;handlers.session_start({},{});console.log("Synthetic disabled in later session, registered tools:",registered);
+const {applyOpenaiVerbosity}=await import("./src/families/openai/verbosity.ts");console.log("Group verbosity result:",applyOpenaiVerbosity({model:"physical",input:[]},{provider:"group",id:"pool",api:"pi-virtual"},"high",["openai"]));
+```
+Observed output:
+```text
+Scope UI: user project Effective rules: [ "project/*" ]
+Draft present: true
+Closed with other-tab draft: 1
+Synthetic disabled in later session, registered tools: [ "synthetic_web_search" ]
+Group verbosity result: undefined
+```
+Caveats: Synthetic probe directly invokes the family's captured session_start handler twice and records registrations; the source has no deactivation path. Delayed activation after a live Settings save is source-traced through the missing onSaved family action, rather than simulated through the entire extension. Group verbosity probe exercises the pure transformation with a virtual ctx.model.
+
+Failed initial invocation, preserved for honesty: the same combined script initially omitted one closing brace on the docs declaration and exited 1 before executing any probe. Existing log: file:///home/furbyhaxx/.local/state/pi/workbench/jobs/3972251-d07a1cb3/j4.log. Diagnostic:
+```text
+error: Expected "}" but found ";"
+    at /mnt/Projects/furbyhaxx/pi-auth-plus/[eval]:3:102
+Bun v1.4.3 (Linux x64)
+```
+The code above is the corrected invocation that produced the successful outputs.
+
+### nested-config-boundaries.md
+Original command: bun -e '<body below>'
+Exit: 0.
+Existing tool log: file:///home/furbyhaxx/.local/state/pi/workbench/jobs/3972251-d07a1cb3/j6.log
+```typescript
+import {KeybindingsManager,TUI_KEYBINDINGS} from "@earendil-works/pi-tui";
+import {GroupDetail} from "./src/ui/dashboard/group-detail.ts";
+import {creditStress} from "./src/quotas/line/values.ts";
+import {parseAliases,expandAliases} from "./src/models/aliases/index.ts";
+const host={theme:{fg:(_c,t)=>t,bg:(_c,t)=>t,bold:t=>t},keys:new KeybindingsManager(TUI_KEYBINDINGS),binding:id=>id,refresh:()=>{},finish:()=>{}};
+const group={id:"outer",strategy:"sticky",triggers:[],members:[{provider:"group",id:"inner",tier:1}]};let staged;
+const detail=new GroupDetail(host,group,()=>[{provider:"group",id:"inner",api:"pi-virtual",name:"Inner",contextWindow:1000}],v=>staged=v);detail.handleInput("\x13");console.log("Virtual-only group accepted:",!!staged);
+const catalog=[{provider:"vendor",id:"one",name:"One",contextWindow:1000,maxTokens:100},{provider:"vendor",id:"two",name:"Two",contextWindow:1000,maxTokens:100}];
+const aliases=parseAliases([{provider:"vendor",source:"one",id:"two"}]);const expanded=expandAliases(catalog,aliases);console.log("Alias collision parser accepted:",!!aliases,"catalog appended:",expanded.models.length-catalog.length,"issues:",expanded.issues.map(x=>x.kind));
+console.log("Thresholds healthy=50 critical=100, remaining=60 stress:",creditStress(60,{creditHealthyUsd:50,creditCriticalUsd:100,percentDisplay:"used"}));
+```
+Observed output:
+```text
+Virtual-only group accepted: true
+Alias collision parser accepted: true catalog appended: 0 issues: [ "collision" ]
+Thresholds healthy=50 critical=100, remaining=60 stress: 0
+```
+Caveats: virtual-group probe stages an initialized group, not the keyboard add-member sequence; add-member acceptance is independently source-traced. Alias probe exercises schema/expansion; omission of issue reporting is source-traced at src/index.ts:113–123.
+
+### narrow-tests.md
+Exact original command:
+```sh
+bun test tests/core/config.test.ts tests/ui/settings-tab.test.ts tests/ui/models-tab.test.ts tests/ui/groups-tab.test.ts tests/ui/group-detail.test.ts tests/ui/dashboard.test.ts tests/ui/commands.test.ts tests/families/openai/verbosity.test.ts
+```
+Exit: 0.
+Existing complete log available for copying, without rerunning tests:
+file:///home/furbyhaxx/.local/state/pi/workbench/jobs/3972251-d07a1cb3/j2.log
+Observed summary:
+```text
+ 58 pass
+ 0 fail
+ 2980 expect() calls
+Ran 58 tests across 8 files. [136.00ms]
+```
+The completion notice later repeated the same result. Tests use bunfig.toml preload tests/setup.ts for isolated HOME/XDG/agent state. No full gate was run by this reviewer.

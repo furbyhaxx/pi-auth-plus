@@ -1,0 +1,35 @@
+
+ Error: Unknown section "setings". Did you mean: settings? Usage: /auth
+ [providers|quotas|tokens|models|groups|settings]
+
+────────────────────────────────────────────────────────────────────────────────
+/auth quotas c
+────────────────────────────────────────────────────────────────────────────────
+or: login · ds: login · cox: login · cl: 5h/login 7d/login
+ag: gem/login arg/login · syn: … · xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/custom/work
+0.0%/262k (auto)                                              kimi-k2.6 • medium
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

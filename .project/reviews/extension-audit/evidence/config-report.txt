@@ -1,0 +1,60 @@
+COMPLETE CONFIGURATION AUDIT REPORT — persist at .project/reviews/extension-audit/config/report.md. Tasks tool discovery returned no tools; using parent notes as instructed. No checks rerun and no files written. Evidence/scripts follow in a second note.
+
+## Verdict
+Review complete. All 19 settings have consumers; several editing and runtime paths disagree. No product files changed.
+
+## Coverage matrix
+All catalog entries use SettingsStore parsing, layering and persistence (src/core/config/index.ts:58–181). Inline means typed Settings controls; JSON means external editor.
+
+| Setting | Control | Runtime consumer / coverage |
+|---|---|---|
+| quotas.refreshIntervalSec | Inline number | src/quotas/engine.ts:292–296; provider floors apply |
+| quotas.refreshOnRequest | Inline boolean | src/index.ts:316–322; misses physical members of groups |
+| quotas.providers | JSON list | src/quotas/settings.ts:6–18; registry-resolved filtering |
+| quotas.linePlacement | Inline enum; Quotas shortcut | src/quotas/line/index.ts:73–99; Workbench ownership intentionally supersedes placement |
+| quotas.percentDisplay | Inline enum | src/quotas/line/values.ts:29–35; panel also consumes |
+| quotas.compactWidthCols | Inline number | src/quotas/line/line.ts:63 |
+| quotas.alwaysShortIds | Inline boolean | src/quotas/line/line.ts:63 |
+| quotas.creditHealthyUsd | Inline number | src/quotas/line/values.ts:18–25 |
+| quotas.creditCriticalUsd | Inline number | Same; silently constrained relative to healthy threshold |
+| quotas.lineTemplate | Inline string, preview | src/quotas/line/line.ts:57–73 |
+| models.rules | JSON; dedicated ordered Rules editor | src/models/catalog/runtime.ts:55–139; virtual-group enforcement missing |
+| models.rulesScope | Inline enum | src/models/rules/settings.ts:4–7; deliberately excludes project policy, unlike display |
+| models.hiddenDefault | Inline enum | src/index.ts:165–192; only handled providers |
+| models.aliases | JSON; dedicated alias editor | Native/named catalog expansion and request rewriting; owned providers only |
+| models.groups | JSON; dedicated Groups editor | src/models/groups/registration.ts:63–97, route.ts, settlement.ts; JSON save misses registration refresh |
+| openai.verbosity | Inline enum; per-model override | src/families/openai/verbosity.ts:20–42; selected physical Responses model only |
+| openai.verbosityProviders | JSON list | Same consumer |
+| claude.replacePatterns | JSON rules only | src/families/anthropic/index.ts:34–52, provider.ts:89; request/count shaping |
+| synthetic.webSearch | Inline boolean | src/families/synthetic/index.ts:106–116; startup-only, sticky registration |
+| Nested groups | Dedicated controls cover every schema field | ID/name/strategy/cap/triggers; member identity/order/tier/cost/thinking map. Identity and thinking use text inputs, not pickers |
+| Nested aliases | Dedicated controls cover every schema field | Provider/source selected through source-model detail; ID/name/context/output editable |
+| Physical overrides—not SETTINGS | Documented subset only | Missing Pi-supported thinkingLevelMap, inputLimits, cost tiers, promptCache, general sampling, headers and compatibility controls: src/ui/dashboard/model-detail.ts:50–75 versus installed node_modules/@earendil-works/pi-coding-agent/dist/core/model-config.d.ts:192–248. These require file editing; this is a coverage limit, not a claim that the documented subset is broken |
+
+## Findings
+1. MAJOR — Lost concurrent writes. src/core/config/index.ts:119–140 has unlocked read-modify-write. Concurrent distinct-key saves lost the first change in a deterministic mocked-storage probe. Serialize writes. Evidence is an algorithm/interleaving reproduction using mocked storage, not a real concurrent-filesystem stress test.
+2. MAJOR — Stale groups. Generic saves/reset call src/index.ts:528–539 without groups.apply; dedicated saves call it at :436. Registrations retain old membership/strategy until session restart. Source-traced; entrypoint integration not live-reproduced.
+3. MAJOR — Misleading group visibility. src/models/groups/registration.ts:65–76 registers every group; src/models/catalog/runtime.ts:144–146 excludes groups from enforcement. Rules preview can show hidden groups that remain selectable. Source-traced.
+4. MAJOR — Sticky web-search enablement. src/families/synthetic/index.ts:106–116 neither responds to settings saves nor disables registration. Probe confirmed no deactivation when a later session has the setting false. Runtime enabling also does nothing because src/index.ts:528–539 never invokes family registration; editor lacks restart guidance. Docs describe session-start enablement, so delayed activation is partly documented, but the Settings UI does not distinguish it and the once-registered guard persists beyond sessions.
+5. MAJOR — False effective scope. src/models/rules/settings.ts:6 ignores project rulesScope; Settings displays it. Probe: displayed user (project), actual rules project/*. User-policy protection itself is intentional; offering/displaying ignored project policy as effective is the defect.
+6. MAJOR — Draft loss. src/ui/dashboard/index.ts:117–125 closes despite other-tab drafts; reproduced. Settings Escape immediately discards (src/ui/dashboard/settings.ts:114–118), contrary to the required confirmation. Dedicated model detail also returns on Escape at src/ui/dashboard/model-detail.ts:190. Current docs describe discard behavior; AGENTS/settings-panel reference require confirmation.
+7. MAJOR — Late JSON saves. src/ui/commands/index.ts:207–237 has no session/disposal check after dialogs; stale continuations can persist settings and invoke callbacks. Static lifecycle finding; no real session-switch reproduction.
+8. MAJOR — Invalid virtual membership accepted. src/ui/dashboard/group-detail.ts:149–153 accepts catalog virtual models; routing rejects them (src/models/groups/route.ts:136). Probe accepted a virtual-only group at staging. The probe initializes an existing virtual-only group; acceptance of adding one is source-traced through the same catalog membership check.
+9. MINOR — Silent alias rejection. Collision probe parsed successfully but appended nothing. src/index.ts:113–123 omits alias issue reporters; successful saves can produce no alias. Alias editor validates schema/list duplicates, not physical catalog collisions (src/ui/dashboard/alias-detail.ts:85–90).
+10. MINOR — Missing shadow warnings. JSON, Rules, Groups and Alias saves omit shadowed checks: src/ui/commands/index.ts:232, src/ui/dashboard/models.ts:115, src/ui/dashboard/groups.ts:76, src/ui/dashboard/alias-detail.ts:101. Lower-scope changes appear ineffective, unlike generic Settings saves.
+11. MINOR — Implicit persistence. Quotas placement shortcut writes user scope immediately (src/index.ts:512–514), bypassing staging/scope selection and shadow warnings. The shortcut is documented, but differs from the configured explicit-scope editing contract.
+12. MINOR — Inconsistent group health. src/index.ts:425–432 labels authenticated members healthy without quotas; routing checks exhaustion. Group detail omits promised live member auth/quota health (.project/designs/model-management/design.md:115).
+13. MINOR — Group consumer gaps. src/families/openai/index.ts:35 and src/index.ts:319 use virtual session identity: group requests bypass verbosity and request-triggered quota refresh. A pure verbosity probe returned undefined for a group context. Docs qualify verbosity as selected-model requests; this is a coverage limitation when composing features, not a claim that ordinary selected physical requests fail.
+14. MINOR — Contradictory thresholds. src/quotas/line/values.ts:20 silently lowers critical. Probe: healthy=50, critical=100, balance=60 renders healthy (stress 0), contrary to the configured critical threshold's description.
+15. MINOR — UI/design gaps. src/ui/dashboard/settings.ts:29,150–153 lacks search and uses JSON for collections rather than typed list/rule controls. Dedicated Models/Groups/Alias editors exist and are not absent. .project/designs/model-management/design.md:95,101,165 promises enforcement/reason badges and recent-failure cooldown; renderers/routing omit them. The design is draft and some runtime choices are subsequently documented (e.g. fallback when no healthy group candidates); treat design discrepancies separately from regressions. Group switching uses notifications (src/index.ts:337–341), not the designed statusline indicator (:122,:174).
+
+## Checks and gaps
+Ran exactly:
+bun test tests/core/config.test.ts tests/ui/settings-tab.test.ts tests/ui/models-tab.test.ts tests/ui/groups-tab.test.ts tests/ui/group-detail.test.ts tests/ui/dashboard.test.ts tests/ui/commands.test.ts tests/families/openai/verbosity.test.ts
+Result: 58 pass; 0 fail; 2980 expect() calls; Ran 58 tests across 8 files. [136.00ms]. Full existing log: file:///home/furbyhaxx/.local/state/pi/workbench/jobs/3972251-d07a1cb3/j2.log.
+
+In-memory probes confirmed the findings identified above. One initial multi-probe invocation had a syntax error; it was corrected before obtaining results. No real credentials, network calls or user-state writes. No full gates, live TUI or entrypoint integration reproduction. Parent owns full gates, offline quota fetch violation and ModelsView cache-thrash measurement; those were not duplicated.
+
+Reset-to-inheritance is intentional and accurately documented: Backspace previews default but deletes only the chosen scope override. Workbench placement delegation is intentional and documented in docs/quotas.md:89–93; docs/configuration.md's shorter placement table omits that caveat. Read AGENTS and the complete extending-pi-agent settings-panel reference. Malformed-file refusal follows project precedence over the reference's replacement behavior. No artifact/product writes were performed; git status showed existing/unowned .pi/ and later .project/analyses/extension-audit/.
+
+Confidence: high for reproduced behaviors; medium for static integration/lifecycle findings. No entirely unreferenced SETTINGS entries found.

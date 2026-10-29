@@ -1,0 +1,12 @@
+
+── Auth › Models ────── 15 hidden ──
+ ▸Models 4/6
+ Rules · 15 hidden
+ ❯ synthetic/*
+ Saved to user scope
+────────────────────────────────────
+ Rule 1 changes 15 models; last mat…
+or: login · ds: login · cox: login
+cl: 5h/login 7d/login
+ag: gem/login arg/login · syn: …
+/tmp/pi-auth-tui-qa.YbjRaj/work

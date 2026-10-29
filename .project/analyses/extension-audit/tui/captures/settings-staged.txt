@@ -1,0 +1,35 @@
+[Extensions]
+  src
+
+
+── Auth › Settings ────────────────────────────────────────────── 9 providers ──
+  Providers   Quotas   Tokens   Models   Groups  ▸Settings
+ Quotas
+ ❯ Quota refresh interval       61                                     ● staged
+   Refresh quotas after reques… on                                      default
+   Quota providers              []                                      default
+   Quota line placement         Below editor, first                     default
+   Quota percent                Used                                    default
+   Compact width                100                                     default
+   Always short ids             off                                     default
+   Healthy credit (USD)         50                                      default
+   Critical credit (USD)        5                                       default
+   Quota line template          {openrouter:id}: {openrouter:credits-r… default
+ Models
+   Model visibility rules       []                                      default
+   Model rules scope            User and trusted project                default
+   Hidden selected model        Warn and keep                           default
+   Model aliases                [{"provider":"synthetic","source":"inf… runtime
+   Model groups                 []                                      default
+ Openai
+   Response verbosity           Pi default                              default
+   Verbosity providers          ["openai","openai-codex"]               default
+ Claude
+─────────────────────────────────── ↓ 3 more ───────────────────────────────────
+ Seconds between endpoint refreshes; provider polling floors still apply
+ tab switch · enter edit · ctrl+s save · ↑/↓ move · ←/→ change · esc close
+────────────────────────────────────────────────────────────────────────────────
+or: login · ds: login · cox: login · cl: 5h/login 7d/login
+ag: gem/login arg/login · syn: … · xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/work
+0.0%/262k (auto)                                              kimi-k2.6 • medium

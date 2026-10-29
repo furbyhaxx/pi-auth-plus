@@ -1,0 +1,8 @@
+
+── Auth › Models ────────────────────────────────────────────────── 15 hidden ──
+  Providers   Quotas   Tokens  ▸Models   Groups   Settings
+ Rules · 15 hidden
+ ❯ synthetic/*
+ Saved to user scope
+────────────────────────────────────────────────────────────────────────────────
+/tmp/pi-auth-tui-qa.YbjRaj/work

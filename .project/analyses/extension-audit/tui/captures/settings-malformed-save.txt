@@ -1,0 +1,35 @@
+
+
+ Error: Unknown section "setings". Did you mean: settings? Usage: /auth [providers|quotas|tokens|models|groups|settings]
+
+── Auth › Settings ────────────────────────────────────────────────────────────────────────────────────────────────────────── 9 providers ──
+  Providers   Quotas   Tokens   Models   Groups  ▸Settings
+ Quotas
+ ❯ Quota refresh interval       61                                                                                                 ● staged
+   Refresh quotas after reques… on                                                                                                  default
+   Quota providers              []                                                                                                  default
+   Quota line placement         Below editor, first                                                                                 default
+   Quota percent                Used                                                                                                default
+   Compact width                100                                                                                                 default
+   Always short ids             off                                                                                                 default
+   Healthy credit (USD)         50                                                                                                  default
+   Critical credit (USD)        5                                                                                                   default
+   Quota line template          {openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {c… default
+ Models
+   Model visibility rules       []                                                                                                  default
+   Model rules scope            User and trusted project                                                                            default
+   Hidden selected model        Warn and keep                                                                                       default
+   Model aliases                []                                                                                                  default
+   Model groups                 []                                                                                                  default
+ Openai
+   Response verbosity           Pi default                                                                                          default
+   Verbosity providers          ["openai","openai-codex"]                                                                           default
+ Cannot save /tmp/pi-auth-tui-qa.YbjRaj/custom/agent/auth-plus.json: the file is not valid JSON; fix it and retry
+───────────────────────────────────────────────────────────────── ↓ 4 more ─────────────────────────────────────────────────────────────────
+ Seconds between endpoint refreshes; provider polling floors still apply
+ ctrl+t switch · enter edit · ctrl+s save · Backspace default · ctrl+p/ctrl+n move · ctrl+b/ctrl+f change · esc close
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: login · deepseek: login · codex: login · claude: 5h/login 7d/login · antigravity: gem/login arg/login · synthetic: …
+xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/custom/work
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

@@ -1,0 +1,35 @@
+
+
+── Auth › Settings ── 9 providers ──
+ ▸Settings 6/6
+ Quotas
+ ❯ Quota refres… 60         default
+   Refresh quot… on         default
+   Quota provid… []         default
+   Quota line p… Below edi… default
+   Quota percent Used       default
+   Compact width 100        default
+   Always short… off        default
+   Healthy cred… 50         default
+   Critical cre… 5          default
+   Quota line t… {openrout… default
+ Models
+   Model visibi… []         default
+   Model rules … User and … default
+   Hidden selec… Warn and … default
+   Model aliases []         default
+   Model groups  []         default
+ Openai
+   Response ver… Pi default default
+   Verbosity pr… ["openai"… default
+ Claude
+───────────── ↓ 3 more ─────────────
+ Seconds between endpoint refreshes…
+ ctrl+s save · esc close
+────────────────────────────────────
+or: login · ds: login · cox: login
+cl: 5h/login 7d/login
+ag: gem/login arg/login · syn: …
+xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/light/...
+0.0%/262k (auto)  kimi-k2.6 • medium

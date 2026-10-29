@@ -1,0 +1,35 @@
+[Extensions]
+  src
+
+
+── Auth › Quotas ───────────────────────────────────────────────────────────────────────────────────────────────────── below-editor-first ──
+  Providers  ▸Quotas   Tokens   Models   Groups   Settings
+ ❯ Claude (cl) · 30s ago
+     ⚠ /login claude
+     ✗ Claude: no credential configured; run /login claude
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Usage windows and credits per provider.
+ ctrl+t switch · ctrl+pctrl+n provider · r/R refresh · a show all · p position · esc close
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: login · deepseek: login · codex: login · claude: 5h/login 7d/login · antigravity: gem/login arg/login · synthetic: …
+xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/custom/work
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

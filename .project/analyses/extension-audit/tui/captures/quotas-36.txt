@@ -1,0 +1,35 @@
+  src
+
+
+── Quotas ──── below-editor-first ──
+ ▸Quotas 2/6
+ ❯ Synthetic (syn)
+     ✗ API key auth failed for prov…
+   Claude (cl) · 37s ago
+     ⚠ /login claude
+     ✗ Claude: no credential config…
+   Antigravity (ag) · 37s ago
+     ⚠ /login antigravity
+     ✗ antigravity: no login; run /…
+   OpenAI Codex (cox) · 37s ago
+     ⚠ /quota codex login or /login…
+     ✗ codex: no credential configu…
+   xAI (xai) · 37s ago
+     ⚠ /login xai
+     ✗ No credential configured; ru…
+   OpenRouter (or) · 37s ago
+     ⚠ /login openrouter
+     ✗ OpenRouter: no credential co…
+   DeepSeek (ds) · 37s ago
+     ⚠ /login deepseek
+     ✗ deepseek: no credential conf…
+────────────────────────────────────
+ Usage windows and credits per prov…
+ tab switch · esc close
+────────────────────────────────────
+or: login · ds: login · cox: login
+cl: 5h/login 7d/login
+ag: gem/login arg/login · syn: …
+xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/work
+0.0%/262k (auto)  kimi-k2.6 • medium

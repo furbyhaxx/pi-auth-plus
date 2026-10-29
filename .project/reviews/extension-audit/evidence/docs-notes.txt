@@ -1,0 +1,47 @@
+[x] T1d Check docs designs and packaging drift (@docs-audit; 2 notes)
+id: tsk_01m63zcvyntraydnbkdkygrjnk · scope: session
+
+Notes:
+  2026-10-29T14:20:04.223Z docs-audit: Docs/contracts audit (read-only). Public user docs (README.md, docs/*.md) match shipped command, flag, settings, alias, and bus contracts. Gaps: missing pages promised by AGENTS.md, two storage/env claims that do not match src/core/paths, stale internal notes. No skills/ directory; nothing in package or README promises one. Codex/Grok inference providers and unified web search are explicitly deferred, not regressions.
+
+DISCREPANCIES:
+
+1. AGENTS.md documentation-sync list (docs/ tree under Documentation sync) names docs/providers/<id>.md (claude, antigravity, synthetic, opencode), docs/troubleshooting.md, docs/performance.md, and docs/development/architecture.md. None exist. docs/ only has getting-started.md, models.md, quotas.md, tokens.md, commands.md, configuration.md, events.md. README.md does not link the missing pages, so install docs are not broken. Agents following AGENTS.md will look for files never written. docs/models.md is linked from README.md and is absent from that AGENTS.md list.
+
+2. docs/configuration.md:91 and :111 list $XDG_DATA_HOME/pi-auth-plus/ as package storage and XDG_DATA_HOME as a variable this package reads. dataDir() in src/core/paths/index.ts:55 has no callers. Users inspecting that directory will find nothing this package wrote.
+
+3. docs/configuration.md:102-122 presents the environment table as complete and says XDG_CACHE_HOME does not relocate the quota cache. True for quotas (cacheDir() is <agentDir>/cache/auth-plus, src/core/paths/index.ts:42-44). Omits xdgCacheDir() (src/core/paths/index.ts:47-48), which tokenizers use. docs/tokens.md:63 states $XDG_CACHE_HOME/pi-auth-plus/tokenizers/ correctly. Reading only configuration.md hides the Hugging Face cache location and implies XDG_CACHE_HOME is unused.
+
+4. docs/configuration.md:81-95 omits $XDG_STATE_HOME/pi-auth-plus/claude-device-id. src/families/anthropic/identity.ts:47 creates that 0600 file (directory 0700 at :31). migrations.json in the same directory is documented and used (src/core/migrations/index.ts:8).
+
+5. AGENTS.md says the only runtime dependency is proper-lockfile. package.json also depends on @huggingface/tokenizers 0.2.0, imported at src/tokens/tokenizer/index.ts:269. Public docs do not claim a dependency list. Agent contract is stale; the tokenizer is required for the counts docs/tokens.md describes.
+
+6. AGENTS.md Not yet aligned still says the local callback server arrives with the first provider that needs one. src/families/openai/codex-auth/oauth.ts:14 already binds http://localhost:1455/auth/callback. Public docs/quotas.md:60-78 describes the browser callback and device-code fallback correctly.
+
+7. AGENTS.md places token counts in <agentDir>/cache/auth-plus/. The only file written there is quotas.json (src/index.ts:243, also src/cli/index.ts:69). Token counts are not a host-cache file. Tokenizer artifacts live under the XDG cache path above.
+
+PLAN DRIFT (not a user-doc regression):
+
+- .project/plans/roadmap.md marks M0-M4 done and parks codex/grok inference providers as later ([.] Later). Public docs treat those ids as quota sources on Pi's own logins (docs/getting-started.md:21-40). Matches code (src/families/index.ts registers quota families, not new inference providers).
+- .project/plans/0005-m4-model-management/plan.md frontmatter description still says unified web search while the body and roadmap mark slice 5 as moved to another extension ([-] 5 web_search). Not shipped behavior.
+- Roadmap YAML has two timestamps: top updated 2026-10-28T18:49:34+01:00 versus nested document.updated_at 2026-10-28T11:05:48+01:00.
+
+MINOR COMPLETENESS (not wrong):
+
+- docs/getting-started.md next steps (:130-135) omit models.md and tokens.md. README.md links both.
+- package.json keywords omit quota-only providers (codex, xai, openrouter, deepseek). files correctly ships src, assets, docs, README.md, CHANGELOG.md, LICENSE, NOTICE. No pi.skills field.
+
+MATCHED:
+
+- Commands /auth, /quota(s), /token(s), /quota codex login, and flags --quotas-json, --quotas-list, --synthetic-web-search match src/ui/commands/index.ts:298-412, src/cli/args.ts:1-2, and src/families/synthetic/index.ts:16.
+- Settings keys, defaults, and ranges in docs/configuration.md:50-76 match src/core/config/catalog.ts:18-155 (quotas.*, models.rules|rulesScope|hiddenDefault|aliases|groups, openai.verbosity|verbosityProviders, claude.replacePatterns, synthetic.webSearch).
+- Quota aliases and compact ids in docs/quotas.md:7-22 match family registrations (cl/cc and short cl; agy/ag and short ag; openai/openai-codex/chatgpt/cx/cox/oai and short cox; grok and short xai; or/ds; synthetic aliases empty, short syn).
+- Bus package export ./bus -> src/bus/index.ts matches docs/events.md helpers (queryQuotas, refreshQuotas, listQuotaResets, requestQuotaReset, subscribe helpers, queryTokens, onTokenContext, onTokensReady), QUOTA_CHANNELS, and TOKEN_CHANNELS.
+- Migration text matches code: pi-quotas carry-over exists (src/quotas/migrate/); SYNTHETIC_WEB_SEARCH and old Claude replace patterns are not read (docs/getting-started.md:56-73, docs/configuration.md:120).
+- Version 0.5.1 matches CHANGELOG.md [0.5.1] - 2026-10-28. Install line pi install git:https://github.com/furbyhaxx/pi-auth-plus matches package.json repository URL.
+- No broken relative links among the docs anchors checked (#template-reference, #quotas-tab, #read-only-cli, #reset-credits, #codex-login, #sign-in, #migrating, #settings-keys, #token-channels, #aliases, #model-groups, #report-shape, #wire-requestreply).
+
+NOTES: skills/ absence is not a defect: AGENTS.md says bundled skills exist only when a real agent workflow exists, and package.json has no pi.skills. Deferred roadmap items (codex/grok providers, Pi estimator hook, M4 web search moved out) are labeled later or cancelled in the plan, and public docs do not claim them as shipped.
+
+NOT COVERED: Did not diff every quota endpoint sentence against fetchers (runtime review scope). Did not open HTML wireframes. No network. No edits.
+  2026-10-29T14:22:52.501Z main: Parent verified the storage/environment omissions, unused dataDir helper, runtime dependency drift and missing docs against source. No bundled skill is promised; its absence is not a defect. Public docs cover the main surface, but runtime/editor audits still determine behavioral accuracy.

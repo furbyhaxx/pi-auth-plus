@@ -1,0 +1,35 @@
+  src
+
+
+── Auth › Settings ─────────────────────── 9 providers ──
+  Providers Quotas Tokens Models Groups▸Settings
+ Quotas
+ ❯ Quota refresh interv… 60                      default
+   Refresh quotas after… on                      default
+   Quota providers       []                      default
+   Quota line placement  Below editor, first     default
+   Quota percent         Used                    default
+   Compact width         100                     default
+   Always short ids      off                     default
+   Healthy credit (USD)  50                      default
+   Critical credit (USD) 5                       default
+   Quota line template   {openrouter:id}: {open… default
+ Models
+   Model visibility rul… []                      default
+   Model rules scope     User and trusted proje… default
+   Hidden selected model Warn and keep           default
+   Model aliases         [{"provider":"syntheti… runtime
+   Model groups          []                      default
+ Openai
+   Response verbosity    Pi default              default
+   Verbosity providers   ["openai","openai-code… default
+ Claude
+─────────────────────── ↓ 3 more ────────────────────────
+ Seconds between endpoint refreshes; provider polling fl…
+ tab switch · enter edit · ctrl+s save · esc close
+─────────────────────────────────────────────────────────
+or: login · ds: login · cox: login
+cl: 5h/login 7d/login · ag: gem/login arg/login · syn: …
+xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/work
+0.0%/262k (auto)                       kimi-k2.6 • medium

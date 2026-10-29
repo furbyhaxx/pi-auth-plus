@@ -1,0 +1,35 @@
+
+[Extensions]
+  src
+
+
+── Auth › Quotas ───────────────────────────────────────── below-editor-first ──
+  Providers  ▸Quotas   Tokens   Models   Groups   Settings
+ ❯ Synthetic (syn)
+     ✗ API key auth failed for provider synthetic: Failed to resolve API key fo…
+   Claude (cl) · 29s ago
+     ⚠ /login claude
+     ✗ Claude: no credential configured; run /login claude
+   Antigravity (ag) · 29s ago
+     ⚠ /login antigravity
+     ✗ antigravity: no login; run /login antigravity
+   OpenAI Codex (cox) · 29s ago
+     ⚠ /quota codex login or /login openai-codex
+     ✗ codex: no credential configured; run /quota codex login or /login openai…
+   xAI (xai) · 29s ago
+     ⚠ /login xai
+     ✗ No credential configured; run /login xai
+   OpenRouter (or) · 29s ago
+     ⚠ /login openrouter
+     ✗ OpenRouter: no credential configured; use /login openrouter
+   DeepSeek (ds) · 29s ago
+     ⚠ /login deepseek
+     ✗ deepseek: no credential configured; use /login deepseek
+────────────────────────────────────────────────────────────────────────────────
+ Usage windows and credits per provider.
+ tab switch · ↑↓ provider · r/R refresh · a solo · p position · esc close
+────────────────────────────────────────────────────────────────────────────────
+or: login · ds: login · cox: login · cl: 5h/login 7d/login
+ag: gem/login arg/login · syn: … · xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/work
+0.0%/262k (auto)                                              kimi-k2.6 • medium

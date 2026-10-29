@@ -1,0 +1,35 @@
+[Extensions]
+  src
+
+
+ Error: Unknown section "setings". Did you mean: settings? Usage: /auth [providers|quotas|tokens|models|groups|settings]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: login · deepseek: login · codex: login · claude: 5h/login 7d/login · antigravity: gem/login arg/login · synthetic: …
+xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/custom/work
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

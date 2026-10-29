@@ -1,0 +1,7 @@
+user quotas.refreshIntervalSec: 63
+project quotas.refreshIntervalSec: 63
+user models.rules: ['synthetic/*', 'claude/*']
+user group strategy: failover
+user alias name: friendly audit
+unrelated key preserved: True
+malformed target unchanged: True

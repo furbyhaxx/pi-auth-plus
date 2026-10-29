@@ -1,0 +1,35 @@
+ oups|settings]
+
+── Auth › Models ─── model detail ──
+ ▸Models 4/6
+ synthetic/hf:deepseek-ai/DeepSeek-…
+ ❯ Name · deepseek-ai/DeepSeek-V4.1…
+   Context window · 524288 · default
+   Max tokens · 65536 · default
+   Reasoning · true · default
+   Input · text, image · default
+   Cost input · 0.6 · default
+   Cost output · 1.2 · default
+   Cost cacheRead · 0.03 · default
+   Cost cacheWrite · 0 · default
+ Aliases
+   + new alias
+────────────────────────────────────
+ Overrides are saved to user models…
+ ctrl+s save · esc discard/back
+────────────────────────────────────
+or: login · ds: login · cox: login
+cl: 5h/login 7d/login
+ag: gem/login arg/login · syn: …
+xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/custom...
+0.0%/262k (auto)  kimi-k2.6 • medium
+
+
+
+
+
+
+
+
+

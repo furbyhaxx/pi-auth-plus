@@ -1,0 +1,37 @@
+{
+  "revision": "e8b6d7e",
+  "findings": [
+    {
+      "id": "models-render-cache",
+      "severity": "medium",
+      "status": "reproduced",
+      "sources": ["src/ui/dashboard/models.ts:250-270", "src/index.ts:440-452"],
+      "finding": "The rules-tab impact preview alternates two rule-array references per catalog entry, defeating the single-reference compiled-rule cache. At 555 models, each render compiles 1111 times.",
+      "evidence": "performance.json; render-probe.ts"
+    },
+    {
+      "id": "offline-quotas",
+      "severity": "high",
+      "status": "reproduced",
+      "sources": ["src/index.ts:74-77", "src/index.ts:282", "src/quotas/engine.ts:263-277"],
+      "finding": "Starting real Pi RPC with both --offline and PI_OFFLINE=1 still invokes a Synthetic quota fetch during session_start. Probe intercepted fetch and returned 503; no real outbound request occurred.",
+      "observed": "AUDIT_FETCH {\"phase\":\"session_start\",\"url\":\"https://api.synthetic.new/v2/quotas\"}",
+      "evidence": "offline-probe.ts"
+    },
+    {
+      "id": "synthetic-renderer",
+      "severity": "low",
+      "status": "source-confirmed convention gap",
+      "sources": ["src/families/synthetic/web-search.ts:77-140"],
+      "finding": "synthetic_web_search defines execute and structured details but no renderCall, renderResult or renderShell: self, contrary to the adopted extension UI guidance. Missing credentials throw rather than returning an expected error result. Default Pi rendering remains functional; no custom multi-state UX exists.",
+      "evidence": "Source inspection, not a live search call."
+    }
+  ],
+  "passed": [
+    "just check: typecheck and lint passed; 824 tests passed, 0 failed, 8641 assertions across 110 files",
+    "just rpc-verify: get_commands success",
+    "just parity-verify: 555 models; nine provider entries checked, including the quota-only Codex entry",
+    "just aot-verify: 155 modules; 1919776 bytes total; largest src/index.ts 57184 bytes",
+    "Isolated real RPC /auth settings: all 19 effective settings delivered as a notify event, prompt success disposition handled"
+  ]
+}

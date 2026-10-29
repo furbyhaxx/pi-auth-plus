@@ -1,0 +1,35 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash ·
+ ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use
+ or extend Pi-Bolt.
+
+[Extensions]
+  src
+
+
+── Auth › Models ─────────────────────────────────────────────── model detail ──
+  Providers   Quotas   Tokens  ▸Models   Groups   Settings
+ synthetic/infinite:small:vision
+ ❯ Name · infinite:small:vision · default
+   Context window · 524288 · default
+   Max tokens · 65536 · default
+   Reasoning · true · default
+   Input · text, image · default
+   Cost input · 0 · default
+   Cost output · 0 · default
+   Cost cacheRead · 0 · default
+   Cost cacheWrite · 0 · default
+ Aliases
+   + new alias
+────────────────────────────────────────────────────────────────────────────────
+ Overrides are saved to user models.json.
+ enter edit · ←/→ change · backspace inherit · ctrl+s save · esc discard/back
+────────────────────────────────────────────────────────────────────────────────
+or: login · ds: login · cox: login · cl: 5h/login 7d/login
+ag: gem/login arg/login · syn: … · xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/work
+0.0%/262k (auto)                                              kimi-k2.6 • medium

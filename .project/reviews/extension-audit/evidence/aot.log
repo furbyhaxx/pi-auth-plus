@@ -1,0 +1,8 @@
+bun scripts/aot-verify.ts
+aot-verify: 155 modules, 1919776 B bytecode total
+     57184 B  src/index.ts
+     37088 B  src/ui/commands/index.ts
+     32024 B  src/ui/dashboard/model-detail.ts
+     30904 B  src/ui/dashboard/quotas.ts
+     28712 B  src/ui/dashboard/group-detail.ts
+aot-verify: ok

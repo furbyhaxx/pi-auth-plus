@@ -1,0 +1,76 @@
+PERSISTENCE HANDOFF 1/2. tasks tool is unavailable (tool search returned only parent/web_fetch). Per your answer I have not written files. Please persist the following full report at .project/reviews/extension-audit/runtime/report.md. Nested frontmatter:
+---
+document:
+  type: "review"
+  id: "extension-audit-runtime"
+  title: "Runtime integration audit"
+  description: "Read-only review of registration, model routing and aliases, quotas, tokens and lifecycle guards"
+  status: "published"
+  revision: 1
+  created_at: "2026-10-29T15:20:54+01:00"
+  updated_at: "2026-10-29T15:20:54+01:00"
+  created_by: "second-opinion"
+  updated_by: "second-opinion"
+  changelog:
+    - revision: 1
+      reason: "Read-only runtime audit"
+      changes: ["Record six reproduced defects, one lifecycle risk and the source-confirmed Codex login lifecycle defect"]
+---
+
+## Verdict
+Fix alias integration and session-owned login cancellation before shipping. Six defects were reproduced locally; one additional lifecycle risk and one source-confirmed login wiring defect are supported.
+
+## Findings
+
+1. [major, proven] Rejected Synthetic aliases still redirect physical requests.
+Where: src/families/synthetic/physical.ts:17–25; src/models/aliases/named.ts:23–25.
+Catalog expansion rejects an alias whose ID collides with an existing physical model, but request shaping independently trusts the original configuration. Reproduction: alias physical-b -> physical-a reports collision, retains both physical catalog entries, then requesting physical-b produces {"model":"physical-a"}. This silently selects a different model.
+Fix: share the successfully resolved alias set between catalog expansion, request rewriting and token selection.
+
+2. [major, proven] Hiding a native alias's source also removes the visible alias from available models.
+Where: src/models/aliases/native.ts:129–159; src/models/catalog/owned-filter.ts:10–15.
+Visibility removes the source before availability filtering. Alias filtering then removes the alias and attempts to reconstruct it from that missing source. Reproduction returned catalog:["short"], available:[], allAvailable:[]. A user cannot hide the original while retaining its independently visible alias in /model or cycling.
+Fix: evaluate credential eligibility against the original source catalog, then apply visibility to expanded results.
+
+3. [major, source-confirmed; no real login executed] Codex login has no session cancellation in production wiring.
+Where: src/index.ts:420–540; src/ui/commands/index.ts:60,308–334; src/families/openai/codex-auth/oauth.ts:171–204.
+AuthCommandDeps.signal exists, but the entrypoint's registerAuthCommands dependency object never supplies it. Every runCodexLogin shutdown check therefore sees undefined, and loginCodex receives no session signal. loginCodex substitutes a 900,000 ms deadline; browser callback handling has its own 300,000 ms limit. In a still-running host after session replacement/reload, polling or the callback server can survive the originating session; a subsequently completed login can reach lockedCredential/writeCredential and notify the stale command context. Its quota continuation may also refresh the replacement session because deps.quotas reads live closure state.
+Fix: supply a per-session abort signal/controller, abort on shutdown/session replacement, and obtain the current signal at command invocation rather than retaining one permanently aborted factory-level signal. Keep both pre-persistence and late-UI guards. This is confirmed from source wiring and control flow; no account, login, callback-server or network call was made.
+
+4. [minor, proven] Alias retargeting leaves token counting bound to the previous model.
+Where: src/tokens/engine/index.ts:102–114.
+Counters are permanently cached by logical provider/ID. Changing a Synthetic alias's source updates streaming and family selection, but the engine keeps its original tokenizer. Reproduction: after retargeting, engine counter remained fixture/first while direct family selection returned fixture/second.
+Fix: invalidate selection on alias changes or key selection by resolved physical identity.
+
+5. [minor, proven request defect] Native token counting does not resolve Claude aliases.
+Where: src/families/anthropic/count.ts:81; src/families/anthropic/index.ts:46–55.
+The count endpoint receives the user-defined alias ID instead of its physical source. An injected transport recorded ["short-alias","short-alias"]. The provider cannot resolve extension-local aliases, so counting falls back instead of using native counts; server rejection itself was not tested live. Google similarly chooses its counter from the alias spelling (src/families/google/index.ts:31–36).
+Fix: resolve aliases before family counter selection and endpoint construction.
+
+6. [minor, proven with delayed-write simulation] Shutdown does not fence queued quota writes.
+Where: src/quotas/engine.ts:312–323; src/core/cache/index.ts:122–136,175–192.
+Cancellation is checked before entering the cache's asynchronous lock/write queue. The mutation callback never rechecks it. Holding that queue, calling stop(), then releasing it still produced the snapshot. Failure-backoff writes have the same gap.
+Fix: check session cancellation inside the locked mutation and permit cancellation without changing cache state.
+
+7. [minor, proven] Model changes expose the previous model's token report.
+Where: src/tokens/tracker/index.ts:56–62.
+Scheduling cancels computation but leaves latest unchanged. Immediately after selecting a new model, latest() still returned the old model's report; bus queries can return it throughout debounce and subsequent counting.
+Fix: clear and publish invalidation when model/session identity changes, while retaining ordinary same-model debounce behavior.
+
+8. [minor, lifecycle risk] Old physical responses can enter a replacement session's quota engine.
+Where: src/index.ts:362–368.
+Response closures check mutable quotasEnabled without a captured session generation. A response arriving after shutdown and the next startup sees true and uses the new engine controller. This interleaving was source-traced, not reproduced against Pi.
+Fix: capture and validate the owning session generation.
+
+## Intentional behavior and contract differences
+Unknown-quota/best-effort group routing is intentional and tested, although it differs from the draft design's stricter unknown-unhealthy/recent-cooldown wording. No additional routing bug is claimed for that behavior. Parent-owned offline and render-performance findings are excluded to avoid duplication.
+
+## Verification
+Read src/index.ts; model runtime/catalog/alias/group/rule modules; quota engine/cache/auth/bus; token engine/tracker/tokenizer/bus/types; relevant family seams and tests; model-management design/plan, roadmap, provider-seams report and installed Pi API implementation.
+Command run in the original audit: bun test tests/models tests/tokens tests/quotas/engine.test.ts tests/core/registry/providers.test.ts
+Actual summary: 162 pass; 0 fail; 873 expect() calls; Ran 162 tests across 24 files. [3.03s]. Bun 1.4.3 (c6da4a4d3).
+Six bun -e reproductions and exact observed outputs are supplied in handoff 2/2. Prior successful checks were not rerun for this persistence request. Codex assessment used source reads only.
+No product edits, commits, real credentials, external calls or login/account actions. Full gates and live checks belong to the parent.
+
+## Confidence
+High for the six local reproductions and missing Codex signal wiring; medium for the old-response/new-session interleaving. Runtime impact of actual server rejection/login completion was not live-tested.

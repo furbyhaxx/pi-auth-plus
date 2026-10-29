@@ -1,0 +1,1062 @@
+bunx tsc --noEmit
+bunx biome check .
+Checked 273 files in 105ms. No fixes applied.
+bun test --isolate
+bun test v1.4.3 (c6da4a4d3)
+
+tests/setup.test.ts:
+(pass) test isolation > HOME, XDG and agent dirs point into a temp root [0.72ms]
+
+tests/imports.test.ts:
+(pass) runtime imports > reach @earendil-works only through specifiers Pi's loader aliases [3.99ms]
+
+tests/core/paths.test.ts:
+(pass) core/paths > PI_CODING_AGENT_DIR wins and expands a leading tilde against HOME [0.09ms]
+(pass) core/paths > an empty override falls back to HOME/.pi/agent
+(pass) core/paths > XDG_STATE_HOME wins over the HOME fallback [0.03ms]
+(pass) core/paths > project settings resolve from the given cwd
+
+tests/core/redact.test.ts:
+(pass) core/redact > token shapes and known opaque values never survive free text [0.25ms]
+(pass) core/redact > bus payloads keep shape but mask sensitive keys and nested strings [0.38ms]
+(pass) core/redact > errors keep diagnostics but lose secrets in message, fields and cause [0.13ms]
+(pass) core/redact > cyclic payloads terminate [0.01ms]
+
+tests/core/http.test.ts:
+(pass) core/http > own deadline raises ProviderTimeoutError with provider and redacted url [10.32ms]
+(pass) core/http > caller abort rethrows the caller's reason, not a timeout [0.10ms]
+(pass) core/http > non-2xx raises ProviderHttpError with redacted body and Retry-After [1.27ms]
+(pass) core/http > Retry-After accepts HTTP-dates and clamps past dates to zero [0.03ms]
+
+tests/core/bus.test.ts:
+(pass) core/bus > concurrent requests each receive only their own reply [21.67ms]
+(pass) core/bus > no server resolves undefined after the timeout [5.84ms]
+(pass) core/bus > broadcasts are redacted and undecodable payloads never reach handlers [0.25ms]
+
+tests/core/auth.test.ts:
+(pass) core/auth > reads an OAuth slot with provider extras and leaves auth.json untouched [3.18ms]
+(pass) core/auth > missing, malformed and foreign-shaped slots read as no credential [0.30ms]
+(pass) core/auth > an API-key slot without a key stays an API-key slot [0.66ms]
+
+tests/core/auth-pkce.test.ts:
+(pass) PKCE and state use 32 random bytes and base64url encoding [0.57ms]
+(pass) manual callback formats are trimmed and decoded [0.13ms]
+
+tests/core/config.test.ts:
+(pass) core/config > loads groups by scope and rejects an invalid project group list [0.85ms]
+(pass) core/config > loads validated aliases and rejects a malformed project alias list [0.81ms]
+(pass) core/config > loads ordered model visibility rules from user settings before a session exists [0.30ms]
+(pass) core/config > does not allow trusted project rules when user scope is restricted [1.40ms]
+(pass) core/config > runtime > project > user > default, each value reports its source [2.00ms]
+(pass) core/config > an untrusted project file is never read [0.20ms]
+(pass) core/config > save preserves unknown keys and removes a key with null [0.84ms]
+(pass) core/config > invalid values are reported and inherit; malformed files block saving [0.61ms]
+(pass) core/config > text rules keep match-only and replacement entries; one malformed entry rejects the list [0.21ms]
+
+tests/core/auth-store.test.ts:
+(pass) core/auth/store > a write waits for Pi's lock on auth.json and keeps the other slots [155.75ms]
+(pass) core/auth/store > a malformed auth.json is never rewritten and its content is not echoed [0.63ms]
+
+tests/core/cache.test.ts:
+(pass) core/cache > concurrent writers in separate sessions never lose each other's entries [20.52ms]
+(pass) core/cache > a write from another session in the same millisecond is neither ignored nor overwritten [4.10ms]
+(pass) core/cache > entries written by an older parser are ignored [1.15ms]
+(pass) core/cache > a lease blocks other sessions until the value lands; fresh values are not refetched [2.36ms]
+(pass) core/cache > force bypasses ordinary backoff but never a rate limit [2.10ms]
+(pass) core/cache > patches propagate without refreshing endpoint freshness [0.83ms]
+(pass) core/cache > patches sync before changing values and preserve leases and backoff [1.73ms]
+(pass) core/cache > a missing entry can be patched without becoming fresh; undefined leaves it unchanged [1.65ms]
+(pass) core/cache > legacy entries default updatedAt to fetchedAt and retain their parser version on patch [0.61ms]
+(pass) core/cache > configured 403 rate limits block forced refreshes while defaults allow them [0.61ms]
+(pass) core/cache > a corrupt cache file is treated as empty and then replaced [0.52ms]
+(pass) core/cache > backoff honors Retry-After on 429 within the cap [0.12ms]
+
+tests/core/migrations.test.ts:
+(pass) a finished migration never runs again; an unfinished one retries [1.14ms]
+
+tests/core/conflicts.test.ts:
+(pass) core/conflicts > finds each absorbed package once across settings forms and command paths [0.40ms]
+
+tests/core/registry.test.ts:
+(pass) core/registry > Codex quota aliases resolve to codex while the vendor family remains openai [0.33ms]
+(pass) core/registry > resolves ids and aliases case-insensitively; byId takes exact ids only [0.13ms]
+(pass) core/registry > refuses a provider id, alias or family claimed twice, and malformed ids [0.12ms]
+
+tests/ui/settings-tab.test.ts:
+(pass) settings tab > edits remain staged until saved to exactly the chosen scope [16.01ms]
+(pass) settings tab > saving under a higher scope warns without losing the chosen scope's value [1.12ms]
+(pass) settings tab > cancel discards staged edits before falling through to dashboard close [1.20ms]
+(pass) settings tab > rules and lists open the external editor only with no staged edits [1.00ms]
+(pass) settings tab > failed save retains edits and cancellation leaves them available [2.13ms]
+(pass) settings tab > number Input traps navigation, validates, clamps and saves; reset deletes the scoped key [3.25ms]
+(pass) settings tab > enum cycling and movement stage the selected field [5.50ms]
+(pass) settings tab > template preview pages expose every row [2.28ms]
+(pass) settings tab > template preview follows inline and staged edits without writing the store [1.52ms]
+(pass) settings tab > sections, editing, save prompts and sanitized template previews fit every check width [9.20ms]
+
+tests/ui/quotas-tab.test.ts:
+(pass) quotas tab > reset finishes only for supported providers and hints follow selection [4.00ms]
+(pass) quotas tab > unknown usage and credits stay unknown, and every window remains visible [0.35ms]
+(pass) quotas tab > selection follows provider identity across reorder, removal, and solo toggling [4.98ms]
+(pass) quotas tab > manual refresh forces the selected provider and R includes providers outside solo [0.53ms]
+(pass) quotas tab > placement cycles, refresh state wins, and reserved keys reach the dashboard [1.04ms]
+(pass) quotas tab > all rows fit at check widths, sanitize text, and show balance, countdown and drainage units [3.91ms]
+(pass) quotas tab > placement failures are visible and late completions do not redraw disposed views [0.46ms]
+(pass) quotas tab > missing solo providers fall back to all; empty reports have no refresh target [0.31ms]
+(pass) quotas tab > scroll follows selection and tall providers can expose every row [4.06ms]
+(pass) clipped window labels keep the qualifier that tells sibling windows apart [0.17ms]
+
+tests/ui/resets.test.ts:
+(pass) reset approval > safe choice Keep the credit never consumes [0.75ms]
+(pass) reset approval > safe choice undefined never consumes [0.09ms]
+(pass) reset approval > spend consumes once as panel and reports the outcome [0.19ms]
+(pass) reset approval > spend consumes once as command and reports the outcome [0.04ms]
+(pass) reset approval > headless and unavailable credits list why nothing was spent [0.16ms]
+(pass) reset approval > consume errors are reported without retry [0.08ms]
+(pass) reset approval > bus uses the same safe select and refuses without UI [0.09ms]
+
+tests/ui/tokens-tab.test.ts:
+(pass) live context totals, sources, Pi delta and asynchronous contributions fit every width [2.76ms]
+(pass) unavailable tracker and no session are explicit; inactive views do not count [0.13ms]
+(pass) switching away cancels counting, returning counts again, and close unsubscribes [1.99ms]
+(pass) dashboard grows and shrinks with asynchronous token breakdowns [1.03ms]
+(pass) count failures are visible and provider text is sanitized [0.45ms]
+(pass) scroll exposes the breakdown in short terminals [0.16ms]
+
+tests/ui/commands.test.ts:
+(pass) ui/commands > tokens opens its dashboard tab, aliases share handlers, and headless counts are text [1.83ms]
+(pass) ui/commands > reset resolves aliases and defaults, rejects unknown providers, and reopens after panel reset [1.64ms]
+(pass) ui/commands > quota shares the quotas handler, completions and provider routing [0.23ms]
+(pass) ui/commands > Codex login forwards device status, refreshes quota, and leaves provider routing intact [0.39ms]
+(pass) ui/commands > Codex login rejects malformed arguments and handles failure without throwing [0.21ms]
+(pass) ui/commands > Codex login succeeds without a quota engine or optional identity fields [0.08ms]
+(pass) ui/commands > sections resolve by id, alias and singular form; unknown input names the closest [0.35ms]
+(pass) ui/commands > models uses the live view and scoped save when available, with safe headless summaries [4.63ms]
+(pass) ui/commands > without a TUI the dashboard renders as text and opens the named section [0.22ms]
+
+tests/ui/dashboard.test.ts:
+(pass) ui/dashboard > every line fits at the check widths [8.54ms]
+(pass) ui/dashboard > each tab fits its content without padding and resizes when switching [1.14ms]
+(pass) ui/dashboard > provider rows show sign-in state as text, with /login for missing credentials [0.43ms]
+(pass) ui/dashboard > tab and shift+tab wrap around; cancel closes exactly once [0.14ms]
+(pass) ui/dashboard > a short terminal scrolls the body and shows the hidden row counts [0.76ms]
+
+tests/ui/models-tab.test.ts:
+(pass) models tab > creates, edits and removes aliases with scoped validation while preserving overrides [9.48ms]
+(pass) models tab > refuses duplicate aliases and explains unsupported providers [0.96ms]
+(pass) models tab > detail stages patches, validates, removes and discards [3.19ms]
+(pass) models tab > shows the inherited catalog value after an override is removed [0.38ms]
+(pass) models tab > detail cycles typed fields and removes default verbosity [0.60ms]
+(pass) models tab > detail read failure blocks changes and save [0.23ms]
+(pass) models tab > edits and reorders rules, previews immediately, and saves only to the selected scope [2.09ms]
+(pass) models tab > adds, disables, enables, deletes and discards rules; cancel traps inline input [0.39ms]
+(pass) models tab > catalog toggles append rules in both directions and frame navigation remains available [0.24ms]
+(pass) models tab > catalog hide targets only the selected ID when it contains a wildcard [0.39ms]
+(pass) models tab > failed save retains staged rules and retry prompt can be cancelled [0.38ms]
+(pass) models tab > catalog, rules, edit and save screens fit widths, sanitize names and clamp scroll [1.69ms]
+
+tests/ui/group-detail.test.ts:
+(pass) group detail > creates and stages a group with a slash-containing catalog identity [9.21ms]
+(pass) group detail > rejects missing, unknown and duplicate members and malformed caps [4.01ms]
+(pass) group detail > saves member reordering and deletion [0.99ms]
+(pass) group detail > discard, sanitization and width [2.23ms]
+
+tests/ui/quota-cutover.test.ts:
+(pass) pi-quotas in settings keeps the engine off and warns once with a removal hint [7.34ms]
+(pass) Codex turns ingest headers and publish codex, then refresh the canonical id [9.90ms]
+
+tests/ui/groups-tab.test.ts:
+(pass) groups tab > creates through detail, saves to each scope, and discards staged list [5.71ms]
+(pass) groups tab > edits and deletes, rejects duplicate rename and creation [2.00ms]
+(pass) groups tab > failed save retains staged list, cancel and retry; modal keys never leak [0.89ms]
+(pass) groups tab > blocks navigation while an asynchronous save is pending [0.28ms]
+(pass) groups tab > renders health, ordered members, scroll and sanitization at narrow and wide widths [1.88ms]
+
+tests/families/opencode.test.ts:
+(pass) families/opencode > session ids follow the CLI format and sort newest first [0.22ms]
+(pass) families/opencode > rewrites Pi's opencode stamp into the CLI identity and leaves other requests alone [0.20ms]
+(pass) families/opencode > registers the anonymous Zen key only when no env or models.json key would be shadowed [3.74ms]
+(pass) families/opencode > adds the env block only to chat payloads for the active opencode model [0.37ms]
+(pass) families/opencode > does not stamp foreign headers or duplicate request-local identity hooks [0.29ms]
+(pass) families/opencode > stamps every request with the session affinity id [0.23ms]
+
+tests/families/synthetic.test.ts:
+(pass) families/synthetic > maps the live catalog with real prices, limits and modalities [0.22ms]
+(pass) families/synthetic > filters unavailable, tool-less and invalid rows and preserves name fallbacks [0.47ms]
+(pass) families/synthetic > registration and offline restore never fetch or publish, and filter stored entries [0.76ms]
+(pass) families/synthetic > fresh entries skip the network; stale, missing timestamp and forced entries fetch and persist once [0.67ms]
+(pass) families/synthetic > allowed-network failures reject without publishing and caller cancellation reaches fetch [0.23ms]
+(pass) families/synthetic > the web-search tool registers only when the setting or the flag enables it, once [0.26ms]
+(pass) families/synthetic > head truncation keeps whole lines within 50 KB and 2000 lines [0.85ms]
+(pass) families/synthetic > keeps results without a publication date and returns passages with the full text saved [5.40ms]
+
+tests/families/opencode-physical.test.ts:
+(pass) OpenCode physical request hooks > opencode stamps headers with or without Pi attribution without mutating them [0.30ms]
+(pass) OpenCode physical request hooks > opencode appends env to string and array prompts without mutating payloads [0.28ms]
+(pass) OpenCode physical request hooks > opencode-go stamps headers with or without Pi attribution without mutating them [0.07ms]
+(pass) OpenCode physical request hooks > opencode-go appends env to string and array prompts without mutating payloads [0.03ms]
+(pass) OpenCode physical request hooks > foreign colliding providers and virtual models have no hooks [0.03ms]
+(pass) OpenCode physical request hooks > leaves mismatched ids, foreign actual models and existing env untouched [0.16ms]
+
+tests/quotas/merge.test.ts:
+(pass) newer headers overlay values and append windows while retaining endpoint metadata [0.10ms]
+(pass) unknown header usage never erases known endpoint usage and absent tier falls back [0.04ms]
+(pass) endpoint wins over older or simultaneous headers [0.02ms]
+(pass) missing endpoint or headers returns the available snapshot [0.02ms]
+
+tests/quotas/bus.test.ts:
+(pass) quota bus > reset requires interactive approval (undefined) and consumes exactly once [4.78ms]
+(pass) quota bus > reset requires interactive approval (false) and consumes exactly once [7.71ms]
+(pass) quota bus > reset requires interactive approval (true) and consumes exactly once [2.68ms]
+(pass) quota bus > disposal while approval is pending prevents a late spend [20.59ms]
+(pass) quota bus > reset channels reject malformed, unsupported, unknown and unavailable requests [125.98ms]
+(pass) quota bus > announces capabilities once and answers aliases with Pi ids without fetching [5.70ms]
+(pass) quota bus > rejects unknown and disabled providers explicitly [0.60ms]
+(pass) quota bus > refreshes stale entries before query replies and honors force [6.57ms]
+(pass) quota bus > drops malformed payloads [143.01ms]
+(pass) quota bus > publishes changed rows and emits auth and rate-limit transitions once [10.25ms]
+(pass) quota bus > converts failures to replies and disposal suppresses in-flight replies and pushes [43.43ms]
+
+tests/quotas/resets.test.ts:
+(pass) credit choice preserves the longest-lived credit and the caller's order [0.16ms]
+(pass) reset descriptions use registry labels, scrub controls and show Zurich dates [0.30ms]
+(pass) outcome reset explains whether credit was spent [0.06ms]
+(pass) outcome nothing_to_reset explains whether credit was spent
+(pass) outcome no_credit explains whether credit was spent
+(pass) outcome already_redeemed explains whether credit was spent
+
+tests/quotas/report.test.ts:
+(pass) quota report > preserves unknown usage and balances, zero, identity and timing [0.19ms]
+(pass) quota report > omits resets when the snapshot has no reset credits [0.09ms]
+(pass) quota report > staleness waits for the provider's polling floor [0.05ms]
+(pass) quota report > distinguishes unknown, stale, error, auth and active rate limits [0.15ms]
+(pass) quota report > attaches optional window and credit drainage by Pi id [0.08ms]
+
+tests/quotas/drainage.test.ts:
+(pass) lookbacks use actual coverage, zero stays zero, resets suppress ETA [0.37ms]
+(pass) short spans stay unknown and forward gaps do not invent lookback coverage [0.10ms]
+(pass) credits measure consumption separately by currency and top-ups restart [0.42ms]
+(pass) retains baseline, bounds recent observations, validates disk input and prunes inactive metrics [2.76ms]
+(pass) header fallback, failures and out-of-order samples never create observations; instances merge [0.33ms]
+(pass) cached lookbacks survive later reads and omitted reset fields stay absent [0.13ms]
+(pass) a window with undefined usedFraction records no sample [0.04ms]
+(pass) actual hourly samples persist, and a drop starts unknown [0.07ms]
+
+tests/quotas/engine.test.ts:
+(pass) quota engine > reset reset consumes once and force-refreshes after an in-flight refresh [5.35ms]
+(pass) quota engine > reset nothing_to_reset consumes once and force-refreshes after an in-flight refresh [2.11ms]
+(pass) quota engine > reset no_credit consumes once and force-refreshes after an in-flight refresh [2.19ms]
+(pass) quota engine > reset already_redeemed consumes once and force-refreshes after an in-flight refresh [1.30ms]
+(pass) quota engine > reset throw consumes once and force-refreshes after an in-flight refresh [1.62ms]
+(pass) quota engine > refresh storage failures cannot hide the consume verdict or original error [0.43ms]
+(pass) quota engine > reset operations reject unknown, disabled, unsupported and stopped providers [0.39ms]
+(pass) quota engine > headers overlay shared endpoint state without refreshing endpoint freshness [3.51ms]
+(pass) quota engine > hinted enabled claimant runs first and headers-only entries remain stale [1.64ms]
+(pass) quota engine > physical attribution never assigns headers to another provider [0.20ms]
+(pass) quota engine > a throwing hint falls through for both canonical ids and aliases [0.91ms]
+(pass) quota engine > unclaimed, malformed and stopped ingests do not write [0.26ms]
+(pass) quota engine > sessions share snapshots and fetch only once per interval [18.22ms]
+(pass) quota engine > 403 backs off across sessions and force cannot bypass it [3.35ms]
+(pass) quota engine > idle ticks do not rewrite the shared file [1.71ms]
+(pass) quota engine > request refreshes respect the source floor and endpoint success drops headers [2.52ms]
+(pass) quota engine > headers observed while an endpoint fetch is in flight survive its write [1.12ms]
+(pass) quota engine > deduplicates in flight and discards a late result after stop [0.81ms]
+(pass) quota engine > ordinary errors use 30 seconds; forced refresh can recover [1.99ms]
+(pass) provider settings resolve aliases, deduplicate and never broaden unknown selections [0.28ms]
+(pass) cache parsing drops malformed fields without turning unknown into zero [0.23ms]
+(pass) a source's own auth resolver replaces the lookup by provider id [2.13ms]
+(pass) quota auth supports header-only bearers and prefers Pi's API key [0.50ms]
+(pass) pi-quotas gates the engine and is an absorbed package [0.20ms]
+
+tests/cli/args.test.ts:
+(pass) parses [] [0.04ms]
+(pass) parses ["--json"] [0.02ms]
+(pass) parses ["--quotas-json"] [0.05ms]
+(pass) parses ["--quotas-list","cc"] [0.01ms]
+(pass) parses ["--quotas-json","--quotas-list","cc"]
+(pass) parses ["--quotas-list","ag","--quotas-json","cc"]
+(pass) parses ["--quotas-list","--model","cc"]
+(pass) parses ["--","--quotas-json"]
+(pass) parses ["--quotas-json","--","cc"]
+(pass) parses ["--quotas-list","cc","--","--help"]
+(pass) defers to --help [0.01ms]
+(pass) defers to -h
+(pass) defers to --version
+(pass) defers to -v
+(pass) defers to --list-models
+
+tests/cli/startup.test.ts:
+(pass) one-shot queries finish before terminal startup, using the shared cache [1655.49ms]
+
+tests/cli/run.test.ts:
+(pass) resolves cc to Pi id claude and refreshes with the configured age [0.59ms]
+(pass) CLI JSON and table output canonicalize codex to codex [0.41ms]
+(pass) CLI JSON and table output canonicalize openai to codex [0.08ms]
+(pass) CLI JSON and table output canonicalize openai-codex to codex [0.05ms]
+(pass) CLI JSON and table output canonicalize chatgpt to codex [0.04ms]
+(pass) CLI JSON and table output canonicalize cx to codex [0.04ms]
+(pass) CLI JSON and table output canonicalize cox to codex [0.06ms]
+(pass) CLI JSON and table output canonicalize oai to codex [0.07ms]
+(pass) unknown provider prints known Pi ids without fetching [0.07ms]
+(pass) table writes diagnostics and exits partial for a failed provider [0.08ms]
+(pass) queries all enabled providers when no positional is supplied [0.06ms]
+(pass) a disabled provider returns usage rather than a successful empty report [0.11ms]
+(pass) stops the engine on storage failure [0.08ms]
+
+tests/cli/table.test.ts:
+(pass) shows on-demand reset credits and leaves missing reset cells blank [0.18ms]
+(pass) unknown usage and balance remain visible and never render as zero [0.15ms]
+(pass) renders scoped windows, boundary rounding, credits and color without changing text [0.14ms]
+(pass) diagnostics sanitize provider errors and distinguish unknown from stale [12.61ms]
+(pass) timestamps use Zurich offset in both seasons [0.05ms]
+
+tests/bus/client.test.ts:
+(pass) quota bus client > queries aliases and refreshes through the real service [7.89ms]
+(pass) quota bus client > lists credits and refuses spending without UI approval [0.61ms]
+(pass) quota bus client > decodes an approved reset outcome [1.69ms]
+(pass) quota bus client > times out an unanswered request [1.18ms]
+(pass) quota bus client > aborts before emission and while waiting [0.24ms]
+(pass) quota bus client > drops malformed nested replies rather than exposing them [3.45ms]
+(pass) quota bus client > drops malformed credit listings and reset verdicts [2.63ms]
+(pass) quota bus client > subscriptions validate broadcasts and unsubscribe [0.38ms]
+
+tests/tokens/tokenizer.test.ts:
+(pass) downloads, pins and serves offline (git blob) [10.51ms]
+(pass) hash mismatch writes nothing (git blob) [0.28ms]
+(pass) downloads, pins and serves offline (LFS) [1.84ms]
+(pass) hash mismatch writes nothing (LFS) [0.16ms]
+(pass) optional config, size cap, offline failure and unsafe repo [0.80ms]
+(pass) a failed load is retried after the retry window [0.64ms]
+(pass) concurrent stores merge their index entries [21.84ms]
+(pass) verified invalid JSON never writes an artifact [1.24ms]
+(pass) XDG cache directory follows the environment [0.06ms]
+
+tests/tokens/estimate.test.ts:
+(pass) token estimates > a sum carries its weakest source [0.07ms]
+(pass) token estimates > JSON is estimated denser than prose [0.11ms]
+(pass) token estimates > a tokenizer counter estimates until its tokenizer loads, then counts exactly [0.20ms]
+
+tests/tokens/engine.test.ts:
+(pass) valid usage anchors only the tail and aborted or error assistants cannot anchor [0.78ms]
+(pass) compaction without subsequent valid usage counts system, tools and all messages [0.26ms]
+(pass) appending a message reuses exact segments but retries estimate results [0.16ms]
+(pass) breakdown extracts every model-visible role, tool arguments and image estimates [0.43ms]
+(pass) context edits invalidate old usage and later valid usage restores the anchor [0.12ms]
+(pass) native tool counts are deduplicated and reused [0.22ms]
+(pass) counter failures fall back to labelled estimates and abort stops between segments [0.31ms]
+(pass) family selection is ordered, cached per model and falls back to the default estimate [0.10ms]
+(pass) memo separates kinds and live counter ids, hashes large text and evicts old entries [8.67ms]
+(pass) zero usage is skipped while a later all-zero assistant stays in the tail [0.26ms]
+(pass) recorded system messages replace the live prompt and tools instead of adding to them [0.24ms]
+(pass) system prose is rewritten to what the provider sends before counting; tool JSON is not [0.14ms]
+
+tests/tokens/families.test.ts:
+(pass) family token counters > selects cached counters by provider and model [0.61ms]
+
+tests/tokens/tracker.test.ts:
+(pass) event bursts debounce once and publish the last event reason [30.47ms]
+(pass) immediate refresh supersedes slow work even when the engine ignores abort [30.46ms]
+(pass) shutdown clears, aborts running work, cancels debounce and releases context [30.59ms]
+(pass) shutdown cancels a pending debounce [30.42ms]
+(pass) failures and throwing listeners are isolated; breakdown forwards the caller signal [30.64ms]
+
+tests/tokens/bus.test.ts:
+(pass) typed queries, ready, context changes and disposal share the token contract [9.74ms]
+(pass) malformed requests are dropped like quota queries [26.34ms]
+(pass) failures and caller aborts preserve the shared error API [0.31ms]
+(pass) untrusted replies and broadcasts validate nested counts and optional fields [73.16ms]
+(pass) stop suppresses in-flight replies and aborts breakdown work [14.27ms]
+
+tests/models/rules.test.ts:
+(pass) model visibility rules > applies the approved rule list to flat and nested model ids [0.18ms]
+(pass) model visibility rules > matches the last rule and retains original indices after ignored lines [0.04ms]
+(pass) model visibility rules > limits single stars to a segment and lets double stars cross slashes [0.04ms]
+(pass) model visibility rules > treats regex metacharacters literally and matches case sensitively [0.03ms]
+(pass) model visibility rules > ignores disabled rules and matches escaped wildcard characters literally [0.06ms]
+(pass) model visibility rules > a re-show affects only its own pattern [0.03ms]
+
+tests/core/registry/providers.test.ts:
+(pass) all family registrations reach a standalone sink in Pi registration order [1.00ms]
+(pass) Claude's provider and warning retain one version snapshot and never probe at registration [24.56ms]
+(pass) Google session starts reset the project cached by the registered provider [2.72ms]
+
+tests/families/anthropic/sanitize.test.ts:
+(pass) families/anthropic/sanitize > removes each harness fingerprint without matching ordinary pi paths [0.16ms]
+(pass) families/anthropic/sanitize > applies built-ins before literal caller rules and drops every matched paragraph [0.05ms]
+(pass) families/anthropic/sanitize > normalizes missing, scalar, object and array systems without duplicating identity [0.14ms]
+
+tests/families/anthropic/version.test.ts:
+(pass) families/anthropic/version > an installed newer claude wins over the pin, an older one does not, probed once [0.16ms]
+(pass) families/anthropic/version > the env override beats detection; an older one warns, a malformed one falls back [0.07ms]
+
+tests/families/anthropic/response.test.ts:
+(pass) families/anthropic/response > application/json: every byte split and single-byte chunks [6.27ms]
+(pass) families/anthropic/response > application/problem+json: every byte split and single-byte chunks [5.21ms]
+(pass) families/anthropic/response > text/event-stream: every byte split and single-byte chunks [10.68ms]
+(pass) families/anthropic/response > callbacks receive complete name values and may expand them [0.34ms]
+(pass) families/anthropic/response > JSON escapes are decoded and restored names are safely escaped [0.07ms]
+(pass) families/anthropic/response > JSON preserves invalid UTF-8 and truncated candidates byte-for-byte [0.67ms]
+(pass) families/anthropic/response > bounds SSE lines and passes over-long JSON name values through [147.90ms]
+(pass) families/anthropic/response > preserves metadata and removes all stale representation headers [0.38ms]
+(pass) families/anthropic/response > other media types and bodiless responses retain identity [0.05ms]
+(pass) families/anthropic/response > emits complete chunks before the upstream body closes [0.17ms]
+(pass) families/anthropic/response > propagates upstream failures [0.11ms]
+
+tests/families/anthropic/billing.test.ts:
+(pass) families/anthropic/billing > reproduces the known version suffix without gated cch [0.13ms]
+(pass) families/anthropic/billing > distinguishes no user from an empty first user message [0.10ms]
+(pass) families/anthropic/billing > samples UTF-16 positions, including a bisected surrogate, with zero fallbacks [0.04ms]
+
+tests/families/anthropic/identity.test.ts:
+(pass) device id persists across processes and reuses existing state [15.01ms]
+(pass) unwritable state keeps an in-memory id and invalid sessions share a process UUID [0.78ms]
+
+tests/families/anthropic/oauth.test.ts:
+(pass) subscription login sends PKCE, state, scopes and JSON exchange [0.72ms]
+(pass) token account uuid is stored, forwarded internally and retained on refresh [0.23ms]
+(pass) state mismatch refuses exchange [0.11ms]
+(pass) login abort before and during URL construction never prompts or exchanges [0.13ms]
+(pass) refresh retries 503 then nested network failure, preserving credential extras [1506.71ms]
+(pass) 400 fails immediately without leaking request or response tokens [0.35ms]
+(pass) refresh stops after three failures and ignores non-network errors [1508.07ms]
+(pass) abort interrupts refresh backoff without another request [20.61ms]
+(pass) malformed tokens and JSON are rejected without retries or token text [0.58ms]
+(pass) API key manual entry trims keys and refuses empty or cancelled selections [0.28ms]
+(pass) API key creation uses console authorization and validates raw_key [0.44ms]
+(pass) API key resolution prefers stored key then environment, with source labels [0.16ms]
+
+tests/families/anthropic/request.test.ts:
+(pass) families/anthropic/request > shapes a Pi request with billing, identity, sanitized context and every tool location [0.47ms]
+(pass) families/anthropic/request > passes invalid bodies through and tolerates absent or malformed optional fields [0.08ms]
+(pass) families/anthropic/request > merges header representations with init precedence and shapes OAuth without mutation [0.19ms]
+(pass) families/anthropic/request > rewrites only origin and messages beta, retaining explicit beta and unchanged inputs [0.10ms]
+(pass) families/anthropic/request > preserves Request method, body, headers and abort propagation [0.13ms]
+(pass) families/anthropic/request > requires both the exact TLS switch and a nonempty custom endpoint [0.04ms]
+
+tests/families/anthropic/transport.test.ts:
+(pass) two OAuth turns share identity and send one unauthenticated preflight without waiting [1.79ms]
+
+tests/families/anthropic/quota.test.ts:
+(pass) Claude quota headers > uses endpoint window identities and preserves separate overage limits [0.81ms]
+(pass) Claude quota headers > unknown utilization %s stays visible [0.03ms]
+(pass) Claude quota headers > unknown utilization  stays visible
+(pass) Claude quota headers > unknown utilization invalid stays visible
+(pass) Claude quota headers > unknown utilization Infinity stays visible
+(pass) Claude quota headers > clamps negative fractions and leaves empty resets unknown [0.02ms]
+(pass) Claude quota headers > does not claim unrelated headers [0.01ms]
+(pass) Claude quota headers > does not claim unrelated headers
+(pass) quota metadata and missing auth [0.07ms]
+(pass) 401 replay: different [0.21ms]
+(pass) 401 replay: same [0.05ms]
+(pass) 401 replay: missing [0.02ms]
+(pass) 401 replay: retry-fails [0.02ms]
+(pass) 401 replay: 403 [0.01ms]
+(pass) unrecognized payload fails [0.12ms]
+(pass) unrecognized payload fails [0.03ms]
+(pass) unrecognized payload fails [0.02ms]
+(pass) unrecognized payload fails [0.02ms]
+(pass) missing normalized utilization remains unknown [0.05ms]
+(pass) Claude usage contract > normalized limits replace legacy buckets in server order [0.09ms]
+(pass) Claude usage contract > usage request has a ten-second budget [0.09ms]
+(pass) Claude usage contract > plain GET refuses redirects and honors caller cancellation [0.10ms]
+(pass) Claude usage contract > open kinds, surface scopes, collisions and server importance [0.12ms]
+(pass) Claude usage contract > scoped rows without a display name retain a generic scoped window [0.05ms]
+(pass) Claude usage contract > unknown limit kinds need no scope or known group [0.04ms]
+(pass) Claude usage contract > invalid JSON has contextual recovery instructions [0.05ms]
+(pass) Claude usage contract > legacy fallback when limits are  [0.08ms]
+(pass) Claude usage contract > legacy fallback when limits are %j [0.03ms]
+(pass) Claude usage contract > invalid legacy values and non-cap objects do not invent usage [0.04ms]
+(pass) Claude usage contract > typed dollar caps use provider labels and dollar amounts [0.08ms]
+(pass) Claude usage contract > extra usage skips invalid cap null [0.04ms]
+(pass) Claude usage contract > extra usage skips invalid cap 0
+(pass) Claude usage contract > extra usage skips invalid cap -1 [0.01ms]
+(pass) Claude usage contract > extra usage skips invalid cap "1000"
+(pass) Claude usage contract > extra usage uses minor units with currency [0.07ms]
+(pass) Claude usage contract > null extra usage uses percent without inventing spent money [0.12ms]
+(pass) Claude usage contract > HTTP 401 is a contextual typed error without retries [0.13ms]
+(pass) Claude usage contract > HTTP 403 is a contextual typed error without retries [0.03ms]
+(pass) Claude usage contract > HTTP 429 is a contextual typed error without retries [0.02ms]
+(pass) Claude usage contract > HTTP 500 is a contextual typed error without retries [0.01ms]
+(pass) Claude usage contract > 404 is a typed HTTP failure [0.04ms]
+(pass) Claude usage contract > malformed body null is an explicit parse failure [0.03ms]
+(pass) Claude usage contract > malformed body %j is an explicit parse failure [0.01ms]
+(pass) Claude usage contract > malformed body "bad" is an explicit parse failure
+
+tests/families/anthropic/count.test.ts:
+(pass) families/anthropic/count > keeps identity and version, omits billing and metadata, and subtracts one shared baseline [1.27ms]
+(pass) families/anthropic/count > 429 falls back and suppresses further requests during backoff [0.17ms]
+(pass) families/anthropic/count > API keys use x-api-key and tools use wire names and no-tools subtraction [0.45ms]
+(pass) families/anthropic/count > falls back without rejecting on 401 [0.12ms]
+(pass) families/anthropic/count > falls back without rejecting on 403 [0.03ms]
+(pass) families/anthropic/count > falls back without rejecting on 500 [0.03ms]
+(pass) families/anthropic/count > falls back without rejecting on json [0.02ms]
+(pass) families/anthropic/count > falls back without rejecting on shape [0.02ms]
+(pass) families/anthropic/count > falls back without rejecting on network [0.03ms]
+(pass) families/anthropic/count > no credential never fetches [0.07ms]
+(pass) families/anthropic/count > queues calls beyond two in flight and shares the baseline [26.59ms]
+(pass) families/anthropic/count > family caches only claude model counters without fetching [0.23ms]
+(pass) families/anthropic/count > rewrites system text the way the provider sends it, including user rules [0.17ms]
+
+tests/families/anthropic/provider.test.ts:
+(pass) families/anthropic/provider > an OAuth turn uses header auth, Claude Code shaping, zero cost and Pi's tool names [9.61ms]
+(pass) families/anthropic/provider > an API-key turn goes through Pi's path untouched and keeps its price [0.69ms]
+(pass) families/anthropic/provider > a transcript that still names a removed tool neither blocks the request nor wins the response [1.20ms]
+(pass) families/anthropic/provider > OAuth credentials list the catalog at zero cost, API keys at list price [0.12ms]
+
+tests/families/anthropic/tool-names.test.ts:
+(pass) families/anthropic/tool-names > wire names round-trip to the exact Pi names, including custom PascalCase tools [0.14ms]
+(pass) families/anthropic/tool-names > unknown names pass through and the placeholder is always restored [0.03ms]
+(pass) families/anthropic/tool-names > two tools with one wire name are refused instead of dispatched ambiguously [0.08ms]
+(pass) families/anthropic/tool-names > an earlier transcript name that folds onto a live tool never blocks the request [0.02ms]
+(pass) families/anthropic/tool-names > live tools still refuse a shared wire name when earlier names are present [0.01ms]
+
+tests/families/google/levels.test.ts:
+(pass) families/google/levels > every level survives a models-store round trip [0.06ms]
+(pass) families/google/levels > refuses values it did not encode [0.04ms]
+(pass) families/google/levels > matches the CLI thinking configs [0.02ms]
+
+tests/families/google/transport.test.ts:
+(pass) families/google/transport > reproduces the captured agy 1.4.8 user agent [0.02ms]
+
+tests/families/google/catalog.test.ts:
+(pass) families/google/catalog > groups only offered agent models in catalog order and maps every wire level [0.57ms]
+(pass) families/google/catalog > rejects malformed envelopes and skips unusable rows while taking conservative limits [0.15ms]
+(pass) families/google/catalog > offline and missing OAuth credentials restore without side effects [0.39ms]
+(pass) families/google/catalog > fresh catalogs skip network; stale, unclocked and forced refreshes persist [0.57ms]
+(pass) families/google/catalog > caller cancellation reaches the transport without publishing [0.14ms]
+(pass) families/google/catalog > failed refreshes are typed, redact credentials and never publish [0.23ms]
+
+tests/families/google/oauth.test.ts:
+(pass) login accepts redirect URL with seven scopes and S256 [0.64ms]
+(pass) login accepts bare code with seven scopes and S256 [0.11ms]
+(pass) refuses invalid callback test-code#wrong [0.11ms]
+(pass) refuses invalid callback https://antigravity.google/oauth-callback?code=test-code&state=wrong [0.03ms]
+(pass) refuses invalid callback ?code=test-code&state=wrong [0.02ms]
+(pass) refuses invalid callback https://antigravity.google/oauth-callback?error=access_denied [0.02ms]
+(pass) refresh retries http and retains an omitted refresh token [0.26ms]
+(pass) refresh retries timeout and retains an omitted refresh token [0.15ms]
+(pass) refresh retries network and retains an omitted refresh token [0.04ms]
+(pass) refresh bounds retries and redacts HTTP 400 [0.13ms]
+(pass) refresh bounds retries and redacts HTTP 503 [0.06ms]
+(pass) refresh wraps malformed token responses without retry [0.08ms]
+(pass) caller abort stops refresh before transport [0.05ms]
+
+tests/families/google/project.test.ts:
+(pass) discovery shares one in-flight call per credential and resets per session [0.42ms]
+(pass) missing project fails with recovery and does not onboard or cache the failure [0.16ms]
+(pass) discovery HTTP errors name the operation and never expose credentials [0.16ms]
+(pass) reset detaches old discoveries while they finish [0.13ms]
+
+tests/families/google/schema.test.ts:
+(pass) families/google/schema > sanitizes nested unions while preserving property names and required fields [0.34ms]
+(pass) families/google/schema > GPT numeric constraints become description hints at every depth [0.03ms]
+(pass) families/google/schema > preserves numeric bounds, translates exclusive integer bounds and fills array items [0.02ms]
+(pass) families/google/schema > merges object intersections and translates oneOf and non-string enums [0.08ms]
+
+tests/families/google/errors.test.ts:
+(pass) families/google/errors > maps a 429 Status and RetryInfo to a recoverable named error [0.26ms]
+(pass) families/google/errors > provides recovery for INSUFFICIENT_G1_CREDITS_BALANCE [0.04ms]
+(pass) families/google/errors > provides recovery for VALIDATION_REQUIRED
+(pass) families/google/errors > provides recovery for MODEL_CAPACITY_EXHAUSTED
+(pass) families/google/errors > unknown reasons preserve the message but redact tokens and project ids [0.04ms]
+(pass) families/google/errors > tolerates truncated HTTP diagnostics and preserves header delay [0.02ms]
+
+tests/families/google/stream.test.ts:
+(pass) families/google/stream > maps signatures, tool arguments, event order and trailing usage across every byte boundary [22.12ms]
+(pass) families/google/stream > merges text deltas, retains standalone signatures and maps token limits [0.24ms]
+(pass) families/google/stream > does not move a standalone text signature onto the following tool call [0.14ms]
+(pass) families/google/stream > normalizes and deduplicates tool ids and applies batch signatures only once [0.13ms]
+(pass) families/google/stream > in-band RPC failures throw the same typed error and become Pi error events [0.37ms]
+(pass) families/google/stream > rejects incomplete or blocked stream  [0.13ms]
+(pass) families/google/stream > rejects incomplete or blocked stream data: {"response":{"candidates":[{"content":{"parts":[{"text":"Partial"}]}}]}}
+
+ [0.05ms]
+(pass) families/google/stream > rejects incomplete or blocked stream data: {"response":{"candidates":[{"finishReason":"STOP"}]}}
+
+ [0.04ms]
+(pass) families/google/stream > rejects incomplete or blocked stream data: {"response":{"promptFeedback":{"blockReason":"SAFETY","blockReasonMessage":"Blocked"}}}
+
+ [0.02ms]
+(pass) families/google/stream > rejects incomplete or blocked stream data: {"response":{"candidates":[{"content":{"parts":[{"text":"No"}]},"finishReason":"SAFETY"}]}}
+
+ [0.02ms]
+(pass) families/google/stream > accepts plain multiline SSE and an unterminated final frame [0.15ms]
+(pass) families/google/stream > malformed JSON is a typed parse error [0.06ms]
+(pass) families/google/stream > abort cancels a pending read and produces an aborted event [0.18ms]
+(pass) families/google/stream > gpt-oss waits at most one second after a terminal candidate for usage [1003.82ms]
+
+tests/families/google/migration.test.ts:
+(pass) migrateForkLogin > fills an empty slot from a refresh with 3 segments [0.24ms]
+(pass) migrateForkLogin > fills an empty slot from a refresh with 2 segments [0.02ms]
+(pass) migrateForkLogin > fills an empty slot from a refresh with 1 segments
+(pass) migrateForkLogin > preserves an existing antigravity slot [0.04ms]
+(pass) migrateForkLogin > does not overwrite a login inserted before the locked modification [0.06ms]
+(pass) migrateForkLogin > ignores a google API-key slot [0.03ms]
+(pass) migrateForkLogin > ignores an absent google slot [0.02ms]
+
+tests/families/google/provider.test.ts:
+(pass) families/google/provider > picks the requested level, clamps upward, then falls back to the highest [0.57ms]
+(pass) families/google/provider > an OAuth turn discovers the project and sends the level's envelope with CLI headers [1.22ms]
+(pass) families/google/provider > HTTP and login failures become error turns with a recovery [0.37ms]
+(pass) families/google/provider > Pi's request hooks see the turn, and a replaced payload is what goes out [0.44ms]
+(pass) families/google/provider > a backend that stops answering fails the turn after timeoutMs instead of hanging [101.94ms]
+
+tests/families/google/convert.test.ts:
+(pass) families/google/convert upstream parity > gemini-4-argon, image input true [2.65ms]
+(pass) families/google/convert upstream parity > gemini-4-argon, image input false [0.21ms]
+(pass) families/google/convert upstream parity > claude-opus-5-5, image input true [0.08ms]
+(pass) families/google/convert upstream parity > claude-opus-5-5, image input false [0.05ms]
+(pass) families/google/convert upstream parity > gpt-oss-120b, image input true [0.05ms]
+(pass) families/google/convert upstream parity > gpt-oss-120b, image input false [0.07ms]
+(pass) families/google/convert upstream parity > gemini-2.5-pro, image input true [0.07ms]
+(pass) families/google/convert upstream parity > gemini-2.5-pro, image input false [0.11ms]
+(pass) families/google/convert upstream parity > empty blocks, invalid signatures, interrupted assistants and trailing orphan calls [0.14ms]
+(pass) families/google/convert upstream parity > tool declarations without strict sampling [0.06ms]
+(pass) families/google/convert upstream parity > stream helpers [0.12ms]
+
+tests/families/google/request.test.ts:
+(pass) families/google/request > Argon round-trip matches the 1.3.5 captured envelope and payload order [0.58ms]
+(pass) families/google/request > Claude removes earlier thinking but keeps the signed open tool-loop turn [0.23ms]
+(pass) families/google/request > Claude completed turn loses thinking; cross-model signatures never replay [0.15ms]
+(pass) families/google/request > session identity, monotonic request ids and latched model flags survive requests [0.17ms]
+(pass) families/google/request > timestamp fallback separates sessions and minimal requests omit optional fields [0.08ms]
+(pass) families/google/request > GPT tools move numeric bounds into descriptions [0.09ms]
+(pass) families/google/request > same Pi model signatures carry across wire-level switches [0.06ms]
+
+tests/families/google/quota.test.ts:
+(pass) captured Gemini and Argon buckets have distinct stable template scopes [0.91ms]
+(pass) weekly-only response retains available windows without inventing Argon [0.15ms]
+(pass) family attaches the versioned quota source [0.02ms]
+(pass) missing credentials name Pi login without making requests [0.06ms]
+(pass) uses CLI headers, context transport and one project discovery per credential [0.41ms]
+(pass) loadCodeAssist HTTP 403 preserves Retry-After [0.24ms]
+(pass) loadCodeAssist HTTP 429 preserves Retry-After [0.09ms]
+(pass) loadCodeAssist HTTP 500 preserves Retry-After [0.05ms]
+(pass) retrieveUserQuotaSummary HTTP 403 preserves Retry-After [0.04ms]
+(pass) retrieveUserQuotaSummary HTTP 429 preserves Retry-After [0.03ms]
+(pass) retrieveUserQuotaSummary HTTP 500 preserves Retry-After [0.03ms]
+(pass) unknown fractions stay unknown and cannot outrank known usage [0.08ms]
+(pass) all unknown windows remain visible without choosing an important bucket [0.03ms]
+(pass) unrecognized payload fails explicitly: {} [0.07ms]
+(pass) unrecognized payload fails explicitly: {"groups":[]}
+(pass) unrecognized payload fails explicitly: {"groups":[{"buckets":[{}]}]}
+(pass) flat buckets stay grouped and do not duplicate grouped windows [0.05ms]
+(pass) absolute or disabled buckets do not fabricate a percentage [0.02ms]
+(pass) failed project discovery is not cached or replaced by a fallback [0.22ms]
+(pass) a missing project fails instead of making a quota request [0.10ms]
+(pass) invalid quota JSON names the endpoint [0.11ms]
+(pass) concurrent refreshes and changing transport closures share credential discovery [0.20ms]
+(pass) loadCodeAssist has a typed 10-second deadline [10004.46ms]
+(pass) retrieveUserQuotaSummary has a typed 10-second deadline [10001.93ms]
+(pass) caller cancellation reaches transport [0.37ms]
+
+tests/families/google/thought-repair.test.ts:
+(pass) repairThoughtSignaturePayload > repairs only the first call in every native step of the current turn [0.31ms]
+(pass) repairThoughtSignaturePayload > history mode repairs missing earlier calls without altering genuine signatures or later messages [0.05ms]
+(pass) repairThoughtSignaturePayload > repairs nested envelopes and JSON payload strings [0.06ms]
+(pass) repairThoughtSignaturePayload > preserves chat signatures and reasoning details while repairing multiple steps [0.16ms]
+(pass) repairThoughtSignaturePayload > does not mistake chat tool results for a new turn [0.03ms]
+(pass) repairThoughtSignaturePayload > returns undefined for unsupported or unchanged inputs [0.05ms]
+
+tests/families/google/signature-recovery.test.ts:
+(pass) thought signature recovery > correlates main requests independently of same-model helpers [104.09ms]
+(pass) thought signature recovery > does not repair a helper with a different configuration during recovery [15.57ms]
+(pass) thought signature recovery > recovers through physical request hooks without rerunning tools [12.30ms]
+(pass) thought signature recovery > recovers Gemini through OpenCode's Google-native request format [12.19ms]
+(pass) thought signature recovery > recovers the actual Antigravity provider's nested request, including aliases [20.64ms]
+(pass) thought signature recovery > recovers or preserves Gemini signatures through compatible gateway streams [78.01ms]
+(pass) thought signature recovery > keeps subsequent user turns usable after a recovered tool call [9.86ms]
+(pass) thought signature recovery > repairs an already queued follow-up without repeating the tool [8.90ms]
+(pass) thought signature recovery > preserves another extension's boundary entry [8.71ms]
+(pass) thought signature recovery > retries once from retained tool results without executing the tool again [10.89ms]
+(pass) thought signature recovery > preserves earlier signed steps and repairs a later missing step [14.55ms]
+(pass) thought signature recovery > does not retry unrelated errors or matching errors with a different status [20.21ms]
+(pass) thought signature recovery > stops after one failed repair and does not touch valid signatures [21.45ms]
+
+tests/families/google/compatible-signatures.test.ts:
+(pass) compatible thought signatures > restores only unique genuine signatures from the routed physical context [0.42ms]
+(pass) compatible thought signatures > persists a split streamed signature and replays it only on its original call [0.11ms]
+(pass) compatible thought signatures > clears pending captures on session shutdown and after binding [0.06ms]
+(pass) compatible thought signatures > does not replay structured legacy metadata or duplicate payload IDs [0.03ms]
+(pass) compatible thought signatures > ignores wrong model, provider, response, duplicate IDs and ambiguous fragments [0.07ms]
+
+tests/families/synthetic/quota.test.ts:
+(pass) Synthetic quotas > returns login guidance without a request when credentials are missing [0.24ms]
+(pass) Synthetic quotas > throws typed HTTP failures with seconds and date Retry-After delays [0.36ms]
+(pass) Synthetic quotas > parses numeric reset timestamps and excludes account metadata [0.29ms]
+(pass) Synthetic quotas > parses the captured live response without dropping the primary budgets [0.11ms]
+(pass) Synthetic quotas > rounds the weekly percentage for display and drops trailing zeros [0.04ms]
+(pass) Synthetic quotas > accepts the documented subscription-only response without inventing a weekly budget [0.05ms]
+(pass) Synthetic quotas > accepts a missing subscription [0.05ms]
+(pass) Synthetic quotas > keeps windows with zero limits or absent counts visible with unknown usage [0.19ms]
+(pass) Synthetic quotas > leaves missing weekly fields unknown and rejects nonnumeric percentages [0.14ms]
+(pass) Synthetic quotas > preserves a past regeneration timestamp and clamps percentages and count ratios [0.10ms]
+(pass) Synthetic quotas > names the provider, endpoint, status and recovery action on HTTP failure [0.05ms]
+(pass) Synthetic quotas > rejects unrecognized successful bodies with actionable context [0.13ms]
+(pass) Synthetic quotas > rejects invalid JSON with endpoint and recovery context [0.05ms]
+(pass) Synthetic quotas > combines the caller cancellation signal with a bounded request signal [0.14ms]
+
+tests/families/synthetic/usage.test.ts:
+(pass) synthetic usage correction > context equals the real prompt and cost is unchanged (6869) [0.09ms]
+(pass) synthetic usage correction > context equals the real prompt and cost is unchanged (7311)
+(pass) synthetic usage correction > normal Anthropic accounting and other providers are left alone [0.03ms]
+(pass) Synthetic tokenizer usage > counts all request blocks and preserves billing (6869) [0.22ms]
+(pass) Synthetic tokenizer usage > counts all request blocks and preserves billing (7311) [0.02ms]
+(pass) Synthetic tokenizer usage > unloaded, absent, failed, mismatched and alias tokenizers keep only dedupe [0.08ms]
+(pass) Synthetic tokenizer usage > other providers, errors and zero prompt usage are untouched [0.02ms]
+(pass) Synthetic tokenizer usage > unsupported or malformed content falls back instead of counting binary data [0.05ms]
+(pass) Synthetic tokenizer usage > counts blocks separately for tokenizer memoization [0.05ms]
+(pass) Synthetic tokenizer usage > leaves request-local usage correction to the physical wrapper when available [0.29ms]
+(pass) Synthetic tokenizer usage > preloads on lifecycle events without awaiting, captures and persists matching usage [0.42ms]
+(pass) Synthetic tokenizer usage > configured aliases preload and count their source while retaining request identity [0.43ms]
+(pass) Synthetic tokenizer usage > does not capture foreign requests or reuse requests after session changes [0.12ms]
+
+tests/families/synthetic/physical.test.ts:
+(pass) Synthetic physical request hooks > isolates overlapping requests and counts caller-transformed logical alias payloads [0.89ms]
+(pass) Synthetic physical request hooks > handles physical identities, mismatches, errors and caller replacements [0.21ms]
+
+tests/families/openrouter/quota.test.ts:
+(pass) OpenRouter quota > parses captured credits and uncapped key fixtures [0.54ms]
+(pass) OpenRouter quota > honors caller cancellation on both requests [0.19ms]
+(pass) OpenRouter quota > names the endpoint when JSON is malformed [0.07ms]
+(pass) OpenRouter quota > contributes quotas without registering a Pi provider [0.03ms]
+(pass) OpenRouter quota > ports the upstream credits and daily/weekly usage example [0.08ms]
+(pass) OpenRouter quota > unknown remaining is never zero [0.05ms]
+(pass) OpenRouter quota > rejects key metadata that would otherwise produce an empty snapshot [0.04ms]
+(pass) OpenRouter quota > requires login without making requests [0.05ms]
+(pass) OpenRouter quota > rejects responses without numeric quota fields [0.08ms]
+(pass) OpenRouter quota > uses injected transport, authentication and a composed abort signal [0.12ms]
+(pass) OpenRouter quota > propagates HTTP 401 even when the other endpoint works [0.15ms]
+(pass) OpenRouter quota > propagates HTTP 403 even when the other endpoint works [0.03ms]
+(pass) OpenRouter quota > propagates HTTP 429 even when the other endpoint works [0.02ms]
+(pass) OpenRouter quota > propagates HTTP 500 even when the other endpoint works [0.01ms]
+(pass) OpenRouter quota > preserves key cap labels and usage details without exposing identifiers [0.10ms]
+(pass) OpenRouter quota > keeps reported zero and clamps exhausted account credits [0.05ms]
+
+tests/families/deepseek/quota.test.ts:
+(pass) DeepSeek quota > contributes quotas and aliases without registering the builtin [0.08ms]
+(pass) DeepSeek quota > ports the upstream balance and shapes the authenticated request [0.43ms]
+(pass) DeepSeek quota > missing auth points to Pi login without fetching [0.07ms]
+(pass) DeepSeek quota > HTTP %s preserves status and Retry-After [0.12ms]
+(pass) DeepSeek quota > HTTP %s preserves status and Retry-After [0.03ms]
+(pass) DeepSeek quota > HTTP %s preserves status and Retry-After [0.01ms]
+(pass) DeepSeek quota > invalid JSON reports the endpoint and recovery [0.05ms]
+(pass) DeepSeek quota > prefers USD and otherwise uses CNY [0.04ms]
+(pass) DeepSeek quota > unknown total %s stays undefined when another balance is usable [0.02ms]
+(pass) DeepSeek quota > unknown total %s stays undefined when another balance is usable
+(pass) DeepSeek quota > unknown total  stays undefined when another balance is usable
+(pass) DeepSeek quota > unknown total invalid stays undefined when another balance is usable
+(pass) DeepSeek quota > unknown total Infinity stays undefined when another balance is usable
+(pass) DeepSeek quota > unknown total 12oops stays undefined when another balance is usable
+(pass) DeepSeek quota > rejects unusable payload null [0.03ms]
+(pass) DeepSeek quota > rejects unusable payload {}
+(pass) DeepSeek quota > rejects unusable payload {"balance_infos":[]}
+(pass) DeepSeek quota > rejects unusable payload {"balance_infos":[null]}
+(pass) DeepSeek quota > rejects unusable payload {"balance_infos":[{"currency":"USD","total_balance":"invalid"}]}
+(pass) DeepSeek quota > rejects unusable payload {"balance_infos":[{"total_balance":"10"}]}
+(pass) DeepSeek quota > partial top-up does not invent a grant or total [0.05ms]
+
+tests/families/openai/resets.test.ts:
+(pass) OpenAI reset credits > attaches list and consume to the quota source [0.02ms]
+(pass) OpenAI reset credits > parses the captured list without inventing optional fields [0.14ms]
+(pass) OpenAI reset credits > invalid available_count %s falls back to available statuses [0.03ms]
+(pass) OpenAI reset credits > invalid available_count %s falls back to available statuses [0.01ms]
+(pass) OpenAI reset credits > invalid available_count 3 falls back to available statuses [0.01ms]
+(pass) OpenAI reset credits > invalid available_count %s falls back to available statuses
+(pass) OpenAI reset credits > invalid available_count %s falls back to available statuses [0.01ms]
+(pass) OpenAI reset credits > invalid available_count %s falls back to available statuses [0.02ms]
+(pass) OpenAI reset credits > invalid available_count %s falls back to available statuses
+(pass) OpenAI reset credits > uses the provider's available_count %s [0.02ms]
+(pass) OpenAI reset credits > uses the provider's available_count %s
+(pass) OpenAI reset credits > rejects a changed list contract and parses optional values [0.06ms]
+(pass) OpenAI reset credits > lists once with the shared usage headers and injected clock [0.41ms]
+(pass) OpenAI reset credits > HTTP %s names /login openai [0.33ms]
+(pass) OpenAI reset credits > HTTP %s names /login openai [0.04ms]
+(pass) OpenAI reset credits > refuses API-key credentials before requesting [0.05ms]
+(pass) OpenAI reset credits > refuses API-key credentials before requesting
+(pass) OpenAI reset credits > refuses missing credentials before requesting [0.05ms]
+(pass) OpenAI reset credits > consumes once and maps reset [0.20ms]
+(pass) OpenAI reset credits > consumes once and maps nothing_to_reset [0.03ms]
+(pass) OpenAI reset credits > consumes once and maps no_credit [0.02ms]
+(pass) OpenAI reset credits > consumes once and maps already_redeemed [0.02ms]
+(pass) OpenAI reset credits > missing or invalid windows_reset defaults to zero [0.03ms]
+(pass) OpenAI reset credits > transport failure never retries and warns that the credit may be spent [0.13ms]
+(pass) OpenAI reset credits > 500 failure never retries and warns that the credit may be spent [0.04ms]
+(pass) OpenAI reset credits > unknown failure never retries and warns that the credit may be spent [0.02ms]
+(pass) OpenAI reset credits > invalid JSON failure never retries and warns that the credit may be spent [0.02ms]
+
+tests/families/openai/auth.test.ts:
+(pass) codex quota credentials > falls back to the pi-quotas Codex file when Pi has no openai-codex login [1.66ms]
+(pass) codex quota credentials > prefers Pi's openai-codex login over the file [0.14ms]
+(pass) codex quota credentials > without either credential it needs auth, names both logins and sends nothing [0.90ms]
+(pass) codex quota credentials > status reads Pi's openai-codex slot first, then the Codex file [0.28ms]
+
+tests/families/openai/quota.test.ts:
+(pass) OpenAI quota headers > matches endpoint identities and skips the captured absent secondary window [0.31ms]
+(pass) OpenAI quota headers > unknown utilization %s stays visible [0.03ms]
+(pass) OpenAI quota headers > unknown utilization  stays visible [0.01ms]
+(pass) OpenAI quota headers > unknown utilization invalid stays visible [0.01ms]
+(pass) OpenAI quota headers > unknown utilization Infinity stays visible
+(pass) OpenAI quota headers > missing and invalid durations do not invent a period or hide unknown usage [0.04ms]
+(pass) OpenAI quota headers > keeps a real zero-used window and clamps percentages [0.04ms]
+(pass) OpenAI quota headers > does not claim unrelated headers [0.01ms]
+(pass) OpenAI quota headers > does not claim unrelated headers
+(pass) OpenAI quota headers > does not claim unrelated headers
+(pass) OpenAI quota > contributes Pi ids and aliases without registering a model provider [0.10ms]
+(pass) OpenAI quota > ports the upstream usage case and reset-credit 1, 0, unknown semantics [0.19ms]
+(pass) OpenAI quota > preserves secondary and extra window ids, periods, scopes and importance [0.14ms]
+(pass) OpenAI quota > unknown usage remains undefined and exposed windows remain visible [0.09ms]
+(pass) OpenAI quota > unusable responses fail with endpoint and missing fields [0.14ms]
+(pass) OpenAI quota > missing credentials and API keys do not issue a request [0.12ms]
+(pass) OpenAI quota > uses Codex headers, prefers extra account id, then decodes JWT [1.86ms]
+(pass) OpenAI quota > missing or malformed JWT claims allow a request without an account header [0.37ms]
+(pass) OpenAI quota > 401 and 403 direct users to Pi login without retrying [0.18ms]
+(pass) OpenAI quota > other HTTP errors preserve status and Retry-After [0.13ms]
+(pass) OpenAI quota > invalid JSON identifies the endpoint [0.05ms]
+(pass) OpenAI quota > caller cancellation reaches the injected transport [0.09ms]
+
+tests/families/openai/verbosity.test.ts:
+(pass) OpenAI response verbosity > merges verbosity into a Responses payload without mutating other text settings [0.09ms]
+(pass) OpenAI response verbosity > leaves unconfigured, incompatible, unscoped and helper requests untouched [0.03ms]
+(pass) OpenAI response verbosity > per-model verbosity overrides the global setting and preserves other text fields [0.02ms]
+(pass) OpenAI response verbosity > family hook uses the current scoped setting on every request [0.24ms]
+
+tests/families/xai/quota.test.ts:
+(pass) families/xai quota > contributes quota only for Pi's builtin id [0.04ms]
+(pass) families/xai quota > ports the weekly source mock and treats the zero monthly fixture as unprovisioned [0.70ms]
+(pass) families/xai quota > missing credentials name Pi login without fetching [0.05ms]
+(pass) families/xai quota > preserves unknown usage rather than inventing zero [0.14ms]
+(pass) families/xai quota > reads an omitted creditUsagePercent as 0% only while the period runs [0.10ms]
+(pass) families/xai quota > keeps period labels, dollar units, clamping and importance [0.10ms]
+(pass) families/xai quota > uses a generic current-period scope for other period types [0.06ms]
+(pass) families/xai quota > keeps a declared period visible when its reset timestamp is invalid [0.06ms]
+(pass) families/xai quota > parses numeric reset timestamps (1793145600) [0.06ms]
+(pass) families/xai quota > parses numeric reset timestamps (1793145600000) [0.01ms]
+(pass) families/xai quota > keeps monthly fallback when credits endpoint fails [0.10ms]
+(pass) families/xai quota > keeps credits fallback when monthly endpoint fails [0.08ms]
+(pass) families/xai quota > throws first HTTP failure with Retry-After when both endpoints fail (%s) [0.11ms]
+(pass) families/xai quota > throws first HTTP failure with Retry-After when both endpoints fail (%s) [0.03ms]
+(pass) families/xai quota > names endpoints and missing fields for unusable payloads [0.08ms]
+(pass) families/xai quota > rejects malformed JSON with endpoint context when neither endpoint is usable [0.07ms]
+(pass) families/xai quota > honors caller cancellation [0.07ms]
+
+tests/quotas/line/footer.test.ts:
+(pass) footer preserves cwd, session, usage, cache-hit, cost, statuses and appended rows [0.82ms]
+(pass) footer rows fit the check widths and unknown context remains unknown [0.43ms]
+(pass) model thinking and provider are shown when they fit, and context uses stress colors [0.34ms]
+(pass) usage totals refresh on entry count, branch leaf and explicit invalidation [0.17ms]
+(pass) a token report for the current model replaces Pi's percent and marks estimates [0.13ms]
+
+tests/quotas/line/placement.test.ts:
+(pass) own footer is mounted once, switching away and shutdown clear it [0.26ms]
+(pass) workbench push before start joins its footer and routes refreshes [0.07ms]
+(pass) late push clears own footer before contributing and replaces hosts cleanly [0.05ms]
+(pass) pull replies work synchronously or late, but cannot resurrect a stopped session [0.07ms]
+(pass) headless contexts and invalid pushes do not mount a footer [0.02ms]
+
+tests/quotas/line/workbench.test.ts:
+(pass) only services offering both footer methods are accepted [0.04ms]
+
+tests/quotas/line/values.test.ts:
+(pass) quota values > formats known, clamped and unknown percentages in both display modes [0.07ms]
+(pass) quota values > credit stress preserves the original threshold curve [0.03ms]
+(pass) quota values > countdowns use an injected clock and retain the original units [0.03ms]
+(pass) quota values > provider strings cannot carry terminal sequences or controls [0.07ms]
+(pass) plain quota summary > uses view order, Pi ids for filters, labels, and honest unknown values [0.19ms]
+(pass) plain quota summary > needs-auth and provider text remain readable and sanitized [0.03ms]
+
+tests/quotas/line/line.test.ts:
+(pass) quota line rows > the default template resolves every token against the real providers [1.71ms]
+(pass) quota line rows > packs in-use expansion at 36 columns [0.20ms]
+(pass) quota line rows > wraps every provider segment without losing data at 36 columns [0.46ms]
+(pass) quota line rows > packs in-use expansion at 57 columns [0.11ms]
+(pass) quota line rows > wraps every provider segment without losing data at 57 columns [0.20ms]
+(pass) quota line rows > packs in-use expansion at 80 columns [0.06ms]
+(pass) quota line rows > wraps every provider segment without losing data at 80 columns [0.17ms]
+(pass) quota line rows > packs in-use expansion at 140 columns [0.04ms]
+(pass) quota line rows > wraps every provider segment without losing data at 140 columns [0.13ms]
+(pass) quota line rows > a tall block keeps editor room and says how many rows exist [0.12ms]
+
+tests/quotas/line/statusline.test.ts:
+(pass) quota statusline segment > registers on the workbench host and renders the template with in-use providers [0.84ms]
+(pass) quota statusline segment > stops owning the row on dispose and answers a late query [0.13ms]
+(pass) quota statusline segment > an owner prefix conflict leaves the legacy rows in charge [0.03ms]
+
+tests/quotas/line/template.test.ts:
+(pass) quota templates > in-use expansion and gates use aliases and all quota pressure [0.90ms]
+(pass) quota templates > aliases resolve to Pi ids and resolver caches stay independent [0.14ms]
+(pass) quota templates > canonical and legacy Codex tokens render the same usage [0.05ms]
+(pass) quota templates > unknown usage and balance never become zero or an empty bar [0.34ms]
+(pass) quota templates > antigravity's normalized scopes and legacy Argon ids keep their keys [0.11ms]
+(pass) quota templates > deeply nested or nested malformed tokens never throw [0.13ms]
+(pass) quota templates > matches exact periods and scopes, never a sibling or ambiguous window [0.16ms]
+(pass) quota templates > named percentages ignore the display mode and unscoped fields require plan windows [0.05ms]
+(pass) quota templates > all and short forms preserve every important window and authentication state [0.11ms]
+(pass) quota templates > accepts exact legacy ids only when period is absent [0.08ms]
+(pass) quota templates > optional reset punctuation disappears, real zero usage and credits stay [0.17ms]
+(pass) quota templates > nested children suppress only themselves; direct missing fields suppress their group [0.08ms]
+(pass) quota templates > identities survive missing snapshots and preserve alias spelling [0.09ms]
+(pass) quota templates > separators yield segments without punctuation [0.09ms]
+(pass) quota templates > malformed syntax and styles produce diagnostics without throwing [0.11ms]
+(pass) quota templates > custom styles use concrete colors and replace inner stress styles [0.19ms]
+
+tests/quotas/migrate/history.test.ts:
+(pass) merges aliases under the lock, preserves state and is byte-identical on repeat [28.61ms]
+(pass) concurrent migrations do not resurrect history discarded by a reversal [25.63ms]
+(pass) runOnce finishes missing sources, retries malformed sources, and records success [8.27ms]
+
+tests/quotas/migrate/settings.test.ts:
+(pass) pi-quotas settings carry-over > fills unset keys, resolves aliases, and never reapplies after a later deletion [2.11ms]
+(pass) pi-quotas settings carry-over > preserves present invalid and default-valued target keys, skipping rejected source values [0.62ms]
+(pass) pi-quotas settings carry-over > mirrors the legacy all-sources fallback for {"providers":""} [0.75ms]
+(pass) pi-quotas settings carry-over > mirrors the legacy all-sources fallback for {"providers":"all"} [0.35ms]
+(pass) pi-quotas settings carry-over > mirrors the legacy all-sources fallback for {"providers":"nope"} [0.57ms]
+(pass) pi-quotas settings carry-over > mirrors the legacy all-sources fallback for {"providers":[]} [0.35ms]
+(pass) pi-quotas settings carry-over > migrates project and user independently and ignores an omitted project source [1.39ms]
+(pass) pi-quotas settings carry-over > records a missing source as finished [0.25ms]
+(pass) pi-quotas settings carry-over > retries malformed sources and targets [1.01ms]
+
+tests/models/catalog/filter.test.ts:
+(pass) model catalog filtering > preserves personalized and custom models while filtering and refreshing [34.52ms]
+(pass) model catalog filtering > preserves literal catalog headers and user model-header precedence [14.74ms]
+
+tests/models/catalog/owned-filter.test.ts:
+(pass) owned provider visibility > composes a native provider's policy and reflects changed rules after refresh [8.68ms]
+(pass) owned provider visibility > filters an owned named provider's initial and refreshed catalog without changing publication [0.23ms]
+
+tests/models/catalog/runtime.test.ts:
+(pass) starting a session with unchanged rules does not abort a catalog refresh [0.85ms]
+(pass) stops re-registering a catalog when another extension changes its provider [88.52ms]
+
+tests/models/catalog/startup.test.ts:
+(pass) holds the startup call until own readiness and offline refreshes drain [0.70ms]
+(pass) cancellation and shutdown skip a held startup without entering the host [0.17ms]
+(pass) an aborted startup does not wait for offline work [0.10ms]
+(pass) other callers and uninitialized runtimes pass through unchanged [0.07ms]
+(pass) forwards cancellation after entry and never starts a second fetch [0.07ms]
+(pass) unavailable session runtime fails open without waiting for offline work [0.08ms]
+(pass) an unrelated initialized runtime passes through while startup is held [0.07ms]
+(pass) skips startup after a competing refresh and passes the competitor through [0.05ms]
+(pass) rejects unsupported or subsequently replaced refresh wrappers [0.03ms]
+(pass) reload reuses the wrapper and no tool or registration methods are touched [0.03ms]
+
+tests/models/overrides/store.test.ts:
+(pass) model overrides > edits JSONC without disturbing unrelated bytes [9.77ms]
+(pass) model overrides > serializes concurrent edits and preserves nested values [24.75ms]
+(pass) model overrides > applies a staged group atomically and leaves the file untouched when an edit is invalid [1.50ms]
+(pass) model overrides > removes the last field and retains other settings and comments [0.91ms]
+(pass) model overrides > preserves comments inside a deleted object [1.19ms]
+(pass) model overrides > rejects malformed and ambiguous files without changing them [1.57ms]
+(pass) model overrides > writes through a symlink while preserving CRLF, indentation and comments [1.02ms]
+(pass) model overrides > preserves trailing commas and empty object indentation with CRLF [1.25ms]
+(pass) model overrides > derives tab indentation for empty objects [0.67ms]
+(pass) model overrides > ignores unsupported directory fsync after the rename [0.98ms]
+(pass) model overrides > rejects dangling links without replacing them [0.28ms]
+(pass) model overrides > reports malformed UTF-8 with the path and repair guidance [0.42ms]
+(pass) model overrides > reports lock contention through a symlink without modifying the target [1015.89ms]
+(pass) model overrides > does not write without acquiring the lock [981.96ms]
+
+tests/models/aliases/aliases.test.ts:
+(pass) parseAliases > accepts empty and valid lists [0.11ms]
+(pass) parseAliases > rejects malformed entries and duplicate identities [0.11ms]
+(pass) expandAliases > copies source metadata, overrides limits and preserves originals [0.08ms]
+(pass) expandAliases > inherits unspecified name and limits [0.02ms]
+(pass) rewriteAliasPayload > rewrites only the selected alias without mutating caller-transformed fields [0.09ms]
+
+tests/models/aliases/native.test.ts:
+(pass) native aliases > uses physical identity for real Antigravity request shaping and signatures [2.12ms]
+(pass) native aliases > round-trips a streamed signature and maps setup errors through Antigravity [2.48ms]
+(pass) native aliases > preserves policy, transforms, identity, and prevents collisions [1.11ms]
+(pass) native aliases > preserves callbacks, result-only streams, and synchronous failures [0.27ms]
+(pass) native aliases > applies the all-model policy before creating aliases [0.13ms]
+(pass) native aliases > reads current settings and follows the original refresh [0.26ms]
+
+tests/models/aliases/named.test.ts:
+(pass) named provider aliases > leaves an absent catalog and refresh absent [0.03ms]
+(pass) named provider aliases > preserves models and metadata while reporting conflicts and invalid sources [0.16ms]
+(pass) named provider aliases > uses current aliases on refresh and preserves auth, context and publication [0.28ms]
+
+tests/models/groups/priority.test.ts:
+(pass) priority group selection > returns equally ranked paid and free members in group order, regardless of tier order [0.09ms]
+(pass) priority group selection > falls through when every tier-1 member is ineligible [0.04ms]
+(pass) priority group selection > keeps a sticky member only within the lowest eligible tier [0.05ms]
+(pass) priority group selection > excludes the failed provider and id on retry, even when it was sticky [0.02ms]
+(pass) priority group selection > reports no eligible member when empty, ineligible, or excluded by retry [0.02ms]
+
+tests/models/groups/config.test.ts:
+(pass) parseGroups > normalizes defaults, priorities, mappings and all supported strategies [0.23ms]
+(pass) parseGroups > accepts empty lists and every thinking level [0.05ms]
+(pass) parseGroups > rejects duplicate group IDs and physical identities atomically [0.05ms]
+(pass) parseGroups > rejects malformed fields, mappings, triggers and limits atomically [0.37ms]
+
+tests/models/groups/route.test.ts:
+(pass) group routes > matches complete identities, honors lowest tier and falls back [0.75ms]
+(pass) group routes > strategies choose within the eligible tier [0.23ms]
+(pass) group routes > keeps the selected physical route on tool continuation even if unhealthy [0.06ms]
+(pass) group routes > exposes conservative positive limits, union thinking levels, and remaps then clamps [0.12ms]
+(pass) group routes > offers every thinking level before a catalog is known [0.02ms]
+(pass) group routes > only configured safe failure types switch and preserve exclusions [0.19ms]
+(pass) group routes > partial output, thinking, and tool calls from the failed request prevent switches [0.20ms]
+(pass) group routes > settlement failover keeps earlier exclusions when Pi labels a retry as a user turn [0.12ms]
+(pass) group routes > keeps a zero-cost model eligible when its provider's credit balance is empty [0.16ms]
+(pass) group routes > best effort when auth or plan quota exhausts all, and ignore scoped quota [0.21ms]
+(pass) group routes > classification respects triggers and no-output errors [0.03ms]
+(pass) group routes > keeps failed route with no alternative and accepts coordinator exclusions [0.18ms]
+
+tests/models/groups/settlement.test.ts:
+(pass) group settlement > continues from the existing tool result after quota exhaustion [49.55ms]
+(pass) group settlement > each auth failure is tried at most once and the final error remains [40.52ms]
+(pass) group settlement > includes automatic retry failures when deciding whether an alternative remains [19.48ms]
+(pass) group settlement > leaves the error visible when no alternative has credentials [14.80ms]
+(pass) group settlement > does not retry partial output [14.69ms]
+(pass) group settlement > does not discard a queued follow-up [16.78ms]
+(pass) group settlement > preserves earlier boundary drafts and respects a hidden failure [31.21ms]
+
+tests/models/groups/context-cap.test.ts:
+(pass) group context cap > caps a resolved physical model without changing its identity or output limit [0.28ms]
+(pass) group context cap > passes other models and invalid limits through unchanged [0.17ms]
+(pass) group context cap > installs once and preserves rejected routes [0.09ms]
+(pass) group context cap > rejects unsupported runtimes without throwing or modifying them [0.04ms]
+
+tests/models/groups/balance.test.ts:
+(pass) balance group selection > compares estimated payable requests rather than balances [0.34ms]
+(pass) balance group selection > uses cache read and write rates and model cost tiers [0.07ms]
+(pass) balance group selection > does not use another model's cache rates for a switch [0.06ms]
+(pass) balance group selection > does not score unrelated model-group windows as plan-wide [0.08ms]
+(pass) balance group selection > does not invent request size or convert unknown currencies [0.08ms]
+(pass) balance group selection > compares restrictive plan-wide fractions separately from credit fractions [0.04ms]
+(pass) balance group selection > round-robins incomplete and incomparable data, including provider in identity [0.06ms]
+(pass) balance group selection > rotates ties and recognizes zero USD credit without a sample [0.04ms]
+(pass) balance group selection > does not assume zero credit exhausts a zero-cost model [0.02ms]
+(pass) balance group selection > invalid counts, rates and fractions remain unknown [0.05ms]
+
+tests/models/runtime/physical.test.ts:
+(pass) physical request hooks > isolates overlapping same-id requests, composes callbacks and preserves events [1.05ms]
+(pass) physical request hooks > runs caller response callbacks before request-local hooks for concurrent requests [0.39ms]
+(pass) physical request hooks > falls back when an extension-owned factory or hook throws [0.21ms]
+(pass) physical request hooks > passes virtual and unmatched calls through and updates factory on reload [0.14ms]
+(pass) physical request hooks > preserves abort events, identity, result rejection and no-message stream [0.38ms]
+(pass) physical request hooks > preserves stream iteration failures after forwarding earlier events [0.25ms]
+(pass) physical request hooks > intercepts physical recursion only and preserves callback errors and undefined payloads [0.18ms]
+(pass) physical request hooks > rejects unsupported or frozen runtimes without changes [0.04ms]
+
+tests/families/openai/codex-auth/auth.test.ts:
+(pass) loads the pi-quotas format without changing its bytes [3.47ms]
+(pass) absent and malformed credentials return undefined, with safe reporting [3.57ms]
+(pass) missing files do not seed from adjacent auth files or request tokens [0.25ms]
+(pass) fresh credentials use JWT hints without a network call [0.56ms]
+(pass) independent module sessions rotate an expired shared file exactly once [2254.27ms]
+(pass) same-session callers deduplicate refresh and preserve the refresh token when not rotated [33.94ms]
+(pass) refresh failures are typed and never rewrite the existing credential [0.84ms]
+(pass) device flow exchanges a mocked authorization code and stores compatible credentials [3004.83ms]
+(pass) cancellation prevents device polling and writes [0.69ms]
+
+tests/families/openai/codex-auth/payloads.test.ts:
+(pass) invalid token payloads fail typed without modifying credentials, and failures can retry [7.01ms]
+(pass) refresh uses JWT expiry and ignores malformed profile claims [0.71ms]
+(pass) device init validates external payloads before polling [0.39ms]
+
+ 824 pass
+ 0 fail
+ 8641 expect() calls
+Ran 824 tests across 110 files. [38.50s]

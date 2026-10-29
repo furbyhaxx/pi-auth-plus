@@ -1,0 +1,35 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash ·
+ ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi-Bolt can explain its own features and look up its docs. Ask it how to use
+ or extend Pi-Bolt.
+
+[Extensions]
+  src
+
+
+
+
+
+
+── Auth › Groups ─────────────────────────────────────────────── group detail ──
+  Providers   Quotas   Tokens   Models  ▸Groups   Settings
+ ❯ Group ID
+   Display name · (unset)
+   Strategy · sticky
+   Context window · minimum member
+   Trigger rate-limit · on
+   Trigger quota · on
+   Trigger auth · on
+   + Add member
+────────────────────────────────────────────────────────────────────────────────
+ Cost labels are informational.
+ enter edit/toggle · ctrl+s stage group · esc discard/back
+────────────────────────────────────────────────────────────────────────────────
+or: login · ds: login · cox: login · cl: 5h/login 7d/login
+ag: gem/login arg/login · syn: … · xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/work
+0.0%/262k (auto)                                              kimi-k2.6 • medium

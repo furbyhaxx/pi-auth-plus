@@ -1,0 +1,35 @@
+
+[Extensions]
+  src
+
+
+── Auth › Quotas ───────────────────────────────────────────────────────────────────────────────────────────────────── below-editor-first ──
+  Providers  ▸Quotas   Tokens   Models   Groups   Settings
+ ❯ Synthetic (syn)
+     ✗ API key auth failed for provider synthetic: Failed to resolve API key for provider "synthetic" from environment variable: SYNTHETIC_…
+   Claude (cl) · 38s ago
+     ⚠ /login claude
+     ✗ Claude: no credential configured; run /login claude
+   Antigravity (ag) · 38s ago
+     ⚠ /login antigravity
+     ✗ antigravity: no login; run /login antigravity
+   OpenAI Codex (cox) · 38s ago
+     ⚠ /quota codex login or /login openai-codex
+     ✗ codex: no credential configured; run /quota codex login or /login openai-codex
+   xAI (xai) · 38s ago
+     ⚠ /login xai
+     ✗ No credential configured; run /login xai
+   OpenRouter (or) · 38s ago
+     ⚠ /login openrouter
+     ✗ OpenRouter: no credential configured; use /login openrouter
+   DeepSeek (ds) · 38s ago
+     ⚠ /login deepseek
+     ✗ deepseek: no credential configured; use /login deepseek
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Usage windows and credits per provider.
+ tab switch · ↑↓ provider · r/R refresh · a solo · p position · esc close
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: login · deepseek: login · codex: login · claude: 5h/login 7d/login · antigravity: gem/login arg/login · synthetic: …
+xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/work
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium

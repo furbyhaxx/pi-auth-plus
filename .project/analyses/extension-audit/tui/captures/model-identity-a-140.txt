@@ -1,0 +1,35 @@
+
+
+ Error: Unknown section "setings". Did you mean: settings? Usage: /auth [providers|quotas|tokens|models|groups|settings]
+
+── Auth › Models ─────────────────────────────────────────────────────────────────────────────────────────────────────────── model detail ──
+  Providers   Quotas   Tokens  ▸Models   Groups   Settings
+ synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017
+ ❯ Name · deepseek-ai/DeepSeek-V4.1-Flash-1017 · default
+   Context window · 524288 · default
+   Max tokens · 65536 · default
+   Reasoning · true · default
+   Input · text, image · default
+   Cost input · 0.6 · default
+   Cost output · 1.2 · default
+   Cost cacheRead · 0.03 · default
+   Cost cacheWrite · 0 · default
+ Aliases
+   + new alias
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Overrides are saved to user models.json.
+ enter edit · ←/→ change · backspace inherit · ctrl+s save · esc discard/back
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+openrouter: login · deepseek: login · codex: login · claude: 5h/login 7d/login · antigravity: gem/login arg/login · synthetic: …
+xai: login
+/tmp/pi-auth-tui-qa.YbjRaj/custom/work
+0.0%/262k (auto)                                                                                                          kimi-k2.6 • medium
+
+
+
+
+
+
+
+
+

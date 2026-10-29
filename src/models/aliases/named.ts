@@ -8,8 +8,10 @@ export function wrapNamedAliases(
 	config: ProviderConfig,
 	aliases: () => readonly ModelAlias[],
 	report?: (issues: readonly AliasIssue[]) => void,
+	onPhysicalCatalog?: (models: readonly ProviderModelConfig[]) => void,
 ): ProviderConfig {
-	function expand(physical: ProviderModelConfig[]): ProviderModelConfig[] {
+	function expand(physical: ProviderModelConfig[], capture = true): ProviderModelConfig[] {
+		if (capture) onPhysicalCatalog?.(physical);
 		const models = [...physical];
 		const resolution = resolveAliases(
 			physical.map((model) => ({
@@ -41,7 +43,8 @@ export function wrapNamedAliases(
 		...(refreshModels
 			? {
 					async refreshModels(context) {
-						return expand(await refreshModels.call(config, context));
+						const physical = await refreshModels.call(config, context);
+						return expand(physical, !context.signal.aborted);
 					},
 				}
 			: {}),

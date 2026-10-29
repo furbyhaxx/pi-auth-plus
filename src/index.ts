@@ -24,6 +24,7 @@ import { registerThoughtSignatureRecovery } from "./families/google/signature-re
 import { FAMILIES } from "./families/index.ts";
 import { wrapNamedAliases } from "./models/aliases/named.ts";
 import { wrapNativeAliases } from "./models/aliases/native.ts";
+import { AliasCatalog } from "./models/aliases/runtime.ts";
 import { filterNativeProvider, filterOwnedConfig } from "./models/catalog/owned-filter.ts";
 import { CatalogVisibility } from "./models/catalog/runtime.ts";
 import { installStartupCoordinator } from "./models/catalog/startup.ts";
@@ -126,10 +127,39 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	};
 	const ownedProviders = new Set<string>();
 	const ownedCatalog = new Map<string, () => readonly ModelCatalogItem[]>();
+	const aliasCatalog = new AliasCatalog(() => settings.get("models.aliases"));
+	const warnedAliases = new Set<string>();
+	let aliasContext: ExtensionContext | undefined;
+	const warnAliasIssues = (ctx: ExtensionContext, signal: AbortSignal): void => {
+		if (signal.aborted) return;
+		const lines: string[] = [];
+		for (const issue of aliasCatalog.issues()) {
+			const { provider, id, source } = issue.alias;
+			const key = JSON.stringify([provider, id, issue.kind]);
+			if (warnedAliases.has(key)) continue;
+			warnedAliases.add(key);
+			const reason =
+				issue.kind === "collision"
+					? "ID collides with a physical model or another alias"
+					: "source is missing, ambiguous, or not a chat model";
+			lines.push(
+				`${JSON.stringify(provider)}/${JSON.stringify(id)} -> ${JSON.stringify(source)}: ${reason}`,
+			);
+		}
+		if (lines.length > 0)
+			ctx.ui.notify(
+				`pi-auth-plus rejected model aliases:\n${lines.join("\n")}\nEdit models.aliases and refresh models.`,
+				"warning",
+			);
+	};
 	const providerSink: ProviderSink = {
 		registerProvider(providerOrName: Provider | string, config?: ProviderConfig) {
 			if (typeof providerOrName !== "string") {
 				ownedProviders.add(providerOrName.id);
+				aliasCatalog.register(
+					providerOrName.id,
+					() => providerOrName.getAllModels?.() ?? providerOrName.getModels(),
+				);
 				const aliased = wrapNativeAliases(providerOrName, () => settings.get("models.aliases"));
 				ownedCatalog.set(providerOrName.id, () => aliased.getModels());
 				pi.registerProvider(
@@ -138,10 +168,39 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			} else if (config) {
 				if (providerOrName === "synthetic") {
 					ownedProviders.add(providerOrName);
-					const aliased = wrapNamedAliases(providerOrName, config, () =>
-						settings.get("models.aliases"),
-					);
+					let physical: readonly ProviderModelConfig[] = [];
 					let original: readonly ProviderModelConfig[] = [];
+					aliasCatalog.register(providerOrName, () =>
+						physical.map((model) => ({
+							provider: providerOrName,
+							id: model.id,
+							...(model.type === undefined ? {} : { type: model.type }),
+						})),
+					);
+					const aliased = wrapNamedAliases(
+						providerOrName,
+						config,
+						() => settings.get("models.aliases"),
+						undefined,
+						(models) => {
+							physical = models;
+							if (aliasContext) warnAliasIssues(aliasContext, sessionController.signal);
+						},
+					);
+					const refresh = aliased.refreshModels;
+					const guarded: ProviderConfig = refresh
+						? {
+								...aliased,
+								async refreshModels(context) {
+									const owner = sessionController.signal;
+									const signal = owner.aborted
+										? context.signal
+										: AbortSignal.any([context.signal, owner]);
+									const models = await refresh({ ...context, signal });
+									return signal.aborted ? [...original] : models;
+								},
+							}
+						: aliased;
 					ownedCatalog.set(providerOrName, () =>
 						original.flatMap((model) =>
 							model.type === undefined || model.type === "chat"
@@ -164,7 +223,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 					pi.registerProvider(
 						providerOrName,
 						filterOwnedConfig(
-							aliased,
+							guarded,
 							(model) => isVisible(providerOrName, model),
 							(models) => {
 								original = models;
@@ -185,7 +244,9 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		ctx: ExtensionContext,
 		changedProviders: readonly string[] = [],
 	): Promise<void> => {
+		const signal = sessionController.signal;
 		await catalogVisibility.apply(ctx, changedProviders);
+		if (signal.aborted) return;
 		const selected = ctx.model;
 		if (
 			!selected ||
@@ -199,7 +260,9 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				.getAvailable()
 				.filter((model) => isVisible(model.provider, model));
 			const next = available.find((model) => model.provider === selected.provider) ?? available[0];
-			if (next && (await pi.setModel(next))) {
+			const switched = next && (await pi.setModel(next));
+			if (signal.aborted) return;
+			if (switched && next) {
 				ctx.ui.notify(
 					`${identity} is hidden by model rules; switched to ${next.provider}/${next.id}.`,
 					"info",
@@ -214,17 +277,30 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	};
 	// Registered before the families so their session_start handlers see this session's settings.
 	pi.on("session_start", async (_event, ctx) => {
+		const signal = sessionController.signal;
+		aliasContext = undefined;
+		warnedAliases.clear();
+		const previousAliases = JSON.stringify(settings.get("models.aliases"));
 		const project = ctx.isProjectTrusted() ? projectSettingsPath(ctx.cwd) : undefined;
 		settings = new SettingsStore(
 			SETTINGS,
 			project ? { user: userSettingsPath(), project } : { user: userSettingsPath() },
 		);
 		const problems = await settings.load();
-		await applyModelRules(ctx);
+		if (signal.aborted) return;
+		const changed =
+			previousAliases === JSON.stringify(settings.get("models.aliases")) ? [] : [...ownedProviders];
+		await applyModelRules(ctx, changed);
+		if (signal.aborted) return;
+		aliasContext = ctx;
+		warnAliasIssues(ctx, signal);
 		if (problems.length > 0) {
 			const lines = problems.map((p) => `${p.path}${p.key ? ` ${p.key}` : ""}: ${p.reason}`);
 			ctx.ui.notify(`pi-auth-plus settings:\n${lines.join("\n")}`, "warning");
 		}
+	});
+	pi.on("session_shutdown", (_event, ctx) => {
+		if (ownsShutdown(ctx)) aliasContext = undefined;
 	});
 	let quotaContext: ExtensionContext | undefined;
 	// Filled by session_start; request hooks only run inside a session.
@@ -357,6 +433,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	});
 	const host = {
 		settings: () => settings,
+		aliases: () => aliasCatalog.aliases(),
+		resolveModel: (model: Parameters<AliasCatalog["resolve"]>[0]) => aliasCatalog.resolve(model),
 		physicalHooksAvailable: () => physicalHooksActive,
 	};
 	await registerFamilyProviders(providerSink, registry, host);
@@ -381,7 +459,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			const hooks = registry.families.flatMap((family) => {
 				try {
 					const hook = family.physical?.(model, {
-						settings: () => settings,
+						...host,
 						cwd: sessionCwd,
 					});
 					return hook ? [hook] : [];
@@ -499,8 +577,15 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 					list: () => settings.get("models.aliases"),
 					supported: (provider) => ownedProviders.has(provider),
 					save: async (aliases, scope) => {
+						const signal = sessionController.signal;
+						const ctx = quotaContext;
 						await settings.save(scope, { "models.aliases": aliases });
-						if (quotaContext) await applyModelRules(quotaContext, [...ownedProviders]);
+						if (signal.aborted || !ctx) return;
+						try {
+							await applyModelRules(ctx, [...ownedProviders]);
+						} finally {
+							warnAliasIssues(ctx, signal);
+						}
 					},
 				},
 				read: (provider, id) => readOverride(modelsPath(), provider, id),
@@ -569,12 +654,21 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				quotaLine.settingsChanged();
 				if (quotaContext && keys.some((key) => key.startsWith("models."))) {
 					const ctx = quotaContext;
-					const changed = keys.includes("models.aliases") ? [...ownedProviders] : [];
-					void applyModelRules(ctx, changed).catch((error: unknown) =>
-						ctx.ui.notify(
-							`Model rules could not be refreshed: ${error instanceof Error ? error.message : String(error)}`,
-							"warning",
-						),
+					const signal = sessionController.signal;
+					const aliasesChanged = keys.includes("models.aliases");
+					const changed = aliasesChanged ? [...ownedProviders] : [];
+					void applyModelRules(ctx, changed).then(
+						() => {
+							if (aliasesChanged) warnAliasIssues(ctx, signal);
+						},
+						(error: unknown) => {
+							if (signal.aborted) return;
+							if (aliasesChanged) warnAliasIssues(ctx, signal);
+							ctx.ui.notify(
+								`Model rules could not be refreshed: ${error instanceof Error ? error.message : String(error)}`,
+								"warning",
+							);
+						},
 					);
 				}
 			},

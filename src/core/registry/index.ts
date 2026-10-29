@@ -1,6 +1,7 @@
 /** Family registry: the only place engines and the UI learn provider ids, aliases and families. */
 import type { Api, Model, Provider } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ProviderConfig } from "@earendil-works/pi-coding-agent";
+import type { ModelAlias } from "../../models/aliases/index.ts";
 import type { PhysicalRequestHooks } from "../../models/runtime/physical.ts";
 import type { QuotaSource } from "../../quotas/types.ts";
 import type { CounterDeps, TokenCounter, TokenModel } from "../../tokens/types.ts";
@@ -61,7 +62,7 @@ export interface FamilyAdapter {
 	 */
 	readonly physical?: (
 		model: Model<Api>,
-		host: { readonly settings: () => AppSettings; readonly cwd: string },
+		host: FamilyHost & { readonly cwd: string },
 	) => PhysicalRequestHooks | undefined;
 }
 
@@ -69,6 +70,10 @@ export interface FamilyAdapter {
 export interface FamilyHost {
 	/** The session's settings, loaded before any family's `session_start` handler runs. */
 	readonly settings: () => AppSettings;
+	/** Aliases accepted against the original physical catalogs. */
+	readonly aliases?: () => readonly ModelAlias[];
+	/** Resolves an accepted alias to its physical model identity. */
+	readonly resolveModel?: (model: TokenModel) => TokenModel;
 	/** Whether request-local physical hooks are active for this session. */
 	readonly physicalHooksAvailable?: () => boolean;
 }

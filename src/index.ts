@@ -488,6 +488,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			engine: quotas,
 			cwd: ctx.cwd,
 			projectTrusted,
+			signal,
 		});
 		if (signal.aborted) return;
 		if (carried.info.length > 0) ctx.ui.notify(carried.info.join("\n"), "info");

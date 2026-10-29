@@ -53,7 +53,10 @@ still allowing runtime changes. As with other list settings, a project or runtim
 replaces the lower-scope list; include any rules you want to keep. If an existing selection
 becomes hidden when session rules
 are applied, `models.hiddenDefault` controls whether to warn and keep it or select an
-available fallback. A model hidden by a user rule may not resolve when explicitly named
+available fallback. Automatic selection requires Pi-Bolt's cancelable
+`setModelIfCurrent` API so a delayed switch cannot affect a replacement session. On Pi
+builds without it, the current selection is kept and a warning asks you to use `/model`.
+A model hidden by a user rule may not resolve when explicitly named
 with `--model`, because user rules apply before session startup. If another extension owns
 a provider's catalog or stream, a warning identifies detected conflicts. Pi does not expose
 other extensions' registrations during startup, so a built-in provider's configuration may
@@ -78,7 +81,9 @@ Physical model overrides are stored only in Pi's **user** `<agentDir>/models.jso
 project settings. The editor preserves comments and unrelated settings, refuses malformed
 or conflicting files, and saves all staged fields in one locked update. Another writer that
 ignores the lock can still race the final filesystem replacement. Changes refresh the
-catalog; if a selected model cannot be refreshed, reselect it. Adjusting displayed limits
+catalog; automatic re-selection uses the same cancelable API. If it is unavailable or the
+selection does not apply, the override stays saved and a warning asks you to reselect it
+with `/model`. Adjusting displayed limits
 does not change the provider's actual limits.
 
 ## Aliases

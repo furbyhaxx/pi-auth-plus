@@ -38,7 +38,7 @@ export function projectSettingsPath(cwd: string): string {
 	return join(cwd, ".pi", SETTINGS_FILE_NAME);
 }
 
-/** Host cache shared by every session on this machine (quota snapshots, token counts). */
+/** Host cache shared by every session on this machine (quota snapshots and drainage history). */
 export function cacheDir(env: PathEnv = process.env): string {
 	return join(agentDir(env), "cache", "auth-plus");
 }

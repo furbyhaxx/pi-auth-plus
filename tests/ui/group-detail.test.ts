@@ -74,6 +74,16 @@ function open(
 		press(`\x1b[200~${value}\x1b[201~`);
 		press("\r");
 	};
+	const picker = () => {
+		select("+ Add member");
+		press("\r");
+	};
+	const search = (value: string) => press(`\x1b[200~${value}\x1b[201~`);
+	const add = (name: string) => {
+		picker();
+		search(name);
+		press("\r");
+	};
 	const text = () => view.render(120, 60).lines.map(stripVTControlCharacters).join("\n");
 	return {
 		view,
@@ -81,6 +91,9 @@ function open(
 		press,
 		select,
 		edit,
+		picker,
+		search,
+		add,
 		text,
 		confirmDiscard: () => {
 			const discard = pendingDiscard;
@@ -101,7 +114,7 @@ describe("group detail", () => {
 		r.press("l");
 		r.select("Trigger quota");
 		r.press(" ");
-		r.edit("+ Add member", "vendor/org/model");
+		r.add("Model");
 		r.select("Member 1");
 		r.select("Priority tier");
 		r.press("\r");
@@ -136,14 +149,30 @@ describe("group detail", () => {
 		r.press("\x13");
 		expect(r.text()).toContain("Invalid group");
 		r.edit("Group ID", "team");
-		r.edit("+ Add member", "vendor/missing");
-		expect(r.text()).toContain("not in catalog");
-		r.press("\x15");
-		r.press("\x1b[200~vendor/org/model\x1b[201~");
+		r.picker();
+		r.search("vendor/missing");
+		expect(r.text()).toContain("No models match");
 		r.press("\r");
-		r.edit("+ Add member", "vendor/org/model");
-		expect(r.text()).toContain("Duplicate member");
+		expect(r.text()).toContain("No models match");
 		r.press("\x1b");
+		r.press("\x1b");
+		expect(r.text()).not.toContain("Member 1");
+		r.press("\x13");
+		expect(r.text()).toContain("Invalid group");
+		expect(r.groups).toHaveLength(0);
+		r.add("Model");
+		expect(r.text()).toContain("vendor/org/model");
+		r.picker();
+		expect(r.text()).not.toContain("vendor/org/model");
+		expect(r.text()).toContain("vendor/other");
+		r.search("vendor/org/model");
+		expect(r.text()).toContain("No models match");
+		r.press("\r");
+		expect(r.text()).toContain("No models match");
+		r.press("\x1b");
+		r.press("\x1b");
+		expect(r.text()).toContain("Member 1 · vendor/org/model");
+		expect(r.text()).not.toContain("Member 2");
 		r.edit("Context window", "12oops");
 		r.press("\x13");
 		expect(r.text()).toContain("Context window must be a positive integer");
@@ -155,18 +184,34 @@ describe("group detail", () => {
 		r.press("\x13");
 		expect(r.text()).toContain("Invalid group");
 		expect(r.groups).toHaveLength(0);
+		r.edit("Thinking map", "low=high");
+		r.press("\x13");
+		expect(r.groups[0]?.members).toEqual([
+			{ provider: "vendor", id: "org/model", tier: 1, thinking: { low: "high" } },
+		]);
 	});
 	test.each(["group/g", "group/no-api", "group/missing", "foreign/logical"])(
-		"rejects %s with actionable feedback and stages a physical alias instead",
+		"filters %s and stages a physical alias instead",
 		(identity) => {
 			const r = open();
 			r.edit("Group ID", "team");
-			r.edit("+ Add member", identity);
-			expect(r.text()).toContain("Choose a physical model");
-			expect(r.text()).not.toContain("Member 1");
-			r.press("\x15");
-			r.press("\x1b[200~vendor/alias/path\x1b[201~");
+			r.picker();
+			expect(r.view.render(120, 60).state).toBe("1–3 of 3");
+			expect(r.text()).toContain("vendor/org/model");
+			expect(r.text()).toContain("vendor/other");
+			expect(r.text()).toContain("vendor/alias/path");
+			expect(r.text()).not.toContain(identity);
+			r.search(identity);
+			expect(r.text()).toContain("No models match");
 			r.press("\r");
+			expect(r.text()).toContain("No models match");
+			r.press("\x1b");
+			r.press("\x1b");
+			expect(r.text()).not.toContain("Member 1");
+			r.press("\x13");
+			expect(r.text()).toContain("Invalid group");
+			expect(r.groups).toHaveLength(0);
+			r.add("Alias");
 			expect(r.text()).toContain("vendor/alias/path");
 			r.press("\x13");
 			expect(r.groups[0]?.members).toEqual([{ provider: "vendor", id: "alias/path", tier: 1 }]);
@@ -219,7 +264,8 @@ describe("group detail", () => {
 		let models = [catalog[2]].filter((item): item is ModelCatalogItem => item !== undefined);
 		const r = open(undefined, () => models);
 		r.edit("Group ID", "team");
-		r.edit("+ Add member", "vendor/alias/path");
+		r.add("Alias");
+		expect(r.text()).toContain("vendor/alias/path");
 		models = models.map((item) => ({ ...item, api: "pi-virtual" }));
 		r.press("\x13");
 		expect(r.text()).toContain("choose a physical model");

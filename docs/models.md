@@ -1,8 +1,16 @@
 # Model management
 
-Open `/auth models` to edit visibility rules, model overrides and aliases; open
-`/auth groups` to configure virtual model groups. The catalog preview includes hidden
-models, so they can be shown again without editing a file.
+Open `/auth models` to edit visibility rules, inspect the catalog, change model overrides
+and manage aliases; open `/auth groups` to configure virtual model groups. In Settings,
+Enter on `models.rules` or `models.aliases` navigates to Models, and `models.groups`
+navigates to Groups. The catalog preview includes hidden models, so they can be shown again
+without editing a file. The JSON examples below document file formats; these editors use the
+dashboard rather than a JSON side editor.
+
+Dashboard drafts, including nested editor state, remain staged when switching tabs. Backing
+out of a nested editor or closing the dashboard asks before discarding its draft; an in-flight
+save cannot be interrupted by navigation. Scoped settings saves report keys shadowed by a
+higher-priority scope and any committed warnings.
 
 ## Visibility rules
 
@@ -34,7 +42,8 @@ In the Models tab:
 - `v` switches between rules and the catalog. In the catalog, `h` appends an exact
   hide/show rule for the selected model.
 - Ctrl+S followed by `u`, `p`, or `r` saves rules to user, trusted project, or the
-  current session. Escape discards staged changes.
+  current session. Escape backs out or closes; when drafts would be discarded, the
+  dashboard asks for confirmation.
 
 User rules apply during startup, including `--list-models`; trusted-project rules apply
 when the session starts. Set `models.rulesScope` to `"user"` to ignore project rules while
@@ -60,25 +69,26 @@ Select a model in the catalog and press Enter. Name, context and output limits,
 reasoning, input types, and token costs can be staged individually. OpenAI Responses
 and Codex Responses models also offer response verbosity; `inherit` uses the global
 setting. Enter edits a text or numeric field, Left/Right changes an option, and Backspace
-stages removal of the selected override. Ctrl+S saves the staged changes; Escape discards
-them and returns to the catalog.
+stages removal of the selected override. Ctrl+S saves staged fields; Escape asks before
+throwing them away, then returns to the catalog.
 
-Overrides are stored in Pi's **user** `<agentDir>/models.json`, not in project settings.
-The editor preserves comments and unrelated settings, refuses malformed or conflicting
-files, and saves all staged fields in one locked update. Another writer that ignores the
-lock can still race the final filesystem replacement. Changes refresh the catalog; if a
-selected model cannot be refreshed, reselect it. Adjusting displayed limits does not
-change the provider's actual limits.
+Physical model overrides are stored only in Pi's **user** `<agentDir>/models.json`, not in
+project settings. The editor preserves comments and unrelated settings, refuses malformed
+or conflicting files, and saves all staged fields in one locked update. Another writer that
+ignores the lock can still race the final filesystem replacement. Changes refresh the
+catalog; if a selected model cannot be refreshed, reselect it. Adjusting displayed limits
+does not change the provider's actual limits.
 
 ## Aliases
 
 In the Models catalog, select a source model, press Enter, and use its alias controls
 to add or edit an alias. Set an ID and optionally a display name, context window and
-output limit. Blank optional fields inherit from the source. Ctrl+S saves to user,
-trusted-project or runtime scope; `d` stages removal of an existing alias. The alias
-appears under the same provider, but requests use the source model ID. Alias editing
-is available for providers owned by pi-auth-plus. The source must exist and the alias ID
-must not collide with another model in that provider.
+output limit. Blank optional fields inherit from the source. Ctrl+S opens the explicit
+user, trusted-project or runtime scope choice; `d` stages removal of an existing alias.
+Escape asks before discarding alias drafts. The alias appears under the same provider,
+but requests use the source model ID. Alias editing is available for providers owned by
+pi-auth-plus. The source must exist and the alias ID must not collide with another model
+in that provider.
 
 Aliases are stored in `models.aliases` as a list. A higher-scope list replaces the
 lower-scope list. For example:
@@ -96,15 +106,23 @@ lower-scope list. For example:
 ## Model groups
 
 Groups are virtual models named `group/<id>`. Open `/auth groups`, press `a` to add
-a group or Enter to edit one, and add members as `provider/model-id` from the catalog.
-In the group editor, Enter edits a field, Left/Right changes options, `d` removes a
-member, and Shift+Up/Down reorders members. Ctrl+S stages the group; Ctrl+S again in
-the group list saves to user, trusted-project or runtime scope. Escape discards staged
-changes. As with aliases, a higher-scope `models.groups` list replaces the lower list.
+a group or Enter to edit one. Select `+ Add member` and press Enter to open the catalog
+picker; type or press `/` to search by model ID or name, then Tab or move to the results.
+Page through matches; press `?` to inspect the full provider/model identity and display
+name. Only eligible physical catalog entries can be added as members. In the group editor,
+Enter edits a field and Left/Right changes options,
+`d` removes a member, and Shift+Up/Down reorders members. Ctrl+S stages the group into
+the group list; Ctrl+S again in the group list asks for user, trusted-project or runtime
+scope. Backing out asks before discarding a modified group draft, and closing with staged
+groups asks before discarding them. As with aliases, a higher-scope `models.groups` list
+replaces the lower list.
 
-Each member has a positive priority tier: routing first considers healthy members in
-the lowest available tier. If none is known to be healthy, it falls back to the remaining
-members. Within the chosen tier:
+Each member has a positive priority tier. Routing selects from the lowest tier containing
+routable candidates. Health is best-effort: `healthy` means quota availability is known;
+`unknown` quota health remains a best-effort candidate (unless exhaustion is already
+observed); `unavailable`, `needs-auth` and `exhausted` are known non-routable states. If
+no routable candidate remains, routing falls back to a configured physical candidate.
+Within the chosen tier:
 
 - `sticky` retains the previous member when available; otherwise it picks the first.
 - `failover` picks the first member in group order.

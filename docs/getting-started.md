@@ -58,8 +58,9 @@ Legacy files are never deleted or rewritten by carry-over.
 Existing `claude` credentials in Pi's `auth.json` carry over. Move replace patterns from
 Pi's old `settings.json` to `claude.replacePatterns` in `auth-plus.json`; the old setting
 is not read. Rules are literal matches with an optional replacement; omitting it drops
-matching paragraphs. Subscription tool names follow the interactive Claude Code wire
-format, without the old `mcp_` prefix. API-key access stays on Pi's Anthropic path.
+matching paragraphs. You can edit them as typed match/replacement rows in `/auth settings`
+without editing a JSON collection. Subscription tool names follow the interactive Claude
+Code wire format, without the old `mcp_` prefix. API-key access stays on Pi's Anthropic path.
 
 ### From pi-opencode-auth
 
@@ -121,8 +122,9 @@ project `.auth.json` credentials are not read. Reports use `codex` and `xai`; `o
 display label, not an accepted input alias.
 
 Replace `/quota settings` with `/auth settings`, `/quota refresh` with panel `r`/`R`,
-and `/quota line` with panel `p` or the placement setting. `/quota codex login` keeps
-its pi-quotas form. Scripts switch from `--list-quotas [--json]` to
+and `/quota line` with the panel's `p` placement chooser (which asks for an explicit save
+scope) or the placement setting. `/quota codex login` keeps its pi-quotas form. Scripts
+switch from `--list-quotas [--json]` to
 `--quotas-list` or `--quotas-json`. There is no command-line reset spend; use the
 [interactive reset flow](quotas.md#reset-credits). Integrations switch to the
 [new bus contract](events.md).
@@ -131,5 +133,7 @@ its pi-quotas form. Scripts switch from `--list-quotas [--json]` to
 
 - [Quotas](quotas.md): providers, templates, panel keys, resets, cache and CLI.
 - [Commands](commands.md): dashboard tabs, aliases and keys.
+- [Model management](models.md): visibility rules, overrides, aliases and groups.
+- [Token counts](tokens.md): count sources, estimates and context reporting.
 - [Configuration](configuration.md): every setting, layer, path and environment variable.
 - [Events](events.md): consuming quotas from another extension.

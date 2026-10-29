@@ -1,11 +1,30 @@
 /** Counts projected context with Pi-compatible usage anchors and source-labelled segments. */
 import { createHash } from "node:crypto";
+import {
+	getCurrentSystemPrompt,
+	getSystemMessageText,
+	normalizeContext,
+	renderSystemMessageUpdate,
+} from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
 import { estimateCounter } from "../estimate/index.ts";
-import type { CounterDeps, TokenCount, TokenCounter, TokenModel, ToolSchema } from "../types.ts";
+import type {
+	CounterDeps,
+	TokenContextInput,
+	TokenCount,
+	TokenCounter,
+	TokenModel,
+	ToolSchema,
+} from "../types.ts";
 import { sumCounts } from "../types.ts";
-import { currentSystem, messageSegments, type Segment, usageAnchor } from "./messages.ts";
+import {
+	currentSystem,
+	messageSegments,
+	nativeContext,
+	type Segment,
+	usageAnchor,
+} from "./messages.ts";
 
 /** The live session inputs required by the counter, without Pi runtime imports. */
 export interface EngineContext {
@@ -16,11 +35,12 @@ export interface EngineContext {
 		ExtensionContext["sessionManager"],
 		"buildSessionProjection" | "getBranch"
 	>;
+	readonly modelRegistry?: Pick<ExtensionContext["modelRegistry"], "find">;
 	getSystemPrompt(): string;
 	getContextUsage(): { readonly tokens: number | null } | undefined;
 }
 
-/** The next request's count, its usage anchor and Pi's comparison estimate. */
+/** The supplied context's count, its usage anchor and Pi's comparison estimate. */
 export interface ContextReport {
 	readonly provider: string;
 	readonly model: string;
@@ -97,12 +117,16 @@ function breakdownKind(role: string): BreakdownKind {
 export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 	const counters = new Map<string, TokenCounter>();
 	const memo = new Map<string, TokenCount>();
+	const contextMemo = new Map<string, TokenCount>();
 	const pending = new Map<string, Promise<TokenCount>>();
 	const fallback = estimateCounter("default");
 	const now = options.now ?? Date.now;
 
-	function counterFor(model: TokenModel): TokenCounter {
-		const physical = options.resolveModel ? options.resolveModel(model) : model;
+	function physicalModel(model: TokenModel): TokenModel {
+		return options.resolveModel ? options.resolveModel(model) : model;
+	}
+
+	function counterForPhysical(physical: TokenModel): TokenCounter {
 		const key = JSON.stringify([physical.provider, physical.id]);
 		const cached = counters.get(key);
 		if (cached) return cached;
@@ -116,6 +140,70 @@ export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 		}
 		counters.set(key, selected);
 		return selected;
+	}
+
+	function counterFor(model: TokenModel): TokenCounter {
+		return counterForPhysical(physicalModel(model));
+	}
+
+	async function countContext(
+		counter: TokenCounter,
+		physical: TokenModel,
+		ctx: EngineContext,
+		messages: SessionMessages,
+		signal?: AbortSignal,
+	): Promise<TokenCount | undefined> {
+		const native = counter.countContext;
+		if (!native || !ctx.modelRegistry || signal?.aborted) return undefined;
+		const model = ctx.modelRegistry.find(physical.provider, physical.id);
+		if (!model || model.provider !== physical.provider || model.id !== physical.id)
+			return undefined;
+		const context = nativeContext(messages, () => ctx.getSystemPrompt(), options.tools);
+		if (!context) return undefined;
+		const input: TokenContextInput = { model, context };
+		let key: string;
+		try {
+			const transcript = normalizeContext(context);
+			const rewrite = counter.systemText?.bind(counter);
+			const rewritten = rewrite
+				? [
+						rewrite(getCurrentSystemPrompt(transcript.messages)),
+						...transcript.messages.flatMap((message) =>
+							message.role === "system"
+								? [
+										rewrite(getSystemMessageText(message)),
+										rewrite(renderSystemMessageUpdate(message)),
+									]
+								: [],
+						),
+					]
+				: undefined;
+			key = createHash("sha256")
+				.update(JSON.stringify([counter.id, input, rewritten]))
+				.digest("hex");
+		} catch {
+			return undefined;
+		}
+		const cached = contextMemo.get(key);
+		if (cached) {
+			contextMemo.delete(key);
+			contextMemo.set(key, cached);
+			return cached;
+		}
+		try {
+			const count = await native.call(counter, input, signal);
+			if (signal?.aborted || !count) return undefined;
+			if (count.source !== "estimate") {
+				contextMemo.set(key, count);
+				if (contextMemo.size > MEMO_LIMIT) {
+					const oldest = contextMemo.keys().next().value;
+					if (oldest !== undefined) contextMemo.delete(oldest);
+				}
+			}
+			return count;
+		} catch {
+			return undefined;
+		}
 	}
 
 	async function memoized(key: string, compute: () => Promise<TokenCount>): Promise<TokenCount> {
@@ -278,31 +366,40 @@ export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 	): Promise<ContextReport | undefined> {
 		const model = ctx.model;
 		if (!model || signal?.aborted) return undefined;
-		const counter = counterFor(model);
+		const physical = physicalModel(model);
+		const counter = counterForPhysical(physical);
 		const projection = ctx.sessionManager.buildSessionProjection();
 		const anchorInfo = usageAnchor(projection, ctx.sessionManager.getBranch());
-		const counts: TokenCount[] = [];
-		if (!anchorInfo) {
-			const inputs = systemInputs(counter, ctx, projection.messages);
-			const system = await countSegments(counter, inputs.segments, signal);
-			if (!system) return undefined;
-			counts.push(system);
-			const tools = await countTools(counter, inputs.tools, signal);
-			if (!tools) return undefined;
-			counts.push(tools);
-		}
 		const messages = projection.messages.slice(anchorInfo ? anchorInfo.index + 1 : 0);
-		for (const message of messages) {
-			// Without an anchor the replayed system state above already covers every system message.
-			if (!anchorInfo && message.role === "system") continue;
-			const segments = messageSegments(message);
-			const count = await countSegments(
-				counter,
-				message.role === "system" ? asSent(counter, segments) : segments,
-				signal,
-			);
-			if (!count) return undefined;
-			counts.push(count);
+		const counts: TokenCount[] = [];
+		const full = anchorInfo
+			? undefined
+			: await countContext(counter, physical, ctx, projection.messages, signal);
+		if (signal?.aborted) return undefined;
+		if (full) {
+			counts.push(full);
+		} else {
+			if (!anchorInfo) {
+				const inputs = systemInputs(counter, ctx, projection.messages);
+				const system = await countSegments(counter, inputs.segments, signal);
+				if (!system) return undefined;
+				counts.push(system);
+				const tools = await countTools(counter, inputs.tools, signal);
+				if (!tools) return undefined;
+				counts.push(tools);
+			}
+			for (const message of messages) {
+				// Without an anchor the replayed system state above already covers every system message.
+				if (!anchorInfo && message.role === "system") continue;
+				const segments = messageSegments(message);
+				const count = await countSegments(
+					counter,
+					message.role === "system" ? asSent(counter, segments) : segments,
+					signal,
+				);
+				if (!count) return undefined;
+				counts.push(count);
+			}
 		}
 		if (signal?.aborted) return undefined;
 		const anchor: TokenCount | undefined = anchorInfo

@@ -1,4 +1,5 @@
 /** Model-visible message segments and persisted-usage anchor selection. */
+import type { Context, Message as SdkMessage, Tool } from "@earendil-works/pi-ai";
 import type { SessionEntry, SessionProjection } from "@earendil-works/pi-coding-agent";
 import { textKind } from "../estimate/index.ts";
 import type { TextKind, TokenCount, ToolSchema } from "../types.ts";
@@ -80,6 +81,67 @@ export function messageSegments(message: Message): readonly Segment[] {
 			return segments;
 		}
 	}
+}
+
+function supportedContent(message: SdkMessage): boolean {
+	if (message.role === "assistant") {
+		if (["pending", "deferred", "error", "aborted"].includes(message.stopReason)) return false;
+		return message.content.every((block) => {
+			switch (block.type) {
+				case "text":
+					return block.textSignature === undefined;
+				case "thinking":
+					return block.thinkingSignature === undefined && !block.redacted;
+				case "toolCall":
+					return block.thoughtSignature === undefined && block.argumentsError === undefined;
+				default:
+					return false;
+			}
+		});
+	}
+	if (typeof message.content === "string") return true;
+	return message.content.every(
+		(block) => block.type === "text" && block.textSignature === undefined,
+	);
+}
+
+/** Keeps supported SDK messages intact and refuses projections requiring non-native conversion. */
+export function nativeContext(
+	messages: readonly Message[],
+	liveSystem: () => string,
+	liveTools: () => readonly ToolSchema[],
+): Context | undefined {
+	const nativeMessages: SdkMessage[] = [];
+	let recordedSystem = false;
+	for (const message of messages) {
+		switch (message.role) {
+			case "bashExecution":
+				if (message.excludeFromContext === true) continue;
+				return undefined;
+			case "system":
+				recordedSystem = true;
+				break;
+			case "user":
+			case "assistant":
+			case "toolResult":
+				break;
+			default:
+				return undefined;
+		}
+		if (!supportedContent(message)) return undefined;
+		nativeMessages.push(message);
+	}
+	if (recordedSystem) return { messages: nativeMessages };
+	const tools: Tool[] = [];
+	for (const tool of liveTools()) {
+		if (
+			(typeof tool.parameters !== "object" || tool.parameters === null) &&
+			typeof tool.parameters !== "boolean"
+		)
+			return undefined;
+		tools.push({ ...tool, parameters: tool.parameters });
+	}
+	return { messages: nativeMessages, systemPrompt: liveSystem(), tools };
 }
 
 /** The prompt segments and tools the transcript's system messages currently declare. */

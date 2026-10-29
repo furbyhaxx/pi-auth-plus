@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { Api, Model, Message as SdkMessage, Tool } from "@earendil-works/pi-ai";
 import type { SessionEntry, SessionProjection } from "@earendil-works/pi-coding-agent";
 import { createAnthropicFamily } from "../../src/families/anthropic/index.ts";
 import type { ModelAlias } from "../../src/models/aliases/index.ts";
@@ -7,6 +8,8 @@ import type { EngineContext } from "../../src/tokens/engine/index.ts";
 import { createTokenEngine } from "../../src/tokens/engine/index.ts";
 import type {
 	CounterDeps,
+	TokenContextInput,
+	TokenCount,
 	TokenCounter,
 	TokenModel,
 	TokenSource,
@@ -88,6 +91,406 @@ function setup(source: TokenSource = "tokenizer", tools: readonly ToolSchema[] =
 	});
 	return { engine, calls, counter };
 }
+
+const physicalModel: Model<Api> = {
+	id: "physical",
+	name: "Physical",
+	provider: "fake",
+	api: "anthropic-messages",
+	baseUrl: "https://example.invalid",
+	input: ["text"],
+	reasoning: false,
+	contextWindow: 1000,
+	maxTokens: 100,
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+};
+
+function withRegistry(ctx: EngineContext): EngineContext {
+	return {
+		...ctx,
+		modelRegistry: {
+			find: (provider, id) =>
+				provider === physicalModel.provider && id === physicalModel.id ? physicalModel : undefined,
+		},
+	};
+}
+
+function nativeEngine(
+	countContext: (input: TokenContextInput, signal?: AbortSignal) => Promise<TokenCount | undefined>,
+	tools: readonly ToolSchema[] = [],
+	resolveModel: (model: TokenModel) => TokenModel = () => physicalModel,
+) {
+	const segments: string[] = [];
+	const engine = createTokenEngine({
+		families: [
+			{
+				id: "fake",
+				label: "Fake",
+				providers: [],
+				tokens: () => ({
+					id: "fake-native",
+					anchorSource: "provider",
+					count: async (text) => {
+						segments.push(text);
+						return { tokens: text.length, source: "estimate" };
+					},
+					countContext,
+				}),
+			},
+		],
+		deps,
+		tools: () => tools,
+		resolveModel,
+		now: () => 42,
+	});
+	return { engine, segments };
+}
+
+test("unanchored native totals include the whole request rather than additive deltas", async () => {
+	const inputs: TokenContextInput[] = [];
+	const { engine, segments } = nativeEngine(async (input) => {
+		inputs.push(input);
+		return { tokens: input.context.systemPrompt ? 41 : 36, source: "count-endpoint" };
+	});
+	for (const [prompt, expected] of [
+		["", 36],
+		["Be concise.", 41],
+	] as const) {
+		const { ctx } = session([{ role: "user", content: "Hello.", timestamp: 0 }]);
+		const report = await engine.context(withRegistry({ ...ctx, getSystemPrompt: () => prompt }));
+		expect(report?.tokens).toEqual({ tokens: expected, source: "count-endpoint" });
+		expect(report?.tail).toEqual(report?.tokens);
+		expect(report?.anchor).toBeUndefined();
+	}
+	expect(inputs.map((input) => input.context.systemPrompt ?? "")).toEqual(["", "Be concise."]);
+	expect(inputs[0]?.context.messages).toEqual([{ role: "user", content: "Hello.", timestamp: 0 }]);
+	expect(segments).toEqual([]);
+});
+
+test("provider usage is authoritative until an edit invalidates it", async () => {
+	let calls = 0;
+	const { engine } = nativeEngine(async () => {
+		calls++;
+		return { tokens: 36, source: "count-endpoint" };
+	});
+	const state = session([assistant()]);
+	const ctx = withRegistry(state.ctx);
+	const report = await engine.context(ctx);
+	expect(report?.tokens).toEqual({ tokens: 100, source: "provider" });
+	expect(report?.tail).toEqual({ tokens: 0, source: "provider" });
+	state.messages.push({ role: "user", content: "tail", timestamp: 0 });
+	state.rebuild();
+	expect((await engine.context(ctx))?.tokens).toEqual({ tokens: 104, source: "estimate" });
+	expect(calls).toBe(0);
+	state.branch.push({
+		type: "context_edit",
+		id: "edit-native",
+		parentId: "m0",
+		timestamp: "",
+		targetId: "m0",
+		replacement: null,
+	});
+	expect((await engine.context(ctx))?.tokens).toEqual({ tokens: 36, source: "count-endpoint" });
+	expect(calls).toBe(1);
+});
+
+test("native context preserves recorded system deltas, tool extras and message order", async () => {
+	const declaration: Tool = {
+		name: "read",
+		description: "read a file",
+		parameters: { type: "object" },
+		constrainedSampling: { type: "json_schema", strict: "require" },
+	};
+	const initial: Message = {
+		role: "system",
+		content: "base",
+		sections: { rules: "old" },
+		toolsAdded: [declaration],
+		timestamp: 1,
+	};
+	const update: Message = {
+		role: "system",
+		content: "",
+		sections: { rules: "new" },
+		toolsRemoved: [{ name: "read" }],
+		timestamp: 3,
+	};
+	const call = assistant("error");
+	if (call.role !== "assistant") throw new Error("assistant fixture expected");
+	const toolCall: Message = {
+		...call,
+		stopReason: "toolUse",
+		usage: { ...call.usage, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 },
+		content: [{ type: "toolCall", id: "t", name: "read", arguments: { path: "x" } }],
+	};
+	const messages: SdkMessage[] = [
+		initial,
+		{ role: "user", content: "hello", timestamp: 2 },
+		update,
+		toolCall,
+		{
+			role: "toolResult",
+			toolCallId: "t",
+			toolName: "read",
+			content: [{ type: "text", text: "result" }],
+			isError: false,
+			timestamp: 4,
+		},
+	];
+	const inputs: TokenContextInput[] = [];
+	const { engine } = nativeEngine(
+		async (input) => {
+			inputs.push(input);
+			return { tokens: 41, source: "count-endpoint" };
+		},
+		[{ name: "live-only", description: "", parameters: {} }],
+	);
+	const { ctx } = session(messages);
+	await engine.context(withRegistry(ctx));
+	expect(inputs[0]?.context).toEqual({ messages });
+});
+
+test("only explicitly excluded bash can be omitted from a native request", async () => {
+	const excluded: Message = {
+		role: "bashExecution",
+		command: "secret",
+		output: "excluded",
+		exitCode: 0,
+		cancelled: false,
+		truncated: false,
+		excludeFromContext: true,
+		timestamp: 0,
+	};
+	const unsupported: Message[] = [
+		{ ...excluded, excludeFromContext: false },
+		{ role: "custom", customType: "x", content: "custom", display: false, timestamp: 0 },
+		{ role: "branchSummary", summary: "branch", fromId: "x", timestamp: 0 },
+		{ role: "compactionSummary", summary: "compact", tokensBefore: 1, timestamp: 0 },
+		{
+			role: "user",
+			content: [{ type: "image", data: "image", mimeType: "image/png" }],
+			timestamp: 0,
+		},
+		{
+			role: "toolResult",
+			toolCallId: "t",
+			toolName: "read",
+			content: [{ type: "image", data: "image", mimeType: "image/png" }],
+			isError: false,
+			timestamp: 0,
+		},
+	];
+	let calls = 0;
+	let received: TokenContextInput | undefined;
+	const { engine } = nativeEngine(async (input) => {
+		received = input;
+		calls++;
+		return { tokens: 36, source: "count-endpoint" };
+	});
+	for (const message of unsupported) {
+		const { ctx } = session([message]);
+		expect((await engine.context(withRegistry(ctx)))?.tokens.source).toBe("estimate");
+	}
+	expect(calls).toBe(0);
+	const { ctx } = session([excluded, { role: "user", content: "hello", timestamp: 0 }]);
+	expect((await engine.context(withRegistry(ctx)))?.tokens.source).toBe("count-endpoint");
+	expect(calls).toBe(1);
+	expect(received?.context.messages).toEqual([{ role: "user", content: "hello", timestamp: 0 }]);
+});
+
+test("signed and redacted assistant states never silently become native text counts", async () => {
+	const base = assistant("error");
+	if (base.role !== "assistant") throw new Error("assistant fixture expected");
+	const contents: (typeof base.content)[] = [
+		[{ type: "thinking", thinking: "thought", thinkingSignature: "signature" }],
+		[{ type: "thinking", thinking: "", redacted: true }],
+		[{ type: "text", text: "answer", textSignature: "signature" }],
+		[{ type: "toolCall", id: "t", name: "read", arguments: {}, thoughtSignature: "signature" }],
+	];
+	let calls = 0;
+	const { engine } = nativeEngine(async () => {
+		calls++;
+		return { tokens: 36, source: "count-endpoint" };
+	});
+	for (const content of contents) {
+		const { ctx } = session([
+			{
+				...base,
+				stopReason: "stop",
+				usage: { ...base.usage, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 },
+				content,
+			},
+		]);
+		expect((await engine.context(withRegistry(ctx)))?.tokens.source).toBe("estimate");
+	}
+	expect(calls).toBe(0);
+});
+
+test("native requests resolve a logical alias to the registered full physical model", async () => {
+	let received: TokenContextInput | undefined;
+	const visited: TokenModel[] = [];
+	const { engine } = nativeEngine(
+		async (input) => {
+			received = input;
+			return { tokens: 36, source: "count-endpoint" };
+		},
+		[],
+		(model) => {
+			visited.push(model);
+			return physicalModel;
+		},
+	);
+	const { ctx } = session([{ role: "user", content: "hello", timestamp: 0 }]);
+	const report = await engine.context(
+		withRegistry({ ...ctx, model: { provider: "alias", id: "logical", contextWindow: 400 } }),
+	);
+	expect(received?.model).toBe(physicalModel);
+	expect(report).toMatchObject({ provider: "alias", model: "logical", contextWindow: 400 });
+	expect(visited.map(({ provider, id }) => ({ provider, id }))).toEqual([
+		{ provider: "alias", id: "logical" },
+	]);
+});
+
+test("unavailable and cancelled native counts are retried without coupling callers", async () => {
+	const gates: PromiseWithResolvers<TokenCount | undefined>[] = [];
+	const { engine } = nativeEngine(async () => {
+		const gate = Promise.withResolvers<TokenCount | undefined>();
+		gates.push(gate);
+		return gate.promise;
+	});
+	const { ctx: raw } = session([{ role: "user", content: "hello", timestamp: 0 }]);
+	const ctx = withRegistry(raw);
+	const cancelled = new AbortController();
+	const first = engine.context(ctx, cancelled.signal);
+	const second = engine.context(ctx);
+	expect(gates).toHaveLength(2);
+	cancelled.abort();
+	gates[0]?.resolve({ tokens: 36, source: "count-endpoint" });
+	gates[1]?.resolve(undefined);
+	expect(await first).toBeUndefined();
+	expect((await second)?.tokens.source).toBe("estimate");
+	const retry = engine.context(ctx);
+	expect(gates).toHaveLength(3);
+	gates[2]?.resolve({ tokens: 41, source: "count-endpoint" });
+	expect((await retry)?.tokens).toEqual({ tokens: 41, source: "count-endpoint" });
+	expect((await engine.context(ctx))?.tokens).toEqual({ tokens: 41, source: "count-endpoint" });
+	expect(gates).toHaveLength(3);
+});
+
+test("a concurrent caller succeeds when another native count is cancelled", async () => {
+	const gates: PromiseWithResolvers<TokenCount | undefined>[] = [];
+	const { engine } = nativeEngine(async () => {
+		const gate = Promise.withResolvers<TokenCount | undefined>();
+		gates.push(gate);
+		return gate.promise;
+	});
+	const { ctx: raw } = session([{ role: "user", content: "hello", timestamp: 0 }]);
+	const ctx = withRegistry(raw);
+	const cancelled = new AbortController();
+	const first = engine.context(ctx, cancelled.signal);
+	const second = engine.context(ctx);
+	cancelled.abort();
+	gates[0]?.resolve(undefined);
+	gates[1]?.resolve({ tokens: 36, source: "count-endpoint" });
+	expect(await first).toBeUndefined();
+	expect((await second)?.tokens).toEqual({ tokens: 36, source: "count-endpoint" });
+});
+
+test("live tool declarations retain extra SDK properties", async () => {
+	const declaration: Tool = {
+		name: "read",
+		description: "Read",
+		parameters: { type: "object" },
+		constrainedSampling: { type: "json_schema", strict: "require" },
+	};
+	let received: TokenContextInput | undefined;
+	const { engine } = nativeEngine(
+		async (input) => {
+			received = input;
+			return { tokens: 36, source: "count-endpoint" };
+		},
+		[declaration],
+	);
+	const { ctx } = session([{ role: "user", content: "hello", timestamp: 0 }]);
+	await engine.context(withRegistry(ctx));
+	expect(received?.context.tools).toEqual([declaration]);
+	expect(received?.context.systemPrompt).toBe("system");
+});
+
+test("native memo follows effective system rewrites and request inputs", async () => {
+	let uppercase = false;
+	let calls = 0;
+	const counter: TokenCounter = {
+		id: "rewritable",
+		anchorSource: "provider",
+		count: async () => ({ tokens: 1, source: "estimate" }),
+		systemText: (text) => (uppercase ? text.toUpperCase() : text),
+		countContext: async () => {
+			calls++;
+			return { tokens: uppercase ? 41 : 36, source: "count-endpoint" };
+		},
+	};
+	const engine = createTokenEngine({
+		families: [{ id: "fake", label: "Fake", providers: [], tokens: () => counter }],
+		deps,
+		tools: () => [],
+		resolveModel: () => physicalModel,
+	});
+	const { ctx: raw } = session([{ role: "user", content: "hello", timestamp: 0 }]);
+	const ctx = withRegistry(raw);
+	expect((await engine.context(ctx))?.tokens.tokens).toBe(36);
+	expect((await engine.context(ctx))?.tokens.tokens).toBe(36);
+	expect(calls).toBe(1);
+	uppercase = true;
+	expect((await engine.context(ctx))?.tokens.tokens).toBe(41);
+	expect(calls).toBe(2);
+	expect((await engine.context({ ...ctx, getSystemPrompt: () => "other" }))?.tokens.tokens).toBe(
+		41,
+	);
+	expect(calls).toBe(3);
+});
+
+test("native memo evicts the oldest full request", async () => {
+	let calls = 0;
+	const { engine } = nativeEngine(async () => {
+		calls++;
+		return { tokens: 36, source: "count-endpoint" };
+	});
+	const state = session([]);
+	const ctx = withRegistry(state.ctx);
+	for (let i = 0; i < 4097; i++) {
+		state.messages.splice(0, state.messages.length, {
+			role: "user",
+			content: `message-${i}`,
+			timestamp: 0,
+		});
+		state.rebuild();
+		await engine.context(ctx);
+	}
+	expect(calls).toBe(4097);
+	state.messages.splice(0, state.messages.length, {
+		role: "user",
+		content: "message-0",
+		timestamp: 0,
+	});
+	state.rebuild();
+	await engine.context(ctx);
+	expect(calls).toBe(4098);
+});
+
+test("missing physical registry or model retains the segment fallback", async () => {
+	let calls = 0;
+	const { engine } = nativeEngine(async () => {
+		calls++;
+		return { tokens: 36, source: "count-endpoint" };
+	});
+	const { ctx } = session([{ role: "user", content: "hello", timestamp: 0 }]);
+	expect((await engine.context(ctx))?.tokens.source).toBe("estimate");
+	expect(
+		(await engine.context({ ...ctx, modelRegistry: { find: () => undefined } }))?.tokens.source,
+	).toBe("estimate");
+	expect(calls).toBe(0);
+});
 
 test("valid usage anchors only the tail and aborted or error assistants cannot anchor", async () => {
 	for (const reason of ["aborted", "error"] as const) {

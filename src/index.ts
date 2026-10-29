@@ -680,7 +680,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				if (available === undefined) return "unknown";
 				return available ? "healthy" : "unavailable";
 			},
-			save: (next, scope) => saveLegacySettings(scope, { "models.groups": next }),
+			save: (next, scope) => saveSettings(scope, { "models.groups": next }),
 		},
 		models: {
 			rules: () => effectiveModelRules(settings),
@@ -701,7 +701,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				aliases: {
 					list: () => settings.get("models.aliases"),
 					supported: (provider) => ownedProviders.has(provider),
-					save: (aliases, scope) => saveLegacySettings(scope, { "models.aliases": aliases }),
+					save: (aliases, scope) => saveSettings(scope, { "models.aliases": aliases }),
 				},
 				read: (provider, id) => readOverride(modelsPath(), provider, id),
 				current: (provider, id) =>
@@ -768,15 +768,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				: "pi-quotas is loaded and still owns quotas. Remove it from your Pi settings to use these.",
 		settings: {
 			store: () => settings,
-			onSaved: async (keys, scope) => {
-				const owner = captureSettingsEffects();
-				const warnings = await owner.apply(keys);
-				if (!owner.signal.aborted && warnings.length > 0)
-					owner.ctx?.ui.notify(
-						formatSaveOutcome({ committed: true, scope, shadowed: [], warnings }),
-						"warning",
-					);
-			},
+			save: saveSettings,
 			preview: (source, width, theme) => quotaLine.preview(source, width, theme),
 		},
 	});

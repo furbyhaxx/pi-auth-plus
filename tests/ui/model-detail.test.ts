@@ -32,7 +32,12 @@ function open(name: string, userBindings: KeybindingsConfig = {}) {
 		name,
 		contextWindow: 8192,
 	};
-	const detail = new ModelDetail(host, { read: async () => undefined, save: async () => {} }, item);
+	const detail = new ModelDetail(
+		host,
+		{ read: async () => undefined, save: async () => {} },
+		item,
+		() => {},
+	);
 	return { detail, loaded };
 }
 

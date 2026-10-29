@@ -16,12 +16,16 @@ import {
 	type ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
 import { channelName, request } from "../../src/core/bus/index.ts";
+import type { AppSettings } from "../../src/core/config/catalog.ts";
+import { SettingsStore } from "../../src/core/config/index.ts";
 import { FAMILIES } from "../../src/families/index.ts";
 import piAuthPlus from "../../src/index.ts";
 import { CatalogVisibility } from "../../src/models/catalog/runtime.ts";
+import * as startupCoordinator from "../../src/models/catalog/startup.ts";
 import { GroupRegistrations } from "../../src/models/groups/registration.ts";
 import { QuotaEngine } from "../../src/quotas/engine.ts";
 import * as quotaLine from "../../src/quotas/line/index.ts";
+import * as quotaMigration from "../../src/quotas/migrate/index.ts";
 import { defaultTokenizerStore } from "../../src/tokens/tokenizer/index.ts";
 import * as tokenTracker from "../../src/tokens/tracker/index.ts";
 import type { CounterDeps } from "../../src/tokens/types.ts";
@@ -621,11 +625,15 @@ test("session settings saves run the shared effects for each setting path", asyn
 		const quotas = deps.quotas?.();
 		if (!quotas || typeof quotas === "string") throw new Error("Missing quota panel");
 		events.length = 0;
-		await quotas.setLinePlacement("off");
+		const outcome = await quotas.setLinePlacement("off", "user");
+		expect(outcome).toEqual({
+			committed: true,
+			scope: "user",
+			shadowed: ["quotas.linePlacement"],
+			warnings: [],
+		});
 		expect(events).toEqual(["line", "family:quotas.linePlacement"]);
-		expect(notices).toEqual([
-			"Saved to user scope; shadowed by higher scope: quotas.linePlacement",
-		]);
+		expect(notices).toEqual([]);
 		expect(await deps.groups.save([group], "project")).toMatchObject({
 			committed: false,
 			error: expect.any(String),
@@ -732,12 +740,13 @@ test("committed settings report each failed effect and continue to later effects
 			"second family",
 		]);
 		events.length = 0;
-		await deps.models.save([], "runtime");
-		expect(notices.at(-1)).toContain("Saved to runtime scope");
-		expect(notices.at(-1)).toContain("family unavailable");
+		const modelOutcome = await deps.models.save([], "runtime");
+		expect(modelOutcome).toEqual(outcome);
+		expect(notices).toEqual([]);
 		events.length = 0;
-		await deps.saveSettings("runtime", { "models.rules": [] });
-		expect(notices.at(-1)).toContain("catalog unavailable");
+		const repeated = await deps.saveSettings("runtime", { "models.rules": [] });
+		expect(repeated).toEqual(outcome);
+		expect(notices).toEqual([]);
 		expect(events).toEqual([
 			"line",
 			"visibility",
@@ -1038,6 +1047,518 @@ test("startup discards group warnings when the session ends during registration"
 		groups.mockRestore();
 		start.mockRestore();
 		cleanup();
+	}
+});
+
+test("overlapping startup keeps token, quota and physical resources with the replacement", async () => {
+	const fixture = lifecycleFixture();
+	const old = {
+		...fixture.ctx,
+		cwd: "/old-session",
+		model: { ...fixture.model, id: "old-model" },
+	};
+	const fresh = {
+		...fixture.ctx,
+		cwd: "/fresh-session",
+		model: { ...fixture.model, id: "fresh-model" },
+	};
+	const entered = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	const ready: string[] = [];
+	const lineStarts: string[] = [];
+	let lineStops = 0;
+	fixture.bus.on(channelName("tokens", "ready"), () => ready.push("tokens"));
+	fixture.bus.on(channelName("quotas", "ready"), () => ready.push("quotas"));
+	const createLine = quotaLine.createQuotaLine;
+	const line = spyOn(quotaLine, "createQuotaLine").mockImplementation((...args) => {
+		const created = createLine(...args);
+		return {
+			...created,
+			start: (ctx) => {
+				if (!("cwd" in ctx) || typeof ctx.cwd !== "string") throw new Error("Missing cwd");
+				lineStarts.push(ctx.cwd);
+				created.start(ctx);
+			},
+			stop: () => {
+				lineStops++;
+				created.stop();
+			},
+		};
+	});
+	const engineStart = spyOn(QuotaEngine.prototype, "start");
+	const engineStop = spyOn(QuotaEngine.prototype, "stop");
+	const ingest = spyOn(QuotaEngine.prototype, "ingestHeaders").mockResolvedValue(undefined);
+	const applyGroups = spyOn(GroupRegistrations.prototype, "apply");
+	let restoreLoad = () => {};
+	try {
+		await piAuthPlus(fixture.pi);
+		const originalLoad = SettingsStore.prototype.load;
+		let loads = 0;
+		const load = spyOn(SettingsStore.prototype, "load").mockImplementation(async function (
+			this: AppSettings,
+		) {
+			if (++loads === 1) {
+				entered.resolve();
+				await release.promise;
+			}
+			return originalLoad.call(this);
+		});
+		restoreLoad = () => load.mockRestore();
+		const oldStartup = fixture.run("session_start", old);
+		await entered.promise;
+		await fixture.run("session_start", fresh);
+		const before = {
+			lineStops,
+			engineStops: engineStop.mock.calls.length,
+			groups: applyGroups.mock.calls.length,
+		};
+		const firstToken = await request(fixture.bus, "tokens", "query", { refresh: true }, (v) => v);
+		expect(firstToken).toMatchObject({ ok: true, report: { model: "fresh-model" } });
+		fixture.runtime.stream(fixture.model, { messages: [] });
+		const response = fixture.requests.at(-1)?.onResponse;
+		if (!response) throw new Error("Missing replacement physical response hook");
+		release.resolve();
+		await oldStartup;
+		const token = await request(fixture.bus, "tokens", "query", { refresh: true }, (v) => v);
+		const quota = await request(fixture.bus, "quotas", "query", {}, (v) => v);
+		await response({ status: 200, headers: { owner: "fresh" } }, fixture.model);
+		const physicalModel = { ...fixture.model, provider: "opencode" };
+		fixture.runtime.stream(physicalModel, { messages: [] });
+		const payload = fixture.requests.at(-1)?.onPayload;
+		if (!payload) throw new Error("Missing replacement physical payload hook");
+		const transformed = await payload(
+			{ model: physicalModel.id, messages: [{ role: "system", content: "system" }] },
+			physicalModel,
+		);
+		expect({
+			ready,
+			lineStarts,
+			lineStops: lineStops - before.lineStops,
+			engineStarts: engineStart.mock.calls.length,
+			engineStops: engineStop.mock.calls.length - before.engineStops,
+			groupApplications: applyGroups.mock.calls.length - before.groups,
+			token,
+			quota,
+			ingest: ingest.mock.calls,
+			physical: JSON.stringify(transformed),
+		}).toMatchObject({
+			ready: ["tokens", "quotas"],
+			lineStarts: ["/fresh-session"],
+			lineStops: 0,
+			engineStarts: 1,
+			engineStops: 0,
+			groupApplications: 0,
+			token: { ok: true, report: { model: "fresh-model" } },
+			quota: { ok: true },
+			ingest: [[{ owner: "fresh" }, "test-provider", { strict: true }]],
+			physical: expect.stringContaining("Working directory: /fresh-session"),
+		});
+	} finally {
+		release.resolve();
+		await fixture.run("session_shutdown", fresh);
+		restoreLoad();
+		applyGroups.mockRestore();
+		ingest.mockRestore();
+		engineStop.mockRestore();
+		engineStart.mockRestore();
+		line.mockRestore();
+	}
+});
+
+test("an in-flight carry-over retains its original store after replacement", async () => {
+	const fixture = lifecycleFixture();
+	const old = { ...fixture.ctx, cwd: "/old-session" };
+	const fresh = { ...fixture.ctx, cwd: "/fresh-session" };
+	const entered = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	const stores: AppSettings[] = [];
+	const directories: string[] = [];
+	const migration = spyOn(quotaMigration, "carryOverPiQuotas").mockImplementation(
+		async (options) => {
+			stores.push(options.settings);
+			directories.push(options.cwd);
+			if (directories.length === 1) {
+				entered.resolve();
+				await release.promise;
+				await options.settings.save("runtime", { "quotas.linePlacement": "off" });
+				return { info: ["old migration"], warnings: ["old migration warning"] };
+			}
+			return { info: [], warnings: [] };
+		},
+	);
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		const oldStartup = fixture.run("session_start", old);
+		await entered.promise;
+		await fixture.run("session_start", fresh);
+		if (!deps?.settings) throw new Error("Missing settings integration");
+		const current = deps.settings.store();
+		const placement = current.get("quotas.linePlacement");
+		release.resolve();
+		await oldStartup;
+		expect(directories).toEqual(["/old-session", "/fresh-session"]);
+		expect(stores[0]).not.toBe(stores[1]);
+		expect(stores[1]).toBe(current);
+		expect(current.get("quotas.linePlacement")).toBe(placement);
+		expect(fixture.notices).toEqual([]);
+		expect(start).toHaveBeenCalledTimes(1);
+	} finally {
+		release.resolve();
+		await fixture.run("session_shutdown", fresh);
+		start.mockRestore();
+		capture.mockRestore();
+		migration.mockRestore();
+	}
+});
+
+test("a nested startup during owner abort keeps the newest emission in control", async () => {
+	const fixture = lifecycleFixture();
+	const second = { ...fixture.ctx, model: { ...fixture.model, id: "second" } };
+	const newest = { ...fixture.ctx, model: { ...fixture.model, id: "newest" } };
+	let deps: AuthCommandDeps | undefined;
+	let replacement: Promise<void> | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		const signal = deps?.signal?.();
+		if (!signal) throw new Error("Missing session signal");
+		signal.addEventListener(
+			"abort",
+			() => {
+				replacement = fixture.run("session_start", newest);
+			},
+			{ once: true },
+		);
+		await fixture.run("session_start", second);
+		if (!replacement) throw new Error("Nested replacement did not start");
+		await replacement;
+		const token = await request(fixture.bus, "tokens", "query", { refresh: true }, (v) => v);
+		expect(token).toMatchObject({ ok: true, report: { model: "newest" } });
+	} finally {
+		if (replacement) await replacement;
+		await fixture.run("session_shutdown", newest);
+		start.mockRestore();
+		capture.mockRestore();
+	}
+});
+
+test("an old physical runtime cannot acquire replacement session hooks", async () => {
+	const fixture = lifecycleFixture();
+	const oldRuntime = { ...fixture.runtime };
+	const freshRuntime = { ...fixture.runtime };
+	const old = {
+		...fixture.ctx,
+		cwd: "/old-session",
+		modelRegistry: { ...fixture.ctx.modelRegistry, runtime: oldRuntime },
+	};
+	const fresh = {
+		...fixture.ctx,
+		cwd: "/fresh-session",
+		modelRegistry: { ...fixture.ctx.modelRegistry, runtime: freshRuntime },
+	};
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	const ingest = spyOn(QuotaEngine.prototype, "ingestHeaders").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start", old);
+		const oldModel = { ...fixture.model, provider: "opencode" };
+		oldRuntime.stream(oldModel, { messages: [] });
+		const oldResponse = fixture.requests.at(-1)?.onResponse;
+		const oldPayload = fixture.requests.at(-1)?.onPayload;
+		if (!oldResponse || !oldPayload) throw new Error("Missing original physical hooks");
+		await fixture.run("session_start", fresh);
+		oldRuntime.stream(fixture.model, { messages: [] });
+		const stale = fixture.requests.at(-1)?.onResponse;
+		freshRuntime.stream(fixture.model, { messages: [] });
+		const current = fixture.requests.at(-1)?.onResponse;
+		if (!current) throw new Error("Missing replacement physical response hook");
+		const original = { model: oldModel.id, messages: [{ role: "system", content: "system" }] };
+		const transformed = await oldPayload(original, oldModel);
+		await oldResponse({ status: 200, headers: { owner: "old" } }, oldModel);
+		if (stale) await stale({ status: 200, headers: { owner: "stale" } }, fixture.model);
+		await current({ status: 200, headers: { owner: "fresh" } }, fixture.model);
+		expect(transformed).toEqual(original);
+		expect(stale).toBeUndefined();
+		expect(ingest.mock.calls).toEqual([[{ owner: "fresh" }, "test-provider", { strict: true }]]);
+	} finally {
+		await fixture.run("session_shutdown", fresh);
+		ingest.mockRestore();
+		start.mockRestore();
+	}
+});
+
+test("replacement aborts an in-flight token count before its settings load finishes", async () => {
+	const fixture = lifecycleFixture();
+	const old = { ...fixture.ctx, model: { ...fixture.model, id: "old-model" } };
+	const fresh = { ...fixture.ctx, model: { ...fixture.model, id: "fresh-model" } };
+	const countEntered = Promise.withResolvers<void>();
+	const countRelease = Promise.withResolvers<void>();
+	const settingsEntered = Promise.withResolvers<void>();
+	const settingsRelease = Promise.withResolvers<void>();
+	let countSignal: AbortSignal | undefined;
+	let tracked: ReturnType<typeof tokenTracker.createTokenTracker> | undefined;
+	const createTracker = tokenTracker.createTokenTracker;
+	const tracker = spyOn(tokenTracker, "createTokenTracker").mockImplementation((pi, options) => {
+		const engine = options.engine;
+		tracked = createTracker(pi, {
+			...options,
+			engine: {
+				...engine,
+				context: async (ctx, signal) => {
+					if (ctx.model?.id === "old-model") {
+						countSignal = signal;
+						countEntered.resolve();
+						await countRelease.promise;
+					}
+					return engine.context(ctx, signal);
+				},
+			},
+		});
+		return tracked;
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	let restoreLoad = () => {};
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start", old);
+		if (!tracked) throw new Error("Token tracker was not created");
+		const counting = tracked.refresh();
+		await countEntered.promise;
+		const originalLoad = SettingsStore.prototype.load;
+		const load = spyOn(SettingsStore.prototype, "load").mockImplementationOnce(async function (
+			this: AppSettings,
+		) {
+			settingsEntered.resolve();
+			await settingsRelease.promise;
+			return originalLoad.call(this);
+		});
+		restoreLoad = () => load.mockRestore();
+		const replacement = fixture.run("session_start", fresh);
+		await settingsEntered.promise;
+		const abortedBeforeReplacementLoaded = countSignal?.aborted;
+		countRelease.resolve();
+		await counting;
+		settingsRelease.resolve();
+		await replacement;
+		expect(abortedBeforeReplacementLoaded).toBe(true);
+		const report = await request(fixture.bus, "tokens", "query", { refresh: true }, (v) => v);
+		expect(report).toMatchObject({ ok: true, report: { model: "fresh-model" } });
+	} finally {
+		countRelease.resolve();
+		settingsRelease.resolve();
+		await fixture.run("session_shutdown", fresh);
+		restoreLoad();
+		tracker.mockRestore();
+		start.mockRestore();
+	}
+});
+
+test("replacement aborts an in-flight quota startup before its settings load finishes", async () => {
+	const fixture = lifecycleFixture();
+	const quotaEntered = Promise.withResolvers<void>();
+	const quotaRelease = Promise.withResolvers<void>();
+	const settingsEntered = Promise.withResolvers<void>();
+	const settingsRelease = Promise.withResolvers<void>();
+	let oldQuotaSignal: AbortSignal | undefined;
+	let restoreSync = () => {};
+	let starts = 0;
+	const originalStart = QuotaEngine.prototype.start;
+	const start = spyOn(QuotaEngine.prototype, "start").mockImplementation(function (
+		this: QuotaEngine,
+	) {
+		if (++starts === 1) {
+			const sync = spyOn(this.cache, "sync").mockImplementationOnce(async (_force, signal) => {
+				oldQuotaSignal = signal;
+				quotaEntered.resolve();
+				await quotaRelease.promise;
+				return false;
+			});
+			restoreSync = () => sync.mockRestore();
+		}
+		return originalStart.call(this);
+	});
+	let restoreLoad = () => {};
+	const fresh = { ...fixture.ctx, cwd: "/fresh-session" };
+	try {
+		await piAuthPlus(fixture.pi);
+		const oldStartup = fixture.run("session_start");
+		await quotaEntered.promise;
+		const originalLoad = SettingsStore.prototype.load;
+		const load = spyOn(SettingsStore.prototype, "load").mockImplementationOnce(async function (
+			this: AppSettings,
+		) {
+			settingsEntered.resolve();
+			await settingsRelease.promise;
+			return originalLoad.call(this);
+		});
+		restoreLoad = () => load.mockRestore();
+		const replacement = fixture.run("session_start", fresh);
+		await settingsEntered.promise;
+		const abortedBeforeReplacementLoaded = oldQuotaSignal?.aborted;
+		quotaRelease.resolve();
+		await oldStartup;
+		settingsRelease.resolve();
+		await replacement;
+		expect(abortedBeforeReplacementLoaded).toBe(true);
+		expect(starts).toBe(2);
+	} finally {
+		quotaRelease.resolve();
+		settingsRelease.resolve();
+		await fixture.run("session_shutdown", fresh);
+		restoreLoad();
+		restoreSync();
+		start.mockRestore();
+	}
+});
+
+for (const area of ["tokens", "quotas"] as const) {
+	test(`replacement during ${area} ready disposes the superseded bus registration`, async () => {
+		const fixture = lifecycleFixture();
+		const entered = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<void>();
+		const fresh = { ...fixture.ctx, cwd: "/fresh-session" };
+		let replacement: Promise<void> | undefined;
+		const lineStarts: string[] = [];
+		const tokenEvents: unknown[] = [];
+		fixture.bus.on(channelName("tokens", "context"), (payload) => tokenEvents.push(payload));
+		const createLine = quotaLine.createQuotaLine;
+		const line = spyOn(quotaLine, "createQuotaLine").mockImplementation((...args) => {
+			const created = createLine(...args);
+			return {
+				...created,
+				start: (ctx) => {
+					if (!("cwd" in ctx) || typeof ctx.cwd !== "string") throw new Error("Missing cwd");
+					lineStarts.push(ctx.cwd);
+					created.start(ctx);
+				},
+			};
+		});
+		const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+		let restoreLoad = () => {};
+		try {
+			await piAuthPlus(fixture.pi);
+			const originalLoad = SettingsStore.prototype.load;
+			let loads = 0;
+			const load = spyOn(SettingsStore.prototype, "load").mockImplementation(async function (
+				this: AppSettings,
+			) {
+				if (++loads === 2) {
+					entered.resolve();
+					await release.promise;
+				}
+				return originalLoad.call(this);
+			});
+			restoreLoad = () => load.mockRestore();
+			fixture.bus.on(channelName(area, "ready"), () => {
+				if (!replacement) replacement = fixture.run("session_start", fresh);
+			});
+			const oldStartup = fixture.run("session_start");
+			await entered.promise;
+			await oldStartup;
+			const stale = await request(fixture.bus, area, "query", {}, (value) => value, {
+				timeoutMs: 20,
+			});
+			release.resolve();
+			if (!replacement) throw new Error("Replacement did not start during ready");
+			await replacement;
+			let replies = 0;
+			const off = fixture.bus.on(`${channelName(area, "query")}:reply`, () => replies++);
+			const current = await request(fixture.bus, area, "query", {}, (value) => value);
+			off();
+			expect({ stale, current, replies, lineStarts, tokenEvents }).toMatchObject({
+				stale: undefined,
+				current: { ok: true },
+				replies: 1,
+				lineStarts: ["/fresh-session"],
+				tokenEvents: [],
+			});
+		} finally {
+			release.resolve();
+			if (replacement) await replacement;
+			await fixture.run("session_shutdown", fresh);
+			restoreLoad();
+			start.mockRestore();
+			line.mockRestore();
+		}
+	});
+}
+
+test("a startup superseded during catalog access cannot register groups or release coordination", async () => {
+	const originalArgv = [...process.argv];
+	const originalOffline = process.env["PI_OFFLINE"];
+	process.argv.push("--mode", "rpc");
+	process.env["PI_OFFLINE"] = "0";
+	const cleanup = groupSettings([]);
+	const fixture = lifecycleFixture();
+	const oldCatalog = [fixture.model];
+	const freshCatalog = [{ ...fixture.model, id: "fresh" }];
+	const refresh = async () => ({ errors: new Map(), aborted: false });
+	const oldRuntime = { ...fixture.runtime, refresh };
+	const freshRuntime = { ...fixture.runtime, refresh };
+	const ready: unknown[] = [];
+	const coordinator = spyOn(startupCoordinator, "installStartupCoordinator").mockReturnValue({
+		ready: (runtime) => {
+			ready.push(runtime);
+			return true;
+		},
+		stop: () => {},
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	const apply = GroupRegistrations.prototype.apply;
+	let oldApplications = 0;
+	const groups = spyOn(GroupRegistrations.prototype, "apply").mockImplementation(function (
+		this: GroupRegistrations,
+		catalog,
+	) {
+		if (catalog === oldCatalog) oldApplications++;
+		return apply.call(this, catalog);
+	});
+	const fresh = {
+		...fixture.ctx,
+		modelRegistry: {
+			...fixture.ctx.modelRegistry,
+			runtime: freshRuntime,
+			getAll: () => freshCatalog,
+		},
+	};
+	let replacement: Promise<void> | undefined;
+	let reads = 0;
+	const old = {
+		...fixture.ctx,
+		modelRegistry: {
+			...fixture.ctx.modelRegistry,
+			runtime: oldRuntime,
+			getAll: () => {
+				if (++reads === 2) replacement = fixture.run("session_start", fresh);
+				return oldCatalog;
+			},
+		},
+	};
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start", old);
+		if (!replacement) throw new Error("Replacement did not start during catalog access");
+		await replacement;
+		expect({ oldApplications, ready }).toEqual({ oldApplications: 1, ready: [freshRuntime] });
+	} finally {
+		if (replacement) await replacement;
+		await fixture.run("session_shutdown", fresh);
+		groups.mockRestore();
+		start.mockRestore();
+		coordinator.mockRestore();
+		cleanup();
+		process.argv.splice(0, process.argv.length, ...originalArgv);
+		if (originalOffline === undefined) delete process.env["PI_OFFLINE"];
+		else process.env["PI_OFFLINE"] = originalOffline;
 	}
 });
 

@@ -6,6 +6,7 @@ import { stripVTControlCharacters } from "node:util";
 import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
 import { SETTINGS } from "../../src/core/config/catalog.ts";
 import { type SaveScope, SettingsStore } from "../../src/core/config/index.ts";
+import { createSettingsSaver, type SettingsSaver } from "../../src/core/config/save.ts";
 import { type SettingsTabDeps, SettingsView } from "../../src/ui/dashboard/settings.ts";
 import type { DashboardResult, TabViewHost } from "../../src/ui/dashboard/view.ts";
 import { bindingLabel } from "../../src/ui/frame/index.ts";
@@ -27,6 +28,14 @@ function open(
 	const project = join(dir, "project.json");
 	const store = new SettingsStore(SETTINGS, trusted ? { user, project } : { user });
 	const saved: { keys: readonly string[]; scope: SaveScope }[] = [];
+	let save: SettingsSaver = createSettingsSaver(() => ({
+		store,
+		signal: new AbortController().signal,
+		apply: async (keys, scope) => {
+			saved.push({ keys, scope });
+			return [];
+		},
+	}));
 	const finished: DashboardResult[] = [];
 	let onRefresh: (() => void) | undefined;
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS);
@@ -50,9 +59,7 @@ function open(
 		host,
 		{
 			store: () => store,
-			onSaved: (keys, scope) => {
-				saved.push({ keys, scope });
-			},
+			save: (scope, changes) => save(scope, changes),
 			...(previewTemplate ? { previewTemplate } : {}),
 		},
 		select,
@@ -66,6 +73,9 @@ function open(
 		text,
 		user,
 		project,
+		setSave: (next: SettingsSaver) => {
+			save = next;
+		},
 		nextRefresh: () =>
 			new Promise<void>((resolve) => {
 				onRefresh = resolve;
@@ -121,14 +131,172 @@ describe("settings tab", () => {
 		});
 	});
 
-	test("cancel discards staged edits before falling through to dashboard close", () => {
+	test("top-level cancel leaves staged edits for the dashboard to confirm", () => {
 		const rig = open();
 		rig.view.handleInput(" ");
-		expect(rig.view.handleInput("\x1b")).toBe(true);
-		expect(rig.text()).toContain("Discarded staged changes");
-		expect(rig.text()).not.toContain("● staged");
+		expect(rig.view.hasDrafts?.()).toBe(true);
 		expect(rig.view.handleInput("\x1b")).toBe(false);
+		expect(rig.text()).toContain("● staged");
+		rig.view.discardDrafts?.();
+		expect(rig.view.hasDrafts?.()).toBe(false);
+		expect(rig.text()).not.toContain("● staged");
 		expect(rig.view.handleInput("\t")).toBe(false);
+	});
+
+	test("unfinished input is a draft only when changed, and field cancel keeps other drafts", () => {
+		const rig = open("quotas.lineTemplate");
+		rig.view.handleInput("\r");
+		expect(rig.view.hasDrafts?.()).toBe(false);
+		rig.view.handleInput("!");
+		expect(rig.view.hasDrafts?.()).toBe(true);
+		expect(rig.view.handleInput("\x1b")).toBe(true);
+		expect(rig.view.hasDrafts?.()).toBe(false);
+		rig.view.handleInput("\x7f");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("!");
+		rig.view.handleInput("\x1b");
+		expect(rig.view.hasDrafts?.()).toBe(true);
+		expect(rig.text()).toContain("● staged");
+	});
+
+	test("failed save preserves staged and unfinished input; committed warnings clear both", async () => {
+		const rig = open("quotas.lineTemplate");
+		await rig.store.save("runtime", { "quotas.lineTemplate": "runtime-value" });
+		const pending = Promise.withResolvers<Awaited<ReturnType<SettingsSaver>>>();
+		const calls: Parameters<SettingsSaver>[] = [];
+		rig.setSave(async (scope, changes) => {
+			calls.push([scope, structuredClone(changes)]);
+			return pending.promise;
+		});
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x01");
+		rig.view.handleInput("\x0b");
+		rig.view.handleInput("staged-value");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x01");
+		rig.view.handleInput("\x0b");
+		rig.view.handleInput("unfinished-value");
+		rig.view.handleInput("\x13");
+		rig.view.handleInput("r");
+		expect(rig.view.isSaving?.()).toBe(true);
+		expect(calls).toEqual([["runtime", { "quotas.lineTemplate": "unfinished-value" }]]);
+		const failed = rig.nextRefresh();
+		pending.resolve({ committed: false, error: "disk rejected changes" });
+		await failed;
+		expect(rig.view.isSaving?.()).toBe(false);
+		expect(rig.view.hasDrafts?.()).toBe(true);
+		expect(rig.text()).toContain("unfinished-value");
+		expect(rig.text()).toContain("● staged");
+		expect(rig.text()).toContain("disk rejected changes");
+
+		rig.setSave(
+			createSettingsSaver(() => ({
+				store: rig.store,
+				signal: new AbortController().signal,
+				apply: async () => ["Effects failed; retry or reopen the session"],
+			})),
+		);
+		await save(rig, "u");
+		expect(rig.store.get("quotas.lineTemplate")).toBe("runtime-value");
+		expect(JSON.parse(readFileSync(rig.user, "utf8"))).toEqual({
+			quotas: { lineTemplate: "unfinished-value" },
+		});
+		expect(rig.view.hasDrafts?.()).toBe(false);
+		expect(rig.text()).not.toContain("● staged");
+		const message = rig.view.render(80, 30).lines.map(stripVTControlCharacters).join(" ");
+		expect(message.replace(/\s+/g, " ")).toContain(
+			"Saved to user scope; shadowed by higher scope: quotas.lineTemplate; warning: Effects failed; retry or reopen the session",
+		);
+	});
+
+	test("saving edited input validates it and cancelling scope keeps it unstaged", async () => {
+		const rig = open("quotas.compactWidthCols");
+		rig.view.handleInput("l");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x01");
+		rig.view.handleInput("\x0b");
+		rig.view.handleInput("bad");
+		rig.view.handleInput("\x13");
+		expect(rig.text()).toContain("Invalid value");
+		expect(rig.saved).toEqual([]);
+		rig.view.handleInput("\x01");
+		rig.view.handleInput("\x0b");
+		rig.view.handleInput("115");
+		rig.view.handleInput("\x13");
+		expect(rig.text()).toContain("Save:");
+		rig.view.handleInput("\x1b");
+		expect(rig.text()).toContain("115");
+		rig.view.handleInput("\x1b");
+		expect(rig.text()).toContain("105");
+		await save(rig, "r");
+		expect(rig.store.get("quotas.compactWidthCols")).toBe(105);
+	});
+
+	test("long save outcomes remain readable across result pages", async () => {
+		const rig = open();
+		rig.setSave(async (scope) => ({
+			committed: true,
+			scope,
+			shadowed: ["quotas.refreshOnRequest", "quotas.lineTemplate"],
+			warnings: [
+				"First warning with details about a failed effect",
+				"Second warning with more important details",
+				"Final warning requires the user to retry",
+			],
+		}));
+		rig.view.handleInput(" ");
+		await save(rig, "u");
+		const pages: string[] = [];
+		for (let i = 0; i < 10; i++) {
+			const lines = rig.view.render(36, 4).lines;
+			for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+			pages.push(lines.map(stripVTControlCharacters).join(" "));
+			rig.view.handleInput("\x1b[6~");
+		}
+		const all = pages.join(" ").replace(/\s+/g, " ");
+		expect(all).toContain("Saved to user scope;");
+		expect(all).toContain("shadowed by higher scope:");
+		expect(all).toContain("quotas.refreshOnRequest");
+		expect(all).toContain("quotas.lineTemplate");
+		expect(all).toContain("First warning");
+		expect(all).toContain("Second warning");
+		expect(all).toContain("Final warning requires the user to retry");
+		rig.view.handleInput("\x1b[5~");
+		expect(rig.view.render(36, 4).lines.map(stripVTControlCharacters).join(" ")).not.toBe(
+			pages.at(-1),
+		);
+	});
+
+	test("scope choices intersect staged non-null fields and allow legacy removals", async () => {
+		const rig = open("models.rulesScope");
+		rig.view.handleInput(" ");
+		rig.view.handleInput("j");
+		rig.view.handleInput(" ");
+		rig.view.handleInput("\x13");
+		expect(rig.text()).not.toContain("p project");
+		expect(rig.view.render(140, 30).hints.map((hint) => hint.key)).not.toContain("p");
+		rig.view.handleInput("p");
+		expect(rig.saved).toEqual([]);
+		expect(rig.text()).not.toContain("p project");
+		rig.view.handleInput("u");
+		await rig.nextRefresh();
+		expect(rig.saved[0]?.scope).toBe("user");
+
+		const removal = open("models.rulesScope");
+		writeFileSync(removal.project, JSON.stringify({ models: { rulesScope: "user" } }));
+		await removal.store.load();
+		removal.view.handleInput("\x7f");
+		removal.view.handleInput("j");
+		removal.view.handleInput(" ");
+		removal.view.handleInput("\x13");
+		expect(removal.text()).toContain("p project");
+		removal.view.handleInput("p");
+		await removal.nextRefresh();
+		expect(removal.saved[0]?.scope).toBe("project");
+		expect(JSON.parse(readFileSync(removal.project, "utf8"))).toEqual({
+			models: { hiddenDefault: "warn" },
+		});
 	});
 
 	test("rules and lists open the external editor only with no staged edits", () => {
@@ -140,7 +308,7 @@ describe("settings tab", () => {
 			expect(
 				rig.view.render(80, 20).hints.some((hint) => hint.action.includes("save/discard")),
 			).toBe(true);
-			rig.view.handleInput("\x1b");
+			rig.view.discardDrafts?.();
 			rig.view.handleInput("\r");
 			expect(rig.finished).toEqual([{ editSetting: key }]);
 		}

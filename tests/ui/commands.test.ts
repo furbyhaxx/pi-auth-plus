@@ -7,6 +7,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { SETTINGS } from "../../src/core/config/catalog.ts";
 import { SettingsStore } from "../../src/core/config/index.ts";
+import { createSettingsSaver, type SettingsSaver } from "../../src/core/config/save.ts";
 import { Registry } from "../../src/core/registry/index.ts";
 import {
 	type AuthCommandDeps,
@@ -26,6 +27,7 @@ function rig(
 	results: DashboardResult[] = [],
 	hasUI = true,
 	interact?: (panel: AuthDashboard) => Promise<void> | void,
+	onRender?: () => void,
 ) {
 	let panels = 0;
 	const rendered: string[][] = [];
@@ -68,7 +70,7 @@ function rig(
 			) => {
 				panels++;
 				const component = await factory(
-					{ terminal: { rows: 40 }, requestRender: () => {} },
+					{ terminal: { rows: 40 }, requestRender: () => onRender?.() },
 					{
 						fg: (_color: string, text: string) => text,
 						bg: (_color: string, text: string) => text,
@@ -166,7 +168,16 @@ describe("ui/commands", () => {
 	test("invalid settings and unsupported section targets error instead of selecting a default", async () => {
 		const store = new SettingsStore(SETTINGS, { user: "unused" });
 		for (const mode of ["rpc", "tui"] as const) {
-			const f = rig(mode, { settings: { store: () => store, onSaved: () => {} } });
+			const f = rig(mode, {
+				settings: {
+					store: () => store,
+					save: createSettingsSaver(() => ({
+						store,
+						signal: new AbortController().signal,
+						apply: async () => [],
+					})),
+				},
+			});
 			for (const args of [
 				"settings models.rule",
 				"providers claude",
@@ -236,7 +247,16 @@ describe("ui/commands", () => {
 
 	test("settings select canonical keys by case-insensitive key or complete label", async () => {
 		const store = new SettingsStore(SETTINGS, { user: "unused" });
-		const f = rig("tui", { settings: { store: () => store, onSaved: () => {} } });
+		const f = rig("tui", {
+			settings: {
+				store: () => store,
+				save: createSettingsSaver(() => ({
+					store,
+					signal: new AbortController().signal,
+					apply: async () => [],
+				})),
+			},
+		});
 		for (const args of ["settings MODELS.RULES", "config Model visibility rules"]) {
 			await f.run("auth", args);
 			expect(f.rendered.at(-1)?.join("\n")).toContain("❯ Model visibility rules");
@@ -601,7 +621,17 @@ describe("ui/commands", () => {
 					captures++;
 					return controller.signal;
 				},
-				settings: { store: () => store, onSaved: (keys) => saved.push(...keys) },
+				settings: {
+					store: () => store,
+					save: createSettingsSaver(() => ({
+						store,
+						signal: controller.signal,
+						apply: async (keys) => {
+							saved.push(...keys);
+							return [];
+						},
+					})),
+				},
 			});
 			Object.assign(f.ctx.ui, {
 				custom: async () => {
@@ -649,7 +679,7 @@ describe("ui/commands", () => {
 			expect(dashboards).toBe(boundary === "none" ? 2 : 1);
 			expect(store.get("models.rules")).toEqual(boundary === "none" ? ["vendor/*"] : []);
 			expect(saved).toEqual(boundary === "none" ? ["models.rules"] : []);
-			expect(f.notices).toEqual([]);
+			expect(f.notices).toEqual(boundary === "none" ? [["Saved to runtime scope", "info"]] : []);
 			expect(captures).toBe(1);
 		}
 	});
@@ -669,7 +699,17 @@ describe("ui/commands", () => {
 		let panels = 0;
 		const f = rig("tui", {
 			signal: () => controller.signal,
-			settings: { store: () => store, onSaved: (keys) => saved.push(...keys) },
+			settings: {
+				store: () => store,
+				save: createSettingsSaver(() => ({
+					store,
+					signal: controller.signal,
+					apply: async (keys) => {
+						saved.push(...keys);
+						return [];
+					},
+				})),
+			},
 		});
 		Object.assign(f.ctx.ui, {
 			custom: async () => {
@@ -689,6 +729,173 @@ describe("ui/commands", () => {
 		expect(saved).toEqual([]);
 		expect(panels).toBe(1);
 		expect(f.notices).toEqual([]);
+	});
+
+	test("generic setting edits use shared outcomes and allowed scope choices", async () => {
+		for (const outcome of [
+			{ committed: false, error: "write failed" },
+			{
+				committed: true,
+				scope: "user",
+				shadowed: ["models.rules"],
+				warnings: ["effects failed; retry"],
+			},
+		] as const) {
+			const store = new SettingsStore(SETTINGS, { user: "unused" });
+			const calls: Parameters<SettingsSaver>[] = [];
+			let panels = 0;
+			const f = rig("tui", {
+				settings: {
+					store: () => store,
+					save: async (scope, changes) => {
+						calls.push([scope, changes]);
+						return outcome;
+					},
+				},
+			});
+			Object.assign(f.ctx.ui, {
+				custom: async () => (++panels === 1 ? { editSetting: "models.rules" } : undefined),
+				editor: async () => '["vendor/*"]',
+				select: async () => "User (all projects)",
+			});
+			await f.run("auth", "settings");
+			expect(calls).toEqual([["user", { "models.rules": ["vendor/*"] }]]);
+			expect(store.get("models.rules")).toEqual([]);
+			expect(f.notices).toEqual([
+				outcome.committed
+					? [
+							"Saved to user scope; shadowed by higher scope: models.rules; warning: effects failed; retry",
+							"warning",
+						]
+					: ["write failed", "error"],
+			]);
+		}
+
+		const store = new SettingsStore(SETTINGS, { user: "unused" });
+		let offered: readonly string[] = [];
+		let saves = 0;
+		let panels = 0;
+		const f = rig("tui", {
+			settings: {
+				store: () => store,
+				save: async (scope) => {
+					saves++;
+					return { committed: true, scope, shadowed: [], warnings: [] };
+				},
+			},
+		});
+		Object.assign(f.ctx.ui, {
+			custom: async () => (++panels === 1 ? { editSetting: "models.rulesScope" } : undefined),
+			editor: async () => '"user"',
+			select: async (_title: string, choices: readonly string[]) => {
+				offered = choices;
+				return "Project";
+			},
+		});
+		await f.run("auth", "settings");
+		expect(offered).toEqual(["User (all projects)", "This session only"]);
+		expect(saves).toBe(0);
+	});
+
+	test("an old open settings panel uses its captured store and refuses the fresh saver", async () => {
+		let controller = new AbortController();
+		let captures = 0;
+		let storeReads = 0;
+		let saves = 0;
+		const oldStore = new SettingsStore(SETTINGS, { user: "old-unused" });
+		const freshStore = new SettingsStore(SETTINGS, { user: "fresh-unused" });
+		await freshStore.save("runtime", { "quotas.compactWidthCols": 137 });
+		let currentStore = oldStore;
+		const f = rig(
+			"tui",
+			{
+				signal: () => {
+					captures++;
+					return controller.signal;
+				},
+				settings: {
+					store: () => {
+						storeReads++;
+						return currentStore;
+					},
+					save: async (scope, changes) => {
+						saves++;
+						await currentStore.save(scope, changes);
+						return { committed: true, scope, shadowed: [], warnings: [] };
+					},
+				},
+			},
+			[],
+			true,
+			async (panel) => {
+				panel.handleInput(" ");
+				controller.abort();
+				controller = new AbortController();
+				currentStore = freshStore;
+				const rendered = panel.render(140).join("\n");
+				expect(rendered).toContain("100");
+				expect(rendered).not.toContain("137");
+				panel.handleInput("\x13");
+				panel.handleInput("r");
+				await Promise.resolve();
+				await Promise.resolve();
+			},
+		);
+		await f.run("auth", "settings quotas.refreshOnRequest");
+		expect(captures).toBe(1);
+		expect(storeReads).toBe(1);
+		expect(saves).toBe(0);
+		expect(freshStore.get("quotas.refreshOnRequest")).toBe(true);
+	});
+
+	test("dashboard confirms settings drafts and cannot close during a save", async () => {
+		const store = new SettingsStore(SETTINGS, { user: "unused" });
+		const saving = Promise.withResolvers<Awaited<ReturnType<SettingsSaver>>>();
+		let onRefresh: (() => void) | undefined;
+		const f = rig(
+			"tui",
+			{ settings: { store: () => store, save: async () => saving.promise } },
+			[],
+			true,
+			async (panel) => {
+				panel.handleInput(" ");
+				panel.handleInput("\x1b");
+				expect(panel.render(140).join("\n")).toContain("Discard all & exit?");
+				panel.handleInput("\x1b");
+				expect(panel.render(140).join("\n")).toContain("● staged");
+				panel.handleInput("\x13");
+				panel.handleInput("r");
+				panel.handleInput("\x03");
+				expect(panel.render(140).join("\n")).not.toContain("Discard all & exit?");
+				const settled = new Promise<void>((resolve) => {
+					onRefresh = resolve;
+				});
+				saving.resolve({ committed: false, error: "retry" });
+				await settled;
+				panel.handleInput("\x1b");
+				expect(panel.render(140).join("\n")).toContain("Discard all & exit?");
+			},
+			() => onRefresh?.(),
+		);
+		await f.run("auth", "settings quotas.refreshOnRequest");
+
+		const editing = rig(
+			"tui",
+			{ settings: { store: () => store, save: async () => saving.promise } },
+			[],
+			true,
+			(panel) => {
+				panel.handleInput("\r");
+				panel.handleInput("!");
+				panel.handleInput("\x03");
+				expect(panel.render(140).join("\n")).toContain("Discard all & exit?");
+				panel.handleInput("\x1b");
+				expect(panel.render(140).join("\n")).toContain("!");
+				panel.handleInput("\x1b");
+				expect(panel.render(140).join("\n")).not.toContain("Discard all & exit?");
+			},
+		);
+		await editing.run("auth", "settings quotas.lineTemplate");
 	});
 
 	test("replacement while listing or confirming resets never spends a credit", async () => {

@@ -3,8 +3,8 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { type AutocompleteItem, Text } from "@earendil-works/pi-tui";
 import type { CredentialStatus } from "../../core/auth/index.ts";
 import { type AppSettings, SETTINGS } from "../../core/config/catalog.ts";
-import { type SaveScope, SettingsError } from "../../core/config/index.ts";
-import type { SettingsSaver } from "../../core/config/save.ts";
+import type { Field, FieldValue, SaveScope } from "../../core/config/index.ts";
+import { formatSaveOutcome, type SettingsSaver } from "../../core/config/save.ts";
 import type { Registry } from "../../core/registry/index.ts";
 import { loginCodex } from "../../families/openai/codex-auth/index.ts";
 import type { LineTheme } from "../../quotas/line/format.ts";
@@ -38,7 +38,7 @@ export interface QuotaPanelDeps extends QuotasTabDeps, ResetFlowDeps {
 
 export interface SettingsPanelDeps {
 	store(): AppSettings;
-	onSaved(keys: readonly string[], scope: SaveScope): void;
+	readonly save: SettingsSaver;
 	preview?(
 		source: string,
 		width: number,
@@ -250,7 +250,12 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 	const quotaTarget = (target: string | undefined): string | undefined =>
 		target === undefined ? undefined : resolveTarget(target, providerTargets);
 
-	const headless = (tab: TabId, model: DashboardModel, target?: string): string => {
+	const headless = (
+		tab: TabId,
+		model: DashboardModel,
+		store: AppSettings | undefined,
+		target?: string,
+	): string => {
 		if (tab === "tokens") return tokensText(deps.tokens?.());
 		if (tab === "models") return modelsText(deps.models);
 		if (tab === "groups") return groupsText(deps.groups);
@@ -259,7 +264,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 			return typeof quotas === "string"
 				? `Auth › Quotas\n  ${quotas}`
 				: `Auth › Quotas\n${quotas.text(target)}`;
-		if (tab === "settings" && deps.settings) return settingsText(deps.settings.store());
+		if (tab === "settings" && store) return settingsText(store);
 		return dashboardText(tab, model);
 	};
 
@@ -267,12 +272,12 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		ctx: ExtensionCommandContext,
 		key: string,
 		signal: AbortSignal | undefined,
+		settings: SettingsPanelDeps | undefined,
 	): Promise<void> => {
 		if (signal?.aborted) return;
-		const settings = deps.settings;
 		if (!settings || !(key in SETTINGS)) return;
 		const name = key as SettingKey;
-		const field = SETTINGS[name];
+		const field: Field<FieldValue> = SETTINGS[name];
 		const store = settings.store();
 		const edited = await ctx.ui.editor(
 			`${field.label} (JSON)`,
@@ -292,21 +297,25 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 		const value = field.parse(raw);
 		if (value === undefined)
 			return report(ctx, `${field.label}: value has the wrong shape; nothing saved.`, "error");
+		const scopes = SCOPES.filter((entry) => field.allowedScopes?.includes(entry.scope) ?? true);
 		const choice = await ctx.ui.select(
 			`Save ${field.label} to`,
-			SCOPES.map((entry) => entry.label),
+			scopes.map((entry) => entry.label),
 		);
 		if (signal?.aborted) return;
-		const scope = SCOPES.find((entry) => entry.label === choice)?.scope;
+		const scope = scopes.find((entry) => entry.label === choice)?.scope;
 		if (!scope) return;
-		try {
-			await store.save(scope, { [name]: value });
-		} catch (error) {
-			if (signal?.aborted) return;
-			if (error instanceof SettingsError) return report(ctx, error.message, "error");
-			throw error;
-		}
-		if (!signal?.aborted) await settings.onSaved([name], scope);
+		const outcome = await settings.save(scope, { [name]: value });
+		if (!signal?.aborted)
+			report(
+				ctx,
+				formatSaveOutcome(outcome),
+				!outcome.committed
+					? "error"
+					: outcome.shadowed.length || outcome.warnings.length
+						? "warning"
+						: "info",
+			);
 	};
 
 	const reset = async (
@@ -394,8 +403,25 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 				return report(ctx, `Quotas for "${sanitize(select)}" are unavailable. ${action}`, "error");
 			}
 		}
+		const source = deps.settings;
+		const store = source?.store();
+		const settings: SettingsPanelDeps | undefined =
+			source && store
+				? {
+						store: () => store,
+						save: (scope, changes) =>
+							signal?.aborted
+								? Promise.resolve({
+										committed: false,
+										error: "Settings save cancelled because the session ended",
+									})
+								: source.save(scope, changes),
+						...(source.preview ? { preview: source.preview } : {}),
+					}
+				: undefined;
 		const model = dashboardModel(deps);
-		if (ctx.mode !== "tui" || !ctx.hasUI) return report(ctx, headless(tab, model, select), "info");
+		if (ctx.mode !== "tui" || !ctx.hasUI)
+			return report(ctx, headless(tab, model, store, select), "info");
 		let current: { tab: TabId; select?: string } = { tab, ...(select ? { select } : {}) };
 		for (;;) {
 			const opened = current;
@@ -417,14 +443,13 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 						);
 				const groups = deps.groups;
 				if (groups) views.groups = (host) => new GroupsView(host, groups);
-				const settings = deps.settings;
 				if (settings)
 					views.settings = (host) =>
 						new SettingsView(
 							host,
 							{
 								store: settings.store,
-								onSaved: settings.onSaved,
+								save: settings.save,
 								...(settings.preview
 									? {
 											previewTemplate: (source: string, width: number) =>
@@ -444,7 +469,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 				if (signal?.aborted) return;
 				current = { tab: "quotas", select: result.reset };
 			} else {
-				await editSetting(ctx, result.editSetting, signal);
+				await editSetting(ctx, result.editSetting, signal, settings);
 				if (signal?.aborted) return;
 				current = { tab: "settings", select: result.editSetting };
 			}

@@ -20,7 +20,11 @@ function catalog(): ModelCatalogItem[] {
 	}));
 }
 
-function open(models: () => readonly ModelCatalogItem[], bindings: KeybindingsConfig = {}) {
+function open(
+	models: () => readonly ModelCatalogItem[],
+	bindings: KeybindingsConfig = {},
+	annotation?: (item: ModelCatalogItem, index: number) => string,
+) {
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS, bindings);
 	const host: TabViewHost = {
 		theme: {
@@ -42,6 +46,7 @@ function open(models: () => readonly ModelCatalogItem[], bindings: KeybindingsCo
 		models,
 		(item) => chosen.push(item),
 		() => cancelled++,
+		annotation,
 	);
 	const press = (data: string) => picker.handleInput(data);
 	const paste = (text: string) => press(`\x1b[200~${text}\x1b[201~`);
@@ -56,6 +61,29 @@ function assertFits(body: ReturnType<ModelPicker["render"]>, width: number, heig
 }
 
 describe("model picker", () => {
+	test("optional annotations precede identities and stay visible while inspecting", () => {
+		const models: ModelCatalogItem[] = [
+			{ provider: "long-provider-name", id: "first-id", name: "First", contextWindow: 1 },
+			{ provider: "long-provider-name", id: "second-id", name: "Second", contextWindow: 1 },
+		];
+		const r = open(
+			() => models,
+			{},
+			(_item, index) => (index === 0 ? "listed" : "hidden\x1b]0;bad\x07"),
+		);
+		r.press("\x1b[B");
+		let body = r.render(36, 3);
+		expect(body.lines.map(stripVTControlCharacters).join(" ")).toContain(
+			"hidden long-provider-name/second",
+		);
+		expect(body.state).toContain("hidden");
+		expect(body.lines.join("") + body.state).not.toContain("\x1b]0;bad");
+		r.press("?");
+		body = r.render(36, 1);
+		expect(body.state).toContain("hidden");
+		assertFits(body, 36, 1);
+	});
+
 	test("searches 555 identities by provider/id and chooses the exact item", () => {
 		const models = catalog();
 		const last = models[554];
@@ -122,6 +150,25 @@ describe("model picker", () => {
 		expect(r.chosen).toEqual([first]);
 		r.press("\x18");
 		expect(r.cancelled()).toBe(1);
+	});
+
+	test("alt arrows page results and inspection when fullscreen captures page keys", () => {
+		const models = catalog();
+		const r = open(() => models);
+		expect(r.render(80, 6).description).toContain("alt+↑/↓ page");
+		r.press("\x1b[1;3B");
+		expect(r.picker.selected()).toBe(models[5]);
+		r.press("\x1b[1;3A");
+		expect(r.picker.selected()).toBe(models[0]);
+		r.press("?");
+		const detail = r.render(36, 1);
+		r.press("\x1b[1;3B");
+		expect(r.render(36, 1).above).toBe(detail.above + 1);
+		const rebound = open(() => models, { "tui.select.up": "alt+down" });
+		rebound.render();
+		rebound.press("\x1b[B");
+		rebound.press("\x1b[1;3B");
+		expect(rebound.picker.selected()).toBe(models[0]);
 	});
 
 	test("printable navigation bindings remain searchable until tab returns focus to results", () => {

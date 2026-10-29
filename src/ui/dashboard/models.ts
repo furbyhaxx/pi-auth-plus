@@ -1,12 +1,19 @@
 /** Staged model visibility rules and their catalog preview. */
-import { Input, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
+import {
+	decodeKittyPrintable,
+	Input,
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+} from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../core/config/index.ts";
 import type { SaveOutcome } from "../../core/config/save.ts";
 import type { ModelAlias } from "../../models/aliases/index.ts";
 import type { OverrideEdit } from "../../models/overrides/index.ts";
 import { exactModelRule } from "../../models/rules/match.ts";
-import { sanitize } from "../frame/index.ts";
+import { type HintItem, sanitize } from "../frame/index.ts";
 import { ModelDetail } from "./model-detail.ts";
+import { ModelPicker } from "./model-picker.ts";
 import type { TabBody, TabView, TabViewHost } from "./view.ts";
 
 /** A model available to the visibility preview. */
@@ -88,17 +95,47 @@ function sameRules(left: readonly string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((rule, index) => rule === right[index]);
 }
 
+function fitCatalogHints(hints: readonly HintItem[], width: number): HintItem[] {
+	const ordered = hints.map((hint, index) => ({ hint, index }));
+	ordered.sort((left, right) => left.hint.priority - right.hint.priority);
+	const selected = new Set<number>();
+	let used = 0;
+	for (const { hint, index } of ordered) {
+		if (!hint.key) continue;
+		const space = visibleWidth(`${hint.key} ${hint.action}`) + (selected.size ? 3 : 0);
+		if (used + space <= Math.max(0, width - 1)) {
+			selected.add(index);
+			used += space;
+		}
+	}
+	return hints.filter((_, index) => selected.has(index));
+}
+
+function pickerBinding(keys: TabViewHost["keys"], data: string): boolean {
+	return (
+		keys.matches(data, "tui.select.cancel") ||
+		keys.matches(data, "tui.select.confirm") ||
+		keys.matches(data, "tui.select.up") ||
+		keys.matches(data, "tui.select.down") ||
+		keys.matches(data, "tui.select.pageUp") ||
+		keys.matches(data, "tui.select.pageDown") ||
+		keys.matches(data, "tui.input.tab") ||
+		keys.matches(data, "tui.editor.cursorLeft") ||
+		keys.matches(data, "tui.editor.cursorRight")
+	);
+}
+
 /** A rules editor with a live catalog preview and explicit scoped saves. */
 export class ModelsView implements TabView {
 	readonly #host: TabViewHost;
 	readonly #deps: ModelsTabDeps;
+	readonly #picker: ModelPicker;
 	readonly #input = new Input({ prompt: "", placeholder: "provider/model or !provider/model" });
 	#staged: string[] | undefined;
 	#view: "rules" | "catalog" = "rules";
 	#mode: "list" | "edit" | "save" = "list";
 	#editInitial = "";
 	#ruleSelected = 0;
-	#modelSelected = 0;
 	#offset = 0;
 	#adding = false;
 	#message = "";
@@ -114,6 +151,19 @@ export class ModelsView implements TabView {
 	constructor(host: TabViewHost, deps: ModelsTabDeps) {
 		this.#host = host;
 		this.#deps = deps;
+		this.#picker = new ModelPicker(
+			host,
+			() => this.#catalog(),
+			(item) => {
+				if (deps.details)
+					this.#detail = new ModelDetail(host, deps.details, item, () => this.#closeDetail());
+			},
+			() => {
+				this.#view = "rules";
+				this.#offset = 0;
+			},
+			(_item, index) => (this.#preview?.outcomes[index]?.visible ? "listed" : "hidden"),
+		);
 	}
 
 	/** Include staged rules, unfinished rule input and nested model drafts. */
@@ -294,6 +344,52 @@ export class ModelsView implements TabView {
 			else if (data === "r") void this.#save("runtime");
 			return true;
 		}
+		if (matchesKey(data, "ctrl+s") && !pickerBinding(keys, data)) {
+			if (this.#staged) this.#mode = "save";
+			else this.#message = "No staged changes to save";
+			return true;
+		}
+		if (this.#view === "catalog") {
+			if (this.#picker.isEditing() || this.#picker.isInspecting())
+				return this.#picker.handleInput(data);
+			if (cancel) return this.#picker.handleInput(data);
+			if (
+				keys.matches(data, "tui.input.tab") ||
+				keys.matches(data, "tui.editor.cursorLeft") ||
+				keys.matches(data, "tui.editor.cursorRight") ||
+				matchesKey(data, "shift+tab")
+			)
+				return false;
+			if (pickerBinding(keys, data)) return this.#picker.handleInput(data);
+			const printable = decodeKittyPrintable(data) ?? data;
+			if (printable === "v") {
+				this.#view = "rules";
+				this.#offset = 0;
+				return true;
+			}
+			if (printable === "h") {
+				const item = this.#picker.selected();
+				if (item) {
+					const rules = this.#rules();
+					const catalog = this.#catalog();
+					const index = catalog.findIndex(
+						(model) => model.provider === item.provider && model.id === item.id,
+					);
+					const outcome = this.#previewFor(rules, catalog).outcomes[index];
+					if (outcome)
+						this.#stage([
+							...rules,
+							`${outcome.visible ? "" : "!"}${exactModelRule(item.provider, item.id)}`,
+						]);
+				}
+				return true;
+			}
+			if (printable === "j" || printable === "k") {
+				this.#picker.moveSelection(printable === "j" ? 1 : -1);
+				return true;
+			}
+			return this.#picker.handleInput(data);
+		}
 		if (cancel) return false;
 		if (
 			keys.matches(data, "tui.input.tab") ||
@@ -302,19 +398,9 @@ export class ModelsView implements TabView {
 			matchesKey(data, "shift+tab")
 		)
 			return false;
-		if (matchesKey(data, "ctrl+s")) {
-			if (this.#staged) this.#mode = "save";
-			else this.#message = "No staged changes to save";
-			return true;
-		}
 		const rules = this.#rules();
-		const catalog = this.#catalog();
 		this.#ruleSelected = Math.max(0, Math.min(this.#ruleSelected, rules.length - 1));
-		this.#modelSelected = Math.max(0, Math.min(this.#modelSelected, catalog.length - 1));
-		if (
-			this.#view === "rules" &&
-			(matchesKey(data, "shift+up") || matchesKey(data, "shift+down"))
-		) {
+		if (matchesKey(data, "shift+up") || matchesKey(data, "shift+down")) {
 			const next = this.#ruleSelected + (matchesKey(data, "shift+up") ? -1 : 1);
 			if (next >= 0 && next < rules.length) {
 				const reordered = [...rules];
@@ -333,31 +419,12 @@ export class ModelsView implements TabView {
 		const down = keys.matches(data, "tui.select.down") || data === "j";
 		if (up || down) {
 			const delta = up ? -1 : 1;
-			if (this.#view === "rules")
-				this.#ruleSelected = Math.max(0, Math.min(rules.length - 1, this.#ruleSelected + delta));
-			else
-				this.#modelSelected = Math.max(
-					0,
-					Math.min(catalog.length - 1, this.#modelSelected + delta),
-				);
+			this.#ruleSelected = Math.max(0, Math.min(rules.length - 1, this.#ruleSelected + delta));
 			return true;
 		}
 		if (data === "v") {
-			this.#view = this.#view === "rules" ? "catalog" : "rules";
+			this.#view = "catalog";
 			this.#offset = 0;
-			return true;
-		}
-		if (this.#view === "catalog") {
-			const item = catalog[this.#modelSelected];
-			if (enter && item && this.#deps.details) {
-				this.#detail = new ModelDetail(this.#host, this.#deps.details, item, () =>
-					this.#closeDetail(),
-				);
-				return true;
-			}
-			if (data !== "h" || !item) return false;
-			const visible = this.#deps.evaluate(rules, item.provider, item.id).visible;
-			this.#stage([...rules, `${visible ? "" : "!"}${exactModelRule(item.provider, item.id)}`]);
 			return true;
 		}
 		const current = rules[this.#ruleSelected];
@@ -383,45 +450,78 @@ export class ModelsView implements TabView {
 		const rules = this.#rules();
 		const catalog = this.#catalog();
 		this.#ruleSelected = Math.max(0, Math.min(this.#ruleSelected, rules.length - 1));
-		const { outcomes, hidden, effect: selectedEffect } = this.#previewFor(rules, catalog);
-		const effect = this.#view === "rules" ? selectedEffect : undefined;
-		const rows: string[] = [
-			` ${this.#view === "rules" ? "Rules" : "Catalog"} · ${hidden} hidden${this.#staged ? " · ● staged" : ""}`,
-		];
-		let selectedRow = 0;
-		if (this.#view === "rules") {
-			for (const [index, rule] of rules.entries()) {
-				const selected = index === this.#ruleSelected;
-				if (selected) selectedRow = rows.length;
-				const value =
-					selected && this.#mode === "edit" && !this.#adding
-						? (this.#input.render(Math.max(1, width - 5))[0] ?? "")
-						: text(rule);
-				rows.push(` ${selected ? theme.fg("accent", "❯") : " "} ${value}`);
-			}
-			if (this.#mode === "edit" && this.#adding) {
-				selectedRow = rows.length;
-				rows.push(
-					` ${theme.fg("accent", "❯")} ${this.#input.render(Math.max(1, width - 5))[0] ?? ""}`,
-				);
-			} else if (rules.length === 0) rows.push(" No rules; all models listed.");
-		} else {
-			this.#modelSelected = Math.max(0, Math.min(this.#modelSelected, catalog.length - 1));
-			let provider: string | undefined;
-			for (const [index, item] of catalog.entries()) {
-				if (provider !== item.provider) {
-					provider = item.provider;
-					rows.push(` ${theme.bold(text(provider))}`);
-				}
-				const selected = index === this.#modelSelected;
-				if (selected) selectedRow = rows.length;
-				const state = outcomes[index]?.visible ? "listed" : "hidden";
-				rows.push(
-					` ${selected ? theme.fg("accent", "❯") : " "} ${state} ${text(item.id)} · ${text(item.name)} · ${item.contextWindow}`,
-				);
-			}
-			if (catalog.length === 0) rows.push(" No models in catalog.");
+		const { hidden, effect } = this.#previewFor(rules, catalog);
+		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
+		if (this.#view === "catalog") {
+			const details: string[] = [];
+			if (this.#message) details.push(` ${theme.fg("warning", text(this.#message))}`);
+			if (this.#mode === "save") details.push(" Save: u user · p project · r runtime");
+			const reserved = Math.min(details.length, Math.max(0, bodyRows - 1));
+			const body = this.#picker.render(width, Math.max(0, bodyRows - reserved));
+			const active = !this.#picker.isEditing() && !this.#picker.isInspecting();
+			// Leave room for the Models crumb and frame rules.
+			const stateWidth = Math.max(0, width - 16);
+			const baseState = `${this.#staged ? theme.fg("warning", "● ") : ""}${body.state ?? ""}`;
+			const count = theme.fg("dim", ` · ${hidden} hidden`);
+			const state =
+				!this.#picker.isInspecting() && visibleWidth(baseState + count) <= stateWidth
+					? baseState + count
+					: baseState;
+			return {
+				...body,
+				lines: [...body.lines, ...details.slice(0, reserved)].map((line) =>
+					truncateToWidth(line, Math.max(0, width), "…"),
+				),
+				state: truncateToWidth(state, stateWidth, "…"),
+				hints:
+					this.#mode === "save"
+						? [
+								{ key: "u/p/r", action: "user/project/runtime", priority: 0 },
+								{ key: binding("tui.select.cancel"), action: "cancel", priority: 1 },
+							]
+						: fitCatalogHints(
+								[
+									...body.hints.flatMap((hint) =>
+										hint.action === "choose"
+											? this.#deps.details
+												? [{ ...hint, action: "detail", priority: 1 }]
+												: []
+											: [hint],
+									),
+									...(active
+										? [
+												...(!pickerBinding(this.#host.keys, "v")
+													? [{ key: "v", action: "rules", priority: 0 }]
+													: []),
+												...(!pickerBinding(this.#host.keys, "h")
+													? [{ key: "h", action: "hide/show", priority: 0 }]
+													: []),
+												{ key: binding("tui.input.tab"), action: "switch", priority: 1 },
+											]
+										: []),
+									{ key: "ctrl+s", action: "save", priority: 1 },
+								],
+								width,
+							),
+			};
 		}
+		const rows: string[] = [` Rules · ${hidden} hidden${this.#staged ? " · ● staged" : ""}`];
+		let selectedRow = 0;
+		for (const [index, rule] of rules.entries()) {
+			const selected = index === this.#ruleSelected;
+			if (selected) selectedRow = rows.length;
+			const value =
+				selected && this.#mode === "edit" && !this.#adding
+					? (this.#input.render(Math.max(1, width - 5))[0] ?? "")
+					: text(rule);
+			rows.push(` ${selected ? theme.fg("accent", "❯") : " "} ${value}`);
+		}
+		if (this.#mode === "edit" && this.#adding) {
+			selectedRow = rows.length;
+			rows.push(
+				` ${theme.fg("accent", "❯")} ${this.#input.render(Math.max(1, width - 5))[0] ?? ""}`,
+			);
+		} else if (rules.length === 0) rows.push(" No rules; all models listed.");
 		const details: string[] = [];
 		if (this.#message) details.push(` ${theme.fg("warning", text(this.#message))}`);
 		if (this.#mode === "save") details.push(" Save: u user · p project · r runtime");
@@ -430,7 +530,6 @@ export class ModelsView implements TabView {
 		this.#offset = Math.max(0, Math.min(this.#offset, selectedRow));
 		this.#offset = Math.max(this.#offset, selectedRow - available + 1);
 		this.#offset = Math.max(0, Math.min(this.#offset, rows.length - available));
-		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
 		return {
 			lines: [
 				...rows.slice(this.#offset, this.#offset + available),
@@ -466,29 +565,16 @@ export class ModelsView implements TabView {
 								{ key: binding("tui.select.cancel"), action: "cancel", priority: 1 },
 							]
 						: [
-								{ key: "v", action: this.#view === "rules" ? "catalog" : "rules", priority: 0 },
+								{ key: "v", action: "catalog", priority: 0 },
 								{ key: "ctrl+s", action: "save", priority: 1 },
 								{
 									key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
 									action: "move",
 									priority: 2,
 								},
-								...(this.#view === "rules"
-									? [
-											{
-												key: `a/${binding("tui.select.confirm")}`,
-												action: "add/edit",
-												priority: 1,
-											},
-											{ key: "space/d", action: "toggle/delete", priority: 2 },
-											{ key: "shift+↑/↓", action: "reorder", priority: 3 },
-										]
-									: [
-											{ key: "h", action: "hide/show", priority: 1 },
-											...(this.#deps.details
-												? [{ key: binding("tui.select.confirm"), action: "detail", priority: 0 }]
-												: []),
-										]),
+								{ key: `a/${binding("tui.select.confirm")}`, action: "add/edit", priority: 1 },
+								{ key: "space/d", action: "toggle/delete", priority: 2 },
+								{ key: "shift+↑/↓", action: "reorder", priority: 3 },
 							],
 		};
 	}

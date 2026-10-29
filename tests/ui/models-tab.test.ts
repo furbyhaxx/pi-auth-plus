@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	type KeybindingsConfig,
+	KeybindingsManager,
+	TUI_KEYBINDINGS,
+	visibleWidth,
+} from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../src/core/config/index.ts";
 import type { SaveOutcome } from "../../src/core/config/save.ts";
 import type { ModelAlias } from "../../src/models/aliases/index.ts";
@@ -19,12 +24,13 @@ function open(
 	fail = false,
 	extra: readonly ModelCatalogItem[] = [],
 	details?: ModelsTabDeps["details"],
+	bindings: KeybindingsConfig = {},
 ) {
 	let stored = [...initial];
 	const saves: { rules: readonly string[]; scope: SaveScope }[] = [];
 	let onRefresh: (() => void) | undefined;
 	let onDiscard: (() => void) | undefined;
-	const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+	const keys = new KeybindingsManager(TUI_KEYBINDINGS, bindings);
 	const host: TabViewHost = {
 		theme: {
 			fg: (_color, text) => `\x1b[90m${text}\x1b[39m`,
@@ -73,7 +79,10 @@ function open(
 			onDiscard = undefined;
 			discard?.();
 		},
-		text: () => view.render(140, 30).lines.map(stripVTControlCharacters).join("\n"),
+		text: () => {
+			const body = view.render(140, 30);
+			return [body.state ?? "", ...body.lines].map(stripVTControlCharacters).join("\n");
+		},
 		nextRefresh: () =>
 			new Promise<void>((resolve) => {
 				onRefresh = resolve;
@@ -95,6 +104,7 @@ function dashboard(
 	) => ({ committed: true, scope, shadowed: [], warnings: [] }),
 	saveOverride: () => Promise<void> = async () => {},
 	saveRules: () => Promise<void> = async () => {},
+	rows = 40,
 ) {
 	let modelHost: TabViewHost | undefined;
 	let modelView: ModelsView | undefined;
@@ -106,7 +116,9 @@ function dashboard(
 		modelView = new ModelsView(host, {
 			rules: () => [],
 			catalog: () => [{ provider: "vendor", id: "one", name: "First", contextWindow: 1000 }],
-			evaluate: () => ({ visible: true }),
+			evaluate: (rules, provider, id) => ({
+				visible: !evaluateModelRules(compileModelRules(rules), provider, id).hidden,
+			}),
 			save: saveRules,
 			details: {
 				read: async () => undefined,
@@ -117,7 +129,7 @@ function dashboard(
 		return modelView;
 	};
 	const panel = new AuthDashboard(
-		{ terminal: { rows: 40 }, requestRender: () => {} },
+		{ terminal: { rows }, requestRender: () => {} },
 		{ fg: (_color, value) => value, bg: (_color, value) => value, bold: (value) => value },
 		keys,
 		() => closed++,
@@ -150,6 +162,188 @@ function openAlias(rig: ReturnType<typeof dashboard>) {
 }
 
 describe("models tab", () => {
+	test("searches and pages 555 models, opens the selection, and hides its exact physical ID", async () => {
+		const provider = "provider-with-a-long-common-prefix";
+		const catalog: ModelCatalogItem[] = Array.from({ length: 555 }, (_, index) => ({
+			provider,
+			id: `physical-${String(index).padStart(3, "0")}${index === 5 ? "*with-distinct-tail" : ""}`,
+			name: `Human hv model ${index}`,
+			contextWindow: 1000,
+		}));
+		const target = catalog[5];
+		if (!target) throw new Error("fixture missing");
+		let stored: readonly string[] = [];
+		const reads: string[] = [];
+		let previous: readonly string[] | undefined;
+		let compiled = compileModelRules([]);
+		let compilations = 0;
+		let evaluations = 0;
+		const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+		const view = new ModelsView(
+			{
+				theme: {
+					fg: (_color, value) => value,
+					bg: (_color, value) => value,
+					bold: (value) => value,
+				},
+				keys,
+				binding: (id) => bindingLabel(keys, id),
+				refresh: () => {},
+				finish: () => {},
+			},
+			{
+				rules: () => [...stored],
+				catalog: () => catalog.map((item) => ({ ...item })),
+				evaluate: (rules, itemProvider, id) => {
+					evaluations++;
+					if (rules !== previous) {
+						previous = rules;
+						compiled = compileModelRules(rules);
+						compilations++;
+					}
+					return { visible: !evaluateModelRules(compiled, itemProvider, id).hidden };
+				},
+				save: async (rules, scope) => {
+					expect(scope).toBe("runtime");
+					stored = [...rules];
+				},
+				details: {
+					read: async (itemProvider, id) => {
+						reads.push(`${itemProvider}/${id}`);
+						return undefined;
+					},
+					save: async () => {},
+				},
+			},
+		);
+		view.render(36, 6);
+		view.handleInput("v");
+		view.handleInput("/");
+		for (const char of "Human hv") view.handleInput(char);
+		let body = view.render(36, 6);
+		expect(body.state).toContain("1–5 of 555");
+		expect(body.lines.join(" ")).toContain("Human hv");
+		const baselineEvaluations = evaluations;
+		const baselineCompilations = compilations;
+		view.handleInput("\x1b[6~");
+		body = view.render(36, 6);
+		expect(body.state).toContain("6–10 of 555");
+		expect(body.lines.join(" ")).toContain("listed");
+		view.handleInput("\r");
+		await Promise.resolve();
+		expect(reads).toEqual([`${provider}/${target.id}`]);
+		view.handleInput("\x1b");
+		view.handleInput("?");
+		view.handleInput("h");
+		view.handleInput("v");
+		let fullDetail = "";
+		for (let i = 0; i < 30; i++) {
+			body = view.render(36, 2);
+			expect(body.state).toContain("listed");
+			for (const line of body.lines) expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+			fullDetail += body.lines.map(stripVTControlCharacters).join("");
+			if (body.below === 0) break;
+			view.handleInput("\x1b[B");
+		}
+		expect(fullDetail).toContain(`${provider}/${target.id}`);
+		expect(fullDetail).toContain(target.name);
+		view.handleInput("\x1b");
+		view.handleInput("v");
+		view.handleInput("v");
+		view.handleInput("h");
+		expect(evaluations).toBe(baselineEvaluations);
+		expect(compilations).toBe(baselineCompilations);
+		body = view.render(36, 6);
+		expect(body.state).toContain("hidden");
+		expect(body.state).toContain("●");
+		expect(view.render(140, 6).state).toContain("1 hidden");
+		expect(body.lines.join(" ")).toContain("hidden");
+		expect(evaluations).toBe(baselineEvaluations + 555);
+		expect(compilations).toBe(baselineCompilations + 1);
+		view.render(36, 6);
+		expect(evaluations).toBe(baselineEvaluations + 555);
+		expect(compilations).toBe(baselineCompilations + 1);
+		view.handleInput("\x13");
+		view.handleInput("r");
+		await Promise.resolve();
+		expect(stored).toEqual([`${provider}/physical-005\\*with-distinct-tail`]);
+	});
+
+	test("search and inspection unwind before returning to rules; rebound picker keys win", async () => {
+		const reads: string[] = [];
+		const rig = open(
+			[],
+			false,
+			[{ provider: "vendor", id: "hv", name: "Human hv", contextWindow: 1000 }],
+			{
+				read: async (provider, id) => {
+					reads.push(`${provider}/${id}`);
+					return undefined;
+				},
+				save: async () => {},
+			},
+			{ "tui.select.pageDown": "v", "tui.select.confirm": "h" },
+		);
+		rig.view.handleInput("v");
+		rig.view.render(80, 2);
+		rig.view.handleInput("/");
+		rig.view.handleInput("h");
+		rig.view.handleInput("v");
+		expect(rig.view.render(80, 2).state).toContain("1–1 of 1");
+		rig.view.handleInput("\x1b");
+		expect(rig.view.render(80, 2).state).toContain("of 4");
+		rig.view.handleInput("/");
+		rig.view.handleInput("\x1b[200~VENDOR/TWO\x1b[201~");
+		expect(rig.view.render(80, 2).lines.map(stripVTControlCharacters).join(" ")).toContain(
+			"vendor/two",
+		);
+		rig.view.handleInput("\x1b");
+		rig.view.handleInput("v");
+		expect(rig.view.render(80, 2).lines.map(stripVTControlCharacters).join(" ")).toContain(
+			"❯ listed vendor/two",
+		);
+		const refreshed = rig.nextRefresh();
+		rig.view.handleInput("h");
+		await refreshed;
+		expect(reads).toEqual(["vendor/two"]);
+		rig.view.handleInput("\x1b");
+		rig.view.handleInput("?");
+		rig.view.handleInput("\x1b");
+		expect(rig.view.render(80, 2).state).toContain("of 4");
+		rig.view.handleInput("\x1b");
+		expect(rig.view.render(80, 2).lines.join(" ")).toContain("Rules");
+	});
+
+	test("narrow catalog footer keeps visibility and return actions legible", () => {
+		const rig = dashboard();
+		rig.panel.handleInput("v");
+		const screen = stripVTControlCharacters(rig.panel.render(36).join("\n"));
+		expect(screen).toContain("h hide/show");
+		expect(screen).toContain("v rules");
+		expect(screen).toContain("esc back");
+		rig.panel.dispose();
+	});
+
+	test("compact dashboard keeps selected visibility visible during search and inspection", () => {
+		const rig = dashboard(undefined, undefined, undefined, 10);
+		rig.panel.handleInput("v");
+		rig.panel.handleInput("h");
+		rig.panel.handleInput("/");
+		for (const width of [36, 57, 80, 140]) {
+			const lines = rig.panel.render(width);
+			expect(stripVTControlCharacters(lines.join(" "))).toContain("hidden");
+			for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+		rig.panel.handleInput("\t");
+		rig.panel.handleInput("?");
+		for (const width of [36, 57, 80, 140]) {
+			const lines = rig.panel.render(width);
+			expect(stripVTControlCharacters(lines.join(" "))).toContain("hidden");
+			for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+		rig.panel.dispose();
+	});
+
 	test("dashboard keeps changed nested override and alias input across another tab's cancelled exit", async () => {
 		for (const alias of [false, true]) {
 			const rig = dashboard();
@@ -228,7 +422,7 @@ describe("models tab", () => {
 		rig.panel.handleInput("\x1b");
 		expect(rig.text()).toContain("Discard this draft?");
 		rig.panel.handleInput("\r");
-		expect(rig.text()).toContain("Catalog");
+		expect(rig.text()).toContain("provider/id or name");
 		rig.panel.handleInput("v");
 		expect(rig.text()).toContain("vendor/one");
 		rig.panel.handleInput("\x1b");
@@ -460,18 +654,26 @@ describe("models tab", () => {
 		view.handleInput("v");
 		body = view.render(140, 600);
 		let lines = body.lines.join("\n");
-		expect(lines).toContain("listed renamed · Renamed");
-		expect(lines).toContain("hidden model-1 · Added");
-		expect(lines.indexOf("listed model-111")).toBeLessThan(lines.indexOf("listed renamed"));
+		expect(lines).toContain("listed vendor/renamed · Renamed");
+		expect(lines).toContain("hidden vendor/model-1 · Added");
+		expect(lines.indexOf("listed other/model-111")).toBeLessThan(
+			lines.indexOf("listed vendor/renamed"),
+		);
 		renamed.name = "Updated name";
 		const beforeMetadataChange = evaluations;
 		body = view.render(140, 600);
-		expect(body.lines.join("\n")).toContain("listed renamed · Updated name");
+		expect(body.lines.join("\n")).toContain("listed vendor/renamed · Updated name");
 		expect(evaluations).toBeGreaterThan(beforeMetadataChange);
 		catalog.reverse();
 		body = view.render(140, 600);
 		lines = body.lines.join("\n");
-		expect(lines.indexOf("hidden model-1 · Added")).toBeLessThan(lines.indexOf("listed model-111"));
+		expect(lines.indexOf("hidden vendor/model-1 · Added")).toBeLessThan(
+			lines.indexOf("listed other/model-111"),
+		);
+		expect(lines).toContain("❯ listed other/model-0");
+		view.handleInput("/");
+		view.handleInput("Added");
+		view.handleInput("\t");
 		view.handleInput("h");
 		expect(render().state).toContain("0 hidden");
 	});
@@ -893,7 +1095,7 @@ describe("models tab", () => {
 		rig.view.handleInput("j");
 		rig.view.handleInput("h");
 		expect(rig.text()).toContain("1 hidden");
-		expect(rig.text()).toContain("listed star-other-id");
+		expect(rig.text()).toContain("listed vendor/star-other-id");
 		await save(rig, "r");
 		expect(rig.stored()).toEqual(["vendor/star\\*id"]);
 	});

@@ -1,5 +1,11 @@
 /** A shared, searchable catalog picker; owners may intercept action keys while not editing. */
-import { decodeKittyPrintable, Input, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	decodeKittyPrintable,
+	Input,
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+} from "@earendil-works/pi-tui";
 import { sanitize } from "../frame/index.ts";
 import type { ModelCatalogItem } from "./models.ts";
 import type { TabBody, TabViewHost } from "./view.ts";
@@ -38,6 +44,7 @@ export class ModelPicker {
 	readonly #catalog: () => readonly ModelCatalogItem[];
 	readonly #choose: (item: ModelCatalogItem) => void;
 	readonly #cancel: () => void;
+	readonly #annotation: ((item: ModelCatalogItem, index: number) => string) | undefined;
 	readonly #input = new Input({ prompt: "", placeholder: "provider/id or name" });
 	#snapshot: readonly SearchItem[] = [];
 	#matches: number[] = [];
@@ -57,11 +64,13 @@ export class ModelPicker {
 		catalog: () => readonly ModelCatalogItem[],
 		onChoose: (item: ModelCatalogItem) => void,
 		onCancel: () => void,
+		annotation?: (item: ModelCatalogItem, index: number) => string,
 	) {
 		this.#host = host;
 		this.#catalog = catalog;
 		this.#choose = onChoose;
 		this.#cancel = onCancel;
+		this.#annotation = annotation;
 	}
 
 	#sync(): readonly ModelCatalogItem[] {
@@ -125,6 +134,14 @@ export class ModelPicker {
 		return this.#inspecting;
 	}
 
+	/** Move the selected result for owner-specific navigation shortcuts. */
+	moveSelection(delta: number): void {
+		this.#sync();
+		this.#selected = Math.max(0, Math.min(this.#matches.length - 1, this.#selected + delta));
+		this.#editing = false;
+		this.#input.focused = false;
+	}
+
 	#search(data?: string): void {
 		this.#editing = true;
 		this.#input.focused = true;
@@ -155,8 +172,10 @@ export class ModelPicker {
 		const confirm = keys.matches(data, "tui.select.confirm");
 		const up = keys.matches(data, "tui.select.up");
 		const down = keys.matches(data, "tui.select.down");
-		const pageUp = keys.matches(data, "tui.select.pageUp");
-		const pageDown = keys.matches(data, "tui.select.pageDown");
+		const pageUp =
+			keys.matches(data, "tui.select.pageUp") || (!up && !down && matchesKey(data, "alt+up"));
+		const pageDown =
+			keys.matches(data, "tui.select.pageDown") || (!up && !down && matchesKey(data, "alt+down"));
 		if (cancel) {
 			if (this.#inspecting) {
 				this.#inspecting = false;
@@ -185,11 +204,8 @@ export class ModelPicker {
 					Math.min(this.#detailMaxOffset, this.#detailOffset + delta),
 				);
 			} else {
-				this.#sync();
 				const delta = (up || pageUp ? -1 : 1) * (pageUp || pageDown ? this.#pageSize : 1);
-				this.#selected = Math.max(0, Math.min(this.#matches.length - 1, this.#selected + delta));
-				this.#editing = false;
-				this.#input.focused = false;
+				this.moveSelection(delta);
 			}
 			return true;
 		}
@@ -233,6 +249,8 @@ export class ModelPicker {
 		};
 		const index = this.#matches[this.#selected];
 		const item = index === undefined ? undefined : catalog[index];
+		const annotation = item && index !== undefined ? this.#annotation?.(item, index) : undefined;
+		const status = annotation ? `${clean(annotation)} · ` : "";
 		const columns = Math.max(0, width);
 		const height = Math.max(0, bodyRows);
 		const description = truncateToWidth(
@@ -244,7 +262,7 @@ export class ModelPicker {
 						? hintAvailable("tui.input.tab")
 							? `? inspect after ${binding("tui.input.tab")} or moving`
 							: "? inspect after moving"
-						: "? full identity · type or / search",
+						: "? inspect · alt+↑/↓ page · / search",
 			),
 			columns,
 			"…",
@@ -268,6 +286,7 @@ export class ModelPicker {
 						},
 					]
 				: []),
+			{ key: "alt+↑/↓", action: "page", priority: 2 },
 			...(hintAvailable("tui.select.confirm")
 				? [{ key: binding("tui.select.confirm"), action: "choose", priority: 0 }]
 				: []),
@@ -301,7 +320,7 @@ export class ModelPicker {
 				above: this.#detailOffset,
 				below: Math.max(0, detail.length - this.#detailOffset - height),
 				modal: true,
-				state: truncateToWidth(theme.fg("dim", "Selection detail"), columns, "…"),
+				state: truncateToWidth(theme.fg("dim", `${status}Selection detail`), columns, "…"),
 				description,
 				hints,
 			};
@@ -326,9 +345,11 @@ export class ModelPicker {
 			const model = modelIndex === undefined ? undefined : catalog[modelIndex];
 			if (!model) continue;
 			const marker = position === this.#selected ? theme.fg("accent", "❯") : " ";
+			const annotation =
+				modelIndex === undefined ? undefined : this.#annotation?.(model, modelIndex);
 			lines.push(
 				truncateToWidth(
-					` ${marker} ${clean(model.provider)}/${clean(model.id)} · ${clean(model.name)}`,
+					` ${marker} ${annotation ? `${clean(annotation)} ` : ""}${clean(model.provider)}/${clean(model.id)} · ${clean(model.name)}`,
 					columns,
 					"…",
 				),
@@ -344,7 +365,7 @@ export class ModelPicker {
 			above: count ? start : 0,
 			below: Math.max(0, count - end),
 			modal: true,
-			state: truncateToWidth(theme.fg("dim", range), columns, "…"),
+			state: truncateToWidth(theme.fg("dim", `${status}${range}`), columns, "…"),
 			description,
 			hints,
 		};

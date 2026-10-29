@@ -1,6 +1,5 @@
 /** Owns memoized quota templates and preferred-break rendering from cached snapshots. */
 import type { ThemeStyle } from "@earendil-works/pi-coding-agent";
-import type { ProviderEntry } from "../../core/registry/index.ts";
 import type { QuotaView } from "../engine.ts";
 import type { ProviderQuotaSnapshot, QuotaWindow } from "../types.ts";
 import { gradientColor, type LineTheme } from "./format.ts";
@@ -97,9 +96,8 @@ interface Value {
 }
 function providerFields(
 	theme: LineTheme,
-	provider: ProviderEntry,
+	view: QuotaView,
 	alias: string,
-	snapshot: ProviderQuotaSnapshot | undefined,
 	fields: readonly TemplateField[],
 	config: LineConfig,
 	now: number,
@@ -107,7 +105,13 @@ function providerFields(
 	inUse: boolean,
 	style?: TokenStyle,
 ): Value {
+	const { provider, snapshot, backoff } = view;
 	const meta = { label: provider.label, shortLabel: provider.quota?.shortLabel ?? provider.id };
+	const failedEmpty = Boolean(
+		(snapshot?.error || (backoff && backoff.until > now)) &&
+			!snapshot?.credits &&
+			!snapshot?.windows.length,
+	);
 	const custom = concreteStyle(theme, style);
 	const paint = (text: string, defaults: ThemeStyle = { fg: theme.colors.muted }) =>
 		theme.style(plainText(text), { ...defaults, ...custom });
@@ -116,15 +120,7 @@ function providerFields(
 			? paint(text)
 			: paint(text, { fg: gradientColor(theme, used), bold: used >= 0.85 });
 	const missing = (): Value => ({
-		text: paint(
-			!snapshot
-				? "…"
-				: snapshot.needsAuth
-					? "login"
-					: snapshot.error && !snapshot.credits && !snapshot.windows.length
-						? "err"
-						: "?",
-		),
+		text: paint(snapshot?.needsAuth ? "login" : failedEmpty ? "err" : snapshot ? "?" : "…"),
 		available: false,
 	});
 	const primary = snapshot ? selectImportantWindows(snapshot)[0] : undefined;
@@ -137,11 +133,7 @@ function providerFields(
 				),
 				available: true,
 			};
-		if (
-			!snapshot ||
-			snapshot.needsAuth ||
-			(snapshot.error && !snapshot.credits && !snapshot.windows.length)
-		)
+		if (!snapshot || snapshot.needsAuth || failedEmpty)
 			return field === "resets-available" || field === "r"
 				? { text: "", available: false }
 				: missing();
@@ -272,9 +264,8 @@ export function renderLineTemplate(
 			}
 			return providerFields(
 				theme,
-				provider,
+				view,
 				provider.id,
-				snapshot,
 				fields,
 				config,
 				now,
@@ -308,9 +299,8 @@ export function renderLineTemplate(
 					const result = part.fields
 						? providerFields(
 								theme,
-								view.provider,
+								view,
 								part.alias,
-								view.snapshot,
 								part.fields,
 								config,
 								now,

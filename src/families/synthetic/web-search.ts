@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { missingEnvironmentAuth } from "../../core/auth/missing.ts";
 import { atomicWriteFile } from "../../core/fs/index.ts";
 import {
 	type FetchFn,
@@ -108,7 +109,7 @@ export function registerWebSearch(pi: ExtensionAPI, deps: SearchDeps): void {
 					.apiKey;
 			} catch (error) {
 				if (signal?.aborted) return aborted();
-				if (missingEnvironmentAuth(error)) return failure("auth");
+				if (missingEnvironmentAuth(error, PROVIDER)) return failure("auth");
 				throw error;
 			}
 			if (signal?.aborted) return aborted();
@@ -214,19 +215,6 @@ function aborted(): AgentToolResult<SearchDetails> {
 		details: { kind: "aborted" },
 		isError: true,
 	};
-}
-
-function missingEnvironmentAuth(error: unknown): boolean {
-	return (
-		error instanceof Error &&
-		error.name === "ModelsError" &&
-		"code" in error &&
-		error.code === "auth" &&
-		error.cause instanceof Error &&
-		/^Failed to resolve API key for provider "synthetic" from environment variables?: /.test(
-			error.cause.message,
-		)
-	);
 }
 
 function waitForAbort<T>(operation: Promise<T>, signal: AbortSignal | undefined): Promise<T> {

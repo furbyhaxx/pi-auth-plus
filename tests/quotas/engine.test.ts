@@ -8,6 +8,7 @@ import { SettingsStore } from "../../src/core/config/index.ts";
 import { detectConflicts, loadsPackage } from "../../src/core/conflicts/index.ts";
 import { ProviderHttpError } from "../../src/core/http/index.ts";
 import { type ProviderEntry, Registry } from "../../src/core/registry/index.ts";
+import { syntheticQuota } from "../../src/families/synthetic/quota.ts";
 import { quotaAuthFor } from "../../src/quotas/auth.ts";
 import { QuotaEngine } from "../../src/quotas/engine.ts";
 import { engineReport } from "../../src/quotas/report.ts";
@@ -823,6 +824,85 @@ test("a source's own auth resolver replaces the lookup by provider id", async ()
 	seen.length = 0;
 	await engine.refresh("borrowed", { force: true });
 	expect(seen).toEqual([{ token: "via-test-token", extra: {} }]);
+});
+
+function missingEnvironmentError(provider: string, plural = false): Error {
+	return Object.assign(
+		new Error("API key auth failed", {
+			cause: new Error(
+				`Failed to resolve API key for provider "${provider}" from environment variable${plural ? "s" : ""}: KEY`,
+			),
+		}),
+		{ name: "ModelsError", code: "auth" },
+	);
+}
+
+test("missing environment credentials reach Synthetic as a login-required snapshot", async () => {
+	for (const plural of [false, true]) {
+		const registry = {
+			getProviderAuth: async (id: string) => {
+				expect(id).toBe("synthetic");
+				throw missingEnvironmentError(id, plural);
+			},
+		};
+		expect(await quotaAuthFor("synthetic", registry)).toBeUndefined();
+		const result = await syntheticQuota.fetch({
+			auth: () => quotaAuthFor("synthetic", registry),
+			fetch: async () => {
+				throw new Error("Unexpected network call");
+			},
+			signal: new AbortController().signal,
+			now: () => clock,
+		});
+		expect(result).toMatchObject({ provider: "synthetic", needsAuth: true, windows: [] });
+		expect(result.error).toContain("/login synthetic");
+	}
+	expect(
+		await quotaAuthFor("test.provider", {
+			getProviderAuth: async () => {
+				throw missingEnvironmentError("test.provider");
+			},
+		}),
+	).toBeUndefined();
+});
+
+test("quota auth propagates unrelated failures and errors for other providers", async () => {
+	const network = new Error("network unavailable");
+	const refresh = Object.assign(new Error("OAuth refresh failed", { cause: network }), {
+		name: "ModelsError",
+		code: "auth",
+	});
+	const wrongCode = Object.assign(missingEnvironmentError("synthetic"), { code: "network" });
+	const wrongName = Object.assign(missingEnvironmentError("synthetic"), { name: "OtherError" });
+	const stringCause = Object.assign(
+		new Error("API key auth failed", {
+			cause: 'Failed to resolve API key for provider "synthetic" from environment variable: KEY',
+		}),
+		{ name: "ModelsError", code: "auth" },
+	);
+	for (const error of [
+		network,
+		refresh,
+		missingEnvironmentError("other"),
+		wrongCode,
+		wrongName,
+		stringCause,
+	]) {
+		await expect(
+			quotaAuthFor("synthetic", {
+				getProviderAuth: async () => {
+					throw error;
+				},
+			}),
+		).rejects.toBe(error);
+	}
+	await expect(
+		quotaAuthFor("test.provider", {
+			getProviderAuth: async () => {
+				throw missingEnvironmentError("testXprovider");
+			},
+		}),
+	).rejects.toThrow("API key auth failed");
 });
 
 test("quota auth supports header-only bearers and prefers Pi's API key", async () => {

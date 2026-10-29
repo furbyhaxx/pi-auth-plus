@@ -418,6 +418,43 @@ describe("quota templates", () => {
 		expect(render("{codex:pct}", { ...snapshot(), error: "failed" })).toEqual(["err"]);
 		expect(render("[{codex:pct}]", { ...snapshot(), needsAuth: true })).toEqual([]);
 	});
+	test("distinguishes loading, login and active failures without hiding known usage", () => {
+		const base = views(undefined)[0];
+		if (!base) throw new Error("provider missing");
+		const run = (source: string, view: QuotaView) =>
+			renderLineTemplate(
+				theme,
+				compileLineTemplate(source),
+				[view],
+				DEFAULT_QUOTAS_CONFIG,
+				1_000,
+				false,
+			);
+		const loading = { ...base, refreshing: true };
+		const failed = { ...base, backoff: { until: 2_000, error: "network failed" } };
+		const login = { ...failed, snapshot: { ...snapshot(), needsAuth: true } };
+		const stale = {
+			...failed,
+			snapshot: { ...snapshot([win("5h")]), error: "refresh failed" },
+		};
+		expect(run("{codex:pct}", loading)).toEqual(["…"]);
+		expect(run("{codex:pct}", failed)).toEqual(["err"]);
+		expect(run("{codex}", failed)).toEqual(["OpenAI Codex: err"]);
+		expect(run("{all:short}", failed)).toEqual(["cox: err"]);
+		expect(run("[{codex:pct}]", failed)).toEqual([]);
+		expect(run("{codex:pct}", { ...failed, snapshot: snapshot() })).toEqual(["err"]);
+		expect(run("{codex:pct}", login)).toEqual(["login"]);
+		expect(run("{codex:pct}", stale)).toEqual(["25%"]);
+		expect(run("{codex:pct}", { ...failed, backoff: { until: 1_000 } })).toEqual(["…"]);
+		const creditBase = views(undefined)[3];
+		if (!creditBase) throw new Error("credit provider missing");
+		const staleCredits = {
+			...creditBase,
+			backoff: failed.backoff,
+			snapshot: { ...snapshot(), credits: { currency: "$", remaining: 12.5 } },
+		};
+		expect(run("{xai:credits}", staleCredits)).toEqual(["12.50$"]);
+	});
 	test("separators yield segments without punctuation", () => {
 		expect(render("a · b{sep}c")).toEqual(["a", "b", "c"]);
 		expect(compileLineTemplate("{codex:id}")).toBe(compileLineTemplate("{codex:id}"));

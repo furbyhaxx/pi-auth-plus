@@ -600,7 +600,13 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		for (const models of ownedCatalog.values()) add(models());
 		add(catalogVisibility.catalog().filter((model) => isModelType(model, "chat")));
 		add(quotaContext?.modelRegistry.getAll() ?? []);
-		return [...rows.values()];
+		const sources = new Map(
+			aliasCatalog.aliases().map((alias) => [`${alias.provider}\0${alias.id}`, alias.source]),
+		);
+		return [...rows.values()].map((model) => {
+			const source = sources.get(`${model.provider}\0${model.id}`);
+			return source === undefined ? model : { ...model, aliasSource: source };
+		});
 	};
 	const captureSettingsEffects = () => {
 		const store = settings;
@@ -709,6 +715,10 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		models: {
 			rules: () => effectiveModelRules(settings),
 			catalog: modelCatalog,
+			presentation: () => ({
+				showProvenance: settings.get("dashboard.showProvenance"),
+				showMatchedRule: settings.get("dashboard.showMatchedRule"),
+			}),
 			evaluate: (rules, provider, id) => {
 				if (rules !== previewRules) {
 					previewRules = rules;

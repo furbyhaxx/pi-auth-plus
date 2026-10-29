@@ -58,8 +58,8 @@ listed range. Booleans must be JSON booleans; enum values are exact strings.
 |---|---|---|
 | `dashboard.density` | `"comfortable"` | `"comfortable"` or `"compact"`; controls dashboard row spacing, with compact using less vertical space. |
 | `dashboard.maxBodyRows` | `0` | Integer, 0–60; `0` fits the available space automatically, otherwise caps body rows. Primary identity and state remain visible or revealable at every density and cap. |
-| `dashboard.showProvenance` | `false` | Boolean; intended to show source/provider provenance metadata for entries. |
-| `dashboard.showMatchedRule` | `false` | Boolean; intended to show the model visibility rule matched by an entry. |
+| `dashboard.showProvenance` | `false` | Boolean; shows accepted alias sources and per-field override/default labels in model detail; catalog alias labels appear when space permits. Staged state remains visible when off. |
+| `dashboard.showMatchedRule` | `false` | Boolean; shows the winning model-visibility rule number in catalog rows when space permits and in model detail. |
 | `quotas.refreshIntervalSec` | `60` | Number, 15–3600 seconds; ordinary endpoint freshness, with provider floors still applied. `0` clamps to 15; it does not disable polling. |
 | `quotas.refreshOnRequest` | `true` | Boolean; refresh active provider after a turn, subject to freshness/floors. |
 | `quotas.providers` | `[]` | Array of strings or comma/whitespace-separated string; provider ids or aliases. Empty means all quota sources. Unknown and quota-less names are ignored; a nonempty list with no recognized quota source enables none. Sources retain registry order, not list order. |

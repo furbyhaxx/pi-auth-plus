@@ -238,6 +238,14 @@ function sessionModels(source: ModelsTabDeps, signal: AbortSignal | undefined): 
 	return {
 		rules: () => (signal?.aborted ? [] : source.rules()),
 		catalog: () => (signal?.aborted ? [] : source.catalog()),
+		...(source.presentation
+			? {
+					presentation: () =>
+						signal?.aborted
+							? { showProvenance: false, showMatchedRule: false }
+							: (source.presentation?.() ?? { showProvenance: false, showMatchedRule: false }),
+				}
+			: {}),
 		evaluate: (rules, provider, id) =>
 			signal?.aborted ? { visible: false } : source.evaluate(rules, provider, id),
 		save: (rules, scope) =>

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import {
 	CURSOR_MARKER,
 	type KeybindingsConfig,
@@ -12,6 +13,8 @@ import type { SaveScope } from "../../src/core/config/index.ts";
 import type { SaveOutcome } from "../../src/core/config/save.ts";
 import type { GroupMember, ModelGroup } from "../../src/models/groups/config.ts";
 import type { GroupMemberHealth } from "../../src/models/groups/member.ts";
+import type { ModelIdentity } from "../../src/models/groups/priority.ts";
+import { readGroupRouteState } from "../../src/models/groups/state.ts";
 import { GroupsView } from "../../src/ui/dashboard/groups.ts";
 import type { ModelCatalogItem } from "../../src/ui/dashboard/models.ts";
 import type { TabViewHost } from "../../src/ui/dashboard/view.ts";
@@ -34,6 +37,7 @@ function open(
 		member.id === "one"
 			? { state: "healthy", routable: true }
 			: { state: "unknown", routable: true },
+	current?: (groupId: string) => ModelIdentity | undefined,
 ) {
 	let stored = [...initial];
 	let fail = false;
@@ -65,6 +69,7 @@ function open(
 		groups: () => stored,
 		catalog,
 		health,
+		...(current ? { current } : {}),
 		save: async (groups, scope) => {
 			const outcome: SaveOutcome = fail
 				? { committed: false, error: "disk error; retry" }
@@ -142,6 +147,79 @@ function open(
 }
 
 describe("groups tab", () => {
+	test("renders the branch-persisted selection on each frame, independently of health", () => {
+		const session = SessionManager.inMemory("/tmp");
+		const root = session.appendCustomEntry("marker", {});
+		const first = session.appendCustomEntry("pi.virtual-model-state", {
+			provider: "group",
+			modelId: "team",
+			state: { selected: { provider: "vendor", id: "one" }, failed: [] },
+		});
+		session.branch(root);
+		const second = session.appendCustomEntry("pi.virtual-model-state", {
+			provider: "group",
+			modelId: "team",
+			state: { selected: { provider: "other", id: "two" }, failed: [] },
+		});
+		const r = open(
+			[group("team"), group("other")],
+			undefined,
+			{},
+			() => ({ state: "unknown", routable: true }),
+			(id) => readGroupRouteState(session.getBranch(), id)?.selected,
+		);
+		for (const width of [36, 57, 80, 140]) {
+			const draw = () => {
+				const body = r.view.render(width, 10);
+				for (const line of [...body.lines, body.state ?? "", body.description ?? ""])
+					expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				return body.lines.map(stripVTControlCharacters).join("\n");
+			};
+			session.branch(first);
+			expect(draw()).toContain("Selected route: vendor/one");
+			expect(draw()).toContain("unknown · best-effort vendor/one");
+			session.branch(second);
+			expect(draw()).toContain("Selected route: other/two");
+			expect(draw()).not.toContain("Selected route: vendor/one");
+			session.branch(root);
+			expect(draw().match(/Selected route: unknown/g)).toHaveLength(2);
+		}
+		session.appendCustomEntry("pi.virtual-model-state", {
+			provider: "group",
+			modelId: "team",
+			state: { selected: { provider: "other" }, failed: [] },
+		});
+		expect(r.text().match(/Selected route: unknown/g)).toHaveLength(2);
+		session.appendCustomEntry("pi.virtual-model-state", {
+			provider: "group",
+			modelId: "team",
+			state: { selected: { provider: "vendor", id: "one" }, failed: null },
+		});
+		expect(r.text().match(/Selected route: unknown/g)).toHaveLength(2);
+	});
+
+	test("does not infer a selected route without a current getter", () => {
+		const r = open([group("team")]);
+		expect(r.text()).toContain("Selected route: unknown");
+		expect(r.text()).not.toContain("Selected route: vendor/one");
+	});
+
+	test("sanitizes and clips each group's selected identity", () => {
+		const r = open([group("first"), group("second")], undefined, {}, undefined, (id) =>
+			id === "first"
+				? { provider: "vend\x1b]0;evil\x07or", id: "model\none" }
+				: { provider: "other", id: "a-very-long-physical-model-id-for-testing" },
+		);
+		const lines = r.view.render(140, 10).lines.map(stripVTControlCharacters);
+		expect(lines[1]).toBe(" Selected route: vendor/model one");
+		expect(lines[4]).toBe(" Selected route: other/a-very-long-physical-model-id-for-testing");
+		expect(lines.join(" ")).not.toContain("evil");
+		for (const width of [36, 57, 80, 140]) {
+			const body = r.view.render(width, 10);
+			for (const line of body.lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+	});
+
 	test("creates through detail, saves to each scope, and discards staged list", async () => {
 		for (const [key, scope] of [
 			["r", "runtime"],
@@ -646,7 +724,7 @@ describe("groups tab", () => {
 
 		let body = draw();
 		expect(body.above).toBe(0);
-		for (let offset = 1; offset <= 10; offset++) {
+		for (let offset = 1; offset <= 11; offset++) {
 			r.press("j");
 			body = draw();
 			expect(body.above).toBe(offset);
@@ -666,12 +744,12 @@ describe("groups tab", () => {
 			true,
 		);
 
-		for (let offset = 1; offset <= 10; offset++) {
+		for (let offset = 1; offset <= 11; offset++) {
 			r.press("j");
 			body = draw();
 			expect(body.above).toBe(offset);
 		}
-		for (let offset = 9; offset >= 0; offset--) {
+		for (let offset = 10; offset >= 0; offset--) {
 			r.press("k");
 			body = draw();
 			expect(body.above).toBe(offset);

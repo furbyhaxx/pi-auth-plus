@@ -4,6 +4,7 @@ import type { SaveScope } from "../../core/config/index.ts";
 import { formatSaveOutcome, type SaveOutcome } from "../../core/config/save.ts";
 import { type GroupMember, type ModelGroup, parseGroups } from "../../models/groups/config.ts";
 import type { GroupMemberHealth } from "../../models/groups/member.ts";
+import type { ModelIdentity } from "../../models/groups/priority.ts";
 import { sanitize } from "../frame/index.ts";
 import { GroupDetail } from "./group-detail.ts";
 import type { ModelCatalogItem } from "./models.ts";
@@ -14,6 +15,7 @@ export interface GroupsTabDeps {
 	groups(): readonly ModelGroup[];
 	catalog(): readonly ModelCatalogItem[];
 	health?(member: GroupMember): GroupMemberHealth;
+	current?(groupId: string): ModelIdentity | undefined;
 	save(groups: readonly ModelGroup[], scope: SaveScope): Promise<SaveOutcome>;
 }
 
@@ -235,6 +237,10 @@ export class GroupsView implements TabView {
 					.join(" · ") || "no member health";
 			rows.push(
 				` ${index === this.#selected ? theme.fg("accent", "❯") : " "} ${clean(group.id)} · ${summary}${group.name ? ` · ${clean(group.name)}` : ""} · ${group.strategy} · ${group.members.length} members`,
+			);
+			const current = this.#deps.current?.(group.id);
+			rows.push(
+				` Selected route: ${current ? `${clean(current.provider)}/${clean(current.id)}` : "unknown"}`,
 			);
 			for (const { member, health } of memberHealth) {
 				const eligibility = health.routable

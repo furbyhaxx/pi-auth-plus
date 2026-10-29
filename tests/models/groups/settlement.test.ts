@@ -14,6 +14,7 @@ import {
 import type { ModelGroup } from "../../../src/models/groups/config.ts";
 import { createGroupDefinition } from "../../../src/models/groups/route.ts";
 import { registerGroupSettlement } from "../../../src/models/groups/settlement.ts";
+import { readGroupRouteFailures, readGroupRouteState } from "../../../src/models/groups/state.ts";
 
 const frame = (data: unknown) => `data: ${JSON.stringify(data)}\n\n`;
 
@@ -25,6 +26,7 @@ type Scenario =
 	| "hidden"
 	| "draft"
 	| "retry"
+	| "malformed"
 	| "unavailable"
 	| "logical";
 async function run(scenario: Scenario, count = 2) {
@@ -61,9 +63,18 @@ async function run(scenario: Scenario, count = 2) {
 					`${frame({ candidates: [{ content: { role: "model", parts: [{ text: "partial" }] } }] })}data: invalid\n\n`,
 					{ headers: { "content-type": "text/event-stream" } },
 				);
-			if (scenario === "auth" || scenario === "retry" || provider === "a") {
+			if (
+				scenario === "auth" ||
+				scenario === "retry" ||
+				scenario === "malformed" ||
+				provider === "a"
+			) {
 				const status =
-					scenario === "tool" ? 402 : scenario === "retry" && provider === "a" ? 429 : 401;
+					scenario === "tool"
+						? 402
+						: (scenario === "retry" || scenario === "malformed") && provider === "a"
+							? 429
+							: 401;
 				return Response.json(
 					{
 						error: {
@@ -176,6 +187,22 @@ async function run(scenario: Scenario, count = 2) {
 						]
 					: []),
 				(pi: ExtensionAPI) => {
+					if (scenario === "malformed") {
+						pi.on("turn_end", (event) => {
+							if (event.message.role !== "assistant" || event.message.provider !== "b") return;
+							pi.appendEntry("pi.virtual-model-state", {
+								provider: "group",
+								modelId: "test",
+								state: {
+									selected: null,
+									failed: [
+										{ provider: "a", id: "test" },
+										{ provider: "c", id: "test" },
+									],
+								},
+							});
+						});
+					}
 					if (scenario === "logical") {
 						pi.on("turn_end", (_event, ctx) => {
 							const originalFind = ctx.modelRegistry.find.bind(ctx.modelRegistry);
@@ -245,6 +272,100 @@ async function run(scenario: Scenario, count = 2) {
 	}
 }
 
+describe("branch group state", () => {
+	test("reads only the latest matching entry on the active branch", () => {
+		const session = SessionManager.inMemory("/tmp");
+		const root = session.appendCustomEntry("other", {});
+		const first = { selected: { provider: "a", id: "model" }, failed: [] };
+		const second = {
+			selected: { provider: "b", id: "path/model" },
+			failed: [{ provider: "a", id: "model" }],
+		};
+		const firstId = session.appendCustomEntry("pi.virtual-model-state", {
+			provider: "group",
+			modelId: "team",
+			state: first,
+		});
+		session.appendCustomEntry("pi.virtual-model-state", {
+			provider: "other",
+			modelId: "team",
+			state: second,
+		});
+		session.appendCustomEntry("pi.virtual-model-state", {
+			provider: "group",
+			modelId: "other",
+			state: second,
+		});
+		expect(readGroupRouteState(session.getBranch(), "team")).toEqual(first);
+		expect(readGroupRouteState(session.getBranch(), "missing")).toBeUndefined();
+
+		session.branch(root);
+		const secondId = session.appendCustomEntry("pi.virtual-model-state", {
+			provider: "group",
+			modelId: "team",
+			state: second,
+		});
+		expect(readGroupRouteState(session.getBranch(), "team")).toEqual(second);
+		session.branch(firstId);
+		expect(readGroupRouteState(session.getBranch(), "team")).toEqual(first);
+		session.branch(secondId);
+		expect(readGroupRouteState(session.getBranch(), "team")).toEqual(second);
+		session.branch(root);
+		expect(readGroupRouteState(session.getBranch(), "team")).toBeUndefined();
+	});
+
+	test("never falls back to an older route when the latest selection is malformed", () => {
+		for (const state of [
+			null,
+			{},
+			{ selected: null, failed: [] },
+			{ selected: { provider: "", id: "model" }, failed: [] },
+			{ selected: { provider: "group", id: "nested" }, failed: [] },
+			{ selected: { provider: "a", id: 3 }, failed: [] },
+		]) {
+			const session = SessionManager.inMemory("/tmp");
+			session.appendCustomEntry("pi.virtual-model-state", {
+				provider: "group",
+				modelId: "team",
+				state: { selected: { provider: "a", id: "model" }, failed: [] },
+			});
+			session.appendCustomEntry("pi.virtual-model-state", {
+				provider: "group",
+				modelId: "team",
+				state,
+			});
+			expect(readGroupRouteState(session.getBranch(), "team")).toBeUndefined();
+		}
+	});
+
+	test("preserves the settlement interpretation of malformed failure entries", () => {
+		const session = SessionManager.inMemory("/tmp");
+		session.appendCustomEntry("pi.virtual-model-state", {
+			provider: "group",
+			modelId: "team",
+			state: {
+				selected: { provider: "a", id: "model" },
+				failed: [{ provider: "b", id: "model" }, null, { provider: 5, id: "bad" }],
+			},
+		});
+		expect(readGroupRouteState(session.getBranch(), "team")).toBeUndefined();
+		expect(readGroupRouteFailures(session.getBranch(), "team")).toEqual([
+			{ provider: "b", id: "model" },
+		]);
+		for (const failed of [null, undefined, [{ provider: "b", id: " " }]]) {
+			session.appendCustomEntry("pi.virtual-model-state", {
+				provider: "group",
+				modelId: "team",
+				state: { selected: { provider: "a", id: "model" }, failed },
+			});
+			expect(readGroupRouteState(session.getBranch(), "team")).toBeUndefined();
+		}
+		expect(readGroupRouteFailures(session.getBranch(), "team")).toEqual([
+			{ provider: "b", id: " " },
+		]);
+	});
+});
+
 describe("group settlement", () => {
 	test("continues from the existing tool result after quota exhaustion", async () => {
 		const result = await run("tool");
@@ -253,6 +374,10 @@ describe("group settlement", () => {
 		expect(result.toolRuns).toBe(1);
 		expect(result.messages.at(-1)).toMatchObject({ role: "assistant", stopReason: "stop" });
 		expect(result.branch.filter((entry) => entry.type === "context_edit")).toHaveLength(1);
+		expect(readGroupRouteState(result.branch, "test")).toEqual({
+			selected: { provider: "b", id: "test" },
+			failed: [{ provider: "a", id: "test" }],
+		});
 	});
 	test("each auth failure is tried at most once and the final error remains", async () => {
 		for (const count of [2, 3]) {
@@ -267,6 +392,14 @@ describe("group settlement", () => {
 		expect(result.errors).toEqual([]);
 		expect(result.requests).toEqual(["a", "b", "c"]);
 		expect(result.messages.at(-1)).toMatchObject({ role: "assistant", stopReason: "error" });
+	});
+	test("honors persisted failure exclusions when selection state is malformed", async () => {
+		const result = await run("malformed", 3);
+		expect(result.errors).toEqual([]);
+		expect(result.requests).toEqual(["a", "b"]);
+		expect(result.messages.at(-1)).toMatchObject({ role: "assistant", stopReason: "error" });
+		expect(readGroupRouteState(result.branch, "test")).toBeUndefined();
+		expect(result.branch.filter((entry) => entry.type === "context_edit")).toHaveLength(1);
 	});
 	test("leaves the error visible when no alternative has credentials", async () => {
 		const result = await run("unavailable");

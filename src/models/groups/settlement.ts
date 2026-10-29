@@ -6,6 +6,7 @@ import type { ModelGroup } from "./config.ts";
 import { isPhysicalGroupMember } from "./member.ts";
 import type { ModelIdentity } from "./priority.ts";
 import { classifyGroupFailure } from "./route.ts";
+import { readGroupRouteFailures } from "./state.ts";
 
 interface Pending {
 	readonly groupId: string;
@@ -15,30 +16,6 @@ interface Pending {
 
 function same(left: ModelIdentity, right: ModelIdentity): boolean {
 	return left.provider === right.provider && left.id === right.id;
-}
-
-function record(value: unknown): Record<string, unknown> | undefined {
-	return typeof value === "object" && value !== null && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: undefined;
-}
-
-function branchFailures(ctx: ExtensionContext, groupId: string): ModelIdentity[] {
-	const entry = ctx.sessionManager.getBranch().findLast((item) => {
-		if (item.type !== "custom" || item.customType !== "pi.virtual-model-state") return false;
-		const data = record(item.data);
-		return data?.["provider"] === "group" && data["modelId"] === groupId;
-	});
-	if (entry?.type !== "custom") return [];
-	const state = record(record(entry.data)?.["state"]);
-	const failed = state?.["failed"];
-	if (!Array.isArray(failed)) return [];
-	return failed.flatMap((item: unknown) => {
-		const identity = record(item);
-		return typeof identity?.["provider"] === "string" && typeof identity["id"] === "string"
-			? [{ provider: identity["provider"], id: identity["id"] }]
-			: [];
-	});
 }
 
 /** Register settlement recovery and return the one-shot failed-member queue for group routing. */
@@ -65,7 +42,10 @@ export function registerGroupSettlement(
 		const identity = { provider: message.provider, id: message.model };
 		if (!group.members.some((member) => same(member, identity))) return false;
 		if (!classifyGroupFailure(group, message)) return false;
-		const excluded = [...branchFailures(ctx, group.id), ...(failed.get(group.id) ?? [])];
+		const excluded = [
+			...readGroupRouteFailures(ctx.sessionManager.getBranch(), group.id),
+			...(failed.get(group.id) ?? []),
+		];
 		if (excluded.some((item) => same(item, identity))) return false;
 		excluded.push(identity);
 		const available = ctx.modelRegistry.getAvailable();

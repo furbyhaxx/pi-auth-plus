@@ -2529,9 +2529,16 @@ for (const mode of ["environment", "flag", "online"] as const) {
 			const scheduledRefreshes = refresh.mock.calls.length;
 
 			const report = await request(bus, "tokens", "query", { refresh: true }, (value) => value);
+			if (!offline) {
+				expect(
+					transport.mock.calls.some(([input]) =>
+						String(input).includes("/v1/messages/count_tokens"),
+					),
+				).toBe(true);
+			}
 			expect(report).toMatchObject({
 				ok: true,
-				report: { tokens: { source: offline ? "estimate" : "count-endpoint" } },
+				report: { tokens: { source: "estimate" } },
 			});
 			const deps = counterDeps.at(-1);
 			if (!deps) throw new Error("Missing counter dependencies");

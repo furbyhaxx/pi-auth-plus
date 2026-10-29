@@ -285,6 +285,9 @@ function sessionGroups(source: GroupsTabDeps, signal: AbortSignal | undefined): 
 	return {
 		groups: () => (signal?.aborted ? [] : source.groups()),
 		catalog: () => (signal?.aborted ? [] : source.catalog()),
+		...(source.current
+			? { current: (groupId: string) => (signal?.aborted ? undefined : source.current?.(groupId)) }
+			: {}),
 		...(source.health
 			? {
 					health: (member) =>

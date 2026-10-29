@@ -35,6 +35,7 @@ import { installGroupContextCap } from "./models/groups/context-cap.ts";
 import { groupMemberHealth } from "./models/groups/member.ts";
 import { GroupRegistrations } from "./models/groups/registration.ts";
 import { registerGroupSettlement } from "./models/groups/settlement.ts";
+import { readGroupRouteState } from "./models/groups/state.ts";
 import { readOverride, updateOverrides } from "./models/overrides/index.ts";
 import { compileModelRules, evaluateModelRules } from "./models/rules/match.ts";
 import { effectiveModelRules } from "./models/rules/settings.ts";
@@ -809,6 +810,12 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		groups: {
 			groups: () => settings.get("models.groups"),
 			catalog: () => modelCatalog(),
+			current: (groupId) => {
+				const owner = quotaContext;
+				return owner
+					? readGroupRouteState(owner.sessionManager.getBranch(), groupId)?.selected
+					: undefined;
+			},
 			health: (member) => {
 				const model = quotaContext?.modelRegistry.find(member.provider, member.id);
 				const available =

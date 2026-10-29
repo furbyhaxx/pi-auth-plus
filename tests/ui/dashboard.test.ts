@@ -321,7 +321,7 @@ describe("ui/dashboard", () => {
 
 	test("compact help recovers long feedback and rebound hints without losing drafts", async () => {
 		const message =
-			"Configuration could not be saved because the target file is read only; change permissions and retry";
+			"Configuration could not be saved because the target file is read only; change permissions on the selected user or project configuration file, then retry the save using the same scope.";
 		const store = new SettingsStore(SETTINGS, { user: "" });
 		for (const width of [36, 57, 80, 140]) {
 			const keys = new KeybindingsManager(TUI_KEYBINDINGS);
@@ -376,6 +376,8 @@ describe("ui/dashboard", () => {
 			panel.handleInput("\t");
 			panel.handleInput("\t");
 			panel.handleInput("p");
+			panel.handleInput("\r");
+			panel.handleInput("\r");
 			await Promise.resolve();
 			const compact = plain(panel.render(width)).join("\n");
 			expect(compact).toContain("F1 help");
@@ -392,17 +394,15 @@ describe("ui/dashboard", () => {
 				panel.handleInput("\x1b[6~");
 			}
 			const help = visited.join(" ").replace(/\s+/g, " ");
-			expect(help).toContain(`Line placement failed: ${message}; retry p.`);
+			expect(help).toContain(`Save failed: ${message}`);
 			const last = plain(panel.render(width))[1];
 			panel.handleInput("\x1b[5~");
 			expect(plain(panel.render(width))[1]).not.toBe(last);
 			for (const hint of [
-				"ctrl+shift+upctrl+shift+down provider",
-				"r/R refresh",
-				"a solo",
-				"p position",
-				"tab switch",
-				"ctrl+shift+n close",
+				"ctrl+shift+up/ctrl+shift+down move",
+				"enter save",
+				"r/u/p scope",
+				"ctrl+shift+n back",
 			])
 				expect(help).toContain(hint);
 			panel.handleInput("\x1bOP");

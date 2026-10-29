@@ -897,6 +897,10 @@ describe("ui/commands", () => {
 						read();
 						return [{ provider: "vendor", id: "one", name: "One", contextWindow: 1000 }];
 					},
+					presentation: () => {
+						read();
+						return { showProvenance: true, showMatchedRule: true };
+					},
 					evaluate: () => {
 						read();
 						return { visible: true };
@@ -942,6 +946,10 @@ describe("ui/commands", () => {
 						];
 					},
 					catalog: models.catalog,
+					current: () => {
+						read();
+						return { provider: "vendor", id: "one" };
+					},
 					save: async (_groups, scope) => {
 						calls.push("groups");
 						return { committed: true, scope, shadowed: [], warnings: [] };

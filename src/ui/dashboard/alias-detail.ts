@@ -9,7 +9,7 @@ import {
 import type { SaveScope } from "../../core/config/index.ts";
 import { formatSaveOutcome } from "../../core/config/save.ts";
 import { type ModelAlias, parseAliases } from "../../models/aliases/index.ts";
-import { sanitize } from "../frame/index.ts";
+import { type HintItem, sanitize } from "../frame/index.ts";
 import type { ModelsTabDeps } from "./models.ts";
 import type { TabBody, TabViewHost } from "./view.ts";
 
@@ -232,7 +232,45 @@ export class AliasDetail {
 		this.#offset = Math.max(0, Math.min(this.#offset, selectedRow));
 		this.#offset = Math.max(this.#offset, selectedRow - available + 1);
 		this.#offset = Math.max(0, Math.min(this.#offset, rows.length - available));
-		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
+		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => clean(this.#host.binding(id));
+		const aliasId = this.#values[0] || this.#original?.id;
+		const fullDescriptionText = [
+			`Alias source: ${clean(this.#provider)}/${clean(this.#source)}.`,
+			...(aliasId
+				? [`Alias identity: ${clean(this.#provider)}/${clean(aliasId)}.`]
+				: ["Creating a new alias."]),
+			"Blank optional fields inherit from the source model.",
+			"Ctrl+S opens the save scope choices: u user, p project or r runtime.",
+		].join(" ");
+		const fullDescription = theme.fg("muted", sanitize(fullDescriptionText));
+		const fullFeedback = this.#message ? [theme.fg("warning", sanitize(this.#message))] : [];
+		const fullHints: HintItem[] = this.#saving
+			? []
+			: this.#mode === "save"
+				? [
+						{ key: "u/p/r", action: "save scope", priority: 0 },
+						{ key: binding("tui.select.cancel"), action: "cancel", priority: 0 },
+					]
+				: this.#mode === "edit"
+					? [
+							{ key: binding("tui.select.confirm"), action: "stage", priority: 0 },
+							{ key: binding("tui.select.cancel"), action: "cancel", priority: 0 },
+						]
+					: [
+							{
+								key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
+								action: "move",
+								priority: 2,
+							},
+							...(this.#deleted
+								? []
+								: [{ key: binding("tui.select.confirm"), action: "edit", priority: 0 }]),
+							...(this.#original
+								? [{ key: "d", action: this.#deleted ? "cancel removal" : "remove", priority: 1 }]
+								: []),
+							{ key: "ctrl+s", action: "save", priority: 0 },
+							{ key: binding("tui.select.cancel"), action: "discard/back", priority: 0 },
+						];
 		return {
 			lines: [
 				...rows.slice(this.#offset, this.#offset + available),
@@ -251,6 +289,9 @@ export class AliasDetail {
 				Math.max(0, width - 1),
 				"…",
 			),
+			fullDescription,
+			fullFeedback,
+			fullHints,
 			hints:
 				this.#mode === "save"
 					? [

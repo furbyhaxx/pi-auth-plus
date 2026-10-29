@@ -239,7 +239,7 @@ export class ModelPicker {
 	render(width: number, bodyRows: number): TabBody {
 		const catalog = this.#sync();
 		const { theme } = this.#host;
-		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
+		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => clean(this.#host.binding(id));
 		const hintAvailable = (id: Parameters<TabViewHost["binding"]>[0]) => {
 			const key = this.#host.keys.getKeys(id)[0];
 			if (key === undefined) return false;
@@ -253,20 +253,35 @@ export class ModelPicker {
 		const status = annotation ? `${clean(annotation)} · ` : "";
 		const columns = Math.max(0, width);
 		const height = Math.max(0, bodyRows);
-		const description = truncateToWidth(
-			theme.fg(
-				"muted",
-				this.#inspecting
-					? "Scroll for the full identity and name."
-					: this.#editing
-						? hintAvailable("tui.input.tab")
-							? `? inspect after ${binding("tui.input.tab")} or moving`
-							: "? inspect after moving"
-						: "? inspect · alt+↑/↓ page · / search",
-			),
-			columns,
-			"…",
-		);
+		const identity = item ? `${clean(item.provider)}/${clean(item.id)}` : undefined;
+		const altUp = "\x1b[1;3A";
+		const altDown = "\x1b[1;3B";
+		const altPageAvailable =
+			!this.#host.keys.matches(altUp, "tui.select.up") &&
+			!this.#host.keys.matches(altUp, "tui.select.down") &&
+			!this.#host.keys.matches(altDown, "tui.select.up") &&
+			!this.#host.keys.matches(altDown, "tui.select.down");
+		const descriptionText = this.#inspecting
+			? "Scroll for the full identity and name."
+			: this.#editing
+				? hintAvailable("tui.input.tab")
+					? `? inspect after ${binding("tui.input.tab")} or moving`
+					: "? inspect after moving"
+				: "? inspect · alt+↑/↓ page · / search";
+		const description = truncateToWidth(theme.fg("muted", descriptionText), columns, "…");
+		const fullDescriptionText = [
+			this.#inspecting
+				? "Selection inspection: ? returns to results; use navigation to read the full identity and name."
+				: this.#editing
+					? `Search models by provider/ID or name. ${descriptionText}.`
+					: `Model results. ${descriptionText}.`,
+			...(identity ? [`Selected model identity: ${identity}.`] : []),
+			...(item ? [`Name: ${clean(item.name)}.`] : []),
+			...(item?.aliasSource !== undefined
+				? [`Alias source: ${clean(item.provider)}/${clean(item.aliasSource)}.`]
+				: []),
+		].join(" ");
+		const fullDescription = theme.fg("muted", sanitize(fullDescriptionText));
 		const hints = [
 			...(hintAvailable("tui.select.up") && hintAvailable("tui.select.down")
 				? [
@@ -322,7 +337,16 @@ export class ModelPicker {
 				modal: true,
 				state: truncateToWidth(theme.fg("dim", `${status}Selection detail`), columns, "…"),
 				description,
+				fullDescription,
 				hints,
+				fullHints: [
+					...hints.filter(
+						(hint) =>
+							(hint.action !== "choose" || item !== undefined) &&
+							(hint.key !== "alt+↑/↓" || altPageAvailable),
+					),
+					...(this.#inspecting ? [{ key: "?", action: "results", priority: 1 }] : []),
+				],
 			};
 		}
 		this.#inspecting = false;
@@ -367,7 +391,16 @@ export class ModelPicker {
 			modal: true,
 			state: truncateToWidth(theme.fg("dim", `${status}${range}`), columns, "…"),
 			description,
+			fullDescription,
 			hints,
+			fullHints: [
+				...hints.filter(
+					(hint) =>
+						(hint.action !== "choose" || item !== undefined) &&
+						(hint.key !== "alt+↑/↓" || altPageAvailable),
+				),
+				...(this.#inspecting ? [{ key: "?", action: "results", priority: 1 }] : []),
+			],
 		};
 	}
 }

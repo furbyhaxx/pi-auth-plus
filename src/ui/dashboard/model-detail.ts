@@ -7,7 +7,7 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import type { OverrideEdit } from "../../models/overrides/index.ts";
-import { sanitize } from "../frame/index.ts";
+import { type HintItem, sanitize } from "../frame/index.ts";
 import { AliasDetail } from "./alias-detail.ts";
 import type { ModelCatalogItem, ModelPresentation, ModelsTabDeps, RuleOutcome } from "./models.ts";
 import type { TabBody, TabViewHost } from "./view.ts";
@@ -18,7 +18,11 @@ type Field = {
 	kind: "name" | "integer" | "cost" | "boolean" | "input" | "verbosity";
 	value: unknown;
 };
-type DetailPresentation = ModelPresentation & { outcome?: RuleOutcome; aliasSource?: string };
+type DetailPresentation = ModelPresentation & {
+	outcome?: RuleOutcome;
+	aliasSource?: string;
+	winningRule?: string;
+};
 const clean = (value: string) => sanitize(value).replace(/\n/g, " ");
 function at(value: unknown, path: readonly string[]): unknown {
 	for (const key of path) {
@@ -412,7 +416,79 @@ export class ModelDetail {
 		this.#offset = Math.max(0, Math.min(this.#offset, selectedRow));
 		this.#offset = Math.max(this.#offset, selectedRow - available + 1);
 		this.#offset = Math.max(0, Math.min(this.#offset, rows.length - available));
-		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
+		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => clean(this.#host.binding(id));
+		const identity = `${clean(this.#item.provider)}/${clean(this.#item.id)}`;
+		const fullDescriptionText = [
+			`Selected model identity: ${identity}.`,
+			`Name: ${clean(this.#item.name)}.`,
+			...(presentation?.outcome
+				? [`Visibility: ${presentation.outcome.visible ? "listed" : "hidden"}.`]
+				: []),
+			...(presentation?.aliasSource !== undefined
+				? [`Alias source: ${clean(this.#item.provider)}/${clean(presentation.aliasSource)}.`]
+				: []),
+			...(presentation?.outcome?.ruleIndex !== undefined
+				? [
+						`Winning rule ${presentation.outcome.ruleIndex + 1}${
+							presentation.winningRule === undefined ? "" : `: ${clean(presentation.winningRule)}`
+						}.`,
+					]
+				: presentation?.outcome
+					? ["No matching rule; models are listed by default."]
+					: []),
+			"Overrides are saved to user models.json.",
+		].join(" ");
+		const fullDescription = theme.fg("muted", sanitize(fullDescriptionText));
+		const fullFeedback = this.#message ? [theme.fg("warning", sanitize(this.#message))] : [];
+		const selectedField = this.#fields[this.#selected];
+		const movementHint: HintItem = {
+			key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
+			action: "move",
+			priority: 2,
+		};
+		const fullHints: HintItem[] =
+			this.#saving || this.#mode === "loading"
+				? []
+				: this.#mode === "edit"
+					? [
+							{ key: binding("tui.select.confirm"), action: "stage", priority: 0 },
+							{ key: binding("tui.select.cancel"), action: "cancel", priority: 0 },
+						]
+					: this.#unavailable
+						? [{ key: binding("tui.select.cancel"), action: "back", priority: 0 }]
+						: this.#selected >= this.#fields.length
+							? [
+									{ key: binding("tui.select.confirm"), action: "open alias", priority: 0 },
+									movementHint,
+									{ key: "ctrl+s", action: "save overrides", priority: 0 },
+									{ key: binding("tui.select.cancel"), action: "discard/back", priority: 0 },
+								]
+							: [
+									{
+										key: binding("tui.select.confirm"),
+										action:
+											selectedField?.kind === "name" ||
+											selectedField?.kind === "integer" ||
+											selectedField?.kind === "cost"
+												? "edit"
+												: "change",
+										priority: 0,
+									},
+									movementHint,
+									...(selectedField &&
+									["boolean", "input", "verbosity"].includes(selectedField.kind)
+										? [
+												{
+													key: `${binding("tui.editor.cursorLeft")}/${binding("tui.editor.cursorRight")}`,
+													action: "change",
+													priority: 1,
+												},
+											]
+										: []),
+									{ key: "backspace/d", action: "inherit", priority: 1 },
+									{ key: "ctrl+s", action: "save overrides", priority: 0 },
+									{ key: binding("tui.select.cancel"), action: "discard/back", priority: 0 },
+								];
 		return {
 			lines: [
 				...rows.slice(this.#offset, this.#offset + available),
@@ -437,6 +513,9 @@ export class ModelDetail {
 				Math.max(0, width - 1),
 				"…",
 			),
+			fullDescription,
+			fullFeedback,
+			fullHints,
 			hints:
 				this.#mode === "edit"
 					? [

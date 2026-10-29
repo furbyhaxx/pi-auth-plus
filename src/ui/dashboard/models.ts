@@ -180,15 +180,19 @@ export class ModelsView implements TabView {
 						() => this.#closeDetail(),
 						() => {
 							const catalog = this.#catalog();
+							const rules = this.#rules();
 							const index = catalog.findIndex(
 								(model) => model.provider === item.provider && model.id === item.id,
 							);
-							const outcome = this.#previewFor(this.#rules(), catalog).outcomes[index];
+							const outcome = this.#previewFor(rules, catalog).outcomes[index];
 							const aliasSource = catalog[index]?.aliasSource;
+							const winningRule =
+								outcome?.ruleIndex === undefined ? undefined : rules[outcome.ruleIndex];
 							return {
 								...this.#readPresentation(),
 								...(outcome ? { outcome } : {}),
 								...(aliasSource === undefined ? {} : { aliasSource }),
+								...(winningRule === undefined ? {} : { winningRule }),
 							};
 						},
 					);
@@ -516,7 +520,7 @@ export class ModelsView implements TabView {
 		const { hidden, effects } = this.#previewFor(rules, catalog);
 		const selectedEffect = effects[this.#ruleSelected];
 		const effect = selectedEffect ? selectedEffect.hidden + selectedEffect.shown : undefined;
-		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
+		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => text(this.#host.binding(id));
 		if (this.#view === "catalog") {
 			const details: string[] = [];
 			if (this.#message) details.push(` ${theme.fg("warning", text(this.#message))}`);
@@ -526,6 +530,53 @@ export class ModelsView implements TabView {
 			this.#presentation = this.#readPresentation();
 			const body = this.#picker.render(width, Math.max(0, bodyRows - reserved));
 			const active = !this.#picker.isEditing() && !this.#picker.isInspecting();
+			const selected = this.#picker.selected() !== undefined;
+			const saveHints: HintItem[] = [
+				{ key: "u/p/r", action: "user/project/runtime", priority: 0 },
+				{ key: binding("tui.select.cancel"), action: "cancel", priority: 1 },
+			];
+			const pickerHints = (hints: readonly HintItem[]): HintItem[] =>
+				hints.flatMap((hint) =>
+					hint.action === "choose"
+						? this.#deps.details
+							? [{ ...hint, action: "detail", priority: 1 }]
+							: []
+						: [hint],
+				);
+			const catalogHints: HintItem[] = [
+				...pickerHints(body.fullHints ?? body.hints),
+				...(active
+					? [
+							...(!pickerBinding(this.#host.keys, "v")
+								? [{ key: "v", action: "rules", priority: 0 }]
+								: []),
+							...(!pickerBinding(this.#host.keys, "h") && selected
+								? [{ key: "h", action: "hide/show", priority: 0 }]
+								: []),
+							...(binding("tui.input.tab")
+								? [{ key: binding("tui.input.tab"), action: "switch", priority: 1 }]
+								: []),
+						]
+					: []),
+				...(!pickerBinding(this.#host.keys, "\x13")
+					? [{ key: "ctrl+s", action: "save", priority: 1 }]
+					: []),
+			];
+			const normalCatalogHints: HintItem[] = [
+				...pickerHints(body.hints),
+				...(active
+					? [
+							...(!pickerBinding(this.#host.keys, "v")
+								? [{ key: "v", action: "rules", priority: 0 }]
+								: []),
+							...(!pickerBinding(this.#host.keys, "h")
+								? [{ key: "h", action: "hide/show", priority: 0 }]
+								: []),
+							{ key: binding("tui.input.tab"), action: "switch", priority: 1 },
+						]
+					: []),
+				{ key: "ctrl+s", action: "save", priority: 1 },
+			];
 			// Leave room for the Models crumb and frame rules.
 			const stateWidth = Math.max(0, width - 16);
 			const baseState = `${this.#staged ? theme.fg("warning", "● ") : ""}${body.state ?? ""}`;
@@ -540,36 +591,16 @@ export class ModelsView implements TabView {
 					truncateToWidth(line, Math.max(0, width), "…"),
 				),
 				state: truncateToWidth(state, stateWidth, "…"),
-				hints:
+				fullDescription:
 					this.#mode === "save"
-						? [
-								{ key: "u/p/r", action: "user/project/runtime", priority: 0 },
-								{ key: binding("tui.select.cancel"), action: "cancel", priority: 1 },
-							]
-						: fitCatalogHints(
-								[
-									...body.hints.flatMap((hint) =>
-										hint.action === "choose"
-											? this.#deps.details
-												? [{ ...hint, action: "detail", priority: 1 }]
-												: []
-											: [hint],
-									),
-									...(active
-										? [
-												...(!pickerBinding(this.#host.keys, "v")
-													? [{ key: "v", action: "rules", priority: 0 }]
-													: []),
-												...(!pickerBinding(this.#host.keys, "h")
-													? [{ key: "h", action: "hide/show", priority: 0 }]
-													: []),
-												{ key: binding("tui.input.tab"), action: "switch", priority: 1 },
-											]
-										: []),
-									{ key: "ctrl+s", action: "save", priority: 1 },
-								],
-								width,
-							),
+						? theme.fg(
+								"muted",
+								"Save staged visibility rules to the user, project or runtime scope.",
+							)
+						: (body.fullDescription ?? theme.fg("muted", "Search and inspect the model catalog.")),
+				fullFeedback: this.#message ? [theme.fg("warning", sanitize(this.#message))] : [],
+				hints: this.#mode === "save" ? saveHints : fitCatalogHints(normalCatalogHints, width),
+				fullHints: this.#mode === "save" ? saveHints : catalogHints,
 			};
 		}
 		const rows: string[] = [` Rules · ${hidden} hidden${this.#staged ? " · ● staged" : ""}`];
@@ -604,6 +635,62 @@ export class ModelsView implements TabView {
 		this.#offset = Math.max(0, Math.min(this.#offset, selectedRow));
 		this.#offset = Math.max(this.#offset, selectedRow - available + 1);
 		this.#offset = Math.max(0, Math.min(this.#offset, rows.length - available));
+		const selectedRule = rules[this.#ruleSelected];
+		const fullDescriptionText =
+			this.#mode === "save"
+				? "Save staged model visibility rules to the user, project or runtime scope."
+				: this.#mode === "edit"
+					? `Edit ${this.#adding ? "a new" : `rule ${this.#ruleSelected + 1}`} model visibility rule. Enter stages the edit; Escape cancels.`
+					: selectedRule === undefined
+						? "No visibility rules; all models are listed by default. # disables a rule."
+						: `Rule ${this.#ruleSelected + 1}: ${selectedRule}. Effect: ${selectedEffect?.hidden ?? 0} hidden, ${selectedEffect?.shown ?? 0} shown. The last matching rule wins; # disables a rule.`;
+		const fullDescription = theme.fg("muted", sanitize(fullDescriptionText));
+		const fullFeedback = this.#message ? [theme.fg("warning", sanitize(this.#message))] : [];
+		const editHints: HintItem[] = [
+			{ key: binding("tui.select.confirm"), action: "stage", priority: 0 },
+			{ key: binding("tui.select.cancel"), action: "cancel", priority: 0 },
+		];
+		const saveHints: HintItem[] = [
+			{ key: "u/p/r", action: "user/project/runtime", priority: 0 },
+			{ key: binding("tui.select.cancel"), action: "cancel", priority: 1 },
+		];
+		const listHints: HintItem[] = [
+			{ key: "v", action: "catalog", priority: 0 },
+			{ key: "ctrl+s", action: "save", priority: 1 },
+			{
+				key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
+				action: "move",
+				priority: 2,
+			},
+			{
+				key: selectedRule === undefined ? "a" : `a/${binding("tui.select.confirm")}`,
+				action: selectedRule === undefined ? "add" : "add/edit",
+				priority: 1,
+			},
+			...(selectedRule === undefined
+				? []
+				: [{ key: "space/d", action: "toggle/delete", priority: 2 }]),
+			...(rules.length > 1 ? [{ key: "shift+↑/↓", action: "reorder", priority: 3 }] : []),
+		];
+		const fullHints =
+			this.#mode === "edit" ? editHints : this.#mode === "save" ? saveHints : listHints;
+		const normalHints: HintItem[] =
+			this.#mode === "edit"
+				? editHints
+				: this.#mode === "save"
+					? saveHints
+					: [
+							{ key: "v", action: "catalog", priority: 0 },
+							{ key: "ctrl+s", action: "save", priority: 1 },
+							{
+								key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
+								action: "move",
+								priority: 2,
+							},
+							{ key: `a/${binding("tui.select.confirm")}`, action: "add/edit", priority: 1 },
+							{ key: "space/d", action: "toggle/delete", priority: 2 },
+							{ key: "shift+↑/↓", action: "reorder", priority: 3 },
+						];
 		return {
 			lines: [
 				...rows.slice(this.#offset, this.#offset + available),
@@ -627,29 +714,10 @@ export class ModelsView implements TabView {
 				Math.max(0, width - 1),
 				"…",
 			),
-			hints:
-				this.#mode === "edit"
-					? [
-							{ key: binding("tui.select.confirm"), action: "stage", priority: 0 },
-							{ key: binding("tui.select.cancel"), action: "cancel", priority: 0 },
-						]
-					: this.#mode === "save"
-						? [
-								{ key: "u/p/r", action: "user/project/runtime", priority: 0 },
-								{ key: binding("tui.select.cancel"), action: "cancel", priority: 1 },
-							]
-						: [
-								{ key: "v", action: "catalog", priority: 0 },
-								{ key: "ctrl+s", action: "save", priority: 1 },
-								{
-									key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
-									action: "move",
-									priority: 2,
-								},
-								{ key: `a/${binding("tui.select.confirm")}`, action: "add/edit", priority: 1 },
-								{ key: "space/d", action: "toggle/delete", priority: 2 },
-								{ key: "shift+↑/↓", action: "reorder", priority: 3 },
-							],
+			fullDescription,
+			fullFeedback,
+			hints: normalHints,
+			fullHints,
 		};
 	}
 

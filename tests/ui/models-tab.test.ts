@@ -1292,6 +1292,137 @@ describe("models tab", () => {
 		}
 	});
 
+	test("full help preserves nested alias outcomes, identity and rebound actions", async () => {
+		const warning =
+			"Catalog refresh failed after applying provider data that is required for the next session.\nRetry the refresh or reopen the dashboard after the provider recovers.\x1b]0;unsafe\x07";
+		const longBinding = "ctrl+alt+shift+j";
+		let aliases: readonly ModelAlias[] = [];
+		const rig = open(
+			["vendor/*", "!vendor/one"],
+			false,
+			[
+				{
+					provider: "provider-with-a-long-prefix",
+					id: "physical-model-identifier-with-tail",
+					name: "Long alias",
+					contextWindow: 512,
+					aliasSource: "physical-source-with-full-tail",
+				},
+			],
+			{
+				read: async () => undefined,
+				save: async () => {},
+				aliases: {
+					list: () => aliases,
+					supported: (provider) => provider === "vendor",
+					save: async (next, scope) => {
+						aliases = next;
+						return {
+							committed: true,
+							scope,
+							shadowed: ["models.aliases"],
+							warnings: [warning],
+						};
+					},
+				},
+			},
+			{ "tui.select.down": longBinding },
+			undefined,
+			() => ({ showProvenance: true, showMatchedRule: true }),
+		);
+		const fits = (body: ReturnType<ModelsView["render"]>) => {
+			expect(body.lines.length).toBeLessThanOrEqual(1);
+			for (const line of [...body.lines, body.description ?? "", body.state ?? ""])
+				expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+		};
+
+		rig.view.handleInput("v");
+		let body = rig.view.render(36, 1);
+		fits(body);
+		expect(body.fullDescription).toContain("vendor/one");
+		expect(body.fullHints?.map(({ key }) => key).join(" ")).toContain(longBinding);
+		expect(body.fullHints?.find(({ key }) => key === "?")?.action).toBe("inspect");
+		rig.view.handleInput("?");
+		body = rig.view.render(36, 1);
+		fits(body);
+		expect(body.fullHints?.find(({ key }) => key === "?")?.action).toBe("results");
+		rig.view.handleInput("?");
+		rig.view.handleInput("/");
+		for (const character of "provider-with-a-long-prefix/physical-model-identifier-with-tail")
+			rig.view.handleInput(character);
+		body = rig.view.render(36, 1);
+		fits(body);
+		expect(body.fullDescription).toContain(
+			"provider-with-a-long-prefix/physical-model-identifier-with-tail",
+		);
+		expect(body.fullDescription).toContain(
+			"provider-with-a-long-prefix/physical-source-with-full-tail",
+		);
+		const aliasLoaded = rig.nextRefresh();
+		rig.view.handleInput("\r");
+		await aliasLoaded;
+		body = rig.view.render(36, 1);
+		fits(body);
+		expect(body.fullDescription).toContain(
+			"Alias source: provider-with-a-long-prefix/physical-source-with-full-tail",
+		);
+		rig.view.handleInput("\x1b");
+		rig.view.handleInput("\x1b");
+
+		const loaded = rig.nextRefresh();
+		rig.view.handleInput("\r");
+		await loaded;
+		body = rig.view.render(36, 1);
+		fits(body);
+		expect(body.fullDescription).toContain("vendor/one");
+		expect(body.fullDescription).toContain("Winning rule 2: !vendor/one");
+		expect(body.fullHints?.map(({ key }) => key).join(" ")).toContain(longBinding);
+		for (let index = 0; index < 9; index++) rig.view.handleInput("j");
+		body = rig.view.render(36, 1);
+		fits(body);
+		expect(body.fullHints?.map(({ action }) => action)).toContain("open alias");
+		rig.view.handleInput("\r");
+		body = rig.view.render(36, 1);
+		fits(body);
+		expect(body.fullDescription).toContain("vendor/one");
+		expect(body.fullHints?.map(({ key }) => key).join(" ")).toContain("ctrl+s");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("copy");
+		rig.view.handleInput("\r");
+		rig.view.handleInput("\x13");
+		body = rig.view.render(36, 1);
+		fits(body);
+		expect(body.fullHints?.map(({ action }) => action)).toContain("save scope");
+		const saved = rig.nextRefresh();
+		rig.view.handleInput("r");
+		await saved;
+
+		body = rig.view.render(36, 1);
+		fits(body);
+		const feedback = body.fullFeedback?.map(stripVTControlCharacters).join("\n") ?? "";
+		expect(feedback).toContain("Saved to runtime scope; shadowed by higher scope: models.aliases");
+		expect(feedback).toContain("warning: Catalog refresh failed after applying provider data");
+		expect(feedback).toContain("\nRetry the refresh or reopen the dashboard");
+		expect(feedback).not.toContain("unsafe");
+		expect(body.lines.map(stripVTControlCharacters).join("\n")).not.toContain(
+			"Catalog refresh failed",
+		);
+		expect(body.fullHints?.map(({ key }) => key).join(" ")).toContain(longBinding);
+		rig.view.handleInput("\r");
+		body = rig.view.render(36, 1);
+		fits(body);
+		expect(body.fullDescription).toContain("vendor/copy");
+		expect(body.fullDescription).toContain("Alias source: vendor/one");
+		expect(body.fullHints?.map(({ key }) => key).join(" ")).toContain(longBinding);
+
+		for (const key of ["\x1b", "\x1b", "\x1b"]) rig.view.handleInput(key);
+		body = rig.view.render(36, 1);
+		fits(body);
+		expect(body.fullDescription).toContain("Rule 1: vendor/*");
+		expect(body.fullDescription).toContain("2 hidden, 0 shown");
+		expect(body.fullHints?.map(({ action }) => action)).toContain("catalog");
+	});
+
 	test("catalog, rules, edit and save screens fit widths, sanitize names and clamp scroll", () => {
 		const rig = open();
 		for (const key of ["", "\r", "\x1b", " ", "\x13", "\x1b", "v", "j", "j", "j"]) {

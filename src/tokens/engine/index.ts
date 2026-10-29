@@ -47,6 +47,8 @@ export interface TokenEngineOptions {
 	readonly families: readonly FamilyAdapter[];
 	readonly deps: CounterDeps;
 	readonly tools: () => readonly ToolSchema[];
+	/** Resolves the live physical identity used to select and cache a counter. */
+	readonly resolveModel?: (model: TokenModel) => TokenModel;
 	readonly now?: () => number;
 }
 /** Model counter selection and asynchronous session reports; aborted reports resolve undefined. */
@@ -100,12 +102,13 @@ export function createTokenEngine(options: TokenEngineOptions): TokenEngine {
 	const now = options.now ?? Date.now;
 
 	function counterFor(model: TokenModel): TokenCounter {
-		const key = JSON.stringify([model.provider, model.id]);
+		const physical = options.resolveModel ? options.resolveModel(model) : model;
+		const key = JSON.stringify([physical.provider, physical.id]);
 		const cached = counters.get(key);
 		if (cached) return cached;
 		let selected = fallback;
 		for (const family of options.families) {
-			const candidate = family.tokens?.(model, options.deps);
+			const candidate = family.tokens?.(physical, options.deps);
 			if (candidate) {
 				selected = candidate;
 				break;

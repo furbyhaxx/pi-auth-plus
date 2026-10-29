@@ -310,6 +310,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	const tokens = createTokenTracker(pi, {
 		engine: createTokenEngine({
 			families: registry.families,
+			resolveModel: (model) => aliasCatalog.resolve(model),
 			deps: {
 				auth: offline
 					? async () => undefined

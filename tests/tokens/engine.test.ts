@@ -1,8 +1,17 @@
 import { expect, test } from "bun:test";
 import type { SessionEntry, SessionProjection } from "@earendil-works/pi-coding-agent";
+import { createAnthropicFamily } from "../../src/families/anthropic/index.ts";
+import type { ModelAlias } from "../../src/models/aliases/index.ts";
+import { AliasCatalog } from "../../src/models/aliases/runtime.ts";
 import type { EngineContext } from "../../src/tokens/engine/index.ts";
 import { createTokenEngine } from "../../src/tokens/engine/index.ts";
-import type { CounterDeps, TokenCounter, TokenSource, ToolSchema } from "../../src/tokens/types.ts";
+import type {
+	CounterDeps,
+	TokenCounter,
+	TokenModel,
+	TokenSource,
+	ToolSchema,
+} from "../../src/tokens/types.ts";
 
 type Message = SessionProjection["messages"][number];
 type SystemTool = NonNullable<Extract<Message, { role: "system" }>["toolsAdded"]>[number];
@@ -371,6 +380,163 @@ test("family selection is ordered, cached per model and falls back to the defaul
 		tokens: 2,
 		source: "estimate",
 	});
+});
+
+function aliasEngine(configured: () => readonly ModelAlias[]) {
+	const catalog = new AliasCatalog(configured);
+	catalog.register("claude", () =>
+		["physical-a", "physical-b", "existing"].map((id) => ({ provider: "claude", id })),
+	);
+	const sent: string[] = [];
+	const counts = new Map<string, number>();
+	const engine = createTokenEngine({
+		families: [createAnthropicFamily({}, async () => undefined)],
+		deps: {
+			...deps,
+			auth: async () => ({ token: "test-api-key", extra: {} }),
+			fetch: async (_url, init) => {
+				const body: unknown = JSON.parse(String(init?.body));
+				if (
+					typeof body !== "object" ||
+					body === null ||
+					!("model" in body) ||
+					typeof body.model !== "string"
+				) {
+					throw new Error("expected a native count request with a model");
+				}
+				const model = body.model;
+				sent.push(model);
+				const count = (counts.get(model) ?? 0) + 1;
+				counts.set(model, count);
+				return Response.json({ input_tokens: count === 1 ? 33 : model === "physical-b" ? 53 : 42 });
+			},
+		},
+		tools: () => [],
+		resolveModel: (model) => catalog.resolve(model),
+	});
+	return { catalog, engine, sent };
+}
+
+test("native count requests carry the accepted alias source id", async () => {
+	const { engine, sent } = aliasEngine(() => [
+		{ provider: "claude", source: "physical-a", id: "logical" },
+	]);
+	const counter = engine.counterFor({ provider: "claude", id: "logical" });
+	expect(await counter.count("hello", "prose")).toEqual({
+		tokens: 10,
+		source: "count-endpoint",
+	});
+	expect(sent).toEqual(["physical-a", "physical-a"]);
+});
+
+test("accepted aliases use native physical counters and follow retargeting without changing reports", async () => {
+	let aliases: readonly ModelAlias[] = [
+		{ provider: "claude", source: "physical-a", id: "logical" },
+	];
+	const { engine, sent } = aliasEngine(() => aliases);
+	const { ctx } = session([{ role: "user", content: "hello", timestamp: 0 }]);
+	const logical = { provider: "claude", id: "logical", contextWindow: 400 };
+	const aliasContext = { ...ctx, model: logical };
+	const first = engine.counterFor(logical);
+	expect(first.id).toBe("count_tokens:claude:physical-a");
+	expect(engine.counterFor({ provider: "claude", id: "physical-a" })).toBe(first);
+	const reportA = await engine.context(aliasContext);
+	expect(reportA).toMatchObject({
+		provider: "claude",
+		model: "logical",
+		contextWindow: 400,
+		percent: 5,
+		tokens: { tokens: 20, source: "count-endpoint" },
+	});
+	expect(await engine.breakdown(aliasContext)).toEqual([
+		{ kind: "system", count: { tokens: 10, source: "count-endpoint" }, items: 1 },
+		{ kind: "tools", count: { tokens: 0, source: "provider" }, items: 0 },
+		{ kind: "user", count: { tokens: 10, source: "count-endpoint" }, items: 1 },
+	]);
+	expect(sent).toEqual(["physical-a", "physical-a", "physical-a"]);
+
+	aliases = [{ provider: "claude", source: "physical-b", id: "logical" }];
+	const second = engine.counterFor(logical);
+	expect(second.id).toBe("count_tokens:claude:physical-b");
+	expect(second).not.toBe(first);
+	expect(engine.counterFor({ provider: "claude", id: "physical-b" })).toBe(second);
+	const reportB = await engine.context(aliasContext);
+	expect(reportB).toMatchObject({
+		provider: "claude",
+		model: "logical",
+		contextWindow: 400,
+		percent: 10.5,
+		tokens: { tokens: 42, source: "count-endpoint" },
+	});
+	expect(await engine.breakdown(aliasContext)).toEqual([
+		{ kind: "system", count: { tokens: 21, source: "count-endpoint" }, items: 1 },
+		{ kind: "tools", count: { tokens: 0, source: "provider" }, items: 0 },
+		{ kind: "user", count: { tokens: 21, source: "count-endpoint" }, items: 1 },
+	]);
+	expect(sent).toEqual([
+		"physical-a",
+		"physical-a",
+		"physical-a",
+		"physical-b",
+		"physical-b",
+		"physical-b",
+	]);
+});
+
+test("rejected aliases retain their own physical counter and native request identity", async () => {
+	const aliases: readonly ModelAlias[] = [
+		{ provider: "claude", source: "physical-a", id: "existing" },
+		{ provider: "claude", source: "missing", id: "unresolved" },
+	];
+	const { catalog, engine, sent } = aliasEngine(() => aliases);
+	expect(catalog.issues().map((issue) => issue.kind)).toEqual(["collision", "missing-source"]);
+	for (const id of ["existing", "unresolved"]) {
+		const counter = engine.counterFor({ provider: "claude", id });
+		expect(counter.id).toBe(`count_tokens:claude:${id}`);
+		expect(await counter.count("hello", "prose")).toEqual({
+			tokens: 10,
+			source: "count-endpoint",
+		});
+	}
+	expect(sent).toEqual(["existing", "existing", "unresolved", "unresolved"]);
+});
+
+test("counter cache distinguishes resolved providers for the same physical model id", () => {
+	let physical: TokenModel = { provider: "a", id: "physical" };
+	const visits: TokenModel[] = [];
+	const engine = createTokenEngine({
+		families: [
+			{
+				id: "fake",
+				label: "Fake",
+				providers: [],
+				tokens: (model) => {
+					visits.push(model);
+					return {
+						id: `${model.provider}:${model.id}`,
+						anchorSource: "provider",
+						count: async () => ({ tokens: 1, source: "count-endpoint" }),
+					};
+				},
+			},
+		],
+		deps,
+		tools: () => [],
+		resolveModel: () => physical,
+	});
+	const logical = { provider: "logical", id: "alias" };
+	const first = engine.counterFor(logical);
+	expect(first.id).toBe("a:physical");
+	physical = { provider: "b", id: "physical" };
+	const second = engine.counterFor(logical);
+	expect(second.id).toBe("b:physical");
+	expect(second).not.toBe(first);
+	physical = { provider: "a", id: "physical" };
+	expect(engine.counterFor(logical)).toBe(first);
+	expect(visits).toEqual([
+		{ provider: "a", id: "physical" },
+		{ provider: "b", id: "physical" },
+	]);
 });
 
 test("memo separates kinds and live counter ids, hashes large text and evicts old entries", async () => {

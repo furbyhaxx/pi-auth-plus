@@ -8,6 +8,7 @@ import type {
 	ModelRuntime,
 	ProviderConfig,
 	ProviderModelConfig,
+	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
 import { handleQuotaCli, registerQuotaCliFlags } from "./cli/index.ts";
 import { credentialStatus, readCredential } from "./core/auth/index.ts";
@@ -79,6 +80,10 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	let sessionController = new AbortController();
 	let stopQuotaBus: (() => void) | undefined;
 	const shutdownOwners = new WeakMap<ExtensionContext, AbortSignal>();
+	const startupOwners = new WeakMap<
+		SessionStartEvent,
+		{ signal: AbortSignal; groupWarnings: Set<string> }
+	>();
 	const physicalResponseProviders = new Set<string>();
 	sessionController.abort();
 	const stopSession = () => {
@@ -87,9 +92,10 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		stopQuotaBus?.();
 		stopQuotaBus = undefined;
 	};
-	pi.on("session_start", () => {
+	pi.on("session_start", (event) => {
 		stopSession();
 		sessionController = new AbortController();
+		startupOwners.set(event, { signal: sessionController.signal, groupWarnings: new Set() });
 	});
 	pi.on("session_shutdown", (_event, ctx) => {
 		shutdownOwners.set(ctx, sessionController.signal);
@@ -287,16 +293,21 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		changedProviders: readonly string[] = [],
 		store: AppSettings = settings,
 		signal: AbortSignal = sessionController.signal,
+		startupGroupWarnings?: Set<string>,
 	): Promise<AbortSignal | false> => {
 		if (signal.aborted) return false;
 		const applied = await catalogVisibility.apply(ctx, changedProviders, signal, store);
 		if (signal.aborted || applied === false || applied.signal.aborted) return false;
 		const lifetime = applied.signal;
 		try {
-			const warnings = [...applied.warnings, ...groups.apply(ctx.modelRegistry.getAll())];
+			const groupWarnings = groups.apply(ctx.modelRegistry.getAll());
+			const warnings = [...applied.warnings, ...groupWarnings];
 			await reconcileSelectedModel(ctx, store, lifetime);
 			if (lifetime.aborted) return false;
-			if (warnings.length > 0) ctx.ui.notify(warnings.join("\n"), "warning");
+			if (warnings.length > 0) {
+				ctx.ui.notify(warnings.join("\n"), "warning");
+				for (const warning of groupWarnings) startupGroupWarnings?.add(warning);
+			}
 		} catch (error) {
 			if (lifetime.aborted) return false;
 			throw error;
@@ -304,8 +315,10 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		return lifetime.aborted ? false : lifetime;
 	};
 	// Registered before the families so their session_start handlers see this session's settings.
-	pi.on("session_start", async (_event, ctx) => {
-		const signal = sessionController.signal;
+	pi.on("session_start", async (event, ctx) => {
+		const startup = startupOwners.get(event);
+		if (!startup || startup.signal.aborted) return;
+		const signal = startup.signal;
 		aliasContext = undefined;
 		warnedAliases.clear();
 		const previousAliases = JSON.stringify(settings.get("models.aliases"));
@@ -318,7 +331,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		if (signal.aborted) return;
 		const changed =
 			previousAliases === JSON.stringify(settings.get("models.aliases")) ? [] : [...ownedProviders];
-		const applied = await applyModelRules(ctx, changed, settings, signal);
+		const applied = await applyModelRules(ctx, changed, settings, signal, startup.groupWarnings);
 		if (applied === false || applied.aborted || signal.aborted) return;
 		aliasContext = ctx;
 		warnAliasIssues(ctx, signal);
@@ -540,13 +553,19 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	// Groups, physical hooks and the cap install need this session's cwd and catalog.
 	let warnedStartup = false;
 	pi.on("session_start", (event, ctx) => {
+		const startup = startupOwners.get(event);
+		if (!startup || startup.signal.aborted) return;
+		const { signal, groupWarnings } = startup;
 		try {
 			sessionCwd = ctx.cwd;
 			physicalHooksActive = installPhysicalRequestHooks(ctx.modelRegistry, physicalFactory);
 			recovery.setPhysicalHooksAvailable(physicalHooksActive);
 			installGroupContextCap(ctx.modelRegistry);
-			groups.apply(ctx.modelRegistry.getAll());
-			if (!physicalHooksActive && event.reason === "startup") {
+			const warnings = groups
+				.apply(ctx.modelRegistry.getAll())
+				.filter((warning) => !groupWarnings.has(warning));
+			if (!signal.aborted && warnings.length > 0) ctx.ui.notify(warnings.join("\n"), "warning");
+			if (!signal.aborted && !physicalHooksActive && event.reason === "startup") {
 				ctx.ui.notify(
 					"pi-auth-plus: physical request hooks are unavailable in this Pi build; aliases and groups fall back to session-level detection.",
 					"warning",
@@ -555,6 +574,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		} finally {
 			const captured = startupCoordinator?.ready(sessionRuntime(ctx));
 			if (
+				!signal.aborted &&
 				rpcStartup &&
 				!offline &&
 				event.reason === "startup" &&

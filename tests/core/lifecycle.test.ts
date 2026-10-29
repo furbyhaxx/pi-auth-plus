@@ -134,7 +134,7 @@ function lifecycleFixture(activeModel?: {
 		on: (event: string, handler: unknown) => {
 			if (typeof handler !== "function") return unexpected();
 			const list = handlers.get(event) ?? [];
-			list.push((payload, context) => handler({ type: event, ...payload }, context ?? ctx));
+			list.push((payload, context) => handler(payload, context ?? ctx));
 			handlers.set(event, list);
 			return () => {};
 		},
@@ -189,8 +189,9 @@ function lifecycleFixture(activeModel?: {
 	};
 	let shutdownWaiting: (() => void) | undefined;
 	const run = async (event: string, context = ctx) => {
+		const payload = { type: event, reason: "switch" };
 		for (const handler of handlers.get(event) ?? []) {
-			const result = handler({ reason: "switch" }, context);
+			const result = handler(payload, context);
 			if (event === "session_shutdown" && result instanceof Promise) shutdownWaiting?.();
 			await result;
 		}
@@ -906,6 +907,183 @@ test("committed saves report catalog and group failures and retry failed provide
 	} finally {
 		await fixture.run("session_shutdown");
 		capture.mockRestore();
+		groups.mockRestore();
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+test("startup reports a group failure introduced after physical hooks are installed", async () => {
+	const cleanup = groupSettings([]);
+	const fixture = lifecycleFixture();
+	fixture.catalog.push(fixture.model);
+	const attempts: string[] = [];
+	const register = fixture.pi.registerVirtualModel;
+	const groups = spyOn(fixture.pi, "registerVirtualModel").mockImplementation((definition) => {
+		attempts.push(definition.id);
+		if (definition.id === "alpha" && attempts.length === 5) throw new Error("group unavailable");
+		register(definition);
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		expect(attempts).toEqual(["alpha", "beta", "alpha", "beta", "alpha", "beta"]);
+		expect(fixture.virtuals.get("beta")?.contextWindow).toBe(fixture.model.contextWindow);
+		expect(fixture.notices).toEqual([
+			"Could not register group/alpha: group unavailable. Check the group configuration and model conflicts, then retry.",
+		]);
+		expect(fixture.noticeTones).toEqual(["warning"]);
+	} finally {
+		await fixture.run("session_shutdown");
+		groups.mockRestore();
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+test("startup group warnings deduplicate across stages and reset for each session", async () => {
+	const cleanup = groupSettings([]);
+	const fixture = lifecycleFixture();
+	fixture.catalog.push(fixture.model);
+	const attempts: string[] = [];
+	const register = fixture.pi.registerVirtualModel;
+	let inSession = false;
+	const groups = spyOn(fixture.pi, "registerVirtualModel").mockImplementation((definition) => {
+		if (inSession) attempts.push(definition.id);
+		if (inSession && definition.id === "alpha") throw new Error("group unavailable");
+		register(definition);
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		inSession = true;
+		const warning =
+			"Could not register group/alpha: group unavailable. Check the group configuration and model conflicts, then retry.";
+		for (let session = 0; session < 2; session++) {
+			attempts.length = 0;
+			fixture.notices.length = 0;
+			fixture.noticeTones.length = 0;
+			await fixture.run("session_start");
+			expect(attempts).toEqual(["alpha", "beta", "alpha", "beta"]);
+			expect(fixture.virtuals.get("beta")?.contextWindow).toBe(fixture.model.contextWindow);
+			expect(fixture.notices).toEqual([warning]);
+			expect(fixture.noticeTones).toEqual(["warning"]);
+		}
+	} finally {
+		await fixture.run("session_shutdown");
+		groups.mockRestore();
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+test("startup reports new group warnings without repeating earlier group failures", async () => {
+	const cleanup = groupSettings([]);
+	const fixture = lifecycleFixture();
+	const attempts: string[] = [];
+	const register = fixture.pi.registerVirtualModel;
+	let inSession = false;
+	const groups = spyOn(fixture.pi, "registerVirtualModel").mockImplementation((definition) => {
+		if (inSession) attempts.push(definition.id);
+		if (inSession && definition.id === "alpha") throw new Error("alpha unavailable");
+		if (inSession && definition.id === "beta" && attempts.length === 4)
+			throw new Error("beta unavailable");
+		register(definition);
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		inSession = true;
+		await fixture.run("session_start");
+		expect(attempts).toEqual(["alpha", "beta", "alpha", "beta"]);
+		expect(fixture.notices).toEqual([
+			"Could not register group/alpha: alpha unavailable. Check the group configuration and model conflicts, then retry.",
+			"Could not register group/beta: beta unavailable. Check the group configuration and model conflicts, then retry.",
+		]);
+		expect(fixture.noticeTones).toEqual(["warning", "warning"]);
+	} finally {
+		await fixture.run("session_shutdown");
+		groups.mockRestore();
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+test("startup discards group warnings when the session ends during registration", async () => {
+	const cleanup = groupSettings([]);
+	const fixture = lifecycleFixture();
+	const attempts: string[] = [];
+	const register = fixture.pi.registerVirtualModel;
+	let shutdown: Promise<void> | undefined;
+	const groups = spyOn(fixture.pi, "registerVirtualModel").mockImplementation((definition) => {
+		attempts.push(definition.id);
+		if (definition.id === "alpha" && attempts.length === 5) {
+			shutdown = fixture.run("session_shutdown");
+			throw new Error("late group failure");
+		}
+		register(definition);
+	});
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		if (!shutdown) throw new Error("Session did not shut down during registration");
+		await shutdown;
+		expect(attempts).toEqual(["alpha", "beta", "alpha", "beta", "alpha", "beta"]);
+		expect(fixture.notices).toEqual([]);
+	} finally {
+		if (shutdown) await shutdown;
+		else await fixture.run("session_shutdown");
+		groups.mockRestore();
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+test("an old startup owner does not report post-hook group warnings", async () => {
+	const cleanup = groupSettings([]);
+	const fixture = lifecycleFixture();
+	const entered = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	const replacementNotices: string[] = [];
+	const replacement = {
+		...fixture.ctx,
+		ui: { ...fixture.ctx.ui, notify: (message: string) => replacementNotices.push(message) },
+	};
+	let starts = 0;
+	const start = spyOn(QuotaEngine.prototype, "start").mockImplementation(async () => {
+		if (++starts === 1) {
+			entered.resolve();
+			await release.promise;
+		}
+	});
+	const register = fixture.pi.registerVirtualModel;
+	let failGroup = false;
+	let lateAttempts = 0;
+	const groups = spyOn(fixture.pi, "registerVirtualModel").mockImplementation((definition) => {
+		if (failGroup && definition.id === "alpha") {
+			lateAttempts++;
+			throw new Error("old group failure");
+		}
+		register(definition);
+	});
+	try {
+		await piAuthPlus(fixture.pi);
+		const oldSession = fixture.run("session_start");
+		await entered.promise;
+		await fixture.run("session_start", replacement);
+		fixture.notices.length = 0;
+		replacementNotices.length = 0;
+		failGroup = true;
+		release.resolve();
+		await oldSession;
+		expect(lateAttempts).toBe(0);
+		expect(fixture.notices).toEqual([]);
+		expect(replacementNotices).toEqual([]);
+	} finally {
+		release.resolve();
+		await fixture.run("session_shutdown", replacement);
 		groups.mockRestore();
 		start.mockRestore();
 		cleanup();

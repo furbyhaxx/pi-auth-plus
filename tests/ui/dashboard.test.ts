@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
 import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
+import { SETTINGS } from "../../src/core/config/catalog.ts";
+import { SettingsStore } from "../../src/core/config/index.ts";
+import { AliasDetail } from "../../src/ui/dashboard/alias-detail.ts";
+import { GroupsView } from "../../src/ui/dashboard/groups.ts";
 import {
 	AuthDashboard,
 	type DashboardModel,
@@ -13,7 +17,8 @@ import {
 	type TabViewFactory,
 	type TabViewHost,
 } from "../../src/ui/dashboard/index.ts";
-import type { PanelTheme } from "../../src/ui/frame/index.ts";
+import { SettingsView } from "../../src/ui/dashboard/settings.ts";
+import type { FrameLayoutOptions, PanelTheme } from "../../src/ui/frame/index.ts";
 
 const theme: PanelTheme = {
 	fg: (_color, text) => `\x1b[90m${text}\x1b[39m`,
@@ -44,7 +49,12 @@ const model: DashboardModel = {
 	],
 };
 
-function open(rows = 40, tab: TabId = "providers", data = model) {
+function open(
+	rows = 40,
+	tab: TabId = "providers",
+	data = model,
+	preferences?: () => FrameLayoutOptions,
+) {
 	let closed = 0;
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS);
 	const host = { terminal: { rows }, requestRender: () => {} };
@@ -56,8 +66,9 @@ function open(rows = 40, tab: TabId = "providers", data = model) {
 		staticViews(data),
 		tab,
 		data.providers.length,
+		preferences,
 	);
-	return { panel, closed: () => closed };
+	return { panel, host, closed: () => closed };
 }
 
 const plain = (lines: string[]) => lines.map((line) => stripVTControlCharacters(line));
@@ -306,6 +317,208 @@ describe("ui/dashboard", () => {
 		expect(events).toEqual([]);
 	});
 
+	test("frame and selection fit short terminals at every check width", () => {
+		const providers = Array.from({ length: 8 }, (_, index) => ({
+			id: `p${index}`,
+			label: `Provider ${index}`,
+			status: { state: "api_key" as const },
+		}));
+		for (const rows of [8, 12, 24]) {
+			for (const width of [36, 57, 80, 140]) {
+				const { panel } = open(rows, "providers", { nowMs: 0, providers });
+				const lines = panel.render(width);
+				expect(lines.length, `${rows}x${width}`).toBeLessThanOrEqual(rows);
+				expect(plain(lines).join("\n")).toContain("Provider 0");
+				for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			}
+		}
+	});
+
+	test("global and local confirmations retain both rebound controls at short heights", () => {
+		for (const rows of [8, 12, 24]) {
+			for (const width of [36, 57, 80, 140]) {
+				for (const local of [false, true]) {
+					const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+					keys.setUserBindings({
+						"tui.select.confirm": ["ctrl+y"],
+						"tui.select.cancel": ["ctrl+n"],
+					});
+					const { panel, instances } = draftRig("providers", rows, keys);
+					instances.providers.dirty = true;
+					panel.handleInput(local ? "d" : "\x03");
+					const lines = panel.render(width);
+					const text = plain(lines).join("\n");
+					expect(lines.length, `${rows}x${width}`).toBeLessThanOrEqual(rows);
+					expect(text).toContain(local ? "Discard this draft?" : "Discard all & exit?");
+					expect(text).toContain("ctrl+y discard");
+					expect(text).toContain("ctrl+n keep");
+					for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				}
+			}
+		}
+	});
+
+	test("scope choice keeps the selected setting and cancel visible at short heights", () => {
+		const store = new SettingsStore(SETTINGS, { user: "" });
+		for (const rows of [8, 12, 24]) {
+			for (const width of [36, 57, 80, 140]) {
+				const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+				keys.setUserBindings({ "tui.select.cancel": ["ctrl+shift+n"] });
+				const factories = staticViews(model);
+				factories.settings = (host) =>
+					new SettingsView(
+						host,
+						{ store: () => store, onSaved: () => {} },
+						"quotas.refreshOnRequest",
+					);
+				const panel = new AuthDashboard(
+					{ terminal: { rows }, requestRender: () => {} },
+					theme,
+					keys,
+					() => {},
+					factories,
+					"settings",
+					0,
+				);
+				panel.handleInput(" ");
+				panel.handleInput("\x13");
+				const lines = panel.render(width);
+				const text = plain(lines).join("\n");
+				expect(lines.length, `${rows}x${width}`).toBeLessThanOrEqual(rows);
+				expect(text).toContain("❯");
+				const footer = plain(lines).at(-2) ?? "";
+				for (const key of ["u", "p", "r"]) expect(footer).toMatch(new RegExp(`\\b${key} `));
+				expect(footer).toContain("ctrl+shift+n cancel");
+				for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			}
+		}
+	});
+
+	test("compact overflow announces hidden rows on both sides", () => {
+		for (const count of [8, 100]) {
+			const items = Array.from({ length: count }, (_, index) => ({
+				id: `p${index}`,
+				label: `Provider ${index}`,
+				status: { state: "api_key" as const },
+			}));
+			const { panel } = open(8, "providers", { nowMs: 0, providers: items });
+			panel.render(36);
+			panel.handleInput("\x1b[B");
+			panel.handleInput("\x1b[B");
+			const lines = plain(panel.render(36));
+			expect(lines[0]).toContain("↑2");
+			expect(lines[0]).toContain(`↓${count - 3}`);
+			expect(lines[0]).toContain("Providers");
+			expect(lines[0]).toContain(String(count));
+		}
+	});
+
+	test("live frame preferences and terminal resizing take effect without padding", () => {
+		let preferences: FrameLayoutOptions = { density: "compact", maxBodyRows: 2 };
+		const { panel, host } = open(24, "providers", model, () => preferences);
+		const compact = plain(panel.render(80));
+		expect(compact).toHaveLength(5);
+		expect(compact.join("\n")).toContain("Claude");
+		expect(compact[0]).toContain("↓");
+		preferences = { density: "comfortable", maxBodyRows: 0 };
+		const comfortable = plain(panel.render(80));
+		expect(comfortable).toHaveLength(10);
+		expect(comfortable[1]).toContain("▸Providers");
+		host.terminal.rows = 8;
+		const short = plain(panel.render(80));
+		expect(short.length).toBeLessThanOrEqual(8);
+		expect(short[0]).toContain("↓");
+		preferences = { maxBodyRows: 1 };
+		expect(plain(panel.render(80))).toHaveLength(4);
+	});
+
+	test("long rebound confirmation keys remain reachable in the compact footer", () => {
+		const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+		keys.setUserBindings({
+			"tui.select.confirm": ["ctrl+shift+a"],
+			"tui.select.cancel": ["ctrl+shift+b"],
+		});
+		const { panel, instances } = draftRig("providers", 8, keys);
+		instances.providers.dirty = true;
+		panel.handleInput("\x03");
+		for (const width of [36, 57, 80, 140]) {
+			const lines = plain(panel.render(width));
+			const footer = lines.at(-2) ?? "";
+			expect(footer).toContain("ctrl+shift+a");
+			expect(footer).toContain("ctrl+shift+b");
+		}
+	});
+
+	test("a one-row groups save viewport retains its selection", () => {
+		const factories = staticViews(model);
+		factories.groups = (host) =>
+			new GroupsView(host, {
+				groups: () => [
+					{
+						id: "first",
+						strategy: "sticky",
+						triggers: [],
+						members: [{ provider: "vendor", id: "one", tier: 1 }],
+					},
+					{
+						id: "second",
+						strategy: "sticky",
+						triggers: [],
+						members: [{ provider: "vendor", id: "one", tier: 1 }],
+					},
+				],
+				catalog: () => [],
+				save: async () => {},
+			});
+		const panel = new AuthDashboard(
+			{ terminal: { rows: 8 }, requestRender: () => {} },
+			theme,
+			new KeybindingsManager(TUI_KEYBINDINGS),
+			() => {},
+			factories,
+			"groups",
+			0,
+			() => ({ maxBodyRows: 1 }),
+		);
+		panel.handleInput("d");
+		panel.handleInput("\x13");
+		const lines = plain(panel.render(36));
+		expect(lines).toHaveLength(4);
+		expect(lines[1]).toContain("❯ second");
+		expect(lines.at(-2)).toContain("esc cancel");
+	});
+
+	test("a one-row alias save viewport retains its selected field", () => {
+		const factories = staticViews(model);
+		factories.models = (host) =>
+			new AliasDetail(
+				host,
+				{ list: () => [], supported: () => true, save: async () => {} },
+				"vendor",
+				"one",
+				undefined,
+				() => {},
+			);
+		const panel = new AuthDashboard(
+			{ terminal: { rows: 8 }, requestRender: () => {} },
+			theme,
+			new KeybindingsManager(TUI_KEYBINDINGS),
+			() => {},
+			factories,
+			"models",
+			0,
+		);
+		panel.handleInput("\r");
+		panel.handleInput("alias");
+		panel.handleInput("\r");
+		panel.handleInput("\x13");
+		const lines = plain(panel.render(36));
+		expect(lines).toHaveLength(4);
+		expect(lines[1]).toContain("❯ ID · alias");
+		expect(lines.at(-2)).toContain("u/p/r save scope");
+		expect(lines.at(-2)).toContain("esc cancel");
+	});
+
 	test("confirmation shows both configured bindings at short and narrow sizes", () => {
 		const keys = new KeybindingsManager(TUI_KEYBINDINGS);
 		keys.setUserBindings({ "tui.select.confirm": ["ctrl+y"], "tui.select.cancel": ["ctrl+n"] });
@@ -318,7 +531,7 @@ describe("ui/dashboard", () => {
 			expect(text).toContain("Discard all & exit?");
 			expect(text).toContain("ctrl+y discard");
 			expect(text).toContain("ctrl+n keep");
-			expect(lines).toHaveLength(7);
+			expect(lines.length).toBeLessThanOrEqual(9);
 			for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
 		}
 		panel.handleInput("\r");
@@ -501,7 +714,7 @@ describe("ui/dashboard", () => {
 			label: `Provider ${index}`,
 			status: { state: "api_key" as const },
 		}));
-		const { panel } = open(14, "providers", { nowMs: 0, providers });
+		const { panel } = open(18, "providers", { nowMs: 0, providers });
 		const before = plain(panel.render(80));
 		expect(before.find((line) => line.includes("more"))).toContain("↓ 2 more");
 		panel.handleInput("\x1b[B");

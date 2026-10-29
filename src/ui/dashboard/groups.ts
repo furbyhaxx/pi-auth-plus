@@ -202,7 +202,7 @@ export class GroupsView implements TabView {
 				: this.#message
 					? [` ${theme.fg("warning", clean(this.#message))}`]
 					: [];
-		const reserved = Math.min(details.length, Math.max(0, bodyRows));
+		const reserved = Math.min(details.length, Math.max(0, bodyRows - 1));
 		const available = Math.max(0, bodyRows - reserved);
 		const selectedRow = this.#selected * 2;
 		this.#offset = Math.max(0, Math.min(this.#offset, selectedRow));
@@ -231,8 +231,10 @@ export class GroupsView implements TabView {
 			hints:
 				this.#mode === "save"
 					? [
-							{ key: "r/u/p", action: "runtime/user/project", priority: 0 },
-							{ key: binding("tui.select.cancel"), action: "cancel", priority: 1 },
+							{ key: "r", action: "runtime", priority: 0 },
+							{ key: "u", action: "user", priority: 0 },
+							{ key: "p", action: "project", priority: 0 },
+							{ key: binding("tui.select.cancel"), action: "cancel", priority: 0 },
 						]
 					: [
 							{ key: `a/${binding("tui.select.confirm")}`, action: "add/edit", priority: 0 },

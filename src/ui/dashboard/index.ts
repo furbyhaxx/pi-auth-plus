@@ -1,10 +1,11 @@
 /** The `/auth` dashboard panel: one frame, a tab row, and the active tab's body. */
 import { type KeybindingsManager, matchesKey, visibleWidth } from "@earendil-works/pi-tui";
 import {
-	bodyRowsFor,
 	drawFrame,
+	type FrameLayoutOptions,
 	fitHint,
 	type HintItem,
+	layoutFor,
 	type PanelHost,
 	type PanelTheme,
 } from "../frame/index.ts";
@@ -53,6 +54,7 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	readonly #providerCount: number;
 	readonly #factories: Readonly<Record<TabId, TabViewFactory>>;
 	readonly #viewHost: TabViewHost;
+	readonly #preferences: (() => FrameLayoutOptions) | undefined;
 
 	constructor(
 		host: PanelHost,
@@ -62,8 +64,10 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 		views: Readonly<Record<TabId, TabViewFactory>>,
 		tab: TabId,
 		providerCount: number,
+		preferences?: () => FrameLayoutOptions,
 	) {
 		super(host, theme, keys, onDone);
+		this.#preferences = preferences;
 		this.#tab = tab;
 		this.#factories = views;
 		this.#providerCount = providerCount;
@@ -106,10 +110,18 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	}
 
 	render(width: number): string[] {
-		const bodyRows = bodyRowsFor(this.host.terminal.rows, 1);
+		const { bodyRows, compact } = layoutFor(this.host.terminal.rows, 1, this.#preferences?.());
 		const spec = TABS.find((tab) => tab.id === this.#tab);
 		const count = this.#providerCount;
 		if (this.#confirmation) {
+			const discard = { key: this.binding("tui.select.confirm"), action: "discard", priority: 0 };
+			const keep = { key: this.binding("tui.select.cancel"), action: "keep", priority: 0 };
+			const combined = fitHint(this.theme, [discard, keep], width - 1, true);
+			const split =
+				compact &&
+				bodyRows > 1 &&
+				((discard.key !== "" && !combined.includes(discard.key)) ||
+					!combined.includes(discard.action.slice(0, 4)));
 			return drawFrame(this.theme, width, {
 				crumbs: ["Auth", spec?.label ?? ""],
 				state: this.theme.fg("dim", `${count} provider${count === 1 ? "" : "s"}`),
@@ -123,18 +135,12 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 								? " Discard all & exit?"
 								: " Discard this draft?",
 					),
+					...(split ? [` ${fitHint(this.theme, [discard], width - 1)}`] : []),
 				],
 				bodyRows,
-				description: fitHint(
-					this.theme,
-					[{ key: this.binding("tui.select.confirm"), action: "discard", priority: 0 }],
-					width - 1,
-				),
-				footer: fitHint(
-					this.theme,
-					[{ key: this.binding("tui.select.cancel"), action: "keep", priority: 0 }],
-					width - 1,
-				),
+				compact,
+				description: fitHint(this.theme, [discard], width - 1),
+				footer: compact && !split ? combined : fitHint(this.theme, [keep], width - 1),
 			});
 		}
 		const body = this.#views[this.#tab].render(width, bodyRows);
@@ -151,10 +157,11 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 			header: [tabBar(this.theme, this.#tab, width - 1)],
 			body: body.lines,
 			bodyRows,
+			compact,
 			above: body.above,
 			below: body.below,
 			description: body.description ?? this.theme.fg("muted", spec?.description ?? ""),
-			footer: fitHint(this.theme, hints, width - 1),
+			footer: fitHint(this.theme, hints, width - 1, body.modal ?? false),
 		});
 	}
 

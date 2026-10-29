@@ -756,6 +756,23 @@ describe("settings tab", () => {
 		expect(seen.at(-1)?.source).toBe("new");
 	});
 
+	test("wide settings labels and short edits fit without a false ellipsis", () => {
+		const rig = open("quotas.refreshIntervalSec");
+		rig.view.handleInput("\r");
+		const wide = rig.view.render(140, 30);
+		const wideLines = wide.lines.map(stripVTControlCharacters);
+		expect(wideLines.some((line) => line.includes("Refresh quotas after requests"))).toBe(true);
+		const edited = wideLines.find((line) => line.includes("❯")) ?? "";
+		expect(edited).toContain("Quota refresh interval");
+		expect(edited).toContain("60");
+		expect(edited).not.toContain("…");
+		for (const line of wide.lines) expect(visibleWidth(line)).toBeLessThanOrEqual(140);
+
+		const narrow = rig.view.render(36, 30);
+		expect(narrow.lines.join("")).toContain("\x1b_pi:c\x07");
+		for (const line of narrow.lines) expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+	});
+
 	test("sections, editing, save prompts and sanitized template previews fit every check width", async () => {
 		const rig = open("quotas.lineTemplate", (source, width) => ({
 			rows: [source.repeat(2), "preview".repeat(width)],

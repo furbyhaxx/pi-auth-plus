@@ -29,6 +29,7 @@ export interface SettingsTabDeps {
 
 type SettingKey = keyof typeof SETTINGS;
 const settingKeys = Object.keys(SETTINGS).filter((key): key is SettingKey => key in SETTINGS);
+const maxLabelWidth = Math.max(...settingKeys.map((key) => visibleWidth(SETTINGS[key].label)));
 
 /** Edits the whole catalog without writing until the user chooses a save scope. */
 export class SettingsView implements TabView {
@@ -345,7 +346,7 @@ export class SettingsView implements TabView {
 		const rows: string[] = [];
 		let section = "";
 		let selectedRow = 0;
-		const labelWidth = Math.min(28, Math.max(8, Math.floor(width * 0.38)));
+		const labelWidth = Math.min(maxLabelWidth, Math.max(8, Math.floor(width * 0.38)));
 		for (const key of settingKeys) {
 			const prefix = key.split(".")[0] ?? "";
 			if (prefix !== section) {

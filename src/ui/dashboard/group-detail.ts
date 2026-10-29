@@ -3,6 +3,7 @@ import { Input, matchesKey, truncateToWidth, visibleWidth } from "@earendil-work
 import { type ModelGroup, parseGroups } from "../../models/groups/config.ts";
 import { isPhysicalGroupMember } from "../../models/groups/member.ts";
 import { sanitize } from "../frame/index.ts";
+import { ModelPicker } from "./model-picker.ts";
 import type { ModelCatalogItem } from "./models.ts";
 import type { TabBody, TabViewHost } from "./view.ts";
 
@@ -72,6 +73,7 @@ export class GroupDetail {
 	readonly #input = new Input({ prompt: "", placeholder: "" });
 	readonly #original: Draft;
 	#draft: Draft;
+	#picker: ModelPicker | undefined;
 	#inputInitial = "";
 	#selected = 0;
 	#offset = 0;
@@ -107,6 +109,7 @@ export class GroupDetail {
 	/** Reset all local fields to the value this editor was opened with. */
 	discardDrafts(): void {
 		this.#draft = draftFromDraft(this.#original);
+		this.#picker = undefined;
 		this.#editing = false;
 		this.#inputInitial = "";
 		this.#input.setValue("");
@@ -165,32 +168,36 @@ export class GroupDetail {
 		this.#editing = true;
 		this.#message = "";
 	}
+	#openPicker(): void {
+		this.#picker = new ModelPicker(
+			this.#host,
+			() =>
+				this.#catalog().filter(
+					(item) =>
+						isPhysicalGroupMember(item) &&
+						!this.#draft.members.some(
+							(member) => member.provider === item.provider && member.id === item.id,
+						),
+				),
+			(item) => {
+				this.#draft.members.push({
+					provider: item.provider,
+					id: item.id,
+					tier: "1",
+					cost: "unset",
+					thinking: "",
+				});
+				this.#picker = undefined;
+			},
+			() => {
+				this.#picker = undefined;
+			},
+		);
+	}
 	#finishEdit(row: Row): boolean {
 		const value = clean(this.#input.getValue());
 		const member = row.index === undefined ? undefined : this.#draft.members[row.index];
-		if (row.kind === "add") {
-			const slash = value.indexOf("/");
-			const provider = value.slice(0, slash);
-			const id = value.slice(slash + 1);
-			if (slash <= 0 || !id) {
-				this.#message = "Member not in catalog; enter provider/model-id";
-				return false;
-			}
-			const model = this.#catalog().find((item) => item.provider === provider && item.id === id);
-			if (!isPhysicalGroupMember(model ?? { provider })) {
-				this.#message = "Choose a physical model; virtual models cannot be members";
-				return false;
-			}
-			if (!model) {
-				this.#message = "Member not in catalog; enter provider/model-id";
-				return false;
-			}
-			if (this.#draft.members.some((item) => item.provider === provider && item.id === id)) {
-				this.#message = "Duplicate member";
-				return false;
-			}
-			this.#draft.members.push({ provider, id, tier: "1", cost: "unset", thinking: "" });
-		} else if (row.kind === "id") this.#draft.id = value;
+		if (row.kind === "id") this.#draft.id = value;
 		else if (row.kind === "name") this.#draft.name = value;
 		else if (row.kind === "cap") this.#draft.cap = value;
 		else if (row.kind === "tier" && member) member.tier = value;
@@ -267,6 +274,7 @@ export class GroupDetail {
 	/** Consume editor input, returning through the explicit back callback. */
 	handleInput(data: string): boolean {
 		if (this.#disposed) return true;
+		if (this.#picker) return this.#picker.handleInput(data);
 		const { keys } = this.#host;
 		const cancel = keys.matches(data, "tui.select.cancel");
 		const enter = keys.matches(data, "tui.select.confirm");
@@ -351,7 +359,8 @@ export class GroupDetail {
 								(Math.max(0, costs.indexOf(member.cost)) + (left ? -1 : 1) + costs.length) %
 									costs.length
 							] ?? "unset";
-				} else if (enter && ["id", "name", "cap", "tier", "thinking", "add"].includes(row.kind))
+				} else if (enter && row.kind === "add") this.#openPicker();
+				else if (enter && ["id", "name", "cap", "tier", "thinking"].includes(row.kind))
 					this.#start(row);
 				this.#message = "";
 			}
@@ -360,6 +369,7 @@ export class GroupDetail {
 	}
 	/** Render a clipped scrollable body and the available editing controls. */
 	render(width: number, bodyRows: number): TabBody {
+		if (this.#picker) return this.#picker.render(width, bodyRows);
 		const { theme } = this.#host;
 		const rows = this.#rows();
 		const catalog = this.#draft.members.length ? this.#catalog() : [];
@@ -409,9 +419,7 @@ export class GroupDetail {
 					"muted",
 					this.#editing && rows[this.#selected]?.kind === "thinking"
 						? "Mappings: low=high, medium=max"
-						: this.#editing && rows[this.#selected]?.kind === "add"
-							? "Enter catalog provider/model-id"
-							: "Cost labels are informational.",
+						: "Cost labels are informational.",
 				),
 				Math.max(0, width - 1),
 				"…",
@@ -438,6 +446,7 @@ export class GroupDetail {
 	/** Release editor resources when the owner closes the view. */
 	dispose(): void {
 		this.#disposed = true;
+		this.#picker = undefined;
 		this.#input.focused = false;
 	}
 }

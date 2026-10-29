@@ -13,12 +13,8 @@ import type {
 import { handleQuotaCli, registerQuotaCliFlags } from "./cli/index.ts";
 import { credentialStatus, readCredential } from "./core/auth/index.ts";
 import { type AppSettings, SETTINGS } from "./core/config/catalog.ts";
-import { type SaveScope, SettingsStore } from "./core/config/index.ts";
-import {
-	createSettingsSaver,
-	formatSaveOutcome,
-	type SettingsChanges,
-} from "./core/config/save.ts";
+import { SettingsStore } from "./core/config/index.ts";
+import { createSettingsSaver } from "./core/config/save.ts";
 import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts/index.ts";
 import { cacheDir, modelsPath, projectSettingsPath, userSettingsPath } from "./core/paths/index.ts";
 import { type ProviderSink, Registry, registerFamilyProviders } from "./core/registry/index.ts";
@@ -693,14 +689,6 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		};
 	};
 	const saveSettings = createSettingsSaver(captureSettingsEffects);
-	const saveLegacySettings = async (scope: SaveScope, changes: SettingsChanges): Promise<void> => {
-		const ctx = quotaContext;
-		const signal = sessionController.signal;
-		const outcome = await saveSettings(scope, changes);
-		if (!outcome.committed) throw new Error(outcome.error);
-		if (!signal.aborted && (outcome.shadowed.length > 0 || outcome.warnings.length > 0))
-			ctx?.ui.notify(formatSaveOutcome(outcome), "warning");
-	};
 	registerAuthCommands(pi, {
 		registry,
 		saveSettings,
@@ -732,7 +720,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 					...(result.ruleIndex === undefined ? {} : { ruleIndex: result.ruleIndex }),
 				};
 			},
-			save: (rules, scope) => saveLegacySettings(scope, { "models.rules": rules }),
+			save: (rules, scope) => saveSettings(scope, { "models.rules": rules }),
 			details: {
 				aliases: {
 					list: () => settings.get("models.aliases"),
@@ -792,8 +780,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 						onChange: (listener) => quotas.onChange(listener),
 						lineConfig: () => quotaLineConfig(settings),
 						linePlacement: () => settings.get("quotas.linePlacement"),
-						setLinePlacement: (next) =>
-							saveLegacySettings("user", { "quotas.linePlacement": next }),
+						setLinePlacement: (next, scope) =>
+							saveSettings(scope, { "quotas.linePlacement": next }),
 						now: Date.now,
 						text: (provider) =>
 							formatPlainTextSummary(

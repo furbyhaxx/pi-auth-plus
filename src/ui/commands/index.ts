@@ -240,7 +240,8 @@ function sessionModels(source: ModelsTabDeps, signal: AbortSignal | undefined): 
 		catalog: () => (signal?.aborted ? [] : source.catalog()),
 		evaluate: (rules, provider, id) =>
 			signal?.aborted ? { visible: false } : source.evaluate(rules, provider, id),
-		save: (rules, scope) => sessionCall(signal, () => source.save(rules, scope)),
+		save: (rules, scope) =>
+			signal?.aborted ? Promise.resolve(cancelledSave()) : source.save(rules, scope),
 		...(details
 			? {
 					details: {
@@ -311,7 +312,8 @@ function sessionQuotas(source: QuotaPanelDeps, signal: AbortSignal | undefined):
 				: source.lineConfig(),
 		linePlacement: () =>
 			signal?.aborted ? SETTINGS["quotas.linePlacement"].default : source.linePlacement(),
-		setLinePlacement: (next) => sessionCall(signal, () => source.setLinePlacement(next)),
+		setLinePlacement: (next, scope) =>
+			signal?.aborted ? Promise.resolve(cancelledSave()) : source.setLinePlacement(next, scope),
 		now: () => (signal?.aborted ? 0 : source.now()),
 		text: (provider) => (signal?.aborted ? "" : source.text(provider)),
 		listResets: (provider) => sessionCall(signal, () => source.listResets(provider)),

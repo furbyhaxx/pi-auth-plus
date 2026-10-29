@@ -1,4 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	type Api,
 	type Context,
@@ -45,6 +48,16 @@ function lifecycleFixture(activeModel?: { readonly provider: string; readonly id
 	const handlers = new Map<string, Array<(payload?: Record<string, unknown>) => unknown>>();
 	const commands = new Map<string, Parameters<ExtensionAPI["registerCommand"]>[1]>();
 	const notices: string[] = [];
+	const noticeTones: (string | undefined)[] = [];
+	const catalog: Model<Api>[] = [];
+	const virtuals = new Map<
+		string,
+		{ readonly provider: string; readonly id: string; readonly contextWindow?: number }
+	>();
+	const removed: string[] = [];
+	const switches: Model<Api>[] = [];
+	const availableVirtuals: string[][] = [];
+	let onRefresh: (() => void) | undefined;
 	const bus = createEventBus();
 	const prompted = Promise.withResolvers<void>();
 	const approval = Promise.withResolvers<string | undefined>();
@@ -54,9 +67,24 @@ function lifecycleFixture(activeModel?: { readonly provider: string; readonly id
 		model: activeModel ? { ...model, ...activeModel } : undefined,
 		modelRegistry: {
 			runtime,
-			refresh: async () => ({ errors: new Map(), aborted: false }),
-			getAll: () => [],
-			getAvailable: () => [],
+			refresh: async () => {
+				onRefresh?.();
+				return { errors: new Map(), aborted: false };
+			},
+			getRegisteredProviderConfig: () => undefined,
+			getRegisteredNativeProvider: () => undefined,
+			getAll: () => catalog,
+			getAvailable: () => {
+				availableVirtuals.push([...virtuals.keys()]);
+				return [
+					...catalog,
+					...[...virtuals.values()].map((virtual) => ({
+						...model,
+						...virtual,
+						api: "pi-virtual",
+					})),
+				];
+			},
 			getProviderAuth: async (provider: string) => {
 				authLookups.push(provider);
 				return { auth: { apiKey: "test-key" } };
@@ -74,7 +102,10 @@ function lifecycleFixture(activeModel?: { readonly provider: string; readonly id
 		hasUI: true,
 		isProjectTrusted: () => false,
 		ui: {
-			notify: (message: string) => notices.push(message),
+			notify: (message: string, tone?: string) => {
+				notices.push(message);
+				noticeTones.push(tone);
+			},
 			select: async () => {
 				prompted.resolve();
 				return approval.promise;
@@ -117,15 +148,24 @@ function lifecycleFixture(activeModel?: { readonly provider: string; readonly id
 		getActiveTools: () => [],
 		getAllTools: () => [],
 		setActiveTools: unexpected,
-		setModel: unexpected,
+		setModel: async (next) => {
+			switches.push(next);
+			ctx.model = next;
+			return true;
+		},
 		getThinkingLevel: unexpected,
 		setThinkingLevel: unexpected,
 		unregisterProvider: unexpected,
 		registerMcpServer: unexpected,
 		unregisterMcpServer: unexpected,
 		getMcpServers: unexpected,
-		registerVirtualModel: unexpected,
-		unregisterVirtualModel: unexpected,
+		registerVirtualModel: (definition) => {
+			virtuals.set(definition.id, definition);
+		},
+		unregisterVirtualModel: (provider, id) => {
+			virtuals.delete(id);
+			removed.push(`${provider}/${id}`);
+		},
 	};
 	let shutdownWaiting: (() => void) | undefined;
 	const run = async (event: string) => {
@@ -141,6 +181,15 @@ function lifecycleFixture(activeModel?: { readonly provider: string; readonly id
 		model,
 		commands,
 		notices,
+		noticeTones,
+		catalog,
+		virtuals,
+		removed,
+		switches,
+		availableVirtuals,
+		setRefresh: (handler: (() => void) | undefined) => {
+			onRefresh = handler;
+		},
 		bus,
 		prompted,
 		approval,
@@ -152,6 +201,153 @@ function lifecycleFixture(activeModel?: { readonly provider: string; readonly id
 			shutdownWaiting = notify;
 		},
 	};
+}
+
+function groupSettings(
+	rules: readonly string[],
+	hiddenDefault = "warn",
+	rulesScope?: "user" | "trusted-project",
+) {
+	const previous = process.env["PI_CODING_AGENT_DIR"];
+	const dir = mkdtempSync(join(tmpdir(), "group-visibility-"));
+	process.env["PI_CODING_AGENT_DIR"] = dir;
+	writeFileSync(
+		join(dir, "auth-plus.json"),
+		JSON.stringify({
+			models: {
+				groups: ["alpha", "beta"].map((id) => ({
+					id,
+					members: [{ provider: "test-provider", id: "model" }],
+				})),
+				rules,
+				hiddenDefault,
+				...(rulesScope ? { rulesScope } : {}),
+			},
+		}),
+	);
+	return () => {
+		if (previous === undefined) delete process.env["PI_CODING_AGENT_DIR"];
+		else process.env["PI_CODING_AGENT_DIR"] = previous;
+		rmSync(dir, { recursive: true, force: true });
+	};
+}
+
+async function saveRules(fixture: ReturnType<typeof lifecycleFixture>, rules: readonly string[]) {
+	const refreshed = Promise.withResolvers<void>();
+	fixture.setRefresh(refreshed.resolve);
+	let opened = false;
+	Object.assign(fixture.ctx.ui, {
+		custom: async () => {
+			if (opened) return undefined;
+			opened = true;
+			return { editSetting: "models.rules" };
+		},
+		editor: async () => JSON.stringify(rules),
+		select: async () => "This session only",
+	});
+	const command = fixture.commands.get("auth")?.handler;
+	if (!command) throw new Error("Missing auth command");
+	await command("settings", { ...fixture.ctx, mode: "tui" } as unknown as ExtensionCommandContext);
+	await refreshed.promise;
+	await new Promise<void>((resolve) => setImmediate(resolve));
+	fixture.setRefresh(undefined);
+}
+
+test("factory applies ordered visibility rules before group registration", async () => {
+	const cleanup = groupSettings(["group/*", "!group/beta"]);
+	const fixture = lifecycleFixture();
+	fixture.catalog.push(fixture.model);
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		expect([...fixture.virtuals.keys()]).toEqual(["beta"]);
+		await fixture.run("session_start");
+		expect([...fixture.virtuals.keys()]).toEqual(["beta"]);
+		expect(fixture.virtuals.get("beta")?.contextWindow).toBe(fixture.model.contextWindow);
+	} finally {
+		await fixture.run("session_shutdown");
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+test("startup respects user-only rules for a selected group in a trusted project", async () => {
+	const cleanup = groupSettings(["group/alpha"], "warn", "user");
+	const project = mkdtempSync(join(tmpdir(), "group-project-"));
+	mkdirSync(join(project, ".pi"));
+	writeFileSync(
+		join(project, ".pi", "auth-plus.json"),
+		JSON.stringify({ models: { rules: ["group/beta"] } }),
+	);
+	const fixture = lifecycleFixture({ provider: "group", id: "alpha" });
+	fixture.ctx.cwd = project;
+	fixture.ctx.isProjectTrusted = () => true;
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		expect([...fixture.virtuals.keys()]).toEqual(["beta"]);
+		await fixture.run("session_start");
+		expect([...fixture.virtuals.keys()]).toEqual(["beta"]);
+		expect(fixture.notices).toContain(
+			"group/alpha is hidden by model rules; the current selection was kept.",
+		);
+		expect(fixture.switches).toEqual([]);
+	} finally {
+		await fixture.run("session_shutdown");
+		start.mockRestore();
+		cleanup();
+		rmSync(project, { recursive: true, force: true });
+	}
+});
+
+for (const policy of ["warn", "fallback", "fallback-physical", "fallback-no-candidate"] as const) {
+	test(`rule changes refresh selected groups under ${policy} policy`, async () => {
+		const noCandidate = policy === "fallback-no-candidate";
+		const noOtherGroup = noCandidate || policy === "fallback-physical";
+		const cleanup = groupSettings(
+			noOtherGroup ? ["group/beta"] : [],
+			policy === "warn" ? "warn" : "fallback",
+		);
+		const fixture = lifecycleFixture({ provider: "group", id: "alpha" });
+		if (!noCandidate) fixture.catalog.push(fixture.model);
+		const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+		try {
+			await piAuthPlus(fixture.pi);
+			await fixture.run("session_start");
+			expect([...fixture.virtuals.keys()]).toEqual(noOtherGroup ? ["alpha"] : ["alpha", "beta"]);
+			fixture.notices.length = 0;
+			fixture.noticeTones.length = 0;
+			await saveRules(fixture, noOtherGroup ? ["group/*"] : ["group/*", "!group/beta"]);
+			expect([...fixture.virtuals.keys()]).toEqual(noOtherGroup ? [] : ["beta"]);
+			expect(fixture.removed).toEqual(["group/alpha"]);
+			if (policy === "fallback" || policy === "fallback-physical") {
+				const target = policy === "fallback" ? "group/beta" : "test-provider/model";
+				expect(fixture.availableVirtuals.at(-1)).toEqual(noOtherGroup ? [] : ["beta"]);
+				expect(fixture.switches.map(({ provider, id }) => `${provider}/${id}`)).toEqual([target]);
+				expect(fixture.notices).toEqual([
+					`group/alpha is hidden by model rules; switched to ${target}.`,
+				]);
+				expect(fixture.noticeTones).toEqual(["info"]);
+			} else {
+				expect(fixture.switches).toEqual([]);
+				expect(fixture.notices).toEqual([
+					"group/alpha is hidden by model rules; the current selection was kept.",
+				]);
+				expect(fixture.noticeTones).toEqual(["warning"]);
+				if (noCandidate) expect(fixture.availableVirtuals.at(-1)).toEqual([]);
+			}
+			await saveRules(fixture, ["group/*", "!group/alpha", "!group/beta"]);
+			expect([...fixture.virtuals.keys()].sort()).toEqual(["alpha", "beta"]);
+			expect(fixture.notices).toHaveLength(1);
+			expect(fixture.virtuals.get("alpha")?.contextWindow).toBe(
+				noCandidate ? undefined : fixture.model.contextWindow,
+			);
+		} finally {
+			await fixture.run("session_shutdown");
+			start.mockRestore();
+			cleanup();
+		}
+	});
 }
 
 test("session replacement fences physical responses, resets and shutdown work", async () => {

@@ -10,6 +10,7 @@ import { createGroupDefinition, type GroupRouteCandidate } from "./route.ts";
 /** The live state a group reads while routing. */
 export interface GroupRegistrationDeps {
 	groups(): readonly ModelGroup[];
+	visible?(groupId: string): boolean;
 	quota(provider: string): ProviderQuotaSnapshot | undefined;
 	/** The member that failed at the previous turn's settlement, once per failure. */
 	takeFailed(groupId: string): ModelIdentity | undefined;
@@ -60,9 +61,9 @@ export class GroupRegistrations {
 		this.#deps = deps;
 	}
 
-	/** Registers every group, optionally sizing each one from the current catalog. */
+	/** Registers visible groups, optionally sizing each one from the current catalog. */
 	apply(catalog: readonly Model<Api>[] = []): void {
-		const groups = this.#deps.groups();
+		const groups = this.#deps.groups().filter((group) => this.#deps.visible?.(group.id) ?? true);
 		const ids = new Set(groups.map((group) => group.id));
 		for (const id of this.#registered.keys()) {
 			if (ids.has(id)) continue;

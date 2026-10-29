@@ -247,10 +247,11 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		const signal = sessionController.signal;
 		await catalogVisibility.apply(ctx, changedProviders);
 		if (signal.aborted) return;
+		groups.apply(ctx.modelRegistry.getAll());
 		const selected = ctx.model;
 		if (
 			!selected ||
-			!catalogVisibility.handles(selected.provider) ||
+			(selected.provider !== "group" && !catalogVisibility.handles(selected.provider)) ||
 			isVisible(selected.provider, selected)
 		)
 			return;
@@ -446,6 +447,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	const settlement = registerGroupSettlement(pi, () => settings.get("models.groups"));
 	const groups = new GroupRegistrations(pi, {
 		groups: () => settings.get("models.groups"),
+		visible: (id) => isVisible("group", { id }),
 		quota: (provider) => quotas.view().find((view) => view.provider.id === provider)?.snapshot,
 		takeFailed: (groupId) => settlement.takeFailed(groupId),
 		onSwitch: (group, from, to) =>

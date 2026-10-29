@@ -247,16 +247,12 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		},
 	};
 	const catalogVisibility = new CatalogVisibility(pi, () => settings, ownedProviders);
-	const applyModelRules = async (
+	const reconcileSelectedModel = async (
 		ctx: ExtensionContext,
-		changedProviders: readonly string[] = [],
-		store: AppSettings = settings,
-		signal: AbortSignal = sessionController.signal,
+		store: AppSettings,
+		signal: AbortSignal,
 	): Promise<void> => {
 		if (signal.aborted) return;
-		const applied = await catalogVisibility.apply(ctx, changedProviders, signal, store);
-		if (signal.aborted || applied === false || applied?.aborted) return;
-		groups.apply(ctx.modelRegistry.getAll());
 		const selected = ctx.model;
 		if (
 			!selected ||
@@ -271,7 +267,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				.filter((model) => isVisible(model.provider, model, store));
 			const next = available.find((model) => model.provider === selected.provider) ?? available[0];
 			const switched = next && (await pi.setModel(next));
-			if (signal.aborted || applied?.aborted) return;
+			if (signal.aborted) return;
 			if (switched && next) {
 				ctx.ui.notify(
 					`${identity} is hidden by model rules; switched to ${next.provider}/${next.id}.`,
@@ -284,6 +280,25 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			`${identity} is hidden by model rules; the current selection was kept.`,
 			"warning",
 		);
+	};
+	const applyModelRules = async (
+		ctx: ExtensionContext,
+		changedProviders: readonly string[] = [],
+		store: AppSettings = settings,
+		signal: AbortSignal = sessionController.signal,
+	): Promise<AbortSignal | false> => {
+		if (signal.aborted) return false;
+		const applied = await catalogVisibility.apply(ctx, changedProviders, signal, store);
+		if (signal.aborted || applied === false || applied?.aborted) return false;
+		const lifetime = applied ?? signal;
+		try {
+			groups.apply(ctx.modelRegistry.getAll());
+			await reconcileSelectedModel(ctx, store, lifetime);
+		} catch (error) {
+			if (lifetime.aborted) return false;
+			throw error;
+		}
+		return lifetime.aborted ? false : lifetime;
 	};
 	// Registered before the families so their session_start handlers see this session's settings.
 	pi.on("session_start", async (_event, ctx) => {
@@ -300,8 +315,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		if (signal.aborted) return;
 		const changed =
 			previousAliases === JSON.stringify(settings.get("models.aliases")) ? [] : [...ownedProviders];
-		await applyModelRules(ctx, changed);
-		if (signal.aborted) return;
+		const applied = await applyModelRules(ctx, changed, settings, signal);
+		if (applied === false || applied.aborted || signal.aborted) return;
 		aliasContext = ctx;
 		warnAliasIssues(ctx, signal);
 		if (problems.length > 0) {
@@ -574,12 +589,16 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			signal,
 			apply: async (keys: readonly string[]): Promise<readonly string[]> => {
 				const warnings: string[] = [];
-				const effect = async (name: string, run: () => void | Promise<void>) => {
-					if (signal.aborted) return;
+				const effect = async (
+					name: string,
+					run: () => void | Promise<void>,
+					owner: AbortSignal = signal,
+				) => {
+					if (signal.aborted || owner.aborted) return;
 					try {
 						await run();
 					} catch (error) {
-						if (!signal.aborted) {
+						if (!signal.aborted && !owner.aborted) {
 							const reason = error instanceof Error ? error.message : String(error);
 							warnings.push(`${name} failed: ${reason}; retry or reopen the session`);
 						}
@@ -588,17 +607,42 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				await effect("Quota line refresh", () => quotaLine.settingsChanged());
 				const modelsChanged = keys.some((key) => key.startsWith("models."));
 				const aliasesChanged = keys.includes("models.aliases");
+				let catalogLifetime: AbortSignal | undefined | false;
+				let catalogRefreshed = false;
+				let groupsRefreshed = false;
 				if (modelsChanged && ctx) {
-					await effect("Model catalog refresh", () =>
-						applyModelRules(ctx, aliasesChanged ? [...ownedProviders] : [], store, signal),
-					);
-					if (aliasesChanged)
-						await effect("Model alias warnings", () => warnAliasIssues(ctx, signal));
+					await effect("Model catalog refresh", async () => {
+						catalogLifetime = await catalogVisibility.apply(
+							ctx,
+							aliasesChanged ? [...ownedProviders] : [],
+							signal,
+							store,
+						);
+						catalogRefreshed = true;
+					});
+					if (aliasesChanged && catalogLifetime !== false && !catalogLifetime?.aborted)
+						await effect(
+							"Model alias warnings",
+							() => warnAliasIssues(ctx, signal),
+							catalogLifetime ?? signal,
+						);
 				}
-				if (modelsChanged)
-					await effect("Model group refresh", () =>
-						groups.apply(ctx?.modelRegistry.getAll() ?? []),
+				if (modelsChanged && catalogLifetime !== false && !catalogLifetime?.aborted) {
+					await effect(
+						"Model group refresh",
+						() => {
+							groups.apply(ctx?.modelRegistry.getAll() ?? []);
+							groupsRefreshed = true;
+						},
+						catalogLifetime ?? signal,
 					);
+					if (ctx && catalogRefreshed && groupsRefreshed && !catalogLifetime?.aborted)
+						await effect(
+							"Selected model reconciliation",
+							() => reconcileSelectedModel(ctx, store, catalogLifetime || signal),
+							catalogLifetime || signal,
+						);
+				}
 				if (modelsChanged || keys.includes("claude.replacePatterns"))
 					await effect("Token refresh", async () => {
 						await tokens.refresh();
@@ -663,21 +707,26 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				current: (provider, id) =>
 					modelCatalog().find((model) => model.provider === provider && model.id === id),
 				save: async (provider, id, changes) => {
-					await updateOverrides(modelsPath(), provider, id, changes);
 					const ctx = quotaContext;
-					if (!ctx) return;
+					const signal = sessionController.signal;
+					await updateOverrides(modelsPath(), provider, id, changes);
+					if (!ctx || signal.aborted) return;
+					let lifetime: AbortSignal | undefined;
 					try {
-						await applyModelRules(ctx, [provider]);
+						const applied = await applyModelRules(ctx, [provider], settings, signal);
+						if (applied === false || applied.aborted) return;
+						lifetime = applied;
 						if (ctx.model?.provider === provider && ctx.model.id === id) {
 							const model = ctx.modelRegistry.find(provider, id);
-							if (model && !(await pi.setModel(model)))
+							if (model && !(await pi.setModel(model)) && !lifetime.aborted)
 								ctx.ui.notify("Model override saved; reselect the model to apply it.", "warning");
 						}
 					} catch (error) {
-						ctx.ui.notify(
-							`Model override saved, but catalog refresh failed: ${error instanceof Error ? error.message : String(error)}`,
-							"warning",
-						);
+						if (!signal.aborted && !lifetime?.aborted)
+							ctx.ui.notify(
+								`Model override saved, but catalog refresh failed: ${error instanceof Error ? error.message : String(error)}`,
+								"warning",
+							);
 					}
 				},
 			},

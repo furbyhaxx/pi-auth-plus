@@ -672,25 +672,30 @@ test("committed settings report each failed effect and continue to later effects
 			throw new Error("tokens unavailable");
 		},
 	}));
-	let fail = false;
+	let failCatalog = false;
+	let failGroups = false;
 	const visibility = spyOn(CatalogVisibility.prototype, "apply").mockImplementation(async () => {
-		if (fail) {
+		if (failCatalog) {
 			events.push("visibility");
 			throw new Error("catalog unavailable");
 		}
 	});
-	const groups = spyOn(GroupRegistrations.prototype, "apply").mockImplementation(() => {
-		if (fail) {
-			events.push("groups");
-			throw new Error("groups unavailable");
-		}
+	const applyGroups = GroupRegistrations.prototype.apply;
+	const groups = spyOn(GroupRegistrations.prototype, "apply").mockImplementation(function (
+		this: GroupRegistrations,
+		catalog,
+	) {
+		if (failCatalog || failGroups) events.push("groups");
+		if (failGroups) throw new Error("groups unavailable");
+		return applyGroups.call(this, catalog);
 	});
 	try {
 		await piAuthPlus(pi);
 		await run("session_start");
 		if (!deps?.saveSettings || !deps.settings || !deps.models)
 			throw new Error("Missing settings integration");
-		fail = true;
+		failCatalog = true;
+		failGroups = true;
 		const outcome = await deps.saveSettings("runtime", { "models.rules": [] });
 		expect(outcome.committed).toBe(true);
 		if (!outcome.committed) throw new Error("Settings were not committed");
@@ -716,6 +721,36 @@ test("committed settings report each failed effect and continue to later effects
 		events.length = 0;
 		await deps.settings.onSaved(["models.rules"], "runtime");
 		expect(notices.at(-1)).toContain("catalog unavailable");
+		expect(events).toEqual([
+			"line",
+			"visibility",
+			"groups",
+			"tokens",
+			"first family",
+			"second family",
+		]);
+		failCatalog = false;
+		events.length = 0;
+		const groupFailure = await deps.saveSettings("runtime", { "models.rules": [] });
+		if (!groupFailure.committed) throw new Error("Settings were not committed");
+		expect(groupFailure.warnings).toEqual([
+			expect.stringContaining("line unavailable"),
+			expect.stringContaining("Model group refresh failed: groups unavailable"),
+			expect.stringContaining("tokens unavailable"),
+			expect.stringContaining("family unavailable"),
+		]);
+		expect(events).toEqual(["line", "groups", "tokens", "first family", "second family"]);
+		failCatalog = true;
+		failGroups = false;
+		events.length = 0;
+		const catalogFailure = await deps.saveSettings("runtime", { "models.rules": [] });
+		if (!catalogFailure.committed) throw new Error("Settings were not committed");
+		expect(catalogFailure.warnings).toEqual([
+			expect.stringContaining("line unavailable"),
+			expect.stringContaining("Model catalog refresh failed: catalog unavailable"),
+			expect.stringContaining("tokens unavailable"),
+			expect.stringContaining("family unavailable"),
+		]);
 		expect(events).toEqual([
 			"line",
 			"visibility",
@@ -798,6 +833,157 @@ test("old settings effects stop before touching a replacement session", async ()
 		groups.mockRestore();
 	}
 });
+
+test("a superseded catalog refresh does not reapply old groups", async () => {
+	const cleanup = groupSettings([]);
+	const fixture = lifecycleFixture({ provider: "group", id: "alpha" });
+	fixture.catalog.push(fixture.model);
+	const entered = Promise.withResolvers<void>();
+	const release = Promise.withResolvers<void>();
+	const groups = spyOn(GroupRegistrations.prototype, "apply");
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		if (!deps?.saveSettings || !deps.models?.details)
+			throw new Error("Missing settings integration");
+		let refreshes = 0;
+		fixture.ctx.modelRegistry.refresh = async () => {
+			if (++refreshes === 1) {
+				entered.resolve();
+				await release.promise;
+				return {
+					errors: new Map([["synthetic", new Error("old refresh failure")]]),
+					aborted: false,
+				};
+			}
+			return { errors: new Map(), aborted: false };
+		};
+		const pending = deps.saveSettings("runtime", { "models.aliases": [] });
+		await entered.promise;
+		await deps.models.details.save("test-provider", "model", []);
+		const refreshedGroups = groups.mock.calls.length;
+		fixture.notices.length = 0;
+		release.resolve();
+		const outcome = await pending;
+		expect(outcome).toMatchObject({ committed: true, warnings: [] });
+		expect(groups.mock.calls.length).toBe(refreshedGroups);
+		expect(fixture.notices).toEqual([]);
+	} finally {
+		release.resolve();
+		await fixture.run("session_shutdown");
+		capture.mockRestore();
+		groups.mockRestore();
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+test("a selected-model failure is reported after groups refresh", async () => {
+	const cleanup = groupSettings([], "fallback");
+	const fixture = lifecycleFixture({ provider: "group", id: "alpha" });
+	fixture.catalog.push(fixture.model);
+	const switching = spyOn(fixture.pi, "setModel").mockRejectedValue(
+		new Error("selection unavailable"),
+	);
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	let deps: AuthCommandDeps | undefined;
+	const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation((_pi, value) => {
+		deps = value;
+	});
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.run("session_start");
+		if (!deps?.saveSettings) throw new Error("Missing settings integration");
+		const outcome = await deps.saveSettings("runtime", { "models.rules": ["group/alpha"] });
+		if (!outcome.committed) throw new Error("Settings were not committed");
+		expect([...fixture.virtuals.keys()]).toEqual(["beta"]);
+		expect(outcome.warnings).toEqual([
+			expect.stringContaining("Selected model reconciliation failed: selection unavailable"),
+		]);
+	} finally {
+		await fixture.run("session_shutdown");
+		capture.mockRestore();
+		switching.mockRestore();
+		start.mockRestore();
+		cleanup();
+	}
+});
+
+for (const source of ["settings", "override"] as const) {
+	test(`a superseded ${source} selection does not report failure or refresh groups again`, async () => {
+		const cleanup = groupSettings([], "fallback");
+		const fixture = lifecycleFixture({ provider: "group", id: "alpha" });
+		fixture.catalog.push(fixture.model);
+		const entered = Promise.withResolvers<void>();
+		const release = Promise.withResolvers<boolean>();
+		const setModel = fixture.pi.setModel;
+		let selections = 0;
+		const switching = spyOn(fixture.pi, "setModel").mockImplementation(async (model) => {
+			if (++selections === 1) {
+				entered.resolve();
+				return await release.promise;
+			}
+			return setModel(model);
+		});
+		const applyGroups = GroupRegistrations.prototype.apply;
+		const groups = spyOn(GroupRegistrations.prototype, "apply").mockImplementation(function (
+			this: GroupRegistrations,
+			catalog,
+		) {
+			return applyGroups.call(this, catalog);
+		});
+		let deps: AuthCommandDeps | undefined;
+		const capture = spyOn(commandsModule, "registerAuthCommands").mockImplementation(
+			(_pi, value) => {
+				deps = value;
+			},
+		);
+		const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+		try {
+			await piAuthPlus(fixture.pi);
+			await fixture.run("session_start");
+			if (!deps?.saveSettings || !deps.settings || !deps.models?.details)
+				throw new Error("Missing settings integration");
+			const rules = ["group/*", "!group/beta"];
+			if (source === "override")
+				await deps.settings.store().save("runtime", { "models.rules": rules });
+			const pending =
+				source === "settings"
+					? deps.saveSettings("runtime", { "models.rules": rules })
+					: deps.models.details.save("test-provider", "model", []);
+			await entered.promise;
+			if (source === "settings") {
+				await deps.models.details.save("test-provider", "model", []);
+				expect(fixture.switches.map(({ provider, id }) => `${provider}/${id}`)).toEqual([
+					"group/beta",
+				]);
+			} else {
+				await deps.saveSettings("runtime", { "models.rules": [] });
+				expect(fixture.switches).toEqual([]);
+			}
+			const refreshedGroups = groups.mock.calls.length;
+			fixture.notices.length = 0;
+			release.reject(new Error("old selection failure"));
+			const outcome = await pending;
+			if (source === "settings") expect(outcome).toMatchObject({ committed: true, warnings: [] });
+			expect(groups.mock.calls.length).toBe(refreshedGroups);
+			expect(fixture.notices).toEqual([]);
+		} finally {
+			release.resolve(false);
+			await fixture.run("session_shutdown");
+			capture.mockRestore();
+			groups.mockRestore();
+			switching.mockRestore();
+			start.mockRestore();
+			cleanup();
+		}
+	});
+}
 
 test("in-flight catalog warnings do not reach a replacement session", async () => {
 	const { pi, run, ctx, notices } = lifecycleFixture();

@@ -1,5 +1,5 @@
 /** Shared token-counting contracts between the token engine, tokenizers and families. */
-import type { Api, Context, Model } from "@earendil-works/pi-ai";
+import type { Api, Context, Model, ModelThinkingLevel } from "@earendil-works/pi-ai";
 
 /** Where a count comes from, in precedence order; native counts describe their supplied request. */
 export type TokenSource = "provider" | "count-endpoint" | "tokenizer" | "estimate";
@@ -82,6 +82,8 @@ export interface TokenModel {
 export interface TokenContextInput {
 	readonly model: Model<Api>;
 	readonly context: Context;
+	/** The session's effective thinking level; absence cannot imply off for reasoning models. */
+	readonly thinkingLevel?: ModelThinkingLevel;
 }
 
 /** Counts content for one model; the engine memoizes results by counter id and content hash. */

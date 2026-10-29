@@ -42,8 +42,13 @@ export function staticViews(model: DashboardModel): Record<TabId, TabViewFactory
 	return views;
 }
 
+type DiscardConfirmation =
+	| { readonly kind: "all"; readonly result: DashboardResult }
+	| { readonly kind: "local"; readonly discard: () => void };
+
 export class AuthDashboard extends FramePanel<DashboardResult> {
 	#tab: TabId;
+	#confirmation: DiscardConfirmation | undefined;
 	readonly #views: Record<TabId, TabView>;
 	readonly #providerCount: number;
 	readonly #factories: Readonly<Record<TabId, TabViewFactory>>;
@@ -68,6 +73,8 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 			binding: (id) => this.binding(id),
 			refresh: () => this.refresh(),
 			finish: (result) => this.finish(result),
+			confirmDiscard: (discard) => this.#confirmDiscard(discard),
+			navigate: (next) => this.#navigate(next),
 		};
 		this.#viewHost = viewHost;
 		this.#views = {} as Record<TabId, TabView>;
@@ -78,8 +85,50 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 		return this.#tab;
 	}
 
+	protected override finish(result: DashboardResult): void {
+		if (this.isClosed || this.#confirmation) return;
+		if (!TABS.some((tab) => this.#views[tab.id].hasDrafts?.())) {
+			super.finish(result);
+			return;
+		}
+		this.#confirmation = { kind: "all", result };
+		this.refresh();
+	}
+
+	#confirmDiscard(discard: () => void): void {
+		if (this.isClosed || this.#confirmation) return;
+		this.#confirmation = { kind: "local", discard };
+		this.refresh();
+	}
+
 	render(width: number): string[] {
 		const bodyRows = bodyRowsFor(this.host.terminal.rows, 1);
+		const spec = TABS.find((tab) => tab.id === this.#tab);
+		const count = this.#providerCount;
+		if (this.#confirmation) {
+			return drawFrame(this.theme, width, {
+				crumbs: ["Auth", spec?.label ?? ""],
+				state: this.theme.fg("dim", `${count} provider${count === 1 ? "" : "s"}`),
+				header: [tabBar(this.theme, this.#tab, width - 1)],
+				body: [
+					this.theme.fg(
+						"warning",
+						this.#confirmation.kind === "all" ? " Discard all & exit?" : " Discard this draft?",
+					),
+				],
+				bodyRows,
+				description: fitHint(
+					this.theme,
+					[{ key: this.binding("tui.select.confirm"), action: "discard", priority: 0 }],
+					width - 1,
+				),
+				footer: fitHint(
+					this.theme,
+					[{ key: this.binding("tui.select.cancel"), action: "keep", priority: 0 }],
+					width - 1,
+				),
+			});
+		}
 		const body = this.#views[this.#tab].render(width, bodyRows);
 		const hints: HintItem[] = body.modal
 			? [...body.hints]
@@ -88,8 +137,6 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 					...body.hints,
 					{ key: this.binding("tui.select.cancel"), action: "close", priority: 0 },
 				];
-		const spec = TABS.find((tab) => tab.id === this.#tab);
-		const count = this.#providerCount;
 		return drawFrame(this.theme, width, {
 			crumbs: ["Auth", spec?.label ?? ""],
 			state: body.state ?? this.theme.fg("dim", `${count} provider${count === 1 ? "" : "s"}`),
@@ -103,24 +150,54 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 		});
 	}
 
+	#navigate(next: TabId): void {
+		if (this.isClosed || this.#confirmation || next === this.#tab) return;
+		if (this.#tab === "tokens" && !this.#views.tokens.hasDrafts?.()) {
+			this.#views.tokens.dispose?.();
+			this.#views.tokens = this.#factories.tokens(this.#viewHost);
+		}
+		this.#tab = next;
+		this.refresh();
+	}
+
 	#switch(step: number): void {
 		const index = TABS.findIndex((tab) => tab.id === this.#tab);
 		const next = TABS[(index + step + TABS.length) % TABS.length];
-		if (next) {
-			if (this.#tab === "tokens") {
-				this.#views.tokens.dispose?.();
-				this.#views.tokens = this.#factories.tokens(this.#viewHost);
-			}
-			this.#tab = next.id;
-		}
+		if (next) this.#navigate(next.id);
 	}
 
 	handleInput(data: string): void {
+		if (this.isClosed) return;
+		const keys = this.keys;
+		const confirmation = this.#confirmation;
+		if (confirmation) {
+			if (keys.matches(data, "tui.select.cancel")) {
+				this.#confirmation = undefined;
+				this.refresh();
+			} else if (keys.matches(data, "tui.select.confirm")) {
+				if (confirmation.kind === "all") {
+					for (const tab of TABS) this.#views[tab.id].discardDrafts?.();
+					this.#confirmation = undefined;
+					super.finish(confirmation.result);
+				} else {
+					this.#confirmation = undefined;
+					confirmation.discard();
+					this.refresh();
+				}
+			} else if (matchesKey(data, "ctrl+c")) {
+				this.#confirmation = undefined;
+				this.refresh();
+			}
+			return;
+		}
+		if (matchesKey(data, "ctrl+c")) {
+			this.finish(undefined);
+			return;
+		}
 		if (this.#views[this.#tab].handleInput(data)) {
 			this.refresh();
 			return;
 		}
-		const keys = this.keys;
 		if (keys.matches(data, "tui.select.cancel")) {
 			this.finish(undefined);
 			return;
@@ -130,10 +207,11 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 		else if (keys.matches(data, "tui.input.tab") || keys.matches(data, "tui.editor.cursorRight"))
 			this.#switch(1);
 		else return;
-		this.refresh();
 	}
 
 	override dispose(): void {
+		if (this.isClosed) return;
+		this.#confirmation = undefined;
 		super.dispose();
 		for (const spec of TABS) this.#views[spec.id].dispose?.();
 	}

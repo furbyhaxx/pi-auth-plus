@@ -1,6 +1,7 @@
 /** The contract between the `/auth` dashboard frame and one tab's body. */
 import type { Keybinding, KeybindingsManager } from "@earendil-works/pi-tui";
 import type { HintItem, PanelTheme } from "../frame/index.ts";
+import type { TabId } from "./tabs.ts";
 
 /** A follow-up the command runs after the panel closes, because it needs a Pi dialog. */
 export type DashboardResult =
@@ -16,6 +17,10 @@ export interface TabViewHost {
 	refresh(): void;
 	/** Close the dashboard with a follow-up action. */
 	finish(result: DashboardResult): void;
+	/** Confirm a local discard without closing the dashboard or discarding other tabs. */
+	confirmDiscard?(discard: () => void): void;
+	/** Switch tabs without discarding drafts. */
+	navigate?(tab: TabId): void;
 }
 
 export interface TabBody {
@@ -38,6 +43,10 @@ export interface TabView {
 	render(width: number, bodyRows: number): TabBody;
 	/** True when the tab consumed the key; it then sees Tab, arrows and cancel first. */
 	handleInput(data: string): boolean;
+	/** True when this tab or one of its subviews has unsaved changes. */
+	hasDrafts?(): boolean;
+	/** Discard this tab's unsaved changes, including drafts in subviews. */
+	discardDrafts?(): void;
 	dispose?(): void;
 }
 

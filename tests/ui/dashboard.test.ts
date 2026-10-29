@@ -4,10 +4,14 @@ import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-wor
 import {
 	AuthDashboard,
 	type DashboardModel,
+	type DashboardResult,
 	dashboardText,
 	staticViews,
 	TABS,
 	type TabId,
+	type TabView,
+	type TabViewFactory,
+	type TabViewHost,
 } from "../../src/ui/dashboard/index.ts";
 import type { PanelTheme } from "../../src/ui/frame/index.ts";
 
@@ -57,6 +61,106 @@ function open(rows = 40, tab: TabId = "providers", data = model) {
 }
 
 const plain = (lines: string[]) => lines.map((line) => stripVTControlCharacters(line));
+
+class DraftView implements TabView {
+	dirty = false;
+	subeditor = true;
+	consumeCtrlC = false;
+	readonly inputs: string[] = [];
+	localDiscards = 0;
+	onDiscard: (() => void) | undefined;
+	readonly id: TabId;
+	readonly host: TabViewHost;
+	readonly events: string[];
+
+	constructor(id: TabId, host: TabViewHost, events: string[]) {
+		this.id = id;
+		this.host = host;
+		this.events = events;
+	}
+
+	hasDrafts(): boolean {
+		return this.dirty;
+	}
+
+	discardDrafts(): void {
+		this.events.push(`discard:${this.id}`);
+		this.dirty = false;
+		this.onDiscard?.();
+	}
+
+	handleInput(data: string): boolean {
+		this.inputs.push(data);
+		if (data === "d") {
+			this.host.confirmDiscard?.(() => {
+				this.dirty = false;
+				this.subeditor = false;
+				this.localDiscards++;
+			});
+			return true;
+		}
+		if (data === "n") {
+			this.host.navigate?.("settings");
+			return true;
+		}
+		if (data === "r" || data === "e") {
+			this.host.finish(data === "r" ? { reset: "codex" } : { editSetting: "models.rules" });
+			return true;
+		}
+		return data === "\x03" && this.consumeCtrlC;
+	}
+
+	render() {
+		return {
+			lines: [` ${this.id} subeditor`],
+			above: 0,
+			below: 0,
+			hints: [],
+			modal: this.subeditor,
+		};
+	}
+
+	dispose(): void {
+		this.events.push(`dispose:${this.id}`);
+	}
+}
+
+class TestDashboard extends AuthDashboard {
+	requestFinish(result: DashboardResult): void {
+		this.finish(result);
+	}
+}
+
+function draftRig(
+	tab: TabId = "providers",
+	rows = 40,
+	keys = new KeybindingsManager(TUI_KEYBINDINGS),
+) {
+	const events: string[] = [];
+	const results: DashboardResult[] = [];
+	const instances = {} as Record<TabId, DraftView>;
+	const factories = {} as Record<TabId, TabViewFactory>;
+	for (const spec of TABS) {
+		factories[spec.id] = (host) => {
+			const view = new DraftView(spec.id, host, events);
+			instances[spec.id] = view;
+			return view;
+		};
+	}
+	const panel = new TestDashboard(
+		{ terminal: { rows }, requestRender: () => {} },
+		theme,
+		keys,
+		(result) => {
+			events.push("finish");
+			results.push(result);
+		},
+		factories,
+		tab,
+		0,
+	);
+	return { panel, instances, events, results };
+}
 
 describe("ui/dashboard", () => {
 	test("every line fits at the check widths", () => {
@@ -108,6 +212,164 @@ describe("ui/dashboard", () => {
 		panel.handleInput("\x1b");
 		panel.handleInput("\x1b");
 		expect(closed()).toBe(1);
+	});
+
+	test("all exit paths preserve drafts on cancel and discard every view before one finish", () => {
+		const exits: {
+			name: string;
+			run: (rig: ReturnType<typeof draftRig>) => void;
+			result: DashboardResult;
+		}[] = [
+			{ name: "escape", run: ({ panel }) => panel.handleInput("\x1b"), result: undefined },
+			{ name: "ctrl+c", run: ({ panel }) => panel.handleInput("\x03"), result: undefined },
+			{ name: "reset", run: ({ panel }) => panel.handleInput("r"), result: { reset: "codex" } },
+			{
+				name: "edit setting",
+				run: ({ panel }) => panel.handleInput("e"),
+				result: { editSetting: "models.rules" },
+			},
+			{
+				name: "protected finish",
+				run: ({ panel }) => panel.requestFinish({ reset: "codex" }),
+				result: { reset: "codex" },
+			},
+		];
+		for (const exit of exits) {
+			const rig = draftRig();
+			rig.instances.providers.consumeCtrlC = true;
+			rig.instances.settings.dirty = true;
+			rig.instances.models.dirty = true;
+			rig.instances.models.onDiscard = () => rig.instances.models.host.finish({ reset: "ignored" });
+			exit.run(rig);
+			expect(rig.results, exit.name).toHaveLength(0);
+			expect(plain(rig.panel.render(80)).join("\n"), exit.name).toContain("Discard");
+			rig.panel.handleInput("\x1b");
+			expect(rig.panel.tab, exit.name).toBe("providers");
+			expect(rig.instances.providers.subeditor, exit.name).toBe(true);
+			expect(rig.instances.settings.dirty, exit.name).toBe(true);
+			expect(rig.instances.models.dirty, exit.name).toBe(true);
+			expect(rig.events, exit.name).toEqual([]);
+			exit.run(rig);
+			rig.panel.requestFinish({ editSetting: "ignored" });
+			rig.panel.handleInput("\r");
+			rig.panel.handleInput("\r");
+			expect(rig.results, exit.name).toEqual([exit.result]);
+			expect(rig.events, exit.name).toEqual([
+				...TABS.map((tab) => `discard:${tab.id}`),
+				...TABS.map((tab) => `dispose:${tab.id}`),
+				"finish",
+			]);
+		}
+	});
+
+	test("no-draft exits close immediately, including ctrl+c from a consuming subeditor", () => {
+		for (const key of ["\x1b", "\x03", "r", "e"]) {
+			const { panel, instances, results, events } = draftRig();
+			instances.providers.consumeCtrlC = true;
+			panel.handleInput(key);
+			expect(results).toHaveLength(1);
+			expect(events.some((event) => event.startsWith("discard:"))).toBe(false);
+		}
+	});
+
+	test("local confirmation isolates input and leaves other tabs and the subeditor intact on cancel", () => {
+		const { panel, instances, results, events } = draftRig("models");
+		const view = instances.models;
+		view.dirty = true;
+		instances.settings.dirty = true;
+		panel.handleInput("d");
+		const inputs = [...view.inputs];
+		panel.handleInput("x");
+		panel.handleInput("\t");
+		view.host.navigate?.("settings");
+		view.host.finish({ reset: "ignored" });
+		expect(view.inputs).toEqual(inputs);
+		expect(panel.tab).toBe("models");
+		panel.handleInput("\x1b");
+		expect(plain(panel.render(80)).join("\n")).toContain("models subeditor");
+		expect(view.subeditor).toBe(true);
+		expect(view.dirty).toBe(true);
+		expect(instances.settings.dirty).toBe(true);
+		expect(view.localDiscards).toBe(0);
+		panel.handleInput("d");
+		panel.handleInput("\r");
+		expect(view.localDiscards).toBe(1);
+		expect(view.subeditor).toBe(false);
+		expect(view.dirty).toBe(false);
+		expect(instances.settings.dirty).toBe(true);
+		expect(results).toHaveLength(0);
+		expect(events).toEqual([]);
+	});
+
+	test("confirmation shows both configured bindings at short and narrow sizes", () => {
+		const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+		keys.setUserBindings({ "tui.select.confirm": ["ctrl+y"], "tui.select.cancel": ["ctrl+n"] });
+		const { panel, instances, results } = draftRig("providers", 9, keys);
+		instances.settings.dirty = true;
+		panel.handleInput("\x03");
+		for (const width of [20, 36, 57, 80, 140]) {
+			const lines = panel.render(width);
+			const text = plain(lines).join("\n");
+			expect(text).toContain("Discard all & exit?");
+			expect(text).toContain("ctrl+y discard");
+			expect(text).toContain("ctrl+n keep");
+			expect(lines).toHaveLength(7);
+			for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+		panel.handleInput("\r");
+		expect(results).toHaveLength(0);
+		panel.handleInput("\x0e");
+		expect(instances.settings.dirty).toBe(true);
+		panel.handleInput("\x03");
+		panel.handleInput("\x03");
+		expect(results).toHaveLength(0);
+		expect(instances.settings.dirty).toBe(true);
+		panel.handleInput("\x03");
+		panel.handleInput("\x19");
+		expect(results).toHaveLength(1);
+		expect(results[0]).toBeUndefined();
+	});
+
+	test("navigation preserves drafts and recreates Tokens only after its draft is gone", () => {
+		const { panel, instances, events } = draftRig("tokens");
+		const tokens = instances.tokens;
+		tokens.dirty = true;
+		instances.settings.dirty = true;
+		panel.handleInput("\t");
+		expect(panel.tab).toBe("models");
+		panel.handleInput("\x1b[Z");
+		expect(panel.tab).toBe("tokens");
+		expect(instances.tokens).toBe(tokens);
+		panel.handleInput("n");
+		expect(panel.tab).toBe("settings");
+		expect(events).toEqual([]);
+		tokens.host.navigate?.("tokens");
+		expect(instances.tokens).toBe(tokens);
+		expect(tokens.dirty).toBe(true);
+		expect(instances.settings.dirty).toBe(true);
+		tokens.dirty = false;
+		tokens.host.navigate?.("settings");
+		expect(events).toEqual(["dispose:tokens"]);
+		expect(instances.tokens).not.toBe(tokens);
+		expect(instances.settings.dirty).toBe(true);
+	});
+
+	test("disposal cancels pending confirmations and fences late view callbacks", () => {
+		const { panel, instances, events, results } = draftRig("models");
+		const view = instances.models;
+		view.dirty = true;
+		panel.handleInput("d");
+		panel.dispose();
+		panel.handleInput("\r");
+		view.host.confirmDiscard?.(() => view.localDiscards++);
+		view.host.navigate?.("settings");
+		view.host.finish({ reset: "ignored" });
+		panel.dispose();
+		expect(view.localDiscards).toBe(0);
+		expect(view.dirty).toBe(true);
+		expect(panel.tab).toBe("models");
+		expect(results).toHaveLength(0);
+		expect(events).toEqual(TABS.map((tab) => `dispose:${tab.id}`));
 	});
 
 	test("a short terminal scrolls the body and shows the hidden row counts", () => {

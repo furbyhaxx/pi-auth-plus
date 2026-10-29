@@ -1,8 +1,12 @@
-import { describe, expect, test } from "bun:test";
-import { readFileSync, statSync } from "node:fs";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
+import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Model, ModelsPublication, RefreshModelsContext } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import type { FetchFn } from "../../src/core/http/index.ts";
 import { Registry, registerFamilyProviders } from "../../src/core/registry/index.ts";
 import { CATALOG_TTL_MS, parseCatalog } from "../../src/families/synthetic/catalog.ts";
@@ -11,6 +15,9 @@ import { parseResults, TOOL_NAME, truncateHead } from "../../src/families/synthe
 import fixture from "../fixtures/synthetic/models.json";
 import search from "../fixtures/synthetic/search.json";
 import { testHost } from "../host.ts";
+
+const outputDir = mkdtempSync(join(tmpdir(), "synthetic search  test-"));
+afterAll(() => rmSync(outputDir, { recursive: true, force: true }));
 
 const now = 1_800_000_000_000;
 type Config = Parameters<ExtensionAPI["registerProvider"]>[1];
@@ -28,7 +35,7 @@ async function registered(
 		{ SYNTHETIC_API_KEY: "test" },
 		fetchFn,
 		() => now,
-		() => options.outputDir ?? tmpdir(),
+		() => options.outputDir ?? outputDir,
 	);
 	const host = await testHost(
 		options.setting === undefined ? {} : { "synthetic.webSearch": options.setting },
@@ -284,8 +291,618 @@ describe("families/synthetic", () => {
 		expect(statSync(details.fullOutputPath).mode & 0o777).toBe(0o600);
 
 		const anonymous = { modelRegistry: { getProviderAuth: async () => undefined } };
+		const missing = await tool.execute(
+			"call",
+			{ query: "x" },
+			undefined,
+			undefined,
+			anonymous as never,
+		);
+		expect(missing).toMatchObject({ isError: true, details: { kind: "error", code: "auth" } });
+		expect(JSON.stringify(missing)).toContain("/login synthetic");
+	});
+
+	test("returns an empty result and persists truncated fallback text with private permissions", async () => {
+		const ctx = {
+			modelRegistry: { getProviderAuth: async () => ({ auth: { apiKey: "test" } }) },
+		};
+		const empty = await registered(async () => Response.json({ results: [] }), { setting: true });
+		empty.startSession();
+		const emptyTool = empty.tools[0];
+		if (!emptyTool) throw new Error("tool missing");
+		const noResults = await emptyTool.execute(
+			"call",
+			{ query: "none" },
+			undefined,
+			undefined,
+			ctx as never,
+		);
+		expect(noResults.content[0]).toMatchObject({ type: "text", text: "No results found." });
+		expect(noResults.details).toMatchObject({
+			kind: "success",
+			resultCount: 0,
+			results: [],
+			fullOutputPath: undefined,
+		});
+
+		const pageText = `first line\n${"x".repeat(60 * 1024)}`;
+		const large = await registered(
+			async () =>
+				Response.json({
+					results: [{ url: "https://example.test", title: "large", text: pageText }],
+				}),
+			{ setting: true },
+		);
+		large.startSession();
+		const largeTool = large.tools[0];
+		if (!largeTool) throw new Error("tool missing");
+		const truncated = await largeTool.execute(
+			"call",
+			{ query: "large" },
+			undefined,
+			undefined,
+			ctx as never,
+		);
+		const details = truncated.details as { fullOutputPath: string; truncated: boolean };
+		expect(details.truncated).toBe(true);
+		expect(truncated.content[0]).toMatchObject({
+			type: "text",
+			text: expect.stringContaining("Output truncated"),
+		});
+		expect(readFileSync(details.fullOutputPath, "utf8")).toContain(pageText);
+		expect(statSync(details.fullOutputPath).mode & 0o777).toBe(0o600);
+	});
+
+	test("normalizes missing auth without hiding unrelated resolver bugs", async () => {
+		const { tools, startSession } = await registered(undefined, { setting: true });
+		startSession();
+		const tool = tools[0];
+		if (!tool) throw new Error("tool missing");
+		const missing = new Error("API key auth failed for provider synthetic", {
+			cause: new Error(
+				'Failed to resolve API key for provider "synthetic" from environment variable: SYNTHETIC_API_KEY',
+			),
+		});
+		missing.name = "ModelsError";
+		Object.assign(missing, { code: "auth" });
+		const ctx = {
+			modelRegistry: {
+				getProviderAuth: async () => {
+					throw missing;
+				},
+			},
+		};
+		const result = await tool.execute("call", { query: "x" }, undefined, undefined, ctx as never);
+		expect(result).toMatchObject({ isError: true, details: { kind: "error", code: "auth" } });
+		expect(JSON.stringify(result)).toContain("/login synthetic");
+		const bug = {
+			modelRegistry: {
+				getProviderAuth: async () => {
+					throw new TypeError("bug");
+				},
+			},
+		};
 		await expect(
-			tool.execute("call", { query: "x" }, undefined, undefined, anonymous as never),
-		).rejects.toThrow("/login synthetic");
+			tool.execute("call", { query: "x" }, undefined, undefined, bug as never),
+		).rejects.toThrow("bug");
+		const wrappedBug = new Error("API key auth failed for provider synthetic", {
+			cause: new TypeError("bad resolver"),
+		});
+		wrappedBug.name = "ModelsError";
+		Object.assign(wrappedBug, { code: "auth" });
+		const wrapped = {
+			modelRegistry: {
+				getProviderAuth: async () => {
+					throw wrappedBug;
+				},
+			},
+		};
+		await expect(
+			tool.execute("call", { query: "x" }, undefined, undefined, wrapped as never),
+		).rejects.toThrow("API key auth failed");
+	});
+
+	test("reports HTTP, network and malformed responses with safe actionable details", async () => {
+		const secret = "syn_0123456789abcdefghijkl";
+		const ctx = { modelRegistry: { getProviderAuth: async () => ({ auth: { apiKey: secret } }) } };
+		const cases: Array<{ fetch: FetchFn; code: string; status?: number }> = [
+			{
+				fetch: async () => new Response(`body ${secret}`, { status: 401 }),
+				code: "http",
+				status: 401,
+			},
+			{
+				fetch: async () => new Response(`body ${secret}`, { status: 503 }),
+				code: "http",
+				status: 503,
+			},
+			{
+				fetch: async () => {
+					throw new Error(`network ${secret}`);
+				},
+				code: "network",
+			},
+			{ fetch: async () => new Response("{invalid"), code: "parse" },
+			{ fetch: async () => Response.json({ invalid: true }), code: "parse" },
+		];
+		for (const item of cases) {
+			const { tools, startSession } = await registered(item.fetch, { setting: true });
+			startSession();
+			const tool = tools[0];
+			if (!tool) throw new Error("tool missing");
+			const updates: AgentToolResult<unknown>[] = [];
+			const result = await tool.execute(
+				"call",
+				{ query: "x" },
+				undefined,
+				(update) => updates.push(update),
+				ctx as never,
+			);
+			expect(result).toMatchObject({
+				isError: true,
+				details: {
+					kind: "error",
+					code: item.code,
+					...(item.status === undefined ? {} : { status: item.status }),
+				},
+			});
+			expect(JSON.stringify(result)).toContain("/login synthetic");
+			expect(JSON.stringify(result)).not.toContain(secret);
+			expect(JSON.stringify(result)).not.toContain("body ");
+			expect(updates).toHaveLength(1);
+			expect(updates[0]?.details).toMatchObject({ kind: "progress" });
+		}
+	});
+
+	test("honors cancellation before and during auth, request, and response parsing", async () => {
+		let fetches = 0;
+		let enteredFetch: (() => void) | undefined;
+		const entered = new Promise<void>((resolve) => {
+			enteredFetch = resolve;
+		});
+		const { tools, startSession } = await registered(
+			async (_url, init) => {
+				fetches++;
+				enteredFetch?.();
+				return await new Promise<Response>((_resolve, reject) => {
+					init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), {
+						once: true,
+					});
+				});
+			},
+			{ setting: true },
+		);
+		startSession();
+		const tool = tools[0];
+		if (!tool) throw new Error("tool missing");
+		const ctx = {
+			modelRegistry: { getProviderAuth: async () => ({ auth: { apiKey: "test-key" } }) },
+		};
+		const early = new AbortController();
+		early.abort();
+		const before = await tool.execute(
+			"call",
+			{ query: "x" },
+			early.signal,
+			undefined,
+			ctx as never,
+		);
+		expect(before).toMatchObject({ isError: true, details: { kind: "aborted" } });
+		expect(fetches).toBe(0);
+		const authController = new AbortController();
+		const waiting = { modelRegistry: { getProviderAuth: () => new Promise(() => {}) } };
+		const duringAuth = tool.execute(
+			"call",
+			{ query: "x" },
+			authController.signal,
+			undefined,
+			waiting as never,
+		);
+		authController.abort();
+		expect(await duringAuth).toMatchObject({ isError: true, details: { kind: "aborted" } });
+		const controller = new AbortController();
+		const pending = tool.execute(
+			"call",
+			{ query: "x" },
+			controller.signal,
+			undefined,
+			ctx as never,
+		);
+		await entered;
+		controller.abort();
+		expect(await pending).toMatchObject({ isError: true, details: { kind: "aborted" } });
+		let enteredIgnored: (() => void) | undefined;
+		const ignoredEntered = new Promise<void>((resolve) => {
+			enteredIgnored = resolve;
+		});
+		const ignored = await registered(
+			async () => {
+				enteredIgnored?.();
+				return await new Promise<Response>(() => {});
+			},
+			{ setting: true },
+		);
+		ignored.startSession();
+		const ignoredTool = ignored.tools[0];
+		if (!ignoredTool) throw new Error("tool missing");
+		const ignoredController = new AbortController();
+		const ignoredPending = ignoredTool.execute(
+			"call",
+			{ query: "x" },
+			ignoredController.signal,
+			undefined,
+			ctx as never,
+		);
+		await ignoredEntered;
+		ignoredController.abort();
+		expect(await ignoredPending).toMatchObject({ isError: true, details: { kind: "aborted" } });
+		const bodyController = new AbortController();
+		let enteredBody: (() => void) | undefined;
+		const bodyEntered = new Promise<void>((resolve) => {
+			enteredBody = resolve;
+		});
+		const body = await registered(
+			async () => {
+				const response = new Response(
+					new ReadableStream({
+						start(stream) {
+							bodyController.signal.addEventListener(
+								"abort",
+								() => stream.error(new Error("aborted")),
+								{ once: true },
+							);
+						},
+					}),
+				);
+				const json = response.json.bind(response);
+				Object.defineProperty(response, "json", {
+					value: async () => {
+						enteredBody?.();
+						return await json();
+					},
+				});
+				return response;
+			},
+			{ setting: true },
+		);
+		body.startSession();
+		const bodyTool = body.tools[0];
+		if (!bodyTool) throw new Error("tool missing");
+		const bodyPending = bodyTool.execute(
+			"call",
+			{ query: "x" },
+			bodyController.signal,
+			undefined,
+			ctx as never,
+		);
+		await bodyEntered;
+		bodyController.abort();
+		expect(await bodyPending).toMatchObject({ isError: true, details: { kind: "aborted" } });
+	});
+
+	test("renderer covers every phase, widths and untrusted text without page output", async () => {
+		const { tools, startSession } = await registered(undefined, { setting: true });
+		startSession();
+		const tool = tools[0];
+		if (!tool?.renderCall || !tool.renderResult) throw new Error("renderers missing");
+		expect(tool.renderShell).toBe("self");
+		let tones: string[] = [];
+		const theme = {
+			fg: (color: string, text: string) => {
+				tones.push(color);
+				return `\x1b[90m${text}\x1b[39m`;
+			},
+			bold: (text: string) => `\x1b[1m${text}\x1b[22m`,
+		};
+		const secret = "syn_0123456789abcdefghijkl";
+		const longUrl = "https://example.test/long/path/to/useful/resource?version=1234567890";
+		const success: AgentToolResult<unknown> = {
+			content: [{ type: "text", text: "PAGE BODY PRIVATE" }],
+			details: {
+				kind: "success",
+				query: "CJK界",
+				resultCount: 2,
+				truncated: true,
+				fullOutputPath: "/tmp/a  b/full-search.md",
+				results: [
+					{ title: "Title界\x1b]0;EVIL\x07", url: longUrl, published: "2025" },
+					{
+						title: "Second",
+						url: `https://bob:letmein@example.test/?token=${secret}&password=passcode`,
+						published: undefined,
+					},
+				],
+			},
+		};
+		const expectedTone = {
+			args: "dim",
+			queued: "dim",
+			running: "accent",
+			empty: "success",
+			done: "success",
+			error: "error",
+			aborted: "warning",
+		} as const;
+		const cases: Array<{
+			label: keyof typeof expectedTone;
+			expectText?: string;
+			result?: AgentToolResult<unknown>;
+			error?: boolean;
+			partial?: boolean;
+			complete?: boolean;
+			started?: boolean;
+			expanded?: boolean;
+		}> = [
+			{ label: "args", complete: false, started: false },
+			{ label: "queued", complete: true, started: false },
+			{ label: "running", complete: true, started: true },
+			{
+				label: "running",
+				complete: true,
+				started: true,
+				partial: true,
+				result: { content: [], details: { kind: "progress" } },
+			},
+			{
+				label: "empty",
+				complete: true,
+				started: true,
+				result: {
+					content: [],
+					details: { kind: "success", resultCount: 0, results: [], truncated: false },
+				},
+			},
+			{ label: "done", complete: true, started: true, result: success },
+			{ label: "done", complete: true, started: true, result: success, expanded: true },
+			{
+				label: "done",
+				complete: true,
+				started: true,
+				result: {
+					content: [],
+					details: { results: [{ title: "Legacy title", url: "https://legacy.test" }] },
+				},
+				expanded: true,
+			},
+			{
+				label: "error",
+				expectText: "credentials missing",
+				complete: true,
+				started: true,
+				error: true,
+				result: {
+					content: [],
+					details: { kind: "error", code: "auth", message: "Run /login synthetic" },
+				},
+			},
+			{
+				label: "error",
+				expectText: "HTTP 401",
+				complete: true,
+				started: true,
+				error: true,
+				result: { content: [], details: { kind: "error", code: "http", status: 401 } },
+			},
+			{
+				label: "error",
+				expectText: "network failed",
+				complete: true,
+				started: true,
+				error: true,
+				result: { content: [], details: { kind: "error", code: "network" } },
+			},
+			{
+				label: "error",
+				expectText: "invalid response",
+				complete: true,
+				started: true,
+				error: true,
+				result: { content: [], details: { kind: "error", code: "parse" } },
+			},
+			{
+				label: "error",
+				expectText: "timed out",
+				complete: true,
+				started: true,
+				error: true,
+				result: { content: [], details: { kind: "error", code: "timeout" } },
+			},
+			{
+				label: "error",
+				complete: true,
+				started: true,
+				error: true,
+				result: { content: [{ type: "text", text: secret }], details: {} },
+			},
+			{
+				label: "aborted",
+				complete: true,
+				started: true,
+				error: true,
+				result: { content: [{ type: "text", text: "Operation aborted" }], details: {} },
+			},
+			{
+				label: "aborted",
+				complete: true,
+				started: true,
+				error: true,
+				result: { content: [], details: { kind: "aborted" } },
+			},
+		];
+		for (const width of [36, 57, 80, 140]) {
+			for (const item of cases) {
+				tones = [];
+				const args = { query: `CJK界 ${secret}\x1b]0;EVIL\x07` };
+				const context = {
+					args,
+					state: {},
+					outputPad: 1,
+					argsComplete: item.complete,
+					executionStarted: item.started,
+					isPartial: item.partial ?? false,
+					isError: item.error ?? false,
+					expanded: item.expanded ?? false,
+					durationMs: 120,
+					cwd: "/tmp",
+					toolCallId: "call",
+					lastComponent: undefined,
+					showImages: false,
+					invalidate: () => {},
+				};
+				const call = tool.renderCall(args, theme as never, context as never);
+				const result = item.result
+					? tool.renderResult(
+							item.result,
+							{ expanded: item.expanded ?? false, isPartial: item.partial ?? false },
+							theme as never,
+							context as never,
+						)
+					: undefined;
+				const lines = [...call.render(width), ...(result?.render(width) ?? [])];
+				for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				const plain = stripVTControlCharacters(lines.join("\n"));
+				expect(plain).toContain("synthetic_web_search");
+				expect(plain).toContain(item.label);
+				if (item.expectText) expect(plain).toContain(item.expectText);
+				if (item.label === "error") expect(plain).toContain("/login synthetic");
+				expect(tones).toContain(expectedTone[item.label]);
+				expect(plain).not.toContain(secret);
+				expect(plain).not.toContain("EVIL");
+				expect(plain).not.toContain("letmein");
+				expect(plain).not.toContain("passcode");
+				expect(plain).not.toContain("PAGE BODY PRIVATE");
+				if (item.expanded && item.result === success) {
+					expect(plain).toContain("Title界");
+					expect(plain.replace(/\n\s+/g, "")).toContain(longUrl);
+					expect(plain).toContain("full-search.md");
+					if (width >= 57) expect(plain).toContain("/tmp/a  b/full-search.md");
+				} else if (item.expanded) {
+					expect(plain).toContain("Legacy title");
+					expect(plain).toContain("https://legacy.test");
+				} else if (item.result === success) expect(plain).not.toContain("Title界");
+			}
+		}
+		const manyContext = {
+			state: {},
+			outputPad: 1,
+			argsComplete: true,
+			executionStarted: true,
+			isError: false,
+			expanded: true,
+		};
+		const many = tool.renderResult(
+			{
+				content: [],
+				details: {
+					kind: "success",
+					resultCount: 80,
+					truncated: true,
+					fullOutputPath: "/tmp/full-search.md",
+					results: Array.from({ length: 50 }, (_, index) => ({
+						title: `Title ${index}`,
+						url: `https://example.test/${"x".repeat(280)}`,
+					})),
+				},
+			},
+			{ expanded: true, isPartial: false },
+			theme as never,
+			manyContext as never,
+		);
+		const manyLines = many.render(36);
+		expect(manyLines.length).toBeLessThanOrEqual(204);
+		const manyText = stripVTControlCharacters(manyLines.join("\n"));
+		expect(manyText).toContain("more results omitted");
+		expect(manyText).toContain("30 more results");
+		expect(manyText).toContain("full-search.md");
+	});
+
+	test("does not render unknown credentials from streamed arguments", async () => {
+		const secret = "credential-ABC12345";
+		const query = `useful search ${secret}`;
+		const { tools, startSession } = await registered(async () => Response.json({ results: [] }), {
+			setting: true,
+		});
+		startSession();
+		const tool = tools[0];
+		if (!tool?.renderCall || !tool.renderResult) throw new Error("renderers missing");
+		const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text };
+		const state = {};
+		const context = {
+			state,
+			outputPad: 0,
+			argsComplete: false,
+			executionStarted: false,
+			isError: false,
+			expanded: false,
+		};
+		const early = tool.renderCall({ query }, theme as never, context as never);
+		expect(early.render(140).join("\n")).not.toContain(secret);
+		const updates: AgentToolResult<unknown>[] = [];
+		const ctx = { modelRegistry: { getProviderAuth: async () => ({ auth: { apiKey: secret } }) } };
+		const result = await tool.execute(
+			"call",
+			{ query },
+			undefined,
+			(update) => updates.push(update),
+			ctx as never,
+		);
+		const progress = updates[0];
+		if (!progress) throw new Error("progress missing");
+		const running = { ...context, argsComplete: true, executionStarted: true };
+		const call = tool.renderCall({ query }, theme as never, running as never);
+		tool.renderResult(
+			progress,
+			{ expanded: false, isPartial: true },
+			theme as never,
+			running as never,
+		);
+		expect(call.render(140).join("\n")).toContain("useful search");
+		expect(call.render(140).join("\n")).not.toContain(secret);
+		const done = tool.renderCall({ query }, theme as never, running as never);
+		tool.renderResult(
+			result,
+			{ expanded: false, isPartial: false },
+			theme as never,
+			running as never,
+		);
+		expect(done.render(140).join("\n")).toContain("useful search");
+		expect(done.render(140).join("\n")).not.toContain(secret);
+	});
+
+	test("caps renderer metadata while retaining model-facing passages", async () => {
+		const secret = "credential-ABC12345";
+		const payload = {
+			results: Array.from({ length: 70 }, (_, index) => ({
+				title: `Title ${index} ${secret} ${"large".repeat(2000)}`,
+				url: `https://example.test/${index}?token=${secret}`,
+				text: "long page body",
+				highlights: ["PUBLIC PASSAGE"],
+			})),
+		};
+		const { tools, startSession } = await registered(async () => Response.json(payload), {
+			setting: true,
+		});
+		startSession();
+		const tool = tools[0];
+		if (!tool) throw new Error("tool missing");
+		const ctx = { modelRegistry: { getProviderAuth: async () => ({ auth: { apiKey: secret } }) } };
+		const result = await tool.execute(
+			"call",
+			{ query: "many" },
+			undefined,
+			undefined,
+			ctx as never,
+		);
+		expect(result.content[0]).toMatchObject({
+			type: "text",
+			text: expect.stringContaining("PUBLIC PASSAGE"),
+		});
+		const details = result.details as { resultCount: number; results: unknown[] };
+		expect(details.resultCount).toBe(70);
+		expect(details.results.length).toBeLessThan(70);
+		expect(JSON.stringify(details)).not.toContain(secret);
+		expect(JSON.stringify(details).length).toBeLessThan(30_000);
+		expect(JSON.stringify(details)).not.toContain("long page body");
+		expect(JSON.stringify(details)).not.toContain("PUBLIC PASSAGE");
 	});
 });

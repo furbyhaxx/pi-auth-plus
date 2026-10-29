@@ -130,7 +130,12 @@ function quotaFixture(available = true, withOther = false) {
 		onChange: () => () => {},
 		lineConfig: () => ({ percentDisplay: "used", creditHealthyUsd: 50, creditCriticalUsd: 5 }),
 		linePlacement: () => "off",
-		setLinePlacement: async () => {},
+		setLinePlacement: async (_next, scope) => ({
+			committed: true,
+			scope,
+			shadowed: [],
+			warnings: [],
+		}),
 		now: () => 0,
 		text: (id) => {
 			requested.push(id);
@@ -347,7 +352,12 @@ describe("ui/commands", () => {
 			onChange: () => () => {},
 			lineConfig: () => ({ percentDisplay: "used", creditHealthyUsd: 50, creditCriticalUsd: 5 }),
 			linePlacement: () => "off",
-			setLinePlacement: async () => {},
+			setLinePlacement: async (_next, scope) => ({
+				committed: true,
+				scope,
+				shadowed: [],
+				warnings: [],
+			}),
 			now: () => 0,
 			text: () => "",
 		};
@@ -429,7 +439,12 @@ describe("ui/commands", () => {
 			onChange: () => () => {},
 			lineConfig: () => ({ percentDisplay: "used", creditHealthyUsd: 50, creditCriticalUsd: 5 }),
 			linePlacement: () => "off",
-			setLinePlacement: async () => {},
+			setLinePlacement: async (_next, scope) => ({
+				committed: true,
+				scope,
+				shadowed: [],
+				warnings: [],
+			}),
 			now: () => 0,
 			text: (id) => `Focused ${id}`,
 		};
@@ -511,7 +526,12 @@ describe("ui/commands", () => {
 			onChange: () => () => {},
 			lineConfig: () => ({ percentDisplay: "used", creditHealthyUsd: 50, creditCriticalUsd: 5 }),
 			linePlacement: () => "off",
-			setLinePlacement: async () => {},
+			setLinePlacement: async (_next, scope) => ({
+				committed: true,
+				scope,
+				shadowed: [],
+				warnings: [],
+			}),
 			now: () => 0,
 			text: () => "",
 		};
@@ -843,8 +863,9 @@ describe("ui/commands", () => {
 					refresh: async () => {
 						calls.push("refresh");
 					},
-					setLinePlacement: async () => {
+					setLinePlacement: async (_next, scope) => {
 						calls.push("placement");
+						return { committed: true, scope, shadowed: [], warnings: [] };
 					},
 					listResets: async () => {
 						calls.push("list");
@@ -868,8 +889,9 @@ describe("ui/commands", () => {
 						read();
 						return { visible: true };
 					},
-					save: async () => {
+					save: async (_rules, scope) => {
 						calls.push("rules");
+						return { committed: true, scope, shadowed: [], warnings: [] };
 					},
 					details: {
 						read: async () => {
@@ -1016,8 +1038,9 @@ describe("ui/commands", () => {
 				refresh: async () => {
 					calls.push("refresh");
 				},
-				setLinePlacement: async () => {
+				setLinePlacement: async (_next, scope) => {
 					calls.push("placement");
+					return { committed: true, scope, shadowed: [], warnings: [] };
 				},
 			};
 			const f = rig(
@@ -1064,7 +1087,12 @@ describe("ui/commands", () => {
 				rules: () => [],
 				catalog: () => [{ provider: "vendor", id: "one", name: "One", contextWindow: 1000 }],
 				evaluate: () => ({ visible: true }),
-				save: async () => {},
+				save: async (_rules, scope) => ({
+					committed: true,
+					scope,
+					shadowed: [],
+					warnings: [],
+				}),
 				details: {
 					read: async () => {
 						started++;
@@ -1185,7 +1213,12 @@ describe("ui/commands", () => {
 				rules: () => rules,
 				catalog: () => [],
 				evaluate: () => ({ visible: true }),
-				save: async () => {},
+				save: async (_rules, scope) => ({
+					committed: true,
+					scope,
+					shadowed: [],
+					warnings: [],
+				}),
 			},
 		});
 		await f.run("auth", "models");
@@ -1384,7 +1417,12 @@ describe("ui/commands", () => {
 				onChange: () => () => {},
 				lineConfig: () => ({ percentDisplay: "used", creditHealthyUsd: 50, creditCriticalUsd: 5 }),
 				linePlacement: () => "off",
-				setLinePlacement: async () => {},
+				setLinePlacement: async (_next, scope) => ({
+					committed: true,
+					scope,
+					shadowed: [],
+					warnings: [],
+				}),
 				now: () => 0,
 				text: () => "",
 			};
@@ -1523,6 +1561,7 @@ describe("ui/commands", () => {
 			save: async (rules, scope) => {
 				currentRules = [...rules];
 				saved.push(`${scope}:${rules.join("|")}`);
+				return { committed: true, scope, shadowed: [], warnings: [] };
 			},
 		};
 		const tui = rig("tui", { models }, [], true, async (panel) => {

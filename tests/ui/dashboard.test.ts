@@ -630,7 +630,15 @@ describe("ui/dashboard", () => {
 				factories.settings = (host) =>
 					new SettingsView(
 						host,
-						{ store: () => store, onSaved: () => {} },
+						{
+							store: () => store,
+							save: async (scope) => ({
+								committed: true,
+								scope,
+								shadowed: [],
+								warnings: [],
+							}),
+						},
 						"quotas.refreshOnRequest",
 					);
 				const panel = new AuthDashboard(
@@ -730,7 +738,12 @@ describe("ui/dashboard", () => {
 					},
 				],
 				catalog: () => [],
-				save: async () => {},
+				save: async (_groups, scope) => ({
+					committed: true,
+					scope,
+					shadowed: [],
+					warnings: [],
+				}),
 			});
 		const panel = new AuthDashboard(
 			{ terminal: { rows: 8 }, requestRender: () => {} },
@@ -755,7 +768,16 @@ describe("ui/dashboard", () => {
 		factories.models = (host) =>
 			new AliasDetail(
 				host,
-				{ list: () => [], supported: () => true, save: async () => {} },
+				{
+					list: () => [],
+					supported: () => true,
+					save: async (_aliases, scope) => ({
+						committed: true,
+						scope,
+						shadowed: [],
+						warnings: [],
+					}),
+				},
 				"vendor",
 				"one",
 				undefined,

@@ -15,8 +15,25 @@ const report: ContextReport = {
 	pi: undefined,
 	computedAt: 42,
 };
-const ctx = { model: { provider: "fake", id: "m" } } as ExtensionContext;
+const ctx = {
+	model: { provider: "fake", id: "m" },
+	sessionManager: {
+		getSessionId: () => "session",
+		getLeafId: () => "leaf",
+	},
+} as ExtensionContext;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function context(
+	modelId: string,
+	sessionId: string,
+	getLeafId: () => string | null = () => "leaf",
+): ExtensionContext {
+	return {
+		model: { provider: "fake", id: modelId },
+		sessionManager: { getSessionId: () => sessionId, getLeafId },
+	} as ExtensionContext;
+}
 
 function rig(context: TokenEngine["context"] = async () => report) {
 	const handlers = new Map<string, (ctx: ExtensionContext) => unknown>();
@@ -68,6 +85,68 @@ test("event bursts debounce once and publish the last event reason", async () =>
 		expect(calls).toBe(1);
 		expect(tracker.latest()).toBe(report);
 		expect(changes).toEqual([[report, "session_tree"]]);
+	} finally {
+		tracker.dispose();
+	}
+});
+
+test("model changes invalidate immediately, suppress stale work, and same-model turns retain reports", async () => {
+	const { tracker, run, engine } = rig();
+	const changes: unknown[] = [];
+	tracker.onChange((value, reason) => changes.push([value, reason]));
+	try {
+		run("session_start", ctx);
+		await tracker.refresh();
+
+		let finish: (value: ContextReport) => void = () => {};
+		engine.context = () =>
+			new Promise((resolve) => {
+				finish = resolve;
+			});
+		const pending = tracker.refresh();
+		const nextContext = context("next", "session");
+		run("model_select", nextContext);
+		expect(tracker.latest()).toBeUndefined();
+		expect(changes.at(-1)).toEqual([undefined, "model_select"]);
+
+		finish(report);
+		expect(await pending).toBeUndefined();
+		expect(tracker.latest()).toBeUndefined();
+
+		const nextReport = { ...report, model: "next", computedAt: 43 };
+		engine.context = async () => nextReport;
+		await wait(30);
+		expect(tracker.latest()).toBe(nextReport);
+
+		run("turn_end", nextContext);
+		expect(tracker.latest()).toBe(nextReport);
+		await wait(30);
+		expect(tracker.latest()).toBe(nextReport);
+		expect(changes).toContainEqual([nextReport, "turn_end"]);
+	} finally {
+		tracker.dispose();
+	}
+});
+
+test("session starts and branch replacements invalidate same-model reports", async () => {
+	const { tracker, run } = rig();
+	const changes: unknown[] = [];
+	tracker.onChange((value, reason) => changes.push([value, reason]));
+	let leafId = "leaf-a";
+	const firstSession = context("m", "session-a", () => leafId);
+	const nextSession = context("m", "session-b", () => leafId);
+	try {
+		run("session_start", firstSession);
+		await tracker.refresh();
+		run("session_start", nextSession);
+		expect(tracker.latest()).toBeUndefined();
+		expect(changes.at(-1)).toEqual([undefined, "session_start"]);
+
+		await tracker.refresh();
+		leafId = "leaf-b";
+		run("session_tree", nextSession);
+		expect(tracker.latest()).toBeUndefined();
+		expect(changes.at(-1)).toEqual([undefined, "session_tree"]);
 	} finally {
 		tracker.dispose();
 	}

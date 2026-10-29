@@ -3,6 +3,29 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import type { ContextReport, TokenEngine } from "../engine/index.ts";
 import type { TokenTracker, TrackerReason } from "./types.ts";
 
+type ModelIdentity = { readonly provider: string; readonly id: string } | undefined;
+type BranchIdentity = { readonly sessionId: string; readonly leafId: string | null } | undefined;
+
+function modelIdentity(context: ExtensionContext): ModelIdentity {
+	const model = context.model;
+	return model ? { provider: model.provider, id: model.id } : undefined;
+}
+
+function branchIdentity(context: ExtensionContext): BranchIdentity {
+	const sessionManager = context.sessionManager;
+	return sessionManager
+		? { sessionId: sessionManager.getSessionId(), leafId: sessionManager.getLeafId() }
+		: undefined;
+}
+
+function sameModel(left: ModelIdentity, right: ModelIdentity): boolean {
+	return left?.provider === right?.provider && left?.id === right?.id;
+}
+
+function sameBranch(left: BranchIdentity, right: BranchIdentity): boolean {
+	return left?.sessionId === right?.sessionId && left?.leafId === right?.leafId;
+}
+
 /** Registers session events without starting work until a context arrives. */
 export function createTokenTracker(
 	pi: Pick<ExtensionAPI, "on">,
@@ -12,6 +35,8 @@ export function createTokenTracker(
 	let latest: ContextReport | undefined;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let controller: AbortController | undefined;
+	let scheduledModel: ModelIdentity;
+	let scheduledBranch: BranchIdentity;
 	const listeners = new Set<Parameters<TokenTracker["onChange"]>[0]>();
 
 	function cancel(): void {
@@ -54,8 +79,20 @@ export function createTokenTracker(
 	}
 
 	function schedule(context: ExtensionContext, reason: TrackerReason): void {
+		const nextModel = modelIdentity(context);
+		const nextBranch = branchIdentity(context);
+		const invalidate =
+			reason === "session_start" ||
+			!sameModel(scheduledModel, nextModel) ||
+			(reason === "session_tree" && !sameBranch(scheduledBranch, nextBranch));
 		cancel();
 		ctx = context;
+		scheduledModel = nextModel;
+		scheduledBranch = nextBranch;
+		if (invalidate && latest !== undefined) {
+			latest = undefined;
+			notify(reason);
+		}
 		timer = setTimeout(() => {
 			void refresh(reason);
 		}, options.debounceMs ?? 250);

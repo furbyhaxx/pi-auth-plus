@@ -246,12 +246,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			}
 		},
 	};
-	const catalogVisibility = new CatalogVisibility(
-		pi,
-		() => settings,
-		ownedProviders,
-		(model) => isVisible(model.provider, model),
-	);
+	const catalogVisibility = new CatalogVisibility(pi, () => settings, ownedProviders);
 	const applyModelRules = async (
 		ctx: ExtensionContext,
 		changedProviders: readonly string[] = [],
@@ -259,8 +254,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		signal: AbortSignal = sessionController.signal,
 	): Promise<void> => {
 		if (signal.aborted) return;
-		await catalogVisibility.apply(ctx, changedProviders);
-		if (signal.aborted) return;
+		const applied = await catalogVisibility.apply(ctx, changedProviders, signal, store);
+		if (signal.aborted || applied === false || applied?.aborted) return;
 		groups.apply(ctx.modelRegistry.getAll());
 		const selected = ctx.model;
 		if (
@@ -276,7 +271,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				.filter((model) => isVisible(model.provider, model, store));
 			const next = available.find((model) => model.provider === selected.provider) ?? available[0];
 			const switched = next && (await pi.setModel(next));
-			if (signal.aborted) return;
+			if (signal.aborted || applied?.aborted) return;
 			if (switched && next) {
 				ctx.ui.notify(
 					`${identity} is hidden by model rules; switched to ${next.provider}/${next.id}.`,

@@ -912,7 +912,7 @@ test("committed saves report catalog and group failures and retry failed provide
 	}
 });
 
-test("startup, override and legacy save report application warnings once", async () => {
+test("startup and override notify once while settings return application warnings", async () => {
 	const cleanup = groupSettings([]);
 	const fixture = lifecycleFixture();
 	fixture.catalog.push(fixture.model);
@@ -942,11 +942,13 @@ test("startup, override and legacy save report application warnings once", async
 		expect(fixture.notices[0]).toContain("Model refresh for synthetic failed: catalog unavailable");
 		expect(fixture.notices[0]).toContain("Could not register group/alpha: group unavailable");
 		fixture.notices.length = 0;
-		await deps.settings.store().save("runtime", { "models.aliases": [] });
-		await deps.settings.onSaved(["models.aliases"], "runtime");
-		expect(fixture.notices).toHaveLength(1);
-		expect(fixture.notices[0]).toContain("Model refresh for synthetic failed: catalog unavailable");
-		expect(fixture.notices[0]).toContain("Could not register group/alpha: group unavailable");
+		const outcome = await deps.settings.save("runtime", { "models.aliases": [] });
+		if (!outcome.committed) throw new Error("Settings were not committed");
+		expect(outcome.warnings).toEqual([
+			expect.stringContaining("Model refresh for synthetic failed: catalog unavailable"),
+			expect.stringContaining("Could not register group/alpha: group unavailable"),
+		]);
+		expect(fixture.notices).toEqual([]);
 	} finally {
 		await fixture.run("session_shutdown");
 		capture.mockRestore();

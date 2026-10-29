@@ -3,6 +3,7 @@ import { stripVTControlCharacters } from "node:util";
 import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
 import { SETTINGS } from "../../src/core/config/catalog.ts";
 import { SettingsStore } from "../../src/core/config/index.ts";
+import type { LineTheme } from "../../src/quotas/line/format.ts";
 import { AliasDetail } from "../../src/ui/dashboard/alias-detail.ts";
 import { GroupsView } from "../../src/ui/dashboard/groups.ts";
 import {
@@ -17,8 +18,9 @@ import {
 	type TabViewFactory,
 	type TabViewHost,
 } from "../../src/ui/dashboard/index.ts";
+import { QuotasView } from "../../src/ui/dashboard/quotas.ts";
 import { SettingsView } from "../../src/ui/dashboard/settings.ts";
-import type { FrameLayoutOptions, PanelTheme } from "../../src/ui/frame/index.ts";
+import { type FrameLayoutOptions, type PanelTheme, sanitize } from "../../src/ui/frame/index.ts";
 
 const theme: PanelTheme = {
 	fg: (_color, text) => `\x1b[90m${text}\x1b[39m`,
@@ -315,6 +317,266 @@ describe("ui/dashboard", () => {
 		expect(instances.settings.dirty).toBe(true);
 		expect(results).toHaveLength(0);
 		expect(events).toEqual([]);
+	});
+
+	test("compact help recovers long feedback and rebound hints without losing drafts", async () => {
+		const message =
+			"Configuration could not be saved because the target file is read only; change permissions and retry";
+		const store = new SettingsStore(SETTINGS, { user: "" });
+		for (const width of [36, 57, 80, 140]) {
+			const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+			keys.setUserBindings({
+				"tui.select.up": ["ctrl+shift+up"],
+				"tui.select.down": ["ctrl+shift+down"],
+				"tui.select.cancel": ["ctrl+shift+n"],
+			});
+			const settingsViews: SettingsView[] = [];
+			const factories = staticViews(model);
+			factories.settings = (host) => {
+				const settings = new SettingsView(
+					host,
+					{
+						store: () => store,
+						save: async () => ({ committed: false, error: "Unexpected save" }),
+					},
+					"quotas.refreshOnRequest",
+				);
+				settingsViews.push(settings);
+				return settings;
+			};
+			factories.quotas = (host) =>
+				new QuotasView(host, theme as unknown as LineTheme, {
+					report: () => ({ v: 1, generatedAt: 0, providers: [] }),
+					resetSupport: () => false,
+					refreshing: () => false,
+					refresh: async () => {},
+					onChange: () => () => {},
+					lineConfig: () => ({
+						percentDisplay: "used",
+						creditHealthyUsd: 50,
+						creditCriticalUsd: 5,
+					}),
+					linePlacement: () => "below-editor-first",
+					setLinePlacement: async () => {
+						throw new Error(message);
+					},
+					now: () => 0,
+				});
+			const panel = new AuthDashboard(
+				{ terminal: { rows: 8 }, requestRender: () => {} },
+				theme,
+				keys,
+				() => {},
+				factories,
+				"settings",
+				0,
+			);
+			panel.handleInput(" ");
+			expect(settingsViews[0]?.hasDrafts()).toBe(true);
+			panel.handleInput("\t");
+			panel.handleInput("\t");
+			panel.handleInput("p");
+			await Promise.resolve();
+			const compact = plain(panel.render(width)).join("\n");
+			expect(compact).toContain("F1 help");
+			expect(compact).not.toContain(message);
+			panel.handleInput("\x1bOP");
+			const visited: string[] = [];
+			for (let i = 0; i < 100; i++) {
+				const lines = panel.render(width);
+				expect(lines.length).toBeLessThanOrEqual(8);
+				for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				const body = plain(lines.slice(1, -2)).join(" ").trim();
+				if (body === visited.at(-1)) break;
+				visited.push(body);
+				panel.handleInput("\x1b[6~");
+			}
+			const help = visited.join(" ").replace(/\s+/g, " ");
+			expect(help).toContain(`Line placement failed: ${message}; retry p.`);
+			const last = plain(panel.render(width))[1];
+			panel.handleInput("\x1b[5~");
+			expect(plain(panel.render(width))[1]).not.toBe(last);
+			for (const hint of [
+				"ctrl+shift+upctrl+shift+down provider",
+				"r/R refresh",
+				"a solo",
+				"p position",
+				"tab switch",
+				"ctrl+shift+n close",
+			])
+				expect(help).toContain(hint);
+			panel.handleInput("\x1bOP");
+			expect(panel.tab).toBe("quotas");
+			expect(settingsViews[0]?.hasDrafts()).toBe(true);
+			panel.dispose();
+		}
+	});
+
+	test("help uses unabridged themed descriptions, feedback, and hints when supplied", () => {
+		const token = "longidentifier".repeat(9);
+		const description = `Full description with the complete ${token}`;
+		const feedback = sanitize(`Save failed: ${token}\x1b]0;evil\x07; retry`);
+		const factories = staticViews(model);
+		factories.providers = (host) => ({
+			render: () => ({
+				lines: [" selected"],
+				above: 0,
+				below: 0,
+				modal: true,
+				description: host.theme.fg("muted", "truncated…"),
+				fullDescription: host.theme.fg("muted", description),
+				fullFeedback: [host.theme.fg("error", feedback)],
+				hints: [{ key: "x", action: "brief", priority: 0 }],
+				fullHints: [{ key: "ctrl+shift+a", action: `complete ${token}`, priority: 0 }],
+			}),
+			handleInput: () => true,
+		});
+		const panel = new AuthDashboard(
+			{ terminal: { rows: 8 }, requestRender: () => {} },
+			theme,
+			new KeybindingsManager(TUI_KEYBINDINGS),
+			() => {},
+			factories,
+			"providers",
+			0,
+		);
+		panel.handleInput("\x1bOP");
+		const firstRow = plain(panel.render(36))[1];
+		panel.handleInput("\x1b[106u");
+		expect(plain(panel.render(36))[1]).not.toBe(firstRow);
+		panel.handleInput("\x1b[107u");
+		expect(plain(panel.render(36))[1]).toBe(firstRow);
+		const visited: string[] = [];
+		const styled: string[] = [];
+		for (let i = 0; i < 100; i++) {
+			const lines = panel.render(36);
+			for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+			const row = lines[1] ?? "";
+			const text = stripVTControlCharacters(row).trim();
+			if (text === visited.at(-1)) break;
+			visited.push(text);
+			styled.push(row);
+			panel.handleInput("j");
+		}
+		const recovered = visited.join("").replace(/\s/g, "");
+		expect(recovered).toContain(description.replace(/\s/g, ""));
+		expect(recovered).toContain(feedback.replace(/\s/g, ""));
+		expect(recovered).toContain(`ctrl+shift+acomplete${token}`);
+		expect(recovered).not.toContain("truncated…");
+		expect(recovered).not.toContain("evil");
+		expect(styled.some((line) => line.includes("\x1b[90m"))).toBe(true);
+		panel.dispose();
+	});
+
+	test("help never steals question marks from an inline editor", () => {
+		const factories = staticViews(model);
+		factories.models = (host) =>
+			new AliasDetail(
+				host,
+				{
+					list: () => [],
+					supported: () => true,
+					save: async () => ({ committed: false, error: "Unexpected save" }),
+				},
+				"vendor",
+				"one",
+				undefined,
+				() => {},
+			);
+		const panel = new AuthDashboard(
+			{ terminal: { rows: 8 }, requestRender: () => {} },
+			theme,
+			new KeybindingsManager(TUI_KEYBINDINGS),
+			() => {},
+			factories,
+			"models",
+			0,
+		);
+		panel.handleInput("\r");
+		panel.handleInput("?");
+		expect(plain(panel.render(80)).join("\n")).toContain("ID · ?");
+		panel.handleInput("\x1bOP");
+		expect(plain(panel.render(80))[0]).toContain("Help");
+		panel.handleInput("\x1bOP");
+		panel.handleInput("\r");
+		expect(plain(panel.render(80)).join("\n")).toContain("ID · ?");
+		panel.dispose();
+	});
+
+	test("help leaves the model picker's question-mark inspection and search intact", () => {
+		const factories = staticViews(model);
+		factories.groups = (host) =>
+			new GroupsView(host, {
+				groups: () => [],
+				catalog: () => [{ provider: "vendor", id: "model", name: "Model", contextWindow: 1000 }],
+				save: async () => ({ committed: false, error: "Unexpected save" }),
+			});
+		const panel = new AuthDashboard(
+			{ terminal: { rows: 8 }, requestRender: () => {} },
+			theme,
+			new KeybindingsManager(TUI_KEYBINDINGS),
+			() => {},
+			factories,
+			"groups",
+			0,
+		);
+		panel.handleInput("a");
+		for (let i = 0; i < 7; i++) panel.handleInput("j");
+		panel.handleInput("\r");
+		panel.handleInput("?");
+		expect(plain(panel.render(36))[1]).toContain("Identity");
+		panel.handleInput("?");
+		panel.handleInput("/");
+		panel.handleInput("?");
+		expect(plain(panel.render(36))[1]).toContain("?");
+		panel.dispose();
+	});
+
+	test("help uses an unbound function key and preserves configured actions", () => {
+		const keys = new KeybindingsManager(TUI_KEYBINDINGS);
+		keys.setUserBindings({ "tui.select.cancel": ["f1"], "tui.select.up": ["f2"] });
+		const first = draftRig("providers", 8, keys);
+		expect(plain(first.panel.render(36))[0]).toContain("F3 help");
+		first.panel.handleInput("\x1bOP");
+		expect(first.results).toEqual([undefined]);
+		const second = draftRig("providers", 8, keys);
+		second.instances.providers.dirty = true;
+		second.panel.handleInput("\x1bOR");
+		expect(plain(second.panel.render(36))[0]).toContain("Help");
+		second.panel.handleInput("\x1bOR");
+		expect(second.instances.providers.dirty).toBe(true);
+		expect(second.results).toEqual([]);
+		second.panel.dispose();
+
+		const scrollKeys = new KeybindingsManager(TUI_KEYBINDINGS);
+		scrollKeys.setUserBindings({ "tui.select.cancel": ["j"] });
+		const third = draftRig("providers", 8, scrollKeys);
+		third.panel.handleInput("\x1bOP");
+		const firstRow = plain(third.panel.render(36))[1];
+		expect(plain(third.panel.render(36)).at(-2)).toContain("n/p scroll");
+		third.panel.handleInput("n");
+		expect(plain(third.panel.render(36))[1]).not.toBe(firstRow);
+		third.panel.handleInput("j");
+		expect(plain(third.panel.render(36))[0]).toContain("F1 help");
+		third.panel.dispose();
+	});
+
+	test("help preserves confirmations and fences input after disposal", () => {
+		const { panel, instances, events, results } = draftRig("providers", 8);
+		instances.providers.dirty = true;
+		panel.handleInput("\x03");
+		panel.handleInput("\x1bOP");
+		expect(plain(panel.render(36))[0]).toContain("Help");
+		panel.handleInput("\x1bOP");
+		expect(plain(panel.render(36)).join("\n")).toContain("Discard all & exit?");
+		expect(instances.providers.dirty).toBe(true);
+		panel.handleInput("\x1bOP");
+		panel.dispose();
+		panel.handleInput("\x1bOP");
+		panel.handleInput("\r");
+		expect(instances.providers.dirty).toBe(true);
+		expect(events).toEqual(TABS.map((tab) => `dispose:${tab.id}`));
+		expect(results).toEqual([]);
 	});
 
 	test("frame and selection fit short terminals at every check width", () => {

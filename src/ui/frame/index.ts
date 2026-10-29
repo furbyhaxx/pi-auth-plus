@@ -98,8 +98,8 @@ export function rule(theme: PanelTheme, width: number, parts: RuleParts, color: 
 	const centerWidth = visibleWidth(center);
 	const lastCrumb = visibleWidth(crumbs[crumbs.length - 1] ?? "");
 	const crumbBudget = Math.max(
-		Math.min(lastCrumb, width - rightWidth - 6),
-		width - rightWidth - 6 - (center ? centerWidth + 2 : 0),
+		Math.min(lastCrumb, width - rightWidth - 5),
+		width - rightWidth - 5 - (center ? centerWidth + 2 : 0),
 	);
 	const left = crumbs.length > 0 ? `${dash(2)} ${fitCrumbs(theme, crumbs, crumbBudget)} ` : dash(2);
 	const fill = width - visibleWidth(left) - rightWidth;
@@ -184,6 +184,8 @@ export interface FrameSpec {
 	readonly crumbs: readonly string[];
 	/** Right end of the top rule, already themed. */
 	readonly state?: string;
+	/** Persistent top-rule action, already themed. */
+	readonly affordance?: string;
 	readonly header: readonly string[];
 	readonly body: readonly string[];
 	readonly bodyRows: number;
@@ -207,11 +209,24 @@ export function drawFrame(theme: PanelTheme, width: number, spec: FrameSpec): st
 			? `↑ ${above} more`
 			: "";
 	let state = spec.state ?? "";
-	if (spec.compact && overflow) {
+	const compactOverflow = spec.compact && overflow ? theme.fg("dim", overflow) : "";
+	if (spec.affordance) {
+		const lastCrumb = spec.crumbs.at(-1) ?? "";
+		const overflowWidth = Math.max(
+			0,
+			w - visibleWidth(lastCrumb) - visibleWidth(spec.affordance) - 11,
+		);
+		const suffix = [truncateToWidth(compactOverflow, overflowWidth, "…"), spec.affordance]
+			.filter((part) => visibleWidth(part) > 0)
+			.join(" ");
+		const stateWidth = Math.max(0, w - visibleWidth(lastCrumb) - visibleWidth(suffix) - 10);
+		state = truncateToWidth(state, stateWidth, "…");
+		state = [state, suffix].filter((part) => visibleWidth(part) > 0).join(" ");
+	} else if (compactOverflow) {
 		const lastCrumb = spec.crumbs.at(-1) ?? "";
 		const stateWidth = Math.max(0, w - visibleWidth(lastCrumb) - visibleWidth(overflow) - 11);
 		state = truncateToWidth(state, stateWidth, "…");
-		state = `${state}${visibleWidth(state) > 0 ? " " : ""}${theme.fg("dim", overflow)}`;
+		state = `${state}${visibleWidth(state) > 0 ? " " : ""}${compactOverflow}`;
 	}
 	const top = rule(
 		theme,

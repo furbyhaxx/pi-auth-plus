@@ -37,6 +37,12 @@ export interface TabBody {
 	readonly state?: string;
 	/** Replaces the tab description, e.g. with the selected setting's help, already themed. */
 	readonly description?: string;
+	/** Unclipped, themed description for help; sanitize external text before styling it. */
+	readonly fullDescription?: string;
+	/** Unclipped, themed feedback for help; sanitize external text before styling it. */
+	readonly fullFeedback?: readonly string[];
+	/** Complete current plain-text hints when the normal body filters them. */
+	readonly fullHints?: readonly HintItem[];
 }
 
 export interface TabView {

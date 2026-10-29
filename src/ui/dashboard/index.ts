@@ -1,5 +1,10 @@
 /** The `/auth` dashboard panel: one frame, a tab row, and the active tab's body. */
-import { type KeybindingsManager, matchesKey, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	type KeybindingsManager,
+	matchesKey,
+	visibleWidth,
+	wrapTextWithAnsi,
+} from "@earendil-works/pi-tui";
 import {
 	drawFrame,
 	type FrameLayoutOptions,
@@ -47,9 +52,42 @@ type DiscardConfirmation =
 	| { readonly kind: "all"; readonly result: DashboardResult }
 	| { readonly kind: "local"; readonly discard: () => void };
 
+const HELP_KEYS = [
+	{ key: "f1", input: "\x1bOP", label: "F1" },
+	{ key: "f2", input: "\x1bOQ", label: "F2" },
+	{ key: "f3", input: "\x1bOR", label: "F3" },
+	{ key: "f4", input: "\x1bOS", label: "F4" },
+	{ key: "f5", input: "\x1b[15~", label: "F5" },
+	{ key: "f6", input: "\x1b[17~", label: "F6" },
+	{ key: "f7", input: "\x1b[18~", label: "F7" },
+	{ key: "f8", input: "\x1b[19~", label: "F8" },
+	{ key: "f9", input: "\x1b[20~", label: "F9" },
+	{ key: "f10", input: "\x1b[21~", label: "F10" },
+	{ key: "f11", input: "\x1b[23~", label: "F11" },
+	{ key: "f12", input: "\x1b[24~", label: "F12" },
+	{ key: "alt+?", input: "\x1b?", label: "alt+?" },
+] as const;
+const HELP_SCROLL_KEYS = [
+	{ down: "j", up: "k" },
+	{ down: "n", up: "p" },
+	{ down: "f", up: "b" },
+	{ down: "d", up: "u" },
+] as const;
+
+function isUnbound(keys: KeybindingsManager, input: string): boolean {
+	return Object.values(keys.getResolvedBindings()).every((binding) => {
+		const list = Array.isArray(binding) ? binding : [binding];
+		return list.every((key) => key === undefined || !matchesKey(input, key));
+	});
+}
+
 export class AuthDashboard extends FramePanel<DashboardResult> {
 	#tab: TabId;
 	#confirmation: DiscardConfirmation | undefined;
+	#helpOpen = false;
+	#helpOffset = 0;
+	#helpMaxOffset = 0;
+	#helpPageSize = 1;
 	readonly #views: Record<TabId, TabView>;
 	readonly #providerCount: number;
 	readonly #factories: Readonly<Record<TabId, TabViewFactory>>;
@@ -109,13 +147,88 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 		this.refresh();
 	}
 
+	#helpKey(): (typeof HELP_KEYS)[number] | undefined {
+		return HELP_KEYS.find(({ input }) => isUnbound(this.keys, input));
+	}
+
+	#helpScrollKeys(): (typeof HELP_SCROLL_KEYS)[number] | undefined {
+		return HELP_SCROLL_KEYS.find(
+			({ down, up }) => isUnbound(this.keys, down) && isUnbound(this.keys, up),
+		);
+	}
+
+	#renderHelp(
+		width: number,
+		bodyRows: number,
+		description: string,
+		feedback: readonly string[],
+		hints: readonly HintItem[],
+	): string[] {
+		const helpKey = this.#helpKey();
+		const scrollKeys = this.#helpScrollKeys();
+		const hintText = (item: HintItem) =>
+			item.key
+				? `${this.theme.fg("dim", item.key)} ${this.theme.fg("muted", item.action)}`
+				: this.theme.fg("muted", item.action);
+		const content = [
+			this.theme.bold("Description"),
+			description,
+			...(feedback.length ? [this.theme.bold("Feedback"), ...feedback] : []),
+			this.theme.bold("Keys"),
+			...hints.map(hintText),
+		];
+		const lines = content.flatMap((text) =>
+			wrapTextWithAnsi(text, Math.max(1, width - 1)).map((line) => ` ${line}`),
+		);
+		this.#helpPageSize = Math.max(1, bodyRows);
+		this.#helpMaxOffset = Math.max(0, lines.length - bodyRows);
+		this.#helpOffset = Math.min(this.#helpOffset, this.#helpMaxOffset);
+		const scroll = scrollKeys
+			? `${scrollKeys.down}/${scrollKeys.up}`
+			: this.binding("tui.select.down") || this.binding("tui.select.pageDown");
+		return drawFrame(this.theme, width, {
+			crumbs: ["Auth", "Help"],
+			body: lines.slice(this.#helpOffset, this.#helpOffset + bodyRows),
+			bodyRows,
+			compact: true,
+			header: [],
+			above: this.#helpOffset,
+			below: Math.max(0, lines.length - this.#helpOffset - bodyRows),
+			description: "",
+			footer: fitHint(
+				this.theme,
+				[
+					{ key: scroll, action: "scroll", priority: 0 },
+					{ key: helpKey?.label ?? this.binding("tui.select.cancel"), action: "back", priority: 0 },
+				],
+				width - 1,
+				true,
+			),
+		});
+	}
+
 	render(width: number): string[] {
 		const { bodyRows, compact } = layoutFor(this.host.terminal.rows, 1, this.#preferences?.());
 		const spec = TABS.find((tab) => tab.id === this.#tab);
 		const count = this.#providerCount;
+		const helpKey = this.#helpKey();
+		const affordance = helpKey ? this.theme.fg("dim", `${helpKey.label} help`) : "";
 		if (this.#confirmation) {
 			const discard = { key: this.binding("tui.select.confirm"), action: "discard", priority: 0 };
 			const keep = { key: this.binding("tui.select.cancel"), action: "keep", priority: 0 };
+			const prompt = this.#isSaving()
+				? "Saving; wait."
+				: this.#confirmation.kind === "all"
+					? "Discard all & exit?"
+					: "Discard this draft?";
+			if (this.#helpOpen)
+				return this.#renderHelp(
+					width,
+					bodyRows,
+					this.theme.fg("warning", prompt),
+					[],
+					[discard, keep],
+				);
 			const combined = fitHint(this.theme, [discard, keep], width - 1, true);
 			const split =
 				compact &&
@@ -125,16 +238,10 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 			return drawFrame(this.theme, width, {
 				crumbs: ["Auth", spec?.label ?? ""],
 				state: this.theme.fg("dim", `${count} provider${count === 1 ? "" : "s"}`),
+				affordance,
 				header: [tabBar(this.theme, this.#tab, width - 1)],
 				body: [
-					this.theme.fg(
-						"warning",
-						this.#isSaving()
-							? " Saving; wait."
-							: this.#confirmation.kind === "all"
-								? " Discard all & exit?"
-								: " Discard this draft?",
-					),
+					this.theme.fg("warning", ` ${prompt}`),
 					...(split ? [` ${fitHint(this.theme, [discard], width - 1)}`] : []),
 				],
 				bodyRows,
@@ -144,23 +251,34 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 			});
 		}
 		const body = this.#views[this.#tab].render(width, bodyRows);
+		const tabHints = this.#helpOpen ? (body.fullHints ?? body.hints) : body.hints;
 		const hints: HintItem[] = body.modal
-			? [...body.hints]
+			? [...tabHints]
 			: [
 					{ key: this.binding("tui.input.tab"), action: "switch", priority: 1 },
-					...body.hints,
+					...tabHints,
 					{ key: this.binding("tui.select.cancel"), action: "close", priority: 0 },
 				];
+		const description = body.description ?? this.theme.fg("muted", spec?.description ?? "");
+		if (this.#helpOpen)
+			return this.#renderHelp(
+				width,
+				bodyRows,
+				body.fullDescription ?? description,
+				body.fullFeedback ?? [],
+				hints,
+			);
 		return drawFrame(this.theme, width, {
 			crumbs: ["Auth", spec?.label ?? ""],
 			state: body.state ?? this.theme.fg("dim", `${count} provider${count === 1 ? "" : "s"}`),
+			affordance,
 			header: [tabBar(this.theme, this.#tab, width - 1)],
 			body: body.lines,
 			bodyRows,
 			compact,
 			above: body.above,
 			below: body.below,
-			description: body.description ?? this.theme.fg("muted", spec?.description ?? ""),
+			description,
 			footer: fitHint(this.theme, hints, width - 1, body.modal ?? false),
 		});
 	}
@@ -184,6 +302,38 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	handleInput(data: string): void {
 		if (this.isClosed) return;
 		const keys = this.keys;
+		const helpKey = this.#helpKey();
+		if (helpKey && matchesKey(data, helpKey.key)) {
+			this.#helpOpen = !this.#helpOpen;
+			this.#helpOffset = 0;
+			this.refresh();
+			return;
+		}
+		if (this.#helpOpen) {
+			if (keys.matches(data, "tui.select.cancel") || matchesKey(data, "ctrl+c")) {
+				this.#helpOpen = false;
+			} else {
+				const scrollKeys = this.#helpScrollKeys();
+				const up =
+					keys.matches(data, "tui.select.up") ||
+					(scrollKeys !== undefined && matchesKey(data, scrollKeys.up));
+				const down =
+					keys.matches(data, "tui.select.down") ||
+					(scrollKeys !== undefined && matchesKey(data, scrollKeys.down));
+				const pageUp =
+					keys.matches(data, "tui.select.pageUp") || keys.matches(data, "tui.editor.pageUp");
+				const pageDown =
+					keys.matches(data, "tui.select.pageDown") || keys.matches(data, "tui.editor.pageDown");
+				const step = pageUp || pageDown ? this.#helpPageSize : 1;
+				if (up || down || pageUp || pageDown)
+					this.#helpOffset = Math.max(
+						0,
+						Math.min(this.#helpMaxOffset, this.#helpOffset + (up || pageUp ? -step : step)),
+					);
+			}
+			this.refresh();
+			return;
+		}
 		const confirmation = this.#confirmation;
 		if (confirmation) {
 			if (keys.matches(data, "tui.select.cancel")) {
@@ -231,6 +381,7 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	override dispose(): void {
 		if (this.isClosed) return;
 		this.#confirmation = undefined;
+		this.#helpOpen = false;
 		super.dispose();
 		for (const spec of TABS) this.#views[spec.id].dispose?.();
 	}

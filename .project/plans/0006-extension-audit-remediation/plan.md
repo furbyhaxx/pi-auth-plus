@@ -5,7 +5,7 @@ title: "Extension audit remediation"
 description: "Resolve all findings from the extension completeness and quality audit with regression and acceptance evidence."
 type: "plan"
 created: "2026-10-29T16:40:10+01:00"
-updated: "2026-10-29T18:53:11+01:00"
+updated: "2026-10-29T19:57:19+01:00"
 createdBy: "pi"
 updatedBy: "pi"
 document:
@@ -14,9 +14,9 @@ document:
   title: "Extension audit remediation"
   description: "Finding-level closure ledger and rolling-wave implementation boundaries."
   status: "draft"
-  revision: 5
+  revision: 6
   created_at: "2026-10-29T16:40:10+01:00"
-  updated_at: "2026-10-29T18:53:11+01:00"
+  updated_at: "2026-10-29T19:57:19+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -35,6 +35,9 @@ document:
     - revision: 5
       reason: "Integrate production pickers, typed collections and session-owned dashboard actions"
       changes: ["Record canonical group health, live panel preferences and remaining outcome/help consumers"]
+    - revision: 6
+      reason: "Complete production consumers and start combined and live acceptance"
+      changes: ["Map every remaining finding to integrated code", "Record cancel-safe host selection and its failed-reload review correction", "Keep pending acceptance and baseline failures explicit"]
 ---
 
 # Scope and acceptance
@@ -59,10 +62,11 @@ done   Committed persistence warnings, independent effects and catalog retry out
        └─ Settings/Groups/Models/Alias recursive draft and busy contracts
 done   Production picker/typed collections and creation-time panel ownership
        └─ Scrollable shared health UI, canonical quota IDs and live frame preferences
-now    Scoped placement/rule outcomes and compact feedback/help
-       └─ Provenance/matched-rule consumers, routing indicators and startup warnings
-next   Documentation/design reconciliation and finding-level acceptance evidence
-later  Complete full gates and real-host/provider acceptance
+done   Scoped placement/rule outcomes, complete compact Help and wide input allocation
+       └─ Live provenance/rule controls, branch-selected routes and startup warnings
+now    Combined gates, live provider/quota/count calls, production terminal and performance QA
+       └─ Host-owned model selection: core/API/consumer and failed-reload correction verified
+next   Resolve acceptance defects and record final finding-level evidence
 ```
 
 Concurrent writers use isolated worktrees and explicit scopes. Shared entrypoint changes integrate
@@ -84,32 +88,32 @@ sequentially. The Workbench project task P1 owns this effort; task notes retain 
 | F08 | Visibility policy governs virtual groups consistently | Fixed: `ce0a6a7`; filtered registration/removal/restoration and selected-group warning/fallback; 13 passed/96 assertions and isolated host hidden/unhidden listing passed |
 | F09 | Search tool enable/disable applies symmetrically and truthfully | Integrated: `74adb8a`, inactive factory registration, live activation membership and disabled execution refusal; Synthetic 25 passed/934 assertions, parent compatibility suites 57 passed/371 assertions; final host acceptance pending |
 | F10 | Policy-controlled scopes and effective values agree | Fixed: `ab8a4dd`; field-owned allowed scopes used by read/source/load/save, forbidden legacy values removable; 17 passed/99 assertions |
-| F11 | Every scoped save reports higher-layer shadowing | Open |
-| F12 | Group members pass the router's physical-model eligibility boundary | Implemented: `c140244`; shared editor/router predicate rejects reserved group provider and virtual API, preserves physical aliases; 27 passed; settlement adoption remains |
+| F11 | Every scoped save reports higher-layer shadowing | Integrated: `6ad1d1d`, `2dd635a`, `399fd94`; shared formatSaveOutcome consumed by Settings, JSON, Rules, Groups, Alias and Quotas. Scoped regression assertions cover higher-layer shadowing; final terminal acceptance pending |
+| F12 | Group members pass the router's physical-model eligibility boundary | Integrated: `c140244`; shared predicate used by editor, router and settlement, rejects reserved group provider and virtual API, preserves physical aliases; final keyboard acceptance pending |
 | F13 | Counter selection, cache identity and native requests use physical alias targets | Fixed: `4f9ca07`; resolve before cache/family selection, keep logical report identity; regression-first 3 failures then 16 passed/84 assertions |
-| F14 | Physical group requests receive verbosity and refresh attribution | Open |
+| F14 | Physical group requests receive verbosity and refresh attribution | Integrated: `57a4fe0`; physical payload and actual response providers own effects; session-provider fallback only without physical hooks. Lifecycle regressions pass; live dispatch acceptance pending |
 | F15 | UI health and router health share truthful definitions and member detail | Integrated `576ceb3`, `20399bb`, `d2044ff`: shared GroupMemberHealth, canonical quota IDs, per-member states and intra-group scrolling. Parent combined picker/health/group-routing gate 121 passed/3249 assertions; final terminal acceptance pending |
 | F16 | Threshold relationships are validated rather than silently rewritten | Integrated: relation metadata validates loaded/locked target and higher layers, contradictory edits fail before write; credit and token threshold config regressions pass in parent combined 97-test gate |
 | F17 | Stopped sessions cannot commit queued quota mutations | Fixed: `f7066d4`; real held-file-lock tests for acquire/snapshot/failure/headers, cancellation and restart; P1c |
 | F18 | Token reports invalidate immediately when model identity changes | Fixed: `8f21555`; immediate invalidation, branch replacement and stale-result regressions; P1h |
 | F19 | Rule preview compilation is bounded by state changes, not model count | Fixed: `f8b3e88`; batched rulesets and unchanged-frame cache regressions; measured warm compilation count 1,111 to zero; timings below; P1g |
-| F20 | Model selection is searchable/pageable by ID or human name; members reuse it | Integrated `0c28352`, `96de700`: shared Models/member picker, full identity inspection, bound paging with Alt+Up/Down fullscreen fallback; parent combined gate 121 passed. Old group-detail fixture migration and final terminal acceptance pending |
-| F21 | Narrow panels retain/reveal full identity, recovery and essential actions | Open |
+| F20 | Model selection is searchable/pageable by ID or human name; members reuse it | Integrated `0c28352`, `96de700`, `68ba9ac`: shared Models/member picker, full identity inspection, bound paging with Alt+Up/Down fullscreen fallback; legacy picker fixtures migrated. Final terminal acceptance pending |
+| F21 | Narrow panels retain/reveal full identity, recovery and essential actions | Integrated dashboard Help and complete consumers: `0b8e293`, `abf60a5`, `7af968b`, `46aa273`. Unclipped descriptions, feedback and actual owner hints survive narrow/one-row bodies; Models/picker 48 passed/1730 assertions; final terminal acceptance pending |
 | F22 | Framework input cursor markup survives rendering | Fixed: `edd0b2b`; preserve framework Input output and sanitize seeds; 12 passed; live terminal acceptance pending |
-| F23 | Missing credentials are login-required, not pending or raw failures | Open |
+| F23 | Missing credentials are login-required, not pending or raw failures | Integrated `1351c65`: structured missing-auth error, Synthetic needsAuth and actionable recovery; line distinguishes login/error/pending. Live engine recovery acceptance pending |
 | F24 | Empty contributions do not claim provider-reported evidence | Fixed: `0b17b5d`; zero-item rows show none while actual usage remains exact; P1j |
 | F25 | All collections have typed in-dashboard staging and editing | Integrated `3e49adb`, `84b6d22`: typed provider/literal-rule collections, dedicated Models/Groups navigation, registry provider choices and recursive drafts; parent Settings/commands 53 passed. Final terminal acceptance pending |
-| F26 | Placement changes use explicit scope and shared save feedback | Open |
-| F27 | Hints match rebound keys and separate multi-character bindings | Open |
-| F28 | Command targets validate and complete forgiving IDs/names/aliases | Open |
-| F29 | Short terminals preserve confirmation/scope/cancel controls | Open |
-| F30 | Row/input widths use actual remaining visible columns | Open |
-| F31 | Rule effects, alias/override provenance and routing indicators match current design | Open |
-| F32 | Appearance/visible metadata/height and warning thresholds are configurable | Partial: `a162eb8` defines six controls; `229a060` consumes live context thresholds; `84b6d22` wires live density/maxBodyRows to AuthDashboard. showProvenance/showMatchedRule consumers pending; primary identity/state remain visible |
+| F26 | Placement changes use explicit scope and shared save feedback | Integrated `399fd94`: staged placement, explicit scope chooser and shared saver/outcome feedback; final terminal acceptance pending |
+| F27 | Hints match rebound keys and separate multi-character bindings | Integrated `edd0b2b`, `5db0796`, `6830b82`: bound labels and separated report navigation. Quotas/Tokens 28 passed/1334 assertions; final rebound terminal acceptance pending |
+| F28 | Command targets validate and complete forgiving IDs/names/aliases | Integrated `aadfc99`: shared resolveTarget/closestNames, validation and abort checks; command regression coverage, final RPC/terminal acceptance pending |
+| F29 | Short terminals preserve confirmation/scope/cancel controls | Integrated `8529508` and complete Help consumers; compact chrome prioritizes actions, full feedback and controls stay reachable. Parent dashboard regressions passed in 90-test integration; final live matrix pending |
+| F30 | Row/input widths use actual remaining visible columns | Integrated `5db0796`, `cdace17`: remaining input width after chrome and natural Settings label width. Wide-label regression failed before fix; Settings 26 passed/1588 assertions; final terminal acceptance pending |
+| F31 | Rule effects, alias/override provenance and routing indicators match current design | Integrated `a7aa782`, `32fa1b8`, `24a726f`, `b8ffd00`: optional metadata, winning-rule explanations and branch-selected physical route. Panel route states selection rather than claiming success. Design reconciled by `ab7baa5`; final live acceptance pending |
+| F32 | Appearance/visible metadata/height and warning thresholds are configurable | Integrated `a162eb8`, `229a060`, `84b6d22`, `32fa1b8`: all six controls have runtime consumers. Metadata changes apply live; primary identity/state remain visible/revealable. Final terminal acceptance pending |
 | F33 | Synthetic search has complete self-rendered tool states and expected error results | Fixed: `c89819f`; self-rendered semantic states, structured expected failure/cancellation, redacted details; 15 passed/860 assertions; live terminal acceptance pending |
-| F34 | Public docs, agent guidance and design/status/storage claims match shipped behavior | Open; final integration |
-| R01 | Late editor continuations cannot save into a replacement session | Guarded: `22fe006`; delayed dashboard/editor/scope/save harness tests; real host boundary acceptance pending |
-| R02 | Old physical responses cannot enter a replacement session | Guarded: `22fe006`; delayed entrypoint callback and stop/start harness regression; real host boundary acceptance pending |
+| F34 | Public docs, agent guidance and design/status/storage claims match shipped behavior | Integrated `af66bf2`, `5688a17`, `ab7baa5`, `75ea7fb`: storage, typed editors, design reconciliation, guidance and guarded/manual selection. Final evidence synchronization pending; historical audit unchanged |
+| R01 | Late editor continuations cannot save into a replacement session | Guarded: `22fe006`, `c185994`, `9ec8ed2`, `bf4bda8`, `75ea7fb`; invocation and startup-emission ownership, locked migration cancellation, panel callbacks. Automatic selection uses feature-detected host guard via `b8b3647`; paired host failed-reload correction and acceptance pending |
+| R02 | Old physical responses cannot enter a replacement session | Guarded: `22fe006`, `57a4fe0`, `c185994`, `9ec8ed2`; actual provider attribution, captured lifetime, stop/start and startup supersession regressions. Final host acceptance pending |
 
 # Integration evidence
 
@@ -145,10 +149,51 @@ sequentially. The Workbench project task P1 owns this effort; task notes retain 
   Models/Groups/picker/group-routing: **121 passed, zero failed, 3,249 assertions**.
   Logs: `/tmp/auth-collections-owners-integration.log`, `/tmp/auth-owner-wiring-integration.log`,
   `/tmp/auth-picker-health-integration.log`. These supersede the old viewport-assumption failure.
-- Active bounded units: P1az quota placement outcomes; P1ba full feedback/help;
-  P1bg Models rule outcomes; P1bd second-stage startup warnings; P1bc independent runtime
-  review; P1be/P1bf public docs synchronization. P1ax retains its old fixture migration.
-- These are focused regression runs, not the final full gate or live acceptance.
+- Final runtime wiring: `75ea7fb` forwards the invocation signal to carry-over. Parent lifecycle,
+  migration and dashboard run: **90 passed, zero failed, 1,834 assertions**.
+- Guarded selection consumer: `b8b3647`; regression-first legacy-host safety, exact signal
+  forwarding, cancellation/supersession and committed settings/override persistence; worker
+  lifecycle run **55 passed, zero failed, 326 assertions**.
+- First combined gate exposed one incomplete new group catalog fixture at typecheck, then
+  four test-fixture contract mismatches: provenance must be explicitly enabled, and fake event
+  emitters must share one payload object across all handlers. Corrected without weakening any
+  assertions; targeted follow-up **20 passed, zero failed, 186 assertions**. Fixture corrections
+  are committed as `e38dd17`.
+- Final extension gate on that working tree: **1,183 passed, zero failed, 16,265 assertions**;
+  typecheck and Biome passed (291 files). Real RPC command loading passed, provider parity passed
+  for **555 models / nine provider entries**, and AOT passed for **165 modules**, largest module
+  88,304 bytes. Commands: `just check`, `just rpc-verify`, `just parity-verify`, `just aot-verify`.
+- Production terminal acceptance passed all exercised offline scenarios with **167 captures**,
+  both themes, configured rebound keys, 36/57/80/140 columns and 8/12-row short cases. Evidence:
+  [terminal report](../../analyses/extension-audit-remediation/terminal/2026-10-29-production-dashboard-terminal.md).
+  Trusted-project saving, measured contrast and physical mouse/accessibility were not proved.
+- Active acceptance: P1bn1 real provider streaming, P1bn2 quota/count endpoints, P1bn3
+  performance and P1bn4 production terminal matrix. P1bj owns the paired host boundary.
+- Provider streaming has five observed successful paths including a Synthetic virtual group;
+  OpenCode returned an upstream free-tier error and another registered approved free route is
+  being checked. Quota/count and fresh performance evidence are still in progress. Do not turn
+  the green extension gate or offline terminal matrix into a claim that all endpoints passed.
+
+## Pi-Bolt host boundary
+
+The user approved adding an ownership guard. The uncommitted host patch is isolated at
+`devlap05:/mnt/Projects/furbyhaxx/pi-bolt/.worktrees/fix-model-selection-owner` (base `a459610`).
+Host `AGENTS.md` requires leaving it uncommitted; the independently advancing root checkout is
+untouched. The new API is `setModelIfCurrent(model, signal): Promise<boolean>`; a true result
+means committed and still current after `model_select`. Retirement, reload, newer selections
+and cancellation invalidate old requests before authentication can resume into a new owner.
+Stock builds without the method retain successful saves and warn for manual `/model` selection.
+
+- Core and loaded-extension regressions passed in their scoped runs. Latest selection/API suite:
+  **40 tests passed**. The related post-login boolean mock was corrected; its **seven tests
+  passed**. The full host `npm run check` reached typecheck and found unrelated signing-key literal
+  types. An untouched worktree at the exact `a459610` base, with matching installed dependencies,
+  reproduced those 13 signing-type diagnostics. Final host static rerun is in progress.
+- Independent paired review found and corrected a failed-reload liveness regression. The reload
+  gate now clears in a generation-owned finally block, while old attempts stay invalidated and
+  retirement stays closed. The new regression first failed three cases, then all **40 selection
+  tests passed**, including fresh set/cycle after failure and overlapping reload ownership.
+- No host binary was built, installed or published. Full static success is not yet established.
 
 ## Rule-preview performance
 

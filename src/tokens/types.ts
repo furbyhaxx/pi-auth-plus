@@ -4,10 +4,21 @@ import type { Api, Context, Model } from "@earendil-works/pi-ai";
 /** Where a count comes from, in precedence order; native counts describe their supplied request. */
 export type TokenSource = "provider" | "count-endpoint" | "tokenizer" | "estimate";
 
-/** A token count labelled with its source. */
+/** A user-actionable explanation for a token count that needs authentication. */
+export interface TokenDiagnostic {
+	/** The machine-readable diagnostic category. */
+	readonly code: "needs-auth";
+	/** Pi provider id that requires authentication. */
+	readonly provider: string;
+	/** Recovery guidance for the user. */
+	readonly message: string;
+}
+
+/** A token count labelled with its source and any user-actionable diagnostics. */
 export interface TokenCount {
 	readonly tokens: number;
 	readonly source: TokenSource;
+	readonly diagnostics?: readonly TokenDiagnostic[];
 }
 
 /** A loaded tokenizer that counts plain text, without special tokens or chat template. */
@@ -36,11 +47,18 @@ export function weakerSource(a: TokenSource, b: TokenSource): TokenSource {
 export function sumCounts(counts: readonly TokenCount[]): TokenCount {
 	let tokens = 0;
 	let source: TokenSource = "provider";
+	const diagnostics = new Map<string, TokenDiagnostic>();
 	for (const count of counts) {
 		tokens += count.tokens;
 		source = weakerSource(source, count.source);
+		for (const diagnostic of count.diagnostics ?? []) {
+			const key = JSON.stringify([diagnostic.provider, diagnostic.code, diagnostic.message]);
+			if (!diagnostics.has(key)) diagnostics.set(key, diagnostic);
+		}
 	}
-	return { tokens, source };
+	return diagnostics.size > 0
+		? { tokens, source, diagnostics: [...diagnostics.values()] }
+		: { tokens, source };
 }
 
 /** How text is shaped; estimates use a different chars-per-token ratio for each. */

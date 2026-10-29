@@ -1,11 +1,18 @@
 import { expect, test } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
-import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	type KeybindingsConfig,
+	KeybindingsManager,
+	TUI_KEYBINDINGS,
+	visibleWidth,
+} from "@earendil-works/pi-tui";
 import type { BreakdownPart, ContextReport } from "../../src/tokens/engine/index.ts";
 import type { TokenTracker } from "../../src/tokens/tracker/types.ts";
 import { AuthDashboard, staticViews } from "../../src/ui/dashboard/index.ts";
+import { RowsView } from "../../src/ui/dashboard/rows.ts";
 import { TokensView, tokensText } from "../../src/ui/dashboard/tokens.ts";
 import type { TabViewHost } from "../../src/ui/dashboard/view.ts";
+import { bindingLabel } from "../../src/ui/frame/index.ts";
 
 const report: ContextReport = {
 	provider: "test-provider",
@@ -20,7 +27,7 @@ const report: ContextReport = {
 	computedAt: 0,
 };
 
-function open() {
+function open(bindings: KeybindingsConfig = {}) {
 	let current: ContextReport | undefined = report;
 	let listener: Parameters<TokenTracker["onChange"]>[0] = () => {};
 	let resolve: (parts: readonly BreakdownPart[] | undefined) => void = () => {};
@@ -43,10 +50,11 @@ function open() {
 			});
 		},
 	};
+	const keys = new KeybindingsManager(TUI_KEYBINDINGS, bindings);
 	const host: TabViewHost = {
 		theme: { fg: (_token, text) => text, bg: (_token, text) => text, bold: (text) => text },
-		keys: new KeybindingsManager(TUI_KEYBINDINGS),
-		binding: () => "↑↓",
+		keys,
+		binding: (id) => bindingLabel(keys, id),
 		refresh: () => {
 			renders++;
 		},
@@ -278,5 +286,27 @@ test("scroll exposes the breakdown in short terminals", () => {
 	expect(f.view.handleInput("\x1b[B")).toBe(true);
 	expect(f.view.render(36, 2).above).toBe(1);
 	expect(f.view.handleInput("\t")).toBe(false);
+	const rebound = open({
+		"tui.select.up": "ctrl+shift+up",
+		"tui.select.down": "ctrl+shift+down",
+	});
+	expect(rebound.view.render(36, 2).hints).toContainEqual({
+		key: "ctrl+shift+up/ctrl+shift+down",
+		action: "scroll",
+		priority: 2,
+	});
+	const rows = new RowsView(rebound.host, {
+		rows: [
+			{ label: "one", value: "value", tone: "muted" },
+			{ label: "two", value: "value", tone: "muted" },
+		],
+		empty: "none",
+	});
+	expect(rows.render(36, 1).hints).toContainEqual({
+		key: "ctrl+shift+up/ctrl+shift+down",
+		action: "scroll",
+		priority: 2,
+	});
+	rebound.view.dispose();
 	f.view.dispose();
 });

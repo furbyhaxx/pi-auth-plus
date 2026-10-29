@@ -258,7 +258,7 @@ export class QuotasView implements TabView {
 			),
 			hints: [
 				{
-					key: `${this.#host.binding("tui.select.up")}${this.#host.binding("tui.select.down")}`,
+					key: `${sanitize(this.#host.binding("tui.select.up"))}/${sanitize(this.#host.binding("tui.select.down"))}`,
 					action: "provider",
 					priority: 2,
 				},

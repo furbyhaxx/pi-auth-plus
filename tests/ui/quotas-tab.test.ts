@@ -104,6 +104,7 @@ function open(
 	);
 	return {
 		view,
+		host,
 		calls,
 		saves,
 		finished,
@@ -496,6 +497,15 @@ describe("quotas tab", () => {
 			"tui.select.confirm": "ctrl+g",
 			"tui.select.cancel": "ctrl+x",
 		});
+		const rebound = open([provider("one")], undefined, {
+			"tui.select.up": "ctrl+shift+up",
+			"tui.select.down": "ctrl+shift+down",
+		});
+		expect(rebound.view.render(80, 10).hints).toContainEqual({
+			key: "ctrl+shift+up/ctrl+shift+down",
+			action: "provider",
+			priority: 2,
+		});
 		f.view.handleInput("p");
 		expect(f.view.hasDrafts()).toBe(false);
 		f.view.handleInput("\x18");
@@ -527,6 +537,21 @@ describe("quotas tab", () => {
 		expect(f.placement()).toBe("below-editor-first");
 		expect(f.saves).toEqual([]);
 		expect(f.view.handleInput("\x18")).toBe(false);
+		const views = staticViews({ providers: [], nowMs: 0 });
+		views.quotas = () => rebound.view;
+		const panel = new AuthDashboard(
+			{ terminal: { rows: 40 }, requestRender: () => {} },
+			f.host.theme,
+			f.host.keys,
+			() => {},
+			views,
+			"quotas",
+			1,
+		);
+		panel.handleInput("\x1bOP");
+		const fullHelp = stripVTControlCharacters(panel.render(80).join("\n"));
+		expect(fullHelp).toContain("ctrl+shift+up/ctrl+shift+down provider");
+		panel.dispose();
 		f.view.dispose();
 	});
 

@@ -35,7 +35,7 @@ export class RowsView implements TabView {
 				: [` ${theme.fg("muted", this.#content.empty)}`];
 		this.#maxOffset = Math.max(0, lines.length - bodyRows);
 		this.#offset = Math.min(this.#offset, this.#maxOffset);
-		const scroll = `${this.#host.binding("tui.select.up")}${this.#host.binding("tui.select.down")}`;
+		const scroll = `${sanitize(this.#host.binding("tui.select.up"))}/${sanitize(this.#host.binding("tui.select.down"))}`;
 		const selected = this.#content.rows[this.#offset];
 		const labelWidth =
 			selected === undefined

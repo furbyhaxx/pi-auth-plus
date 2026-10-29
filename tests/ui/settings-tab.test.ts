@@ -214,6 +214,9 @@ describe("settings tab", () => {
 		expect(rig.text()).toContain("unfinished-value");
 		expect(rig.text()).toContain("● staged");
 		expect(rig.text()).toContain("disk rejected changes");
+		expect(stripVTControlCharacters(rig.view.render(36, 1).fullFeedback?.[0] ?? "")).toBe(
+			"disk rejected changes",
+		);
 
 		rig.setSave(
 			createSettingsSaver(() => ({
@@ -244,6 +247,9 @@ describe("settings tab", () => {
 		rig.view.handleInput("bad");
 		rig.view.handleInput("\x13");
 		expect(rig.text()).toContain("Invalid value");
+		expect(stripVTControlCharacters(rig.view.render(36, 1).fullFeedback?.[0] ?? "")).toBe(
+			"Invalid value for Compact width; edit and retry",
+		);
 		expect(rig.saved).toEqual([]);
 		rig.view.handleInput("\x01");
 		rig.view.handleInput("\x0b");
@@ -256,6 +262,28 @@ describe("settings tab", () => {
 		expect(rig.text()).toContain("105");
 		await save(rig, "r");
 		expect(rig.store.get("quotas.compactWidthCols")).toBe(105);
+	});
+
+	test("full help retains the setting description, save warning and rebound key", async () => {
+		const keys = new KeybindingsManager(TUI_KEYBINDINGS, { "tui.select.confirm": "j" });
+		const rig = open("dashboard.maxBodyRows", undefined, true, { keys });
+		const description = SETTINGS["dashboard.maxBodyRows"].description;
+		const warning = "A long warning with its complete explanation\nincluding the second line";
+		rig.setSave(async (scope) => ({ committed: true, scope, shadowed: [], warnings: [warning] }));
+
+		let body = rig.view.render(36, 1);
+		expect(stripVTControlCharacters(body.fullDescription ?? "")).toBe(description);
+		expect(body.fullHints?.some((hint) => hint.key === "j")).toBe(true);
+		for (const line of [...body.lines, body.description ?? ""])
+			expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+
+		rig.view.handleInput("l");
+		await save(rig, "u");
+		body = rig.view.render(36, 1);
+		expect(stripVTControlCharacters(body.fullFeedback?.[0] ?? "")).toBe(
+			`Saved to user scope; warning: ${warning}`,
+		);
+		for (const line of body.lines) expect(visibleWidth(line)).toBeLessThanOrEqual(36);
 	});
 
 	test("long save outcomes remain readable across result pages", async () => {
@@ -301,6 +329,7 @@ describe("settings tab", () => {
 		rig.view.handleInput("\x13");
 		expect(rig.text()).not.toContain("p project");
 		expect(rig.view.render(140, 30).hints.map((hint) => hint.key)).not.toContain("p");
+		expect(rig.view.render(140, 30).fullHints?.map((hint) => hint.key)).not.toContain("p");
 		rig.view.handleInput("p");
 		expect(rig.saved).toEqual([]);
 		expect(rig.text()).not.toContain("p project");
@@ -316,6 +345,9 @@ describe("settings tab", () => {
 		removal.view.handleInput(" ");
 		removal.view.handleInput("\x13");
 		expect(removal.text()).toContain("p project");
+		expect(removal.view.render(140, 30).fullHints).toContainEqual(
+			expect.objectContaining({ key: "p", action: "project" }),
+		);
 		removal.view.handleInput("p");
 		await removal.nextRefresh();
 		expect(removal.saved[0]?.scope).toBe("project");

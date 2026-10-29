@@ -175,6 +175,7 @@ describe("collection detail", () => {
 		expect(r.staged).toHaveLength(2);
 		const body = r.view.render(36, 1);
 		expect(stripVTControlCharacters(body.description ?? "")).toMatch(/match/i);
+		expect(stripVTControlCharacters(body.fullDescription ?? "")).toMatch(/Match required/i);
 		expect(body.hints.some((item) => item.key === "ctrl+s")).toBe(true);
 		r.edit("Rule 1 match", "fixed");
 		r.press("\x13");
@@ -206,6 +207,20 @@ describe("collection detail", () => {
 		const body = r.view.render(36, 1);
 		expect(stripVTControlCharacters(body.description ?? "")).toContain("d remove");
 		expect(stripVTControlCharacters(body.description ?? "")).toContain("shift+↑/↓");
+		expect(stripVTControlCharacters(body.fullDescription ?? "")).toBe(
+			"Literal; d remove · shift+↑/↓ move",
+		);
+		expect(body.fullHints).toContainEqual(
+			expect.objectContaining({ key: "ctrl+s", action: "apply" }),
+		);
+		expect(body.fullHints).toContainEqual(
+			expect.objectContaining({
+				key: r.host.binding("tui.select.cancel"),
+				action: "back",
+			}),
+		);
+		for (const line of [...body.lines, body.description ?? ""])
+			expect(visibleWidth(line)).toBeLessThanOrEqual(36);
 		const hints = fitHint(r.host.theme, body.hints, 35);
 		expect(hints).toContain("ctrl+s");
 		expect(hints).toContain(r.host.binding("tui.select.cancel"));
@@ -297,9 +312,22 @@ describe("collection detail", () => {
 		);
 		view.handleInput("\x13");
 		expect(staged).toEqual([]);
-		expect(
-			view.render(36, 1).hints.some((hint) => hint.key === "ctrl+g" && hint.action === "apply"),
-		).toBe(true);
+		const body = view.render(36, 1);
+		expect(body.hints.some((hint) => hint.key === "ctrl+g" && hint.action === "apply")).toBe(true);
+		expect(body.fullHints).toContainEqual(
+			expect.objectContaining({ key: "ctrl+s", action: "toggle" }),
+		);
+		expect(body.fullHints).toContainEqual(
+			expect.objectContaining({ key: "ctrl+g", action: "apply" }),
+		);
+		expect(body.fullHints).toContainEqual(
+			expect.objectContaining({
+				key: host.binding("tui.select.cancel"),
+				action: "back",
+			}),
+		);
+		for (const line of [...body.lines, body.description ?? ""])
+			expect(visibleWidth(line)).toBeLessThanOrEqual(36);
 		view.handleInput("\x07");
 		expect(staged).toEqual([["alpha"]]);
 	});

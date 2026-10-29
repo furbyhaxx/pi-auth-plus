@@ -340,7 +340,7 @@ export class SettingsView implements TabView {
 	render(width: number, bodyRows: number): TabBody {
 		if (this.#detail) return this.#detail.render(width, bodyRows);
 		const { theme } = this.#host;
-		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
+		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => sanitize(this.#host.binding(id));
 		const selected = settingKeys[this.#selected];
 		const rows: string[] = [];
 		let section = "";
@@ -422,60 +422,62 @@ export class SettingsView implements TabView {
 		this.#offset = Math.max(this.#offset, selectedRow - available + 1);
 		this.#offset = Math.min(this.#offset, Math.max(0, rows.length - available));
 		const field = selected === undefined ? undefined : SETTINGS[selected];
+		const fullDescription = theme.fg("muted", sanitize(field?.description ?? ""));
+		const fullFeedback = this.#message ? [theme.fg("warning", sanitize(this.#message))] : [];
+		const hints =
+			this.#mode === "edit"
+				? [
+						{ key: binding("tui.select.confirm"), action: "stage", priority: 0 },
+						{ key: this.#saveKey(), action: "save", priority: 1 },
+						{ key: binding("tui.select.cancel"), action: "cancel edit", priority: 0 },
+					]
+				: this.#mode === "save"
+					? [
+							...(this.#allowsScope("user") ? [{ key: "u", action: "user", priority: 0 }] : []),
+							...(this.#allowsScope("project")
+								? [{ key: "p", action: "project", priority: 0 }]
+								: []),
+							...(this.#allowsScope("runtime")
+								? [{ key: "r", action: "session", priority: 0 }]
+								: []),
+							{ key: binding("tui.select.cancel"), action: "cancel", priority: 1 },
+						]
+					: [
+							{
+								key: binding("tui.select.confirm"),
+								action:
+									selected === "models.groups"
+										? "open Groups"
+										: selected === "models.rules" || selected === "models.aliases"
+											? "open Models"
+											: "edit",
+								priority: 1,
+							},
+							{ key: this.#saveKey(), action: "save", priority: 1 },
+							{ key: "Backspace", action: "default", priority: 3 },
+							{
+								key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
+								action: "move",
+								priority: 2,
+							},
+							{
+								key: `${binding("tui.editor.cursorLeft")}/${binding("tui.editor.cursorRight")}`,
+								action: "change",
+								priority: 2,
+							},
+						];
 		return {
 			lines: [...rows.slice(this.#offset, this.#offset + available), ...details.slice(0, reserved)]
 				.slice(0, bodyRows)
 				.map((line) => truncateToWidth(line, width, "…")),
 			above: this.#offset,
 			below: Math.max(0, rows.length - this.#offset - available),
-			description: truncateToWidth(
-				theme.fg("muted", sanitize(field?.description ?? "")),
-				Math.max(1, width - 1),
-				"…",
-			),
+			description: truncateToWidth(fullDescription, Math.max(1, width - 1), "…"),
+			fullDescription,
+			fullFeedback,
+			fullHints: hints,
 			modal: this.#mode !== "list",
-			hints:
-				this.#mode === "edit"
-					? [
-							{ key: binding("tui.select.confirm"), action: "stage", priority: 0 },
-							{ key: this.#saveKey(), action: "save", priority: 1 },
-							{ key: binding("tui.select.cancel"), action: "cancel edit", priority: 0 },
-						]
-					: this.#mode === "save"
-						? [
-								...(this.#allowsScope("user") ? [{ key: "u", action: "user", priority: 0 }] : []),
-								...(this.#allowsScope("project")
-									? [{ key: "p", action: "project", priority: 0 }]
-									: []),
-								...(this.#allowsScope("runtime")
-									? [{ key: "r", action: "session", priority: 0 }]
-									: []),
-								{ key: binding("tui.select.cancel"), action: "cancel", priority: 1 },
-							]
-						: [
-								{
-									key: binding("tui.select.confirm"),
-									action:
-										selected === "models.groups"
-											? "open Groups"
-											: selected === "models.rules" || selected === "models.aliases"
-												? "open Models"
-												: "edit",
-									priority: 1,
-								},
-								{ key: this.#saveKey(), action: "save", priority: 1 },
-								{ key: "Backspace", action: "default", priority: 3 },
-								{
-									key: `${binding("tui.select.up")}/${binding("tui.select.down")}`,
-									action: "move",
-									priority: 2,
-								},
-								{
-									key: `${binding("tui.editor.cursorLeft")}/${binding("tui.editor.cursorRight")}`,
-									action: "change",
-									priority: 2,
-								},
-							],
+			hints,
 		};
 	}
 }

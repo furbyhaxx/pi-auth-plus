@@ -515,7 +515,7 @@ export class CollectionDetail implements TabView {
 		this.#offset = Math.max(0, Math.min(this.#offset, this.#selected));
 		this.#offset = Math.max(this.#offset, this.#selected - available + 1);
 		this.#offset = Math.max(0, Math.min(this.#offset, lines.length - available));
-		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
+		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => sanitize(this.#host.binding(id));
 		const left = binding("tui.editor.cursorLeft");
 		const right = binding("tui.editor.cursorRight");
 		const horizontal = left && right ? `${left}/${right}` : "h/l";
@@ -543,6 +543,36 @@ export class CollectionDetail implements TabView {
 									: "Toggle providers or add a custom ID");
 		const up = binding("tui.select.up");
 		const down = binding("tui.select.down");
+		const fullDescription = theme.fg(this.#message ? "warning" : "muted", clean(help));
+		const hints = this.#edit
+			? [
+					{ key: binding("tui.select.confirm"), action: "set", priority: 0 },
+					{ key: apply, action: "apply", priority: 0 },
+					{ key: binding("tui.select.cancel"), action: "back", priority: 0 },
+				]
+			: [
+					{
+						key: binding("tui.select.confirm"),
+						action:
+							selected?.kind === "unknown"
+								? "remove"
+								: selected?.kind === "choice" || selected?.kind === "action"
+									? "toggle"
+									: selected?.kind === "add-rule" || selected?.kind === "add-provider"
+										? "add"
+										: "edit",
+						priority: 1,
+					},
+					{ key: up && down ? `${up}/${down}` : "k/j", action: "move", priority: 2 },
+					...(selected && "index" in selected
+						? [{ key: remove, action: "remove", priority: 1 }]
+						: []),
+					...(data.kind === "rules" && selected && "index" in selected
+						? [{ key: reorder.label, action: "reorder", priority: 2 }]
+						: []),
+					{ key: apply, action: "apply", priority: 0 },
+					{ key: binding("tui.select.cancel"), action: "back", priority: 0 },
+				];
 		return {
 			lines: lines
 				.slice(this.#offset, this.#offset + available)
@@ -555,40 +585,10 @@ export class CollectionDetail implements TabView {
 				Math.max(0, width),
 				"…",
 			),
-			description: truncateToWidth(
-				theme.fg(this.#message ? "warning" : "muted", clean(help)),
-				Math.max(0, width - 1),
-				"…",
-			),
-			hints: this.#edit
-				? [
-						{ key: binding("tui.select.confirm"), action: "set", priority: 0 },
-						{ key: apply, action: "apply", priority: 0 },
-						{ key: binding("tui.select.cancel"), action: "back", priority: 0 },
-					]
-				: [
-						{
-							key: binding("tui.select.confirm"),
-							action:
-								selected?.kind === "unknown"
-									? "remove"
-									: selected?.kind === "choice" || selected?.kind === "action"
-										? "toggle"
-										: selected?.kind === "add-rule" || selected?.kind === "add-provider"
-											? "add"
-											: "edit",
-							priority: 1,
-						},
-						{ key: up && down ? `${up}/${down}` : "k/j", action: "move", priority: 2 },
-						...(selected && "index" in selected
-							? [{ key: remove, action: "remove", priority: 1 }]
-							: []),
-						...(data.kind === "rules" && selected && "index" in selected
-							? [{ key: reorder.label, action: "reorder", priority: 2 }]
-							: []),
-						{ key: apply, action: "apply", priority: 0 },
-						{ key: binding("tui.select.cancel"), action: "back", priority: 0 },
-					],
+			description: truncateToWidth(fullDescription, Math.max(0, width - 1), "…"),
+			fullDescription,
+			fullHints: hints,
+			hints,
 		};
 	}
 

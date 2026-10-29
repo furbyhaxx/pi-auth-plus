@@ -5,21 +5,24 @@ title: "M4 model management"
 description: "Verbosity, model rules, overrides, aliases and quota-aware model groups"
 type: "plan"
 created: "2026-10-28T11:55:00+01:00"
-updated: "2026-10-28T18:49:34+01:00"
+updated: "2026-10-29T19:09:11+01:00"
 createdBy: "pi"
 updatedBy: "pi"
 document:
   type: "plan"
   id: "0005-m4-model-management"
   title: "M4 model management"
-  description: "Verbosity, model rules, overrides, aliases, unified web search and quota-aware model groups, grounded in the 2026-10-28 probes"
+  description: "Verbosity, model rules, overrides, aliases and quota-aware model groups, grounded in the 2026-10-28 probes; unified search is separate"
   status: "published"
-  revision: 5
+  revision: 6
   created_at: "2026-10-28T11:55:00+01:00"
-  updated_at: "2026-10-28T11:29:26+01:00"
+  updated_at: "2026-10-29T19:09:11+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
+    - revision: 6
+      reason: "Distinguish completed M4 release from ongoing audit remediation"
+      changes: ["Correct unified-search scope", "Point current corrections to plan 0006"]
     - revision: 5
       reason: "M4 implementation and release"
       changes: ["Mark completed slices and note bounded recovery and catalog coordination"]
@@ -43,6 +46,10 @@ Design: `.project/designs/model-management/design.md`. Wireframes:
 `.project/designs/model-management/wireframes/index.html`. Evidence:
 `.project/analyses/model-management/`. Implementation authorized; use local Pi seams and report
 limitations without filing upstream hook requests.
+
+This is the historical v0.5.0 implementation plan. Its detailed seam descriptions are
+superseded where corrected by [audit remediation](../0006-extension-audit-remediation/plan.md);
+that plan owns current save, editor, lifecycle and acceptance work.
 
 ## Order and why
 

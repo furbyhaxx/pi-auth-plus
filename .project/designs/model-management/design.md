@@ -5,12 +5,15 @@ document:
   title: "Model management, verbosity and model groups"
   description: "Verified seams, UX and mechanisms for model rules, overrides, aliases, OpenAI verbosity and quota-aware groups (web search evidence kept for a separate extension)"
   status: "draft"
-  revision: 4
+  revision: 5
   created_at: "2026-10-28T11:45:00+01:00"
-  updated_at: "2026-10-28T11:29:26+01:00"
+  updated_at: "2026-10-29T19:09:11+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
+    - revision: 5
+      reason: "Reconcile approved audit remediation UX and current routing semantics"
+      changes: ["Searchable pickers and explicit runtime scope", "Optional metadata and adaptive layout", "Unknown-quota best effort and physical attribution"]
     - revision: 1
       reason: "document creation"
       changes: ["Probe results for filter seams, verbosity, search, routing, alias limits and attribution; UX for /auth Models, Groups and Settings additions"]
@@ -33,6 +36,9 @@ Source ideas: `.project/ideas/model-management-and-routing/ideas.md`. Interactiv
 All findings are against Pi 1.4.0 (Pi-Bolt 1.0.6/1.0.7) on 2026-10-28.
 
 ## What the probes established
+
+The table records the initial 2026-10-28 probes. Current behavior and audit corrections
+are tracked in `../../plans/0006-extension-audit-remediation/plan.md`.
 
 | Idea | Verdict | Evidence |
 |---|---|---|
@@ -91,14 +97,17 @@ shrink-wrapped body. Two new tabs; Settings gains three sections. `/auth models`
   matches nested ids (`openrouter/google/x`), as the user's example expects.
 - Each row shows its live effect (`3 hidden`, `1 shown`); the bottom line shows the total and
   the surfaces it governs. Keys: `a` add, `enter` edit, `space` on/off, `shift+↑↓` reorder,
-  `d` delete, `ctrl+s` save with the existing scope dialog (user / trusted project).
-- Built-in providers are enforced by re-registration; the row tail says `re-reg`, and
-  `re-reg (raw)` for OpenRouter while it loses Pi's per-account personalization.
+  `d` delete, `ctrl+s` save to user / trusted project / runtime. Saves report higher-layer
+  shadowing and committed warnings; uncommitted failures retain drafts.
+- Built-in providers are enforced by re-registration; provider enforcement limitations
+  are explained in the model documentation.
 
 ### Models › Catalog and model detail
 
-- Every model grouped by provider: `●` listed, `○` hidden, context column (override values
-  highlighted), reason column (`rule 4`, `override`) dropped below 57 columns, `↳` alias rows.
+- A shared searchable/pageable catalog shows provider/model identity and listed/hidden
+  state. Search accepts IDs and human names; `?` reveals full identity at narrow widths.
+  Optional provenance and matched-rule metadata explain aliases and winning rules;
+  secondary metadata gives way before identity and primary state.
 - `h` appends a rule for the row instead of flipping a hidden flag, so rules stay the one
   source of truth.
 - Detail uses the Settings row grammar (label · value · `default|override`), writes
@@ -119,7 +128,7 @@ shrink-wrapped body. Two new tabs; Settings gains three sections. `/auth models`
   strict order). Default: every member in T1, so plain strategy order applies.
 - Failover boundary: only before the first output token and never across a started tool
   call; otherwise the turn errors with the reason. Partial-text retries are visible to the
-  user, so the status line names the switch (`→ opencode`).
+  user; a switch notification and the Groups view identify the physical route.
 
 ### Settings additions
 
@@ -162,9 +171,11 @@ live probe results in `analyses/model-management/search-entitlement/` stay as it
 - **Groups**: `registerVirtualModel` per group from the factory. `route()` keeps the target in
   branch state; `retry` switches to the next healthy member; `agent_before_settle` handles
   401/quota failures before output (mark member, `context_edit` the failed assistant,
-  continue). Health = sign-in + quota snapshot (unknown = not healthy) + recent failure
-  cool-down. Quota attribution from physical assistant messages; header ingest for routed
-  requests cannot be attributed generically with the current response hook.
+  continue). UI and routing share physical eligibility and quota health. Unknown quota
+  remains best-effort routable unless exhaustion is observed; when no routable candidate
+  remains, the router can still attempt a configured physical candidate. Failed members
+  are tracked on the branch for the turn. Physical request wrappers provide exact provider
+  attribution for headers, global verbosity and request-triggered quota refresh.
 
 ## Decisions (2026-10-28)
 
@@ -177,6 +188,19 @@ live probe results in `analyses/model-management/search-entitlement/` stay as it
   the free models in order x, y, z when the paid ones fail").
 - Web search: dropped from pi-auth-plus; a separate extension will own it.
 
-## Open decisions
+## Adopted audit controls
 
-1. Should `balance` weigh cost or only quota headroom? (Decide in S6.)
+- `dashboard.density`: comfortable/compact; panels remain shrink-wrapped.
+- `dashboard.maxBodyRows`: 0 (auto) or a 1–60-row cap.
+- `dashboard.showProvenance` and `dashboard.showMatchedRule`: optional metadata, default off.
+- `tokens.warningPercent` / `tokens.errorPercent`: defaults 70/90; warning must be below error.
+- Cross-tab and nested drafts survive navigation. Discard requires confirmation; saves block
+  conflicting navigation. Help reveals full feedback and rebound bindings on compact frames.
+- Typed provider lists and literal replacement rules replace raw JSON editing; model rules,
+  aliases and groups navigate to their dedicated editors.
+
+## Balance decision
+
+Balance uses comparable estimated remaining requests when credit/rate data supports it,
+otherwise comparable quota headroom, otherwise ordered rotation. Cost labels remain
+informational. Unified search stays separate; the existing Synthetic search tool remains.

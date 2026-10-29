@@ -41,8 +41,8 @@ In priority order:
 - Runs on Pi-Bolt (Bun) and stock Pi (Node `>=22.19`): `node:*` APIs by default; a `Bun.*` API
   only behind a runtime check with a `node:*` fallback, and only where a measurement shows the
   gain.
-- Runtime dependencies: `proper-lockfile` only (the lock Pi itself uses on `auth.json`). Each
-  new one needs user approval.
+- Runtime dependencies: `proper-lockfile` (Pi-compatible file transactions) and
+  `@huggingface/tokenizers` (local tokenization). Each new one needs user approval.
 - `Justfile` is the command surface.
 
 ## Commands and completion criteria
@@ -135,8 +135,8 @@ This file describes the target state.
 - No legacy migration exists yet: pi-synthetic-auth's `websearch.synthetic` in Pi's
   `settings.json` and its `SYNTHETIC_WEB_SEARCH` variable, and pi-claude-auth's replace
   patterns in Pi's `settings.json`, are not read.
-- `core/auth` has slot reads, PKCE and code paste; the local callback server arrives with the
-  first provider that needs one.
+- `core/auth` has slot reads, PKCE and code paste. Codex quota login owns its loopback
+  callback server in `families/openai/codex-auth/`, with device-code fallback.
 - Absorption follows `.project/plans/roadmap.md`; delete each line here when its part lands.
 
 ## Provider integration
@@ -221,9 +221,10 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
   header or body level (`.project/analyses/opencode-cli/2.1.2/report.md`).
 - **synthetic:** native `anthropic-messages` with no stream of our own; the catalog comes from
   `refreshModels` with Pi's store and a 4 h TTL, and has real prices and limits. Rows without a usable
-  price or tool support are skipped. The `synthetic_web_search` tool registers at session start
-  only when `synthetic.webSearch` or `--synthetic-web-search` enables it. It returns each
-  result's highlights and saves the full page text to a 0600 temp file, since pages run to 100 KB.
+  price or tool support are skipped. `synthetic_web_search` registers inactive in the factory;
+  session startup and settings changes synchronize active membership from `synthetic.webSearch`
+  or `--synthetic-web-search`. Disabled execution is refused. It returns highlights and saves
+  full page text to a 0600 temp file, since pages run to 100 KB.
 
 ### Upstream client tracking
 
@@ -295,8 +296,10 @@ compiler (`docs/PLUGINS.md` of Pi-Bolt):
   never read config files directly. The entrypoint loads it per session in a `session_start`
   handler registered before the families' handlers, and families read it through
   `FamilyHost.settings()`; the factory sees defaults only.
-- Host cache (quota snapshots, token counts) under `<agentDir>/cache/auth-plus/`; state and
-  data follow XDG (dirs 0700, files 0600).
+- Shared quota snapshots live under `<agentDir>/cache/auth-plus/`; token-count memoization
+  is in memory. Tokenizer artifacts use `$XDG_CACHE_HOME/pi-auth-plus/tokenizers/`; migration
+  markers and the Claude device ID use `$XDG_STATE_HOME/pi-auth-plus/` (dirs 0700, files 0600).
+  No current consumer writes an XDG data directory.
 - Legacy migration from the absorbed packages is one-time, fill-only and non-destructive:
   legacy files are never deleted or rewritten.
 - Stored formats (`auth.json` slots, cache files, settings, bus payloads) change only with a
@@ -394,15 +397,12 @@ Adopted from pi-workbench; a new surface looks like the existing ones.
 ```text
 docs/
   getting-started.md      install, first login, migrating from the absorbed packages, conflicts
-  providers/<id>.md       claude, antigravity, synthetic, opencode: login, models, env, caveats
+  models.md              visibility rules, overrides, aliases and prioritized virtual groups
   quotas.md               status line, templates, panel, --list-quotas, resets
   tokens.md               sources per family, accuracy, dedup
   commands.md             /auth reference with aliases
   configuration.md        settings catalog, layers, files, environment variables
   events.md               pi.events contract for other extensions
-  performance.md          Pi-Bolt compile, startup budget, how to measure
-  troubleshooting.md
-  development/architecture.md   invariants: seams, registry, engines, data flow
 ```
 
 Adding or removing a provider, model family, command, flag, setting, environment variable,

@@ -40,7 +40,9 @@ In the Models tab:
 - `a` adds a rule, Enter edits one, Space enables/disables it, `d` deletes it, and
   Shift+Up/Down reorders it.
 - `v` switches between rules and the catalog. In the catalog, `h` appends an exact
-  hide/show rule for the selected model.
+  hide/show rule for the selected model. Type or press `/` to search IDs and names;
+  page through results with the shown bindings (Alt+Up/Down also works in fullscreen).
+  Press `?` to inspect the full provider/model identity and display name.
 - Ctrl+S followed by `u`, `p`, or `r` saves rules to user, trusted project, or the
   current session. Escape backs out or closes; when drafts would be discarded, the
   dashboard asks for confirmation.

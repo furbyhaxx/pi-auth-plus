@@ -5,7 +5,7 @@ title: "pi-auth-plus roadmap"
 description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
 type: "plan"
 created: "2026-10-27T09:43:00+01:00"
-updated: "2026-10-28T18:49:34+01:00"
+updated: "2026-10-29T19:09:11+01:00"
 createdBy: "pi"
 updatedBy: "pi"
 document:
@@ -14,12 +14,15 @@ document:
   title: "pi-auth-plus roadmap"
   description: "Milestone tree for absorbing the five auth and quota packages into one Pi package"
   status: "published"
-  revision: 23
+  revision: 24
   created_at: "2026-10-27T09:43:00+01:00"
-  updated_at: "2026-10-28T11:05:48+01:00"
+  updated_at: "2026-10-29T19:09:11+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
+    - revision: 24
+      reason: "Track authorized extension audit remediation"
+      changes: ["F01–F34 and R01/R02 corrections in plan 0006", "Local host selection guard authorized; acceptance remains open"]
     - revision: 23
       reason: "M4 implementation and release"
       changes: ["Model management and bounded signature recovery verified for v0.5.0"]
@@ -143,7 +146,11 @@ detailed plan; later ones hold the ideas that must not get lost.
     [x] 1 verbosity  [x] 2 rules+catalog  [x] 3 overrides  [x] 4 aliases
     [-] 5 web_search [x] 6 groups         web_search moved to a separate extension
     [x] Bounded Gemini thought-signature recovery; RPC startup coordination on verified builds
-[.] Later           codex/grok providers?, Pi estimator hook upstream
+[>] Audit closure   plans/0006-extension-audit-remediation/plan.md
+    [x] Runtime correctness, persistence outcomes, pickers and typed settings
+    [>] Metadata/help consumers and session ownership, including local Pi-Bolt model selection
+    [ ] Combined gates, performance and real-host/provider acceptance
+[.] Later           codex/grok providers?, Pi estimator hook (no upstream request authorized)
 ```
 
 ## Ideas parked for later milestones

@@ -67,7 +67,10 @@ tab bindings; literal letter shortcuts are additional keys.
 Tabs retain their staged edits and nested editor state when you switch away and back. Esc or
 Ctrl+C at the dashboard asks before discarding drafts across tabs; backing out of a nested
 editor asks before discarding that editor's draft. Navigation and close are protected while a
-save is in progress.
+save is in progress. The top rule offers Help (normally F1; another unbound function key
+is used if F1 is configured). Help reveals complete descriptions, feedback and bindings
+without discarding drafts. Scroll with the shown keys; press the help key or Esc to return.
+`?` remains the model picker's identity inspection key.
 
 In Quotas, `k`/`j` also select providers, `r` forces selected refresh, `R` forces all,
 `a` toggles solo, `p` opens the line-placement chooser and asks for an explicit save scope,

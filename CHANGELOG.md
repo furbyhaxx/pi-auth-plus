@@ -6,6 +6,37 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Searchable model and member pickers.** Search IDs or names, page large catalogs and
+  inspect full identities. Settings collections now have typed editors and dedicated
+  Models/Groups navigation.
+- **Dashboard controls and help.** Configure density, body-row cap, optional model metadata
+  and context warning/error thresholds. Full feedback and bindings remain recoverable on
+  short or narrow terminals.
+
+### Fixed
+
+- **Alias and group runtime consistency.** Rejected aliases cannot redirect requests;
+  accepted aliases retain source eligibility and physical token counting. Group visibility,
+  physical-member eligibility, quota health and routed request effects share runtime policy.
+- **Scoped settings transactions.** Cross-process locking prevents lost unrelated updates;
+  saves report higher-layer shadowing and post-commit warnings truthfully. Catalog and group
+  refresh failures remain independent and retryable. Quota placement now asks for scope.
+- **Editor draft protection.** Tab switches retain nested drafts. Closing or backing out
+  asks before discarding; pending saves block navigation and committed warnings stay visible.
+- **Session and offline ownership.** Old asynchronous work is fenced from replacement
+  sessions; offline startup suppresses automatic network activity while retaining cached
+  tokenizers. Stale token reports and empty-usage labels no longer imply false evidence.
+- **Preview performance and live tool settings.** Rule previews cache compiled state rather
+  than recompiling per model. Synthetic search enable/disable updates active membership
+  immediately and the tool renders progress, success, failure and cancellation explicitly.
+
+### Changed
+
+- **Configuration reference.** Storage, scope effects, threshold relationships, typed
+  editor behavior and tokenizer/device-ID locations now match the implementation.
+
 ## [0.5.1] - 2026-10-28
 
 ### Fixed

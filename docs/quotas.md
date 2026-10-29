@@ -188,10 +188,15 @@ Without a TUI, these commands print cached text instead.
 | `r` | Force refresh selected provider |
 | `R` | Force refresh all enabled providers, even in solo mode |
 | `a` | Toggle selected provider solo / all providers |
-| `p` | Cycle line placement and save to user scope |
+| `p` | Open line-placement chooser, then choose an explicit save scope |
 | `x` | Start the reset-credit flow for a supported provider |
 | Tab / Shift+Tab | Switch dashboard tabs |
-| Esc | Close |
+| Esc | Back/cancel; confirm before discarding drafts |
+
+In the placement chooser, Up/Down selects a location and Enter advances to the scope
+chooser. Choose runtime, user or trusted project with Up/Down and Enter, or save directly
+with `r`, `u` or `p`. Nothing is saved until a scope is confirmed. Feedback explains
+higher-layer shadowing and committed warnings; a failed save retains the placement for retry.
 
 Navigation follows Pi's configured keybindings; the hint row shows the current bindings.
 See [commands](commands.md) for shared dashboard and Settings keys.

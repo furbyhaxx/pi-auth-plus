@@ -60,6 +60,9 @@ function content(report: ContextReport | undefined, available: boolean): TabCont
 					? "none"
 					: `${plural(report.tailMessages, "message")} · ${count(report.tail)}`,
 			),
+			...(report.tokens.diagnostics ?? []).map((diagnostic) =>
+				row("Recovery", `${diagnostic.provider}: ${diagnostic.message}`),
+			),
 		],
 		empty: "",
 	};
@@ -151,13 +154,18 @@ export class TokensView implements TabView {
 		const clipped = lines.map((line) => truncateToWidth(line, width, "…"));
 		this.#maxOffset = Math.max(0, clipped.length - bodyRows);
 		this.#offset = Math.min(this.#offset, this.#maxOffset);
+		const diagnostics = this.#report?.tokens.diagnostics ?? [];
+		const fullFeedback = [
+			...(this.#failure ? [this.#host.theme.fg("error", sanitize(this.#failure))] : []),
+			...diagnostics.map((diagnostic) =>
+				this.#host.theme.fg("warning", sanitize(`${diagnostic.provider}: ${diagnostic.message}`)),
+			),
+		];
 		return {
 			lines: clipped.slice(this.#offset, this.#offset + bodyRows),
 			above: this.#offset,
 			below: Math.max(0, clipped.length - this.#offset - bodyRows),
-			...(this.#failure
-				? { fullFeedback: [this.#host.theme.fg("error", sanitize(this.#failure))] }
-				: {}),
+			...(fullFeedback.length ? { fullFeedback } : {}),
 			hints: this.#maxOffset
 				? [
 						{

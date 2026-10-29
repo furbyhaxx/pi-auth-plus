@@ -117,6 +117,47 @@ test("live context totals, sources, Pi delta and asynchronous contributions fit 
 	expect(f.renders()).toBe(closed);
 });
 
+test("count diagnostics show sanitized recovery and clear when the latest report succeeds", () => {
+	const diagnostic = {
+		code: "needs-auth" as const,
+		provider: "test-provider",
+		message:
+			"POST https://count.example.test/v1/count returned 401.\nRun /login test-provider to authenticate.\u001b]0;evil\u0007",
+	};
+	const f = open();
+	f.change({ ...report, tokens: { tokens: 1200, source: "estimate", diagnostics: [diagnostic] } });
+	const shownText = tokensText(f.tracker);
+	expect(shownText).toContain("Total: 1.2K · estimate");
+	expect(shownText).toContain("Recovery: test-provider: POST https://count.example.test/v1/count");
+	expect(shownText).toContain("Run /login test-provider to authenticate.");
+	expect(shownText).not.toContain("evil");
+	expect(shownText).not.toContain("\nRun /login");
+
+	const view = new TokensView(f.host, f.tracker);
+	for (const width of [36, 57, 80, 140]) {
+		const body = view.render(width, 100);
+		expect(body.lines.some((line) => line.includes("Recovery"))).toBe(true);
+		for (const line of body.lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		const feedback = body.fullFeedback?.map(stripVTControlCharacters).join("\n") ?? "";
+		expect(feedback).toContain("POST https://count.example.test/v1/count returned 401.");
+		expect(feedback).toContain("Run /login test-provider to authenticate.");
+		expect(feedback).not.toContain("evil");
+	}
+	view.render(36, 1);
+	for (let index = 0; index < 8; index++) expect(view.handleInput("\x1b[B")).toBe(true);
+	const scrolled = view.render(36, 1);
+	expect(scrolled.lines[0]).toContain("Recovery");
+	expect(scrolled.above).toBe(8);
+
+	f.change({ ...report, tokens: { tokens: 1300, source: "provider" } });
+	expect(tokensText(f.tracker)).not.toContain("Recovery");
+	const successful = view.render(140, 100);
+	expect(successful.lines.join("\n")).not.toContain("Recovery");
+	expect(successful.fullFeedback).toBeUndefined();
+	view.dispose();
+	f.view.dispose();
+});
+
 test("empty breakdown contributions do not claim provider usage", async () => {
 	const f = open();
 	f.view.render(140, 100);
@@ -211,9 +252,19 @@ test("dashboard grows and shrinks with asynchronous token breakdowns", async () 
 test("count failures remain complete in narrow help and provider text is sanitized", async () => {
 	const f = open();
 	const reason = `offline; ${"retry with the provider dashboard ".repeat(3)}\ncheck the account\x1b]0;evil\x07`;
+	const diagnostic = {
+		code: "needs-auth" as const,
+		provider: "test-provider",
+		message: "POST https://count.example.test/v1/count returned 401; run /login test-provider.",
+	};
 	const tracker: TokenTracker = {
 		...f.tracker,
-		latest: () => ({ ...report, provider: "safe\x1b]0;evil\x07", model: "model\nname" }),
+		latest: () => ({
+			...report,
+			provider: "safe\x1b]0;evil\x07",
+			model: "model\nname",
+			tokens: { ...report.tokens, diagnostics: [diagnostic] },
+		}),
 		breakdown: async () => {
 			throw new Error(reason);
 		},
@@ -234,6 +285,9 @@ test("count failures remain complete in narrow help and provider text is sanitiz
 	);
 	expect(feedback).toContain(
 		`offline; ${"retry with the provider dashboard ".repeat(3)}\ncheck the account; reopen Tokens to retry.`,
+	);
+	expect(feedback).toContain(
+		"test-provider: POST https://count.example.test/v1/count returned 401; run /login test-provider.",
 	);
 	expect(feedback).not.toContain("evil");
 	view.dispose();

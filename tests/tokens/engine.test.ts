@@ -827,7 +827,7 @@ test("native count requests carry the accepted alias source id", async () => {
 	const counter = engine.counterFor({ provider: "claude", id: "logical" });
 	expect(await counter.count("hello", "prose")).toEqual({
 		tokens: 10,
-		source: "count-endpoint",
+		source: "estimate",
 	});
 	expect(sent).toEqual(["physical-a", "physical-a"]);
 });
@@ -849,14 +849,14 @@ test("accepted aliases use native physical counters and follow retargeting witho
 		model: "logical",
 		contextWindow: 400,
 		percent: 5,
-		tokens: { tokens: 20, source: "count-endpoint" },
+		tokens: { tokens: 20, source: "estimate" },
 	});
 	expect(await engine.breakdown(aliasContext)).toEqual([
-		{ kind: "system", count: { tokens: 10, source: "count-endpoint" }, items: 1 },
+		{ kind: "system", count: { tokens: 10, source: "estimate" }, items: 1 },
 		{ kind: "tools", count: { tokens: 0, source: "provider" }, items: 0 },
-		{ kind: "user", count: { tokens: 10, source: "count-endpoint" }, items: 1 },
+		{ kind: "user", count: { tokens: 10, source: "estimate" }, items: 1 },
 	]);
-	expect(sent).toEqual(["physical-a", "physical-a", "physical-a"]);
+	expect(sent).toEqual(["physical-a", "physical-a", "physical-a", "physical-a", "physical-a"]);
 
 	aliases = [{ provider: "claude", source: "physical-b", id: "logical" }];
 	const second = engine.counterFor(logical);
@@ -869,17 +869,21 @@ test("accepted aliases use native physical counters and follow retargeting witho
 		model: "logical",
 		contextWindow: 400,
 		percent: 10.5,
-		tokens: { tokens: 42, source: "count-endpoint" },
+		tokens: { tokens: 42, source: "estimate" },
 	});
 	expect(await engine.breakdown(aliasContext)).toEqual([
-		{ kind: "system", count: { tokens: 21, source: "count-endpoint" }, items: 1 },
+		{ kind: "system", count: { tokens: 21, source: "estimate" }, items: 1 },
 		{ kind: "tools", count: { tokens: 0, source: "provider" }, items: 0 },
-		{ kind: "user", count: { tokens: 21, source: "count-endpoint" }, items: 1 },
+		{ kind: "user", count: { tokens: 21, source: "estimate" }, items: 1 },
 	]);
 	expect(sent).toEqual([
 		"physical-a",
 		"physical-a",
 		"physical-a",
+		"physical-a",
+		"physical-a",
+		"physical-b",
+		"physical-b",
 		"physical-b",
 		"physical-b",
 		"physical-b",
@@ -898,7 +902,7 @@ test("rejected aliases retain their own physical counter and native request iden
 		expect(counter.id).toBe(`count_tokens:claude:${id}`);
 		expect(await counter.count("hello", "prose")).toEqual({
 			tokens: 10,
-			source: "count-endpoint",
+			source: "estimate",
 		});
 	}
 	expect(sent).toEqual(["existing", "existing", "unresolved", "unresolved"]);

@@ -26,6 +26,7 @@ const healthStates: readonly GroupMemberHealth["state"][] = [
 	"unknown",
 ];
 const unknownHealth: GroupMemberHealth = { state: "unknown", routable: false };
+type GroupRange = { first: number; last: number };
 
 /** A staged group editor with explicit scoped saves. */
 export class GroupsView implements TabView {
@@ -35,6 +36,8 @@ export class GroupsView implements TabView {
 	#detail: GroupDetail | undefined;
 	#selected = 0;
 	#offset = 0;
+	#bodyRows = 1;
+	#ranges: GroupRange[] = [];
 	#message = "";
 	#detailMessage = "";
 	#mode: "list" | "save" = "list";
@@ -48,6 +51,25 @@ export class GroupsView implements TabView {
 
 	#groups(): readonly ModelGroup[] {
 		return this.#staged ?? this.#deps.groups();
+	}
+
+	#move(direction: number): void {
+		const groups = this.#groups();
+		if (groups.length === 0) return;
+		this.#selected = Math.max(0, Math.min(this.#selected, groups.length - 1));
+		const range = this.#ranges[this.#selected];
+		if (range && range.last - range.first + 1 > this.#bodyRows) {
+			const nextOffset = this.#offset + direction;
+			if (nextOffset >= range.first && nextOffset <= range.last - this.#bodyRows + 1) {
+				this.#offset = nextOffset;
+				return;
+			}
+		}
+		const next = Math.max(0, Math.min(groups.length - 1, this.#selected + direction));
+		if (next !== this.#selected) {
+			this.#selected = next;
+			this.#offset = this.#ranges[next]?.first ?? 0;
+		}
 	}
 
 	#edit(index: number | undefined): void {
@@ -74,6 +96,8 @@ export class GroupsView implements TabView {
 				}
 				this.#staged = parsed;
 				this.#selected = index ?? parsed.length - 1;
+				this.#offset = 0;
+				this.#ranges = [];
 				this.#message = "";
 				back();
 			},
@@ -147,10 +171,8 @@ export class GroupsView implements TabView {
 		}
 		const groups = this.#groups();
 		this.#selected = Math.max(0, Math.min(this.#selected, groups.length - 1));
-		if (keys.matches(data, "tui.select.up") || data === "k")
-			this.#selected = Math.max(0, this.#selected - 1);
-		else if (keys.matches(data, "tui.select.down") || data === "j")
-			this.#selected = Math.min(Math.max(0, groups.length - 1), this.#selected + 1);
+		if (keys.matches(data, "tui.select.up") || data === "k") this.#move(-1);
+		else if (keys.matches(data, "tui.select.down") || data === "j") this.#move(1);
 		else if (data === "a") this.#edit(undefined);
 		else if (keys.matches(data, "tui.select.confirm") && groups[this.#selected])
 			this.#edit(this.#selected);
@@ -162,6 +184,8 @@ export class GroupsView implements TabView {
 			else {
 				this.#staged = parsed;
 				this.#selected = Math.max(0, Math.min(this.#selected, parsed.length - 1));
+				this.#offset = 0;
+				this.#ranges = [];
 				this.#message = "";
 			}
 		} else return false;
@@ -189,9 +213,9 @@ export class GroupsView implements TabView {
 		const groups = this.#groups();
 		this.#selected = Math.max(0, Math.min(this.#selected, groups.length - 1));
 		const rows: string[] = [];
-		const rowStarts: number[] = [];
+		const ranges: GroupRange[] = [];
 		for (const [index, group] of groups.entries()) {
-			rowStarts.push(rows.length);
+			const first = rows.length;
 			const memberHealth = group.members.map((member) => ({
 				member,
 				health: this.#deps.health?.(member) ?? unknownHealth,
@@ -222,6 +246,7 @@ export class GroupsView implements TabView {
 					` ${health.state} · ${eligibility} ${clean(member.provider)}/${clean(member.id)}`,
 				);
 			}
+			ranges.push({ first, last: rows.length - 1 });
 		}
 		if (!rows.length) rows.push(" No groups configured.");
 		const details =
@@ -232,11 +257,15 @@ export class GroupsView implements TabView {
 					: [];
 		const reserved = Math.min(details.length, Math.max(0, bodyRows - 1));
 		const available = Math.max(0, bodyRows - reserved);
-		const selectedRow = rowStarts[this.#selected] ?? 0;
-		this.#offset = Math.max(0, Math.min(this.#offset, selectedRow));
-		const selectedEnd =
-			selectedRow + (groups[this.#selected]?.members.length && available >= 2 ? 1 : 0);
-		this.#offset = Math.max(this.#offset, selectedEnd - available + 1);
+		this.#ranges = ranges;
+		this.#bodyRows = Math.max(1, available);
+		const selectedRange = ranges[this.#selected];
+		if (!selectedRange || this.#offset < selectedRange.first || this.#offset > selectedRange.last)
+			this.#offset = selectedRange?.first ?? 0;
+		const maxOffset = selectedRange
+			? Math.max(selectedRange.first, selectedRange.last - this.#bodyRows + 1)
+			: 0;
+		this.#offset = Math.max(selectedRange?.first ?? 0, Math.min(this.#offset, maxOffset));
 		this.#offset = Math.max(0, Math.min(this.#offset, rows.length - available));
 		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
 		return {

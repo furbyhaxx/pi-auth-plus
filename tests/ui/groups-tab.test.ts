@@ -603,4 +603,81 @@ describe("groups tab", () => {
 		}
 		expect(r.view.render(36, 4).above).toBeGreaterThan(0);
 	});
+	test("scrolls all members inside a group before moving selection and back", () => {
+		const memberIds = Array.from(
+			{ length: 12 },
+			(_, index) => `member-${String(index + 1).padStart(2, "0")}`,
+		);
+		const memberStates = [
+			"healthy",
+			"exhausted",
+			"needs-auth",
+			"unknown",
+			"unavailable",
+			"unknown",
+		] as const;
+		const members = memberIds.map((id, index) => ({
+			provider: "v",
+			id,
+			tier: index + 1,
+		}));
+		const r = open([{ ...group("many"), members }, group("next")], (member) => {
+			const index = memberIds.indexOf(member.id);
+			const state = memberStates[Math.max(index, 0) % memberStates.length] ?? "unknown";
+			return {
+				state,
+				routable: state === "healthy" || (state === "unknown" && index % 2 === 0),
+			};
+		});
+		const seen = new Set<string>();
+		const draw = () => {
+			let linesAt80: string[] = [];
+			for (const width of [36, 57, 80, 140]) {
+				const body = r.view.render(width, 3);
+				expect(body.lines).toHaveLength(3);
+				for (const line of [...body.lines, body.state ?? "", body.description ?? ""])
+					expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				if (width === 80) linesAt80 = body.lines.map(stripVTControlCharacters);
+			}
+			for (const id of memberIds)
+				if (linesAt80.some((line) => line.endsWith(`v/${id}`))) seen.add(id);
+			return r.view.render(80, 3);
+		};
+
+		let body = draw();
+		expect(body.above).toBe(0);
+		for (let offset = 1; offset <= 10; offset++) {
+			r.press("j");
+			body = draw();
+			expect(body.above).toBe(offset);
+		}
+		expect(body.lines.map(stripVTControlCharacters).join(" ")).toContain("v/member-12");
+		expect([...seen].sort()).toEqual([...memberIds].sort());
+
+		r.press("j");
+		body = draw();
+		expect(body.lines.map(stripVTControlCharacters).some((line) => line.includes("❯ next"))).toBe(
+			true,
+		);
+		r.press("k");
+		body = draw();
+		expect(body.above).toBe(0);
+		expect(body.lines.map(stripVTControlCharacters).some((line) => line.includes("❯ many"))).toBe(
+			true,
+		);
+
+		for (let offset = 1; offset <= 10; offset++) {
+			r.press("j");
+			body = draw();
+			expect(body.above).toBe(offset);
+		}
+		for (let offset = 9; offset >= 0; offset--) {
+			r.press("k");
+			body = draw();
+			expect(body.above).toBe(offset);
+		}
+		expect(body.lines.map(stripVTControlCharacters).some((line) => line.includes("❯ many"))).toBe(
+			true,
+		);
+	});
 });

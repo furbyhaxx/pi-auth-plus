@@ -101,6 +101,8 @@ test("pi-quotas in settings keeps the engine off and warns once with a removal h
 });
 
 test("Codex turns ingest headers and publish codex, then refresh the canonical id", async () => {
+	const previousOffline = process.env["PI_OFFLINE"];
+	process.env["PI_OFFLINE"] = "0";
 	const { pi, bus, run } = rig([]);
 	const snapshots: unknown[] = [];
 	const off = bus.on(channelName("quotas", "snapshot"), (raw) => snapshots.push(raw));
@@ -130,5 +132,7 @@ test("Codex turns ingest headers and publish codex, then refresh the canonical i
 		off();
 		ingest.mockRestore();
 		refresh.mockRestore();
+		if (previousOffline === undefined) delete process.env["PI_OFFLINE"];
+		else process.env["PI_OFFLINE"] = previousOffline;
 	}
 });

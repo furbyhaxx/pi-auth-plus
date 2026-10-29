@@ -346,19 +346,22 @@ for (const policy of ["warn", "fallback", "fallback-physical", "fallback-no-cand
 				expect(fixture.switches.map(({ provider, id }) => `${provider}/${id}`)).toEqual([target]);
 				expect(fixture.notices).toEqual([
 					`group/alpha is hidden by model rules; switched to ${target}.`,
+					"Saved to runtime scope",
 				]);
-				expect(fixture.noticeTones).toEqual(["info"]);
+				expect(fixture.noticeTones).toEqual(["info", "info"]);
 			} else {
 				expect(fixture.switches).toEqual([]);
 				expect(fixture.notices).toEqual([
 					"group/alpha is hidden by model rules; the current selection was kept.",
+					"Saved to runtime scope",
 				]);
-				expect(fixture.noticeTones).toEqual(["warning"]);
+				expect(fixture.noticeTones).toEqual(["warning", "info"]);
 				if (noCandidate) expect(fixture.availableVirtuals.at(-1)).toEqual([]);
 			}
 			await saveRules(fixture, ["group/*", "!group/alpha", "!group/beta"]);
 			expect([...fixture.virtuals.keys()].sort()).toEqual(["alpha", "beta"]);
-			expect(fixture.notices).toHaveLength(1);
+			expect(fixture.notices).toHaveLength(3);
+			expect(fixture.notices.at(-1)).toBe("Saved to runtime scope");
 			expect(fixture.virtuals.get("alpha")?.contextWindow).toBe(
 				noCandidate ? undefined : fixture.model.contextWindow,
 			);
@@ -620,7 +623,10 @@ test("session settings saves run the shared effects for each setting path", asyn
 		expect(notices).toEqual([
 			"Saved to user scope; shadowed by higher scope: quotas.linePlacement",
 		]);
-		await expect(deps.groups.save([group], "project")).rejects.toThrow();
+		expect(await deps.groups.save([group], "project")).toMatchObject({
+			committed: false,
+			error: expect.any(String),
+		});
 	} finally {
 		visibilityRelease.resolve();
 		await run("session_shutdown");

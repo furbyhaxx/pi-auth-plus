@@ -372,7 +372,7 @@ test("the entrypoint shares accepted aliases and warns once per rejection and re
 		on: (event: string, handler: unknown) => {
 			if (typeof handler !== "function") return unexpected();
 			const list = handlers.get(event) ?? [];
-			list.push((payload) => handler({ type: event, ...payload }, ctx));
+			list.push((payload) => handler(payload, ctx));
 			handlers.set(event, list);
 			return () => {};
 		},
@@ -415,7 +415,8 @@ test("the entrypoint shares accepted aliases and warns once per rejection and re
 		unregisterVirtualModel: unexpected,
 	};
 	const run = async (event: string) => {
-		for (const handler of handlers.get(event) ?? []) await handler({ reason: "switch" });
+		const emitted = { type: event, reason: "switch" };
+		for (const handler of handlers.get(event) ?? []) await handler(emitted);
 	};
 	const aliasWarnings = () =>
 		warnings.filter((message) => message.includes("rejected model aliases"));

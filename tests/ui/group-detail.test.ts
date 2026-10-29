@@ -369,7 +369,9 @@ describe("group detail", () => {
 			triggers: [],
 			members: [{ provider, id, tier: 1 }],
 		};
-		const r = open(initial, () => [{ provider, id, api: "pi-virtual" }]);
+		const r = open(initial, () => [
+			{ provider, id, name: "Virtual", contextWindow: 50, api: "pi-virtual" },
+		]);
 		r.press("\x13");
 		const body = r.view.render(36, 1);
 		const feedback = body.fullFeedback?.map(stripVTControlCharacters).join("\n") ?? "";

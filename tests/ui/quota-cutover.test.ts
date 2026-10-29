@@ -29,7 +29,7 @@ function rig(packages: string[]) {
 		on: (event: string, handler: unknown) => {
 			if (typeof handler !== "function") return unexpected();
 			const list = handlers.get(event) ?? [];
-			list.push((payload) => handler({ type: event, ...payload }, ctx));
+			list.push((payload) => handler(payload, ctx));
 			handlers.set(event, list);
 			return () => {};
 		},
@@ -76,7 +76,8 @@ function rig(packages: string[]) {
 		bus,
 		notices,
 		run: async (event: string, payload?: Record<string, unknown>) => {
-			for (const handler of handlers.get(event) ?? []) await handler(payload);
+			const emitted = { type: event, ...payload };
+			for (const handler of handlers.get(event) ?? []) await handler(emitted);
 		},
 	};
 }

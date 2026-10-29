@@ -37,6 +37,7 @@ function open(name: string, userBindings: KeybindingsConfig = {}) {
 		{ read: async () => undefined, save: async () => {} },
 		item,
 		() => {},
+		() => ({ showProvenance: true, showMatchedRule: false }),
 	);
 	return { detail, loaded };
 }

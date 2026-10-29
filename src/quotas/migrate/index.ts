@@ -21,10 +21,12 @@ export async function carryOverPiQuotas(options: {
 	readonly cwd: string;
 	readonly projectTrusted: boolean;
 	readonly dir?: string;
+	readonly signal?: AbortSignal;
 }): Promise<CarryOverNotes> {
 	const dir = options.dir ?? agentDir();
 	const info: string[] = [];
 	const warnings: string[] = [];
+	if (options.signal?.aborted) return { info, warnings };
 	const settings = await migratePiQuotasSettings({
 		settings: options.settings,
 		registry: options.registry,
@@ -33,6 +35,7 @@ export async function carryOverPiQuotas(options: {
 			...(options.projectTrusted ? { project: join(options.cwd, ".pi", "quotas.json") } : {}),
 		},
 	});
+	if (options.signal?.aborted) return { info, warnings };
 	if (settings.migrated.length > 0) {
 		const keys = settings.migrated.map(({ scope, key }) => `${key} (${scope})`).join(", ");
 		info.push(`Carried pi-quotas settings into auth-plus.json: ${keys}`);
@@ -48,11 +51,14 @@ export async function carryOverPiQuotas(options: {
 			cache: options.engine.cache,
 			registry: options.registry,
 			sourcePath: join(dir, "cache", "quotas-cache.json"),
+			...(options.signal === undefined ? {} : { signal: options.signal }),
 		});
+		if (options.signal?.aborted) return { info, warnings };
 		if (history.error) warnings.push(history.error);
 		if (history.unknownProviders.length > 0)
 			warnings.push(`Skipped pi-quotas history for: ${history.unknownProviders.join(", ")}`);
 	} catch (error) {
+		if (options.signal?.aborted) return { info, warnings };
 		warnings.push(
 			`Cannot carry over pi-quotas history: ${error instanceof Error ? error.message : String(error)}`,
 		);

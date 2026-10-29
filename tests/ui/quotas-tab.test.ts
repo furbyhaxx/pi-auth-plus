@@ -306,7 +306,10 @@ describe("quotas tab", () => {
 			committed: true,
 			scope,
 			shadowed: ["quotas.linePlacement"],
-			warnings: ["Effects need a restart", "Lock release needs attention"],
+			warnings: [
+				"Effects need a restart\nthen retry\x1b]0;evil\x07",
+				"Lock release needs attention",
+			],
 		}));
 		f.view.handleInput("p");
 		f.view.handleInput("j");
@@ -317,7 +320,7 @@ describe("quotas tab", () => {
 		expect(f.saves).toEqual([["below-editor-last", "user"]]);
 		expect(f.placement()).toBe("below-editor-first");
 		expect(f.view.hasDrafts()).toBe(false);
-		const result = lines(f.view).join(" ");
+		const result = lines(f.view).join(" ").replace(/\s+/g, " ");
 		expect(result).toContain("Saved to user scope");
 		expect(result).toContain("shadowed by higher scope: quotas.linePlacement");
 		expect(result).toContain("warning: Effects need a restart");
@@ -337,6 +340,34 @@ describe("quotas tab", () => {
 			"Lock release needs attention",
 		])
 			expect(paged).toContain(fragment);
+		const oneRow = f.view.render(36, 1);
+		expect(oneRow.lines).toHaveLength(1);
+		for (const line of oneRow.lines) expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+		const feedback = oneRow.fullFeedback?.map(stripVTControlCharacters).join("\n") ?? "";
+		expect(feedback).toContain("Saved to user scope");
+		expect(feedback).toContain("Effects need a restart\nthen retry;");
+		expect(feedback).toContain("Lock release needs attention");
+		expect(feedback).not.toContain("evil");
+		f.view.dispose();
+	});
+
+	test("selected auth and provider errors remain complete in narrow help feedback", () => {
+		const f = open([
+			{
+				...provider("one"),
+				state: "needs-auth",
+				needsAuth: true,
+				loginHint: "/quota provider login\nthen /login provider-with-a-long-name",
+				error: "HTTP 500; retry from the provider dashboard\x1b]0;evil\x07",
+			},
+		]);
+		const body = f.view.render(36, 1);
+		expect(body.lines).toHaveLength(1);
+		for (const line of body.lines) expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+		const feedback = body.fullFeedback?.map(stripVTControlCharacters).join("\n") ?? "";
+		expect(feedback).toContain("/quota provider login\nthen /login provider-with-a-long-name");
+		expect(feedback).toContain("HTTP 500; retry from the provider dashboard");
+		expect(feedback).not.toContain("evil");
 		f.view.dispose();
 	});
 
@@ -471,12 +502,13 @@ describe("quotas tab", () => {
 		expect(f.view.hasDrafts()).toBe(false);
 		expect(f.hasDiscardConfirmation()).toBe(false);
 		f.view.handleInput("p");
-		expect(f.view.render(80, 5).hints).toContainEqual({
+		const helpHints = f.view.render(36, 1);
+		expect(helpHints.fullHints ?? helpHints.hints).toContainEqual({
 			key: "ctrl+g",
 			action: "choose",
 			priority: 0,
 		});
-		expect(f.view.render(80, 5).hints).toContainEqual({
+		expect(helpHints.fullHints ?? helpHints.hints).toContainEqual({
 			key: "ctrl+x",
 			action: "back",
 			priority: 0,

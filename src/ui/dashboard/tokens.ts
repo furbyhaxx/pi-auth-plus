@@ -81,6 +81,7 @@ export class TokensView implements TabView {
 	#report: ContextReport | undefined;
 	#parts: readonly BreakdownPart[] | undefined;
 	#message = "counting…";
+	#failure: string | undefined;
 	#controller: AbortController | undefined;
 	#unsubscribe: (() => void) | undefined;
 	#disposed = false;
@@ -99,6 +100,7 @@ export class TokensView implements TabView {
 		this.#controller = controller;
 		this.#parts = undefined;
 		this.#message = "counting…";
+		this.#failure = undefined;
 		try {
 			const parts = await this.#tracker?.breakdown(controller.signal);
 			if (this.#disposed || controller.signal.aborted) return;
@@ -106,7 +108,9 @@ export class TokensView implements TabView {
 			this.#message = "No session breakdown yet.";
 		} catch (error) {
 			if (this.#disposed || controller.signal.aborted) return;
-			this.#message = `Counting failed: ${sanitize(error instanceof Error ? error.message : String(error)).replaceAll("\n", " ")}; reopen Tokens to retry.`;
+			const reason = error instanceof Error ? error.message : String(error);
+			this.#failure = `Counting failed: ${reason}; reopen Tokens to retry.`;
+			this.#message = sanitize(this.#failure).replaceAll("\n", " ");
 		}
 		this.#host.refresh();
 	}
@@ -149,6 +153,9 @@ export class TokensView implements TabView {
 			lines: clipped.slice(this.#offset, this.#offset + bodyRows),
 			above: this.#offset,
 			below: Math.max(0, clipped.length - this.#offset - bodyRows),
+			...(this.#failure
+				? { fullFeedback: [this.#host.theme.fg("error", sanitize(this.#failure))] }
+				: {}),
 			hints: this.#maxOffset
 				? [
 						{

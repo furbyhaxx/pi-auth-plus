@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { stripVTControlCharacters } from "node:util";
 import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
 import type { BreakdownPart, ContextReport } from "../../src/tokens/engine/index.ts";
 import type { TokenTracker } from "../../src/tokens/tracker/types.ts";
@@ -199,25 +200,75 @@ test("dashboard grows and shrinks with asynchronous token breakdowns", async () 
 	f.view.dispose();
 });
 
-test("count failures are visible and provider text is sanitized", async () => {
+test("count failures remain complete in narrow help and provider text is sanitized", async () => {
 	const f = open();
+	const reason = `offline; ${"retry with the provider dashboard ".repeat(3)}\ncheck the account\x1b]0;evil\x07`;
 	const tracker: TokenTracker = {
 		...f.tracker,
 		latest: () => ({ ...report, provider: "safe\x1b]0;evil\x07", model: "model\nname" }),
 		breakdown: async () => {
-			throw new Error("offline; retry");
+			throw new Error(reason);
 		},
 	};
 	const view = new TokensView(f.host, tracker);
 	expect(text(view)).toContain("counting…");
 	await Promise.resolve();
-	expect(text(view)).toContain("Counting failed: offline; retry");
+	expect(text(view)).toContain("Counting failed: offline; retry with the provider dashboard");
 	expect(text(view)).not.toContain("evil");
-	for (const line of view.render(36, 100).lines) {
+	const body = view.render(36, 1);
+	for (const line of body.lines) {
 		expect(visibleWidth(line)).toBeLessThanOrEqual(36);
 		expect(line).not.toContain("\n");
 	}
+	const feedback = body.fullFeedback?.map(stripVTControlCharacters).join("\n") ?? "";
+	expect(feedback).toContain(
+		`Counting failed: ${reason.replace("\x1b]0;evil\x07", "")}; reopen Tokens to retry.`,
+	);
+	expect(feedback).toContain(
+		`offline; ${"retry with the provider dashboard ".repeat(3)}\ncheck the account; reopen Tokens to retry.`,
+	);
+	expect(feedback).not.toContain("evil");
 	view.dispose();
+	f.view.dispose();
+});
+
+test("provider help retains the complete login command when a narrow row clips it", () => {
+	const f = open();
+	const login = `/login ${"long-provider-name-".repeat(5)} --device`;
+	const panel = new AuthDashboard(
+		{ terminal: { rows: 8 }, requestRender: () => {} },
+		f.host.theme,
+		f.host.keys,
+		() => {},
+		staticViews({
+			providers: [
+				{
+					id: "provider",
+					label: "A provider with a long display name",
+					status: { state: "missing" as const },
+					loginHint: login,
+				},
+			],
+			nowMs: 0,
+		}),
+		"providers",
+		1,
+	);
+	const normal = panel.render(36);
+	for (const line of normal) expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+	expect(stripVTControlCharacters(normal.join("\n"))).not.toContain(login);
+	panel.handleInput("\x1bOP");
+	const visited: string[] = [];
+	for (let i = 0; i < 40; i++) {
+		const frame = panel.render(36);
+		for (const line of frame) expect(visibleWidth(line)).toBeLessThanOrEqual(36);
+		const body = stripVTControlCharacters(frame.slice(1, -2).join(" ")).replace(/\s+/g, " ");
+		if (body === visited.at(-1)) break;
+		visited.push(body);
+		panel.handleInput("\x1b[6~");
+	}
+	expect(visited.join("").replace(/\s/g, "")).toContain(login.replace(/\s/g, ""));
+	panel.dispose();
 	f.view.dispose();
 });
 

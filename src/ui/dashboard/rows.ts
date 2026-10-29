@@ -1,6 +1,6 @@
 /** A read-only, scrollable list of label/value rows; the Providers and Tokens tabs use it. */
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { padTo } from "../frame/index.ts";
+import { padTo, sanitize } from "../frame/index.ts";
 import type { Row, TabContent } from "./tabs.ts";
 import type { TabBody, TabView, TabViewHost } from "./view.ts";
 
@@ -36,10 +36,28 @@ export class RowsView implements TabView {
 		this.#maxOffset = Math.max(0, lines.length - bodyRows);
 		this.#offset = Math.min(this.#offset, this.#maxOffset);
 		const scroll = `${this.#host.binding("tui.select.up")}${this.#host.binding("tui.select.down")}`;
+		const selected = this.#content.rows[this.#offset];
+		const labelWidth =
+			selected === undefined
+				? 0
+				: Math.min(
+						Math.max(...this.#content.rows.map((row) => visibleWidth(row.label))),
+						Math.max(8, Math.floor(Math.max(1, width - 1) * 0.4)),
+					);
+		const selectedLine = lines[this.#offset];
+		const selectedClipped =
+			selected !== undefined &&
+			(visibleWidth(selected.label) > labelWidth ||
+				(selectedLine !== undefined && visibleWidth(selectedLine) > width));
 		return {
 			lines: lines.slice(this.#offset, this.#offset + bodyRows),
 			above: this.#offset,
 			below: Math.max(0, lines.length - this.#offset - bodyRows),
+			...(selectedClipped && selected
+				? {
+						fullDescription: `${sanitize(selected.label)}: ${theme.fg(selected.tone, sanitize(selected.value))}`,
+					}
+				: {}),
 			hints: this.#maxOffset > 0 ? [{ key: scroll, action: "scroll", priority: 2 }] : [],
 		};
 	}

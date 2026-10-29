@@ -286,6 +286,7 @@ export class QuotasView implements TabView {
 			: SCOPES.map((scope) => `${scope.key} ${scope.value}`);
 		const offset = Math.max(0, Math.min(selected, selected - bodyRows + 1));
 		const binding = (id: Parameters<TabViewHost["binding"]>[0]) => this.#host.binding(id);
+		const description = placement ? "Choose line placement." : "Choose save scope.";
 		return {
 			lines: choices
 				.slice(offset, offset + bodyRows)
@@ -311,11 +312,8 @@ export class QuotasView implements TabView {
 				Math.max(0, width),
 				"…",
 			),
-			description: truncateToWidth(
-				theme.fg("muted", placement ? "Choose line placement." : "Choose save scope."),
-				Math.max(0, width),
-				"…",
-			),
+			description: truncateToWidth(theme.fg("muted", description), Math.max(0, width), "…"),
+			fullDescription: theme.fg("muted", sanitize(description)),
 			hints: [
 				{ key: binding("tui.select.confirm"), action: placement ? "choose" : "save", priority: 0 },
 				{ key: binding("tui.select.cancel"), action: "back", priority: 0 },
@@ -358,9 +356,32 @@ export class QuotasView implements TabView {
 		const resultState = paged
 			? `result ${this.#messageOffset + 1}-${Math.min(this.#messageRows, this.#messageOffset + this.#messageCapacity)}/${this.#messageRows}`
 			: "";
+		const selectedProvider = this.#providers().find((provider) => provider.id === this.#selected);
+		const fullFeedback = [
+			...(body.fullFeedback ?? []),
+			...(selectedProvider &&
+			(selectedProvider.needsAuth || selectedProvider.state === "needs-auth")
+				? [
+						this.#host.theme.fg(
+							"warning",
+							`${sanitize(selectedProvider.title)}: ${sanitize(selectedProvider.loginHint ?? `/login ${selectedProvider.id}`)}`,
+						),
+					]
+				: []),
+			...(selectedProvider?.error
+				? [
+						this.#host.theme.fg(
+							"error",
+							`${sanitize(selectedProvider.title)}: ${sanitize(selectedProvider.error)}`,
+						),
+					]
+				: []),
+			...(this.#message ? [this.#host.theme.fg("warning", sanitize(this.#message))] : []),
+		];
 		return {
 			...body,
 			lines: [...body.lines, ...message],
+			...(fullFeedback.length > 0 ? { fullFeedback } : {}),
 			...(scope || paged
 				? {
 						state: truncateToWidth(

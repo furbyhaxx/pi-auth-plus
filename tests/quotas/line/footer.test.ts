@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import type { SessionEntry, Theme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import { createFooterWithQuotaLine, type FooterContext } from "../../../src/quotas/line/footer.ts";
+import {
+	type ContextPercentThresholds,
+	createFooterWithQuotaLine,
+	type FooterContext,
+} from "../../../src/quotas/line/footer.ts";
 import type { ContextReport } from "../../../src/tokens/engine/index.ts";
 
 const theme = { fg: (_color: string, text: string) => text } as Theme;
@@ -36,6 +40,7 @@ function rig(
 	activeTheme = theme,
 	thinking: "off" | "high" = "off",
 	tokens?: () => ContextReport | undefined,
+	contextThresholds?: () => ContextPercentThresholds,
 ) {
 	let entries: SessionEntry[] = [message("a", 1000, 2000, 1000)];
 	let leaf = "a";
@@ -88,6 +93,7 @@ function rig(
 			return ["quota one", "quota two"];
 		},
 		tokens,
+		contextThresholds,
 	);
 	return {
 		footer,
@@ -172,6 +178,46 @@ test("model thinking and provider are shown when they fit, and context uses stre
 		expect(r.footer.render(140)[1]).not.toContain(" • high");
 		r.footer.dispose();
 	}
+});
+
+test("context thresholds are live, inclusive, and leave unknown percentages neutral", () => {
+	const colors: string[] = [];
+	const coloredTheme = {
+		fg: (color: string, text: string) => {
+			colors.push(color);
+			return text;
+		},
+	} as Theme;
+	let thresholds: ContextPercentThresholds = { warningPercent: 70, errorPercent: 90 };
+	const r = rig(coloredTheme, "off", undefined, () => thresholds);
+
+	r.footer.render(140);
+	expect(colors).toContain("warning");
+
+	colors.length = 0;
+	thresholds = { warningPercent: 80, errorPercent: 95 };
+	r.footer.render(140);
+	expect(colors).not.toContain("warning");
+	expect(colors).not.toContain("error");
+
+	colors.length = 0;
+	r.setPercent(80);
+	r.footer.render(140);
+	expect(colors).toContain("warning");
+	expect(colors).not.toContain("error");
+
+	colors.length = 0;
+	r.setPercent(95);
+	r.footer.render(140);
+	expect(colors).toContain("error");
+
+	colors.length = 0;
+	thresholds = { warningPercent: 0, errorPercent: 95 };
+	r.setPercent(null);
+	expect(r.footer.render(140)[1]).toContain("?%/200k (auto)");
+	expect(colors).not.toContain("warning");
+	expect(colors).not.toContain("error");
+	r.footer.dispose();
 });
 
 test("usage totals refresh on entry count, branch leaf and explicit invalidation", () => {

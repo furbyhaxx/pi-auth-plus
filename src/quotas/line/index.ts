@@ -62,8 +62,18 @@ export function createQuotaLine(
 		return limitQuotaRows(width, theme, lines, terminalRows - EDITOR_RESERVE_ROWS);
 	};
 	const statusline = createQuotaStatusline(pi, deps);
-	const footer = createFooterPlacement(pi, rows, deps.tokens && (() => deps.tokens?.latest()), () =>
-		statusline.owned(),
+	const footer = createFooterPlacement(
+		pi,
+		rows,
+		deps.tokens && (() => deps.tokens?.latest()),
+		() => statusline.owned(),
+		() => {
+			const settings = deps.settings();
+			return {
+				warningPercent: settings.get("tokens.warningPercent"),
+				errorPercent: settings.get("tokens.errorPercent"),
+			};
+		},
 	);
 	let offTokens: (() => void) | undefined;
 	let offOwnership: (() => void) | undefined;

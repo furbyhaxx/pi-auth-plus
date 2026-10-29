@@ -2,7 +2,11 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
 import type { ContextReport } from "../../tokens/engine/index.ts";
-import { createFooterWithQuotaLine, type FooterContext } from "./footer.ts";
+import {
+	type ContextPercentThresholds,
+	createFooterWithQuotaLine,
+	type FooterContext,
+} from "./footer.ts";
 import { asFooterHost, type FooterRows, type WorkbenchFooterHost } from "./workbench.ts";
 
 /** UI and session data needed to mount the fallback footer. */
@@ -27,6 +31,7 @@ export function createFooterPlacement(
 	tokens?: () => ContextReport | undefined,
 	/** True while another surface (the workbench statusline segment) already shows the quotas. */
 	suppressed: () => boolean = () => false,
+	contextThresholds?: () => ContextPercentThresholds,
 ): FooterPlacement {
 	let ctx: FooterPlacementContext | undefined;
 	let enabled = false;
@@ -60,7 +65,16 @@ export function createFooterPlacement(
 			const current = ctx;
 			current.ui.setFooter((activeTui, theme, footerData) => {
 				tui = activeTui;
-				return createFooterWithQuotaLine(pi, current, activeTui, theme, footerData, rows, tokens);
+				return createFooterWithQuotaLine(
+					pi,
+					current,
+					activeTui,
+					theme,
+					footerData,
+					rows,
+					tokens,
+					contextThresholds,
+				);
 			});
 		} else if (desired && desired !== "own") {
 			desired.setFooterRows("pi-auth-plus", rows);

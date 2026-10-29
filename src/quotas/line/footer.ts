@@ -7,6 +7,7 @@ import type {
 	Theme,
 } from "@earendil-works/pi-coding-agent";
 import { type Component, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { SETTINGS } from "../../core/config/catalog.ts";
 import type { ContextReport } from "../../tokens/engine/index.ts";
 import { sanitize } from "../../ui/frame/index.ts";
 import type { FooterRows } from "./workbench.ts";
@@ -45,6 +46,16 @@ export type FooterContext = Pick<ExtensionContext, "model" | "getContextUsage"> 
 	>;
 };
 
+export type ContextPercentThresholds = {
+	readonly warningPercent: number;
+	readonly errorPercent: number;
+};
+
+const DEFAULT_CONTEXT_PERCENT_THRESHOLDS: ContextPercentThresholds = {
+	warningPercent: SETTINGS["tokens.warningPercent"].default,
+	errorPercent: SETTINGS["tokens.errorPercent"].default,
+};
+
 /** Recreates the pi-quotas footer, appending the caller's rows after extension statuses. */
 export function createFooterWithQuotaLine(
 	pi: Pick<ExtensionAPI, "getThinkingLevel">,
@@ -54,6 +65,7 @@ export function createFooterWithQuotaLine(
 	footerData: ReadonlyFooterDataProvider,
 	renderQuotaRows: FooterRows,
 	tokens?: () => ContextReport | undefined,
+	contextThresholds?: () => ContextPercentThresholds,
 ): Component & { dispose(): void } {
 	const unsubBranch = footerData.onBranchChange(() => tui.requestRender());
 	let cachedLeafId: string | null | undefined;
@@ -131,13 +143,15 @@ export function createFooterWithQuotaLine(
 					? report
 					: undefined;
 			const percent = counted ? counted.percent : contextUsage?.percent;
-			const pctVal = percent ?? 0;
-			const pctStr = percent !== null && percent !== undefined ? pctVal.toFixed(1) : "?";
+			const pctStr = percent !== null && percent !== undefined ? percent.toFixed(1) : "?";
 			// "~" marks a count whose weakest part is a character-ratio estimate.
 			const approx = counted?.tokens.source === "estimate" ? "~" : "";
 			const ctxDisplay = `${approx}${pctStr}%/${formatTokens(contextWindow)} (auto)`;
-			if (pctVal > 90) statsParts.push(theme.fg("error", ctxDisplay));
-			else if (pctVal > 70) statsParts.push(theme.fg("warning", ctxDisplay));
+			const thresholds = contextThresholds?.() ?? DEFAULT_CONTEXT_PERCENT_THRESHOLDS;
+			if (percent === null || percent === undefined) statsParts.push(ctxDisplay);
+			else if (percent >= thresholds.errorPercent) statsParts.push(theme.fg("error", ctxDisplay));
+			else if (percent >= thresholds.warningPercent)
+				statsParts.push(theme.fg("warning", ctxDisplay));
 			else statsParts.push(ctxDisplay);
 
 			let statsLeft = statsParts.join(" ");

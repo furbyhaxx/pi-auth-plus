@@ -43,6 +43,8 @@ export interface TabView {
 	render(width: number, bodyRows: number): TabBody;
 	/** True when the tab consumed the key; it then sees Tab, arrows and cancel first. */
 	handleInput(data: string): boolean;
+	/** True while this tab or one of its subviews is saving. */
+	isSaving?(): boolean;
 	/** True when this tab or one of its subviews has unsaved changes. */
 	hasDrafts?(): boolean;
 	/** Discard this tab's unsaved changes, including drafts in subviews. */

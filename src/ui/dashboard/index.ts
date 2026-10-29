@@ -85,8 +85,12 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 		return this.#tab;
 	}
 
+	#isSaving(): boolean {
+		return TABS.some((tab) => this.#views[tab.id].isSaving?.());
+	}
+
 	protected override finish(result: DashboardResult): void {
-		if (this.isClosed || this.#confirmation) return;
+		if (this.isClosed || this.#confirmation || this.#isSaving()) return;
 		if (!TABS.some((tab) => this.#views[tab.id].hasDrafts?.())) {
 			super.finish(result);
 			return;
@@ -96,7 +100,7 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	}
 
 	#confirmDiscard(discard: () => void): void {
-		if (this.isClosed || this.#confirmation) return;
+		if (this.isClosed || this.#confirmation || this.#isSaving()) return;
 		this.#confirmation = { kind: "local", discard };
 		this.refresh();
 	}
@@ -113,7 +117,11 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 				body: [
 					this.theme.fg(
 						"warning",
-						this.#confirmation.kind === "all" ? " Discard all & exit?" : " Discard this draft?",
+						this.#isSaving()
+							? " Saving; wait."
+							: this.#confirmation.kind === "all"
+								? " Discard all & exit?"
+								: " Discard this draft?",
 					),
 				],
 				bodyRows,
@@ -151,7 +159,7 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	}
 
 	#navigate(next: TabId): void {
-		if (this.isClosed || this.#confirmation || next === this.#tab) return;
+		if (this.isClosed || this.#confirmation || next === this.#tab || this.#isSaving()) return;
 		if (this.#tab === "tokens" && !this.#views.tokens.hasDrafts?.()) {
 			this.#views.tokens.dispose?.();
 			this.#views.tokens = this.#factories.tokens(this.#viewHost);
@@ -175,6 +183,10 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 				this.#confirmation = undefined;
 				this.refresh();
 			} else if (keys.matches(data, "tui.select.confirm")) {
+				if (this.#isSaving()) {
+					this.refresh();
+					return;
+				}
 				if (confirmation.kind === "all") {
 					for (const tab of TABS) this.#views[tab.id].discardDrafts?.();
 					this.#confirmation = undefined;

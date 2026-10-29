@@ -64,6 +64,7 @@ const plain = (lines: string[]) => lines.map((line) => stripVTControlCharacters(
 
 class DraftView implements TabView {
 	dirty = false;
+	saving = false;
 	subeditor = true;
 	consumeCtrlC = false;
 	readonly inputs: string[] = [];
@@ -81,6 +82,10 @@ class DraftView implements TabView {
 
 	hasDrafts(): boolean {
 		return this.dirty;
+	}
+
+	isSaving(): boolean {
+		return this.saving;
 	}
 
 	discardDrafts(): void {
@@ -352,6 +357,124 @@ describe("ui/dashboard", () => {
 		expect(events).toEqual(["dispose:tokens"]);
 		expect(instances.tokens).not.toBe(tokens);
 		expect(instances.settings.dirty).toBe(true);
+	});
+
+	test("saving in an inactive tab blocks every exit with or without drafts", () => {
+		const exits: {
+			run: (rig: ReturnType<typeof draftRig>) => void;
+			result: DashboardResult;
+		}[] = [
+			{ run: ({ panel }) => panel.handleInput("\x03"), result: undefined },
+			{ run: ({ panel }) => panel.handleInput("\x1b"), result: undefined },
+			{ run: ({ panel }) => panel.handleInput("r"), result: { reset: "codex" } },
+			{ run: ({ panel }) => panel.handleInput("e"), result: { editSetting: "models.rules" } },
+			{ run: ({ panel }) => panel.requestFinish({ reset: "codex" }), result: { reset: "codex" } },
+		];
+		for (const exit of exits) {
+			for (const dirty of [false, true]) {
+				const rig = draftRig();
+				rig.instances.settings.saving = true;
+				rig.instances.settings.dirty = dirty;
+				exit.run(rig);
+				expect(rig.results).toHaveLength(0);
+				expect(rig.events).toEqual([]);
+				expect(plain(rig.panel.render(80)).join("\n")).not.toContain("Discard");
+				expect(rig.instances.settings.dirty).toBe(dirty);
+				rig.instances.settings.saving = false;
+				exit.run(rig);
+				if (dirty) rig.panel.handleInput("\r");
+				expect(rig.results).toHaveLength(1);
+				expect(rig.results[0]).toEqual(exit.result);
+			}
+		}
+	});
+
+	test("saving in an inactive tab blocks navigation and local discard requests", () => {
+		const { panel, instances, results, events } = draftRig();
+		const view = instances.providers;
+		view.dirty = true;
+		instances.settings.dirty = true;
+		instances.settings.saving = true;
+		panel.handleInput("\t");
+		view.host.navigate?.("models");
+		panel.handleInput("n");
+		panel.handleInput("d");
+		panel.handleInput("\r");
+		expect(panel.tab).toBe("providers");
+		expect(view.localDiscards).toBe(0);
+		expect(view.dirty).toBe(true);
+		expect(view.subeditor).toBe(true);
+		expect(instances.settings.dirty).toBe(true);
+		expect(results).toHaveLength(0);
+		expect(events).toEqual([]);
+		instances.settings.saving = false;
+		view.host.navigate?.("models");
+		expect(panel.tab).toBe("models");
+		view.host.navigate?.("providers");
+		panel.handleInput("d");
+		panel.handleInput("\r");
+		expect(view.localDiscards).toBe(1);
+		expect(instances.settings.dirty).toBe(true);
+		expect(results).toHaveLength(0);
+
+		const tokensRig = draftRig("tokens");
+		tokensRig.instances.settings.saving = true;
+		tokensRig.panel.handleInput("\t");
+		expect(tokensRig.panel.tab).toBe("tokens");
+		expect(tokensRig.events).toEqual([]);
+		tokensRig.instances.settings.saving = false;
+		tokensRig.panel.handleInput("\t");
+		expect(tokensRig.panel.tab).toBe("models");
+		expect(tokensRig.events).toEqual(["dispose:tokens"]);
+	});
+
+	test("an existing global or local confirmation cannot discard while another tab starts saving", () => {
+		for (const local of [false, true]) {
+			const { panel, instances, results, events } = draftRig();
+			const view = instances.providers;
+			view.dirty = true;
+			instances.settings.dirty = true;
+			panel.handleInput(local ? "d" : "\x03");
+			instances.settings.saving = true;
+			panel.handleInput("\r");
+			expect(results).toHaveLength(0);
+			expect(events).toEqual([]);
+			expect(view.localDiscards).toBe(0);
+			expect(view.dirty).toBe(true);
+			expect(instances.settings.dirty).toBe(true);
+			for (const width of [20, 36, 57, 80, 140]) {
+				const lines = panel.render(width);
+				expect(plain(lines).join("\n")).toContain("Saving; wait.");
+				for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			}
+			instances.settings.saving = false;
+			panel.handleInput("\r");
+			if (local) {
+				expect(view.localDiscards).toBe(1);
+				expect(instances.settings.dirty).toBe(true);
+				expect(results).toHaveLength(0);
+			} else {
+				expect(view.localDiscards).toBe(0);
+				expect(instances.settings.dirty).toBe(false);
+				expect(results).toHaveLength(1);
+			}
+		}
+	});
+
+	test("a pending confirmation can be cancelled safely during a save", () => {
+		const { panel, instances, results, events } = draftRig();
+		instances.providers.dirty = true;
+		panel.handleInput("d");
+		instances.settings.saving = true;
+		panel.handleInput("\x1b");
+		expect(plain(panel.render(80)).join("\n")).toContain("providers subeditor");
+		expect(instances.providers.dirty).toBe(true);
+		expect(instances.providers.localDiscards).toBe(0);
+		expect(results).toHaveLength(0);
+		expect(events).toEqual([]);
+		instances.settings.saving = false;
+		panel.handleInput("\r");
+		expect(instances.providers.localDiscards).toBe(0);
 	});
 
 	test("disposal cancels pending confirmations and fences late view callbacks", () => {

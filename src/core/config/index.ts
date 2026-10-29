@@ -4,12 +4,11 @@ import { dirname } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import lockfile from "proper-lockfile";
 import { atomicWriteFile, isErrno, readJsonFile } from "../fs/index.ts";
-import type { Field, FieldValue } from "./fields.ts";
+import type { Field, FieldValue, SaveScope } from "./fields.ts";
 
 export * from "./fields.ts";
 
-export type Scope = "default" | "user" | "project" | "runtime";
-export type SaveScope = Exclude<Scope, "default">;
+export type Scope = "default" | SaveScope;
 
 /** Dotted keys (`quotas.refreshIntervalSec`) map to nested objects in `auth-plus.json`. */
 export type Catalog = Readonly<Record<string, Field<FieldValue>>>;
@@ -104,18 +103,20 @@ export class SettingsStore<C extends Catalog> {
 				});
 				continue;
 			}
-			this.layers[scope] = this.parseLayer(read.value, path, problems);
+			this.layers[scope] = this.parseLayer(read.value, path, scope, problems);
 		}
 		return problems;
 	}
 
 	get<K extends keyof C & string>(key: K, options?: SettingsResolutionOptions): ValueOf<C, K> {
+		const field = this.field(key);
 		for (const scope of ["runtime", "project", "user"] as const) {
-			if (scope === "project" && options?.includeProject === false) continue;
+			if (!allowsScope(field, scope) || (scope === "project" && options?.includeProject === false))
+				continue;
 			const value = this.layers[scope][key];
 			if (value !== undefined) return value;
 		}
-		return this.field(key).default as ValueOf<C, K>;
+		return field.default as ValueOf<C, K>;
 	}
 
 	values(): Values<C> {
@@ -125,8 +126,10 @@ export class SettingsStore<C extends Catalog> {
 	}
 
 	sourceOf(key: keyof C & string, options?: SettingsResolutionOptions): Scope {
+		const field = this.field(key);
 		for (const scope of ["runtime", "project", "user"] as const) {
-			if (scope === "project" && options?.includeProject === false) continue;
+			if (!allowsScope(field, scope) || (scope === "project" && options?.includeProject === false))
+				continue;
 			if (this.layers[scope][key] !== undefined) return scope;
 		}
 		return "default";
@@ -136,7 +139,13 @@ export class SettingsStore<C extends Catalog> {
 	shadowed(scope: SaveScope, keys: readonly (keyof C & string)[]): (keyof C & string)[] {
 		const above: SaveScope[] =
 			scope === "user" ? ["project", "runtime"] : scope === "project" ? ["runtime"] : [];
-		return keys.filter((key) => above.some((s) => this.layers[s][key] !== undefined));
+		return keys.filter((key) => {
+			const field = this.field(key);
+			return (
+				allowsScope(field, scope) &&
+				above.some((higher) => allowsScope(field, higher) && this.layers[higher][key] !== undefined)
+			);
+		});
 	}
 
 	/**
@@ -160,7 +169,7 @@ export class SettingsStore<C extends Catalog> {
 			});
 			let releaseFailure: unknown;
 			try {
-				const entries = this.validate(changes, scope);
+				const entries = this.validate(changes, scope, path);
 				const read = await readJsonFile(path);
 				if (read.kind === "malformed" || (read.kind === "ok" && !isObject(read.value))) {
 					throw new SettingsError(
@@ -176,7 +185,7 @@ export class SettingsStore<C extends Catalog> {
 				if (compromised) throw compromised;
 				await atomicWriteFile(path, `${JSON.stringify(doc, null, "\t")}\n`);
 				if (compromised) throw compromised;
-				this.layers[scope] = this.parseLayer(doc, path, []);
+				this.layers[scope] = this.parseLayer(doc, path, scope, []);
 			} finally {
 				await release().catch((error: unknown) => {
 					releaseFailure = error;
@@ -204,12 +213,26 @@ export class SettingsStore<C extends Catalog> {
 		return field;
 	}
 
-	private parseLayer(doc: JsonObject, path: string, problems: SettingsProblem[]): Layer<C> {
+	private parseLayer(
+		doc: JsonObject,
+		path: string,
+		scope: SaveScope,
+		problems: SettingsProblem[],
+	): Layer<C> {
 		const layer: Record<string, FieldValue> = {};
 		for (const key of this.keys()) {
 			const raw = getPath(doc, key.split("."));
 			if (raw === undefined) continue;
-			const value = this.field(key).parse(raw);
+			const field = this.field(key);
+			if (!allowsScope(field, scope)) {
+				problems.push({
+					path,
+					key,
+					reason: `not allowed in ${scope} scope; ${scopeAdvice(field)}`,
+				});
+				continue;
+			}
+			const value = field.parse(raw);
 			if (value === undefined) {
 				problems.push({
 					path,
@@ -223,7 +246,11 @@ export class SettingsStore<C extends Catalog> {
 		return layer as Layer<C>;
 	}
 
-	private validate(changes: Changes<C>, scope: SaveScope): [string, FieldValue | null][] {
+	private validate(
+		changes: Changes<C>,
+		scope: SaveScope,
+		path = "",
+	): [string, FieldValue | null][] {
 		const out: [string, FieldValue | null][] = [];
 		for (const [key, value] of Object.entries(changes)) {
 			if (value === undefined) continue;
@@ -231,7 +258,15 @@ export class SettingsStore<C extends Catalog> {
 				out.push([key, null]);
 				continue;
 			}
-			const parsed = this.field(key).parse(value);
+			const field = this.field(key);
+			if (!allowsScope(field, scope)) {
+				const location = path ? ` (${path})` : "";
+				throw new SettingsError(
+					path,
+					`Cannot save "${key}" to ${scope} scope${location}; ${scopeAdvice(field)}`,
+				);
+			}
+			const parsed = field.parse(value);
 			if (parsed === undefined) {
 				throw new SettingsError(
 					"",
@@ -242,6 +277,15 @@ export class SettingsStore<C extends Catalog> {
 		}
 		return out;
 	}
+}
+
+function allowsScope(field: Field<FieldValue>, scope: SaveScope): boolean {
+	return field.allowedScopes?.includes(scope) ?? true;
+}
+
+function scopeAdvice(field: Field<FieldValue>): string {
+	const allowed = field.allowedScopes?.join(", ");
+	return allowed ? `use an allowed scope (${allowed}) instead` : "remove the value";
 }
 
 function applyToLayer<C extends Catalog>(

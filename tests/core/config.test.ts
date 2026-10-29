@@ -103,10 +103,142 @@ describe("core/config", () => {
 		write(user, { models: { rules: ["claude/*"], rulesScope: "user" } });
 		write(project, { models: { rules: ["synthetic/*"], rulesScope: "trusted-project" } });
 		const store = new SettingsStore(SETTINGS, { user, project });
-		await store.load();
+		const problems = await store.load();
+		expect(problems.map((problem) => [problem.path, problem.key])).toEqual([
+			[project, "models.rulesScope"],
+		]);
+		expect(store.get("models.rulesScope")).toBe("user");
+		expect(store.sourceOf("models.rulesScope")).toBe("user");
 		expect(effectiveModelRules(store)).toEqual(["claude/*"]);
 		await store.save("runtime", { "models.rulesScope": "trusted-project" });
+		expect(store.get("models.rulesScope")).toBe("trusted-project");
+		expect(store.sourceOf("models.rulesScope")).toBe("runtime");
+		expect(store.shadowed("user", ["models.rulesScope"])).toEqual(["models.rulesScope"]);
+		expect(store.shadowed("project", ["models.rulesScope"])).toEqual([]);
 		expect(effectiveModelRules(store)).toEqual(["synthetic/*"]);
+	});
+
+	test("project cannot change the effective scope shown for model rules", async () => {
+		write(user, { models: { rules: ["claude/*"] } });
+		write(project, { models: { rules: ["synthetic/*"], rulesScope: "user" } });
+		const store = new SettingsStore(SETTINGS, { user, project });
+		const problems = await store.load();
+
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toMatchObject({ path: project, key: "models.rulesScope" });
+		expect(problems[0]?.reason).toContain("project scope");
+		expect(problems[0]?.reason).toContain("user, runtime");
+		expect(effectiveModelRules(store)).toEqual(["synthetic/*"]);
+		expect(store.get("models.rulesScope")).toBe("trusted-project");
+		expect(store.sourceOf("models.rulesScope")).toBe("default");
+		expect(store.values()["models.rulesScope"]).toBe("trusted-project");
+		expect(store.shadowed("user", ["models.rulesScope"])).toEqual([]);
+	});
+
+	test("forbidden project edits fail atomically but null removes legacy overrides", async () => {
+		write(user, { models: { rules: ["claude/*"], rulesScope: "user" } });
+		write(project, {
+			models: { rules: ["synthetic/*"], rulesScope: "trusted-project" },
+			other: { keep: true },
+		});
+		const original = readFileSync(project, "utf8");
+		const store = new SettingsStore(SETTINGS, { user, project });
+		await store.load();
+		const error: unknown = await store
+			.save("project", { "models.rules": ["changed/*"], "models.rulesScope": "trusted-project" })
+			.catch((caught: unknown) => caught);
+
+		expect(error).toBeInstanceOf(SettingsError);
+		if (!(error instanceof SettingsError)) throw new Error("Expected SettingsError");
+		expect(error.path).toBe(project);
+		expect(error.message).toContain("models.rulesScope");
+		expect(error.message).toContain("project");
+		expect(error.message).toContain("user, runtime");
+		expect(readFileSync(project, "utf8")).toBe(original);
+		expect(store.get("models.rulesScope")).toBe("user");
+		expect(effectiveModelRules(store)).toEqual(["claude/*"]);
+
+		await store.save("project", { "models.rules": ["changed/*"] });
+		expect(store.get("models.rulesScope")).toBe("user");
+		expect(store.sourceOf("models.rulesScope")).toBe("user");
+		expect(store.shadowed("user", ["models.rulesScope"])).toEqual([]);
+		expect(effectiveModelRules(store)).toEqual(["claude/*"]);
+		expect(JSON.parse(readFileSync(project, "utf8"))).toEqual({
+			models: { rules: ["changed/*"], rulesScope: "trusted-project" },
+			other: { keep: true },
+		});
+
+		await store.save("project", { "models.rulesScope": null });
+		expect(JSON.parse(readFileSync(project, "utf8"))).toEqual({
+			models: { rules: ["changed/*"] },
+			other: { keep: true },
+		});
+		expect(await store.load()).toEqual([]);
+		expect(effectiveModelRules(store)).toEqual(["claude/*"]);
+
+		const missing = join(dir, "missing", "project.json");
+		const newStore = new SettingsStore(SETTINGS, { user, project: missing });
+		await expect(newStore.save("project", { "models.rulesScope": "user" })).rejects.toThrow(
+			"project scope",
+		);
+		expect(existsSync(missing)).toBe(false);
+	});
+
+	test("scope metadata governs generic fields, resolution and shadowing", async () => {
+		const fields = {
+			"flags.user": booleanField({
+				label: "User",
+				description: "User only",
+				default: false,
+				allowedScopes: ["user"],
+			}),
+			"flags.project": booleanField({
+				label: "Project",
+				description: "Project only",
+				default: false,
+				allowedScopes: ["project"],
+			}),
+			"flags.all": booleanField({ label: "All", description: "All scopes", default: false }),
+			"flags.none": booleanField({
+				label: "Default",
+				description: "Default only",
+				default: false,
+				allowedScopes: [],
+			}),
+		};
+		write(user, { flags: { user: true, project: true, all: true, none: true } });
+		write(project, { flags: { user: false, project: true, all: false, none: true } });
+		const store = new SettingsStore(fields, { user, project });
+		const problems = await store.load();
+		expect(problems.map((problem) => [problem.path, problem.key])).toEqual([
+			[user, "flags.project"],
+			[user, "flags.none"],
+			[project, "flags.user"],
+			[project, "flags.none"],
+		]);
+		expect(store.values()).toEqual({
+			"flags.user": true,
+			"flags.project": true,
+			"flags.all": false,
+			"flags.none": false,
+		});
+		expect(store.sourceOf("flags.user")).toBe("user");
+		expect(store.sourceOf("flags.project")).toBe("project");
+		expect(store.sourceOf("flags.none")).toBe("default");
+		expect(store.get("flags.all", { includeProject: false })).toBe(true);
+		expect(store.sourceOf("flags.all", { includeProject: false })).toBe("user");
+		expect(
+			store.shadowed("user", ["flags.user", "flags.project", "flags.all", "flags.none"]),
+		).toEqual(["flags.all"]);
+
+		await expect(store.save("runtime", { "flags.user": false })).rejects.toThrow("user");
+		await store.save("runtime", { "flags.all": true });
+		expect(store.get("flags.all")).toBe(true);
+		expect(store.sourceOf("flags.all")).toBe("runtime");
+		expect(store.shadowed("user", ["flags.all"])).toEqual(["flags.all"]);
+		await store.save("project", { "flags.user": null, "flags.none": null });
+		await store.save("user", { "flags.project": null, "flags.none": null });
+		expect(await store.load()).toEqual([]);
 	});
 
 	test("runtime > project > user > default, each value reports its source", async () => {

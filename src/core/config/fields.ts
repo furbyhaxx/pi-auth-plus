@@ -6,6 +6,8 @@ export interface TextRule {
 	readonly replacement?: string;
 }
 
+/** Writable settings layers; catalog defaults always apply. */
+export type SaveScope = "user" | "project" | "runtime";
 export type FieldValue = boolean | number | string | readonly string[] | readonly object[];
 export type FieldKind = "boolean" | "number" | "enum" | "string" | "list" | "rules";
 
@@ -19,6 +21,8 @@ export interface Field<T extends FieldValue> {
 	readonly label: string;
 	readonly description: string;
 	readonly default: T;
+	/** Omitted permits every writable scope. */
+	readonly allowedScopes?: readonly SaveScope[];
 	readonly options?: readonly FieldOption[];
 	readonly min?: number;
 	readonly max?: number;
@@ -31,6 +35,7 @@ interface Meta<T> {
 	readonly label: string;
 	readonly description: string;
 	readonly default: T;
+	readonly allowedScopes?: readonly SaveScope[];
 }
 
 export function booleanField(meta: Meta<boolean>): Field<boolean> {

@@ -94,6 +94,7 @@ export const SETTINGS = {
 		label: "Model rules scope",
 		description: "Whether trusted project rules can override user rules",
 		default: "trusted-project",
+		allowedScopes: ["user", "runtime"],
 		options: [
 			{ value: "user", label: "User" },
 			{ value: "trusted-project", label: "User and trusted project" },

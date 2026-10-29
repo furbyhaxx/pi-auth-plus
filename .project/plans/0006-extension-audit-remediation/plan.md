@@ -5,7 +5,7 @@ title: "Extension audit remediation"
 description: "Resolve all findings from the extension completeness and quality audit with regression and acceptance evidence."
 type: "plan"
 created: "2026-10-29T16:40:10+01:00"
-updated: "2026-10-29T19:57:19+01:00"
+updated: "2026-10-29T20:23:06+01:00"
 createdBy: "pi"
 updatedBy: "pi"
 document:
@@ -14,9 +14,9 @@ document:
   title: "Extension audit remediation"
   description: "Finding-level closure ledger and rolling-wave implementation boundaries."
   status: "draft"
-  revision: 6
+  revision: 7
   created_at: "2026-10-29T16:40:10+01:00"
-  updated_at: "2026-10-29T19:57:19+01:00"
+  updated_at: "2026-10-29T20:23:06+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -38,6 +38,9 @@ document:
     - revision: 6
       reason: "Complete production consumers and start combined and live acceptance"
       changes: ["Map every remaining finding to integrated code", "Record cancel-safe host selection and its failed-reload review correction", "Keep pending acceptance and baseline failures explicit"]
+    - revision: 7
+      reason: "Collect acceptance results and remediate observed count and timer defects"
+      changes: ["Record actual provider and performance limits", "Integrate shutdown deadline cleanup", "Define full-request count boundary and honest native labels", "Keep host baseline gate blocked"]
 ---
 
 # Scope and acceptance
@@ -64,13 +67,51 @@ done   Production picker/typed collections and creation-time panel ownership
        └─ Scrollable shared health UI, canonical quota IDs and live frame preferences
 done   Scoped placement/rule outcomes, complete compact Help and wide input allocation
        └─ Live provenance/rule controls, branch-selected routes and startup warnings
-now    Combined gates, live provider/quota/count calls, production terminal and performance QA
-       └─ Host-owned model selection: core/API/consumer and failed-reload correction verified
-next   Resolve acceptance defects and record final finding-level evidence
+done   Initial combined gates, 167-capture offline terminal matrix and performance measurements
+now    Resolve live count-framing defect and native-count authentication feedback
+       ├─ Shutdown deadline cleanup integrated; narrow real-host recheck pending
+       └─ Focused trusted-project save and Synthetic tool-renderer terminal acceptance
+next   Re-run affected combined gates, recheck live native counts and finalize finding evidence
 ```
 
 Concurrent writers use isolated worktrees and explicit scopes. Shared entrypoint changes integrate
 sequentially. The Workbench project task P1 owns this effort; task notes retain per-unit checks/SHAs.
+
+# Current acceptance follow-up
+
+This section supersedes older pending-acceptance wording in the per-finding rows until final
+closure is recorded. The initial green gate is not the final gate after these source changes.
+
+- Real streaming succeeded on five configured paths, including a Synthetic virtual group.
+  Registered free OpenCode routes returned upstream HTTP 429; no extension cause was established.
+  Codex generation lacks a Pi OAuth slot; legacy Codex quota authentication works. OpenRouter
+  classification is outside this extension's quota-only adapter. P1bn1 remains blocked rather
+  than claiming every-provider success.
+- Six quota sources returned HTTP 200 with checked normalization. All seven deliberately missing
+  credentials produced login-required reports with zero requests; Synthetic recovered on restoring
+  the real credential. Claude quota returned 429; one bounded post-hold recheck is separate.
+- Native Claude context counting failed live acceptance: full shaped requests counted 36/41,
+  while additive engine reports gave 4/9. P1br now owns a full-request native boundary for supported
+  contexts, preserves provider anchors and labels baseline-subtracted contributions as estimates.
+  Shared contract `070353b` and truthful `count API` presentation `a9f66e0` are integrated; engine
+  and family consumers remain in isolated implementation units. Missing-auth fallback guidance is
+  the separate sequential P1bu unit. No fixed framing offset will be added.
+- Performance found a bounded losing shutdown deadline. Fix `8712aaa` retains the two-second
+  unreferenced drain and clears its timer in `finally`. Regression-first run failed three cases;
+  final lifecycle suite passed 58 tests / 334 assertions, scoped Biome and typecheck passed.
+  A real offline Pi-Bolt recheck is pending in P1bn7.
+- Original 555-model preview rerun: 50-rule median 37.098 ms to 0.1004 ms; unchanged frames have
+  zero instrumented evaluator calls/compilations. Raw-development import overhead was about
+  1.86 s and factory 9–10 ms; installed/AOT startup was not measured. See the
+  [performance report](../../analyses/extension-audit-remediation/performance/2026-10-29-extension-performance.md).
+- The final host static job `j204` failed with exactly the same 13 baseline signing-key type
+  diagnostics reproduced on clean `a459610`. Targeted selection/API 40 and post-login seven
+  tests passed. Patch remains isolated, uncommitted and unbuilt. P1bj9 needs a scope decision;
+  [host evidence](../../analyses/extension-audit-remediation/host-boundary/2026-10-29-model-selection-owner.md)
+  records the complete static output. The clean temporary baseline worktree was removed.
+- Evidence hygiene checked seven reports, 11 JSON files, 26 JSONL files / 177 records and 31
+  references; 219 files had zero recognized credential, exact-secret or known identifier matches.
+  New follow-up directories still require the final privacy/metadata pass before committing.
 
 # Finding closure ledger
 

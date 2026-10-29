@@ -1,5 +1,5 @@
 /** Staged, typed edits to one model's user-scoped overrides. */
-import { Input, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
+import { Input, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { OverrideEdit } from "../../models/overrides/index.ts";
 import { sanitize } from "../frame/index.ts";
 import { AliasDetail } from "./alias-detail.ts";
@@ -284,14 +284,6 @@ export class ModelDetail {
 					: edit?.kind === "remove"
 						? undefined
 						: (at(this.#override, field.path) ?? field.value);
-			const display =
-				index === this.#selected && this.#mode === "edit"
-					? (this.#input.render(Math.max(1, width - 5))[0] ?? "")
-					: clean(
-							Array.isArray(value)
-								? value.join(", ")
-								: String(value ?? (field.kind === "verbosity" ? "inherit" : "unknown")),
-						);
 			const source =
 				edit?.kind === "remove"
 					? "inherit (staged)"
@@ -300,9 +292,20 @@ export class ModelDetail {
 						: at(this.#override, field.path) !== undefined
 							? "override"
 							: "default";
-			rows.push(
-				` ${index === this.#selected ? theme.fg("accent", "❯") : " "} ${field.label} · ${display} · ${source}`,
-			);
+			const marker = index === this.#selected ? theme.fg("accent", "❯") : " ";
+			const prefix = ` ${marker} ${field.label} · `;
+			const suffix = ` · ${source}`;
+			const display =
+				index === this.#selected && this.#mode === "edit"
+					? (this.#input.render(
+							Math.max(0, width - visibleWidth(prefix) - visibleWidth(suffix)),
+						)[0] ?? "")
+					: clean(
+							Array.isArray(value)
+								? value.join(", ")
+								: String(value ?? (field.kind === "verbosity" ? "inherit" : "unknown")),
+						);
+			rows.push(`${prefix}${display}${suffix}`);
 		}
 		rows.push(" Aliases");
 		const aliases = this.#aliases();
@@ -368,7 +371,11 @@ export class ModelDetail {
 							]
 						: [
 								{ key: binding("tui.select.confirm"), action: "edit", priority: 0 },
-								{ key: "←/→", action: "change", priority: 1 },
+								{
+									key: `${binding("tui.editor.cursorLeft")}/${binding("tui.editor.cursorRight")}`,
+									action: "change",
+									priority: 1,
+								},
 								{ key: "backspace", action: "inherit", priority: 1 },
 								{ key: "ctrl+s", action: "save", priority: 0 },
 								{ key: binding("tui.select.cancel"), action: "discard/back", priority: 0 },

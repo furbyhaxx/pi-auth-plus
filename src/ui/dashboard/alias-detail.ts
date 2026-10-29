@@ -1,5 +1,5 @@
 /** Staged edits to one model alias. */
-import { Input, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
+import { Input, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../core/config/index.ts";
 import { type ModelAlias, parseAliases } from "../../models/aliases/index.ts";
 import { sanitize } from "../frame/index.ts";
@@ -167,11 +167,13 @@ export class AliasDetail {
 			` ${clean(this.#provider)}/${clean(this.#source)} · alias${this.#deleted ? " · removal staged" : ""}`,
 		];
 		for (const [index, label] of labels.entries()) {
+			const marker = index === this.#selected ? theme.fg("accent", "❯") : " ";
+			const prefix = ` ${marker} ${label} · `;
 			const value =
 				index === this.#selected && this.#mode === "edit"
-					? (this.#input.render(Math.max(1, width - 5))[0] ?? "")
+					? (this.#input.render(Math.max(0, width - visibleWidth(prefix)))[0] ?? "")
 					: clean(this.#values[index] || (index ? "inherit" : "required"));
-			rows.push(` ${index === this.#selected ? theme.fg("accent", "❯") : " "} ${label} · ${value}`);
+			rows.push(`${prefix}${value}`);
 		}
 		const message =
 			this.#mode === "save" ? "Save to [u]ser, [p]roject or [r]untime?" : this.#message;

@@ -1,4 +1,5 @@
 /** Shared token-counting contracts between the token engine, tokenizers and families. */
+import type { Api, Context, Model } from "@earendil-works/pi-ai";
 
 /** Where a count comes from, in precedence order; only the first two are exact. */
 export type TokenSource = "provider" | "count-endpoint" | "tokenizer" | "estimate";
@@ -59,6 +60,12 @@ export interface TokenModel {
 	readonly id: string;
 }
 
+/** A complete supported request snapshot for native counting, before family-specific shaping. */
+export interface TokenContextInput {
+	readonly model: Model<Api>;
+	readonly context: Context;
+}
+
 /** Counts content for one model; the engine memoizes results by counter id and content hash. */
 export interface TokenCounter {
 	/** Identifies the counting method; equal ids must give equal counts for equal input. */
@@ -67,6 +74,8 @@ export interface TokenCounter {
 	readonly anchorSource: TokenSource;
 	/** Counts plain text with the best source available now; never rejects. */
 	count(text: string, kind: TextKind, signal?: AbortSignal): Promise<TokenCount>;
+	/** Counts a complete supported request; undefined retains the engine's estimated fallback. */
+	countContext?(input: TokenContextInput, signal?: AbortSignal): Promise<TokenCount | undefined>;
 	/** Counts tool definitions as the provider encodes them; without it the engine counts their JSON. */
 	countTools?(tools: readonly ToolSchema[], signal?: AbortSignal): Promise<TokenCount>;
 	/** Rewrites system prompt text into what the provider sends, before counting. */

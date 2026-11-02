@@ -211,6 +211,19 @@ function lifecycleFixture(activeModel?: {
 			await result;
 		}
 	};
+	/**
+	 * Emits like a host that hands every handler its own event and context objects (pig snapshots
+	 * them per handler), so no identity-keyed bookkeeping can match an emission.
+	 */
+	const runSnapshot = async (
+		event: string,
+		context = ctx,
+		payload: Record<string, unknown> = { type: event, reason: "startup" },
+	) => {
+		for (const handler of handlers.get(event) ?? []) {
+			await handler({ ...payload }, { ...context });
+		}
+	};
 	return {
 		requests,
 		runtime,
@@ -232,6 +245,7 @@ function lifecycleFixture(activeModel?: {
 		ctx,
 		pi,
 		run,
+		runSnapshot,
 		authLookups,
 		setShutdownWaiting: (notify: () => void) => {
 			shutdownWaiting = notify;
@@ -2808,5 +2822,31 @@ test("offline token reports use a locally loaded tokenizer", async () => {
 		refresh.mockRestore();
 		if (originalOffline === undefined) delete process.env["PI_OFFLINE"];
 		else process.env["PI_OFFLINE"] = originalOffline;
+	}
+});
+
+test("a host that snapshots events per handler still loads settings, starts quotas and serves tokens", async () => {
+	const cleanup = settingsFixture({ quotas: { linePlacement: 5 } });
+	const fixture = lifecycleFixture({ provider: "test-provider", id: "model" });
+	const start = spyOn(QuotaEngine.prototype, "start").mockResolvedValue(undefined);
+	try {
+		await piAuthPlus(fixture.pi);
+		await fixture.runSnapshot("session_start");
+		expect(start).toHaveBeenCalledTimes(1);
+		expect(fixture.notices.some((notice) => notice.includes("pi-auth-plus settings"))).toBe(true);
+		const token = await request(
+			fixture.bus,
+			"tokens",
+			"query",
+			{ refresh: true },
+			(value) => value,
+		);
+		expect(token).toMatchObject({ ok: true, report: { model: fixture.model.id } });
+		const quota = await request(fixture.bus, "quotas", "query", {}, (value) => value);
+		expect(quota).toMatchObject({ ok: true });
+	} finally {
+		await fixture.runSnapshot("session_shutdown");
+		start.mockRestore();
+		cleanup();
 	}
 });

@@ -79,14 +79,29 @@ function sessionRuntime(ctx: ExtensionContext): ModelRuntime | undefined {
 export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	let sessionController = new AbortController();
 	let stopQuotaBus: (() => void) | undefined;
+	/**
+	 * The session that owns the handlers now. Pi hands every handler the same event and context
+	 * objects, so each emission is keyed by that identity; a host that snapshots them per handler
+	 * (pig) misses the key and falls back to this state, which a replacement swaps out and aborts.
+	 */
+	type SessionState = {
+		readonly signal: AbortSignal;
+		readonly groupWarnings: Set<string>;
+		store?: AppSettings;
+	};
+	let session: SessionState | undefined;
+	const startupOwners = new WeakMap<object, SessionState>();
 	const shutdownOwners = new WeakMap<ExtensionContext, AbortSignal>();
-	const startupOwners = new WeakMap<
-		object,
-		{ signal: AbortSignal; groupWarnings: Set<string>; store?: AppSettings }
-	>();
-	const ownsStartup = (event: object) => {
-		const startup = startupOwners.get(event);
-		return startup !== undefined && !startup.signal.aborted;
+	/** The state an emission started with, or the current session when its identity was lost. */
+	const startupState = (event: object): SessionState | undefined =>
+		startupOwners.get(event) ?? session;
+	const ownsStartup = (event: object): boolean => {
+		const state = startupState(event);
+		return state !== undefined && !state.signal.aborted;
+	};
+	const ownsShutdown = (ctx: ExtensionContext): boolean => {
+		const owner = shutdownOwners.get(ctx);
+		return owner !== undefined ? owner === sessionController.signal : session !== undefined;
 	};
 	const physicalResponseProviders = new Set<string>();
 	let stopTokenTracker: ((event: SessionStartEvent, ctx: ExtensionContext) => void) | undefined;
@@ -113,7 +128,10 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		const previous = sessionController;
 		sessionController = new AbortController();
 		const signal = sessionController.signal;
-		startupOwners.set(event, { signal, groupWarnings: new Set() });
+		const state: SessionState = { signal, groupWarnings: new Set() };
+		startupOwners.set(event, state);
+		session = state;
+		quotaContext = ctx;
 		previous.abort();
 		if (signal.aborted) return;
 		physicalResponseProviders.clear();
@@ -126,7 +144,8 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		stopToken?.();
 		if (signal.aborted) return;
 		quotasEnabled = false;
-		quotaContext = undefined;
+		quotaUnavailable =
+			"quota data is unavailable in this session; restart it, then run /auth quotas again.";
 		physicalHooksActive = false;
 		quotaLine.stop();
 		if (signal.aborted) return;
@@ -138,8 +157,6 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		shutdownOwners.set(ctx, sessionController.signal);
 		stopSession();
 	});
-	const ownsShutdown = (ctx: ExtensionContext) =>
-		shutdownOwners.get(ctx) === sessionController.signal;
 	const modeIndex = process.argv.indexOf("--mode");
 	const rpcStartup = modeIndex >= 0 && process.argv[modeIndex + 1] === "rpc";
 	const offline =
@@ -368,7 +385,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	};
 	// Registered before the families so their session_start handlers see this session's settings.
 	pi.on("session_start", async (event, ctx) => {
-		const startup = startupOwners.get(event);
+		const startup = startupState(event);
 		if (!startup || startup.signal.aborted) return;
 		const signal = startup.signal;
 		aliasContext = undefined;
@@ -448,7 +465,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	);
 	let stopTokenBus: (() => void) | undefined;
 	pi.on("session_start", (event) => {
-		const startup = startupOwners.get(event);
+		const startup = startupState(event);
 		if (!startup || startup.signal.aborted) return;
 		const stop = registerTokenBus(sessionBus(startup.signal), tokens);
 		if (startup.signal.aborted) {
@@ -463,6 +480,9 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		stopTokenBus = undefined;
 	});
 	let quotasEnabled = false;
+	/** Why quota surfaces read as unavailable; a host owner is only one of the reasons. */
+	let quotaUnavailable =
+		"quota data is unavailable in this session; restart it, then run /auth quotas again.";
 	const quotas = new QuotaEngine({
 		registry,
 		cachePath: join(cacheDir(), "quotas.json"),
@@ -480,19 +500,23 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		tokens,
 	});
 	pi.on("session_start", async (event, ctx) => {
-		const startup = startupOwners.get(event);
+		const startup = startupState(event);
 		if (!startup?.store || startup.signal.aborted) return;
 		const { signal, store } = startup;
 		const configured = NO_EXTENSIONS ? {} : pi.getSettings();
 		const commandPaths = pi.getCommands().map((command) => command.sourceInfo.path);
 		if (signal.aborted) return;
 		quotaContext = ctx;
-		quotasEnabled = !loadsPackage(
+		const detected = loadsPackage(
 			"pi-quotas",
 			configured.packages ?? [],
 			configured.extensions ?? [],
 			commandPaths,
 		);
+		quotasEnabled = !detected;
+		if (detected)
+			quotaUnavailable =
+				"pi-quotas is loaded and still owns quotas. Remove it from your Pi settings to use these.";
 		if (!quotasEnabled) return;
 		const projectTrusted = ctx.isProjectTrusted();
 		if (signal.aborted) return;
@@ -684,7 +708,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	// Groups, physical hooks and the cap install need this session's cwd and catalog.
 	let warnedStartup = false;
 	pi.on("session_start", (event, ctx) => {
-		const startup = startupOwners.get(event);
+		const startup = startupState(event);
 		if (!startup?.store || startup.signal.aborted) return;
 		const { signal, groupWarnings, store } = startup;
 		try {
@@ -962,7 +986,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 								Date.now(),
 							),
 					}
-				: "pi-quotas is loaded and still owns quotas. Remove it from your Pi settings to use these.",
+				: quotaUnavailable,
 		settings: {
 			store: () => settings,
 			save: saveSettings,
@@ -985,7 +1009,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 
 	let warned = false;
 	pi.on("session_start", (event, ctx) => {
-		const startup = startupOwners.get(event);
+		const startup = startupState(event);
 		if (!startup || startup.signal.aborted || warned) return;
 		// With --no-extensions Pi skips configured packages; only explicit -e loads count then.
 		const settings = NO_EXTENSIONS ? {} : pi.getSettings();

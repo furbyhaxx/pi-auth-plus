@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-11-02
+
 ### Changed
 
 - **Signed-out providers leave the quota surfaces.** A provider without a credential has no

@@ -2,7 +2,8 @@
 
 pi-auth-plus adds subscription/API-key providers, quota monitoring and one `/auth`
 dashboard to Pi. Use Pi-Bolt (Bun) or stock Pi on Node >=22.19. Anonymous OpenCode Zen
-requires Pi-Bolt; the other providers do not require Bun.
+requires Pi-Bolt; the other providers do not require Bun. Pig is supported as a Pi-compatible
+host: it keeps its own `~/.pig` configuration tree, which this package follows.
 
 ## Install
 

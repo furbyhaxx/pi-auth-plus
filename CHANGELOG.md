@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Pig host support.** The extension resolves pig's agent directory and project config
+  directory from the host report, so credentials, user settings, the quota cache and project
+  settings land where the running host reads them. Pi's behaviour is unchanged. Nothing to do
+  beyond running the package under `pig`.
 - **Searchable model and member pickers.** Search IDs or names, page large catalogs and
   inspect full identities. Settings collections now have typed editors and dedicated
   Models/Groups navigation.
@@ -17,6 +21,18 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **Claude subscription turns under pig.** A host that serializes the request body itself
+  (pig hands over an encoded `Uint8Array`) no longer skips body shaping; the Claude Code
+  identity and billing blocks and `metadata.user_id` reach the wire, so Anthropic answers
+  instead of refusing with `429 rate_limit_error`. No action needed.
+- **Session ownership on hosts that snapshot events.** Handlers no longer depend on Pi's
+  event and context object identity, so settings load, quotas start, the quota line mounts
+  and the token service answers when a host passes a fresh object per handler. The
+  `pi-quotas is loaded` notice appears only when pi-quotas is actually loaded; a session
+  whose quota service did not start says so instead.
+- **Token bus payloads.** Redaction copies a value a payload reuses instead of collapsing it
+  into `[circular]`, and an absent optional field decodes when a host serializes it as
+  `null`. Token context broadcasts and `queryTokens` replies now reach consumers.
 - **Alias and group runtime consistency.** Rejected aliases cannot redirect requests;
   accepted aliases retain source eligibility and physical token counting. Group visibility,
   physical-member eligibility, quota health and routed request effects share runtime policy.

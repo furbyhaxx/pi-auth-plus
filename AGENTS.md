@@ -199,7 +199,9 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
   fill a free wire slot; a live tool always wins, and two live tools with one wire name stay
   refused. Deviations and evidence: `.project/analyses/claude-code-cli/tracking.md`. Version
   precedence: env override > installed `claude --version` (if newer) > pinned. Subscription
-  models carry zero cost.
+  models carry zero cost. The transport shapes whatever body the host hands over, including a
+  body the host already serialized to bytes: an unshaped OAuth turn loses the identity blocks
+  and Anthropic answers `429 rate_limit_error`.
 - **antigravity:** agy 1.4.8 identity (`google/transport.ts`): user agent and the CLI's header
   set over plain `fetch`, every call to `daily-cloudcode-pa`. One Pi model per family; the
   wire level comes from `thinkingLevelMap` (encoded catalog level), clamped upward. Envelope
@@ -293,11 +295,17 @@ compiler (`docs/PLUGINS.md` of Pi-Bolt):
 
 ## Settings and data
 
-- Layers: defaults < user (`<agentDir>/auth-plus.json`) < project (`<cwd>/.pi/auth-plus.json`,
-  trusted projects only) < runtime. One settings catalog in `core/config/catalog.ts`; features
-  never read config files directly. The entrypoint loads it per session in a `session_start`
-  handler registered before the families' handlers, and families read it through
-  `FamilyHost.settings()`; the factory sees defaults only.
+- Layers: defaults < user (`<agentDir>/auth-plus.json`) < project
+  (`<cwd>/<configDir>/auth-plus.json`, trusted projects only) < runtime. One settings catalog in
+  `core/config/catalog.ts`; features never read config files directly. The entrypoint loads it
+  per session in a `session_start` handler registered before the families' handlers, and
+  families read it through `FamilyHost.settings()`; the factory sees defaults only.
+- `<agentDir>` is `PI_CODING_AGENT_DIR` or `~/.pi/agent`; `<configDir>` is `.pi`. A Pi-compatible
+  host that keeps its own tree reports both (`pig`: `PIG_EXT_HOST_INFO`, `~/.pig/agent` and
+  `.pig`), and the report wins. Paths resolve in `core/paths` only.
+- Handlers must not key session state on Pi's event or context object identity: Pi reuses one
+  object, pig snapshots a fresh one per handler. The entrypoint keeps a module-level session
+  state and falls back to it when an emission's identity is unknown.
 - Shared quota snapshots live under `<agentDir>/cache/auth-plus/`; token-count memoization
   is in memory. Tokenizer artifacts use `$XDG_CACHE_HOME/pi-auth-plus/tokenizers/`; migration
   markers and the Claude device ID use `$XDG_STATE_HOME/pi-auth-plus/` (dirs 0700, files 0600).

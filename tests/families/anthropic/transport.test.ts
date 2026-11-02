@@ -90,3 +90,60 @@ test("two OAuth turns share identity and send one unauthenticated preflight with
 		await rm(root, { recursive: true, force: true });
 	}
 });
+
+test("a body a host already encoded as bytes is shaped like a string body", async () => {
+	const root = await mkdtemp(join(tmpdir(), "claude-wire-bytes-"));
+	try {
+		const env = { XDG_STATE_HOME: root };
+		const sent: RequestInit[] = [];
+		const underlying: FetchFunction = Object.assign(
+			async (_input: string | URL | Request, init?: RequestInit) => {
+				if (init?.method === "POST") sent.push(init);
+				return Response.json({ content: [] });
+			},
+			{ preconnect: () => {} },
+		);
+		const wire = claudeFetch({
+			token: "test-access",
+			accountUuid: "12345678-1234-1234-1234-123456789abc",
+			sessionId: "019a2445-634a-7000-8000-000000000002",
+			env,
+			version: async () => "2.1.311",
+			rules: [],
+			restore: (name) => name,
+			underlying,
+		});
+		// What pig's Go provider hands over: the request it serialized itself.
+		const body = new TextEncoder().encode(
+			JSON.stringify({
+				model: "claude-haiku-4-5",
+				max_tokens: 1024,
+				messages: [{ role: "user", content: [{ type: "text", text: "hello there" }] }],
+				system: [{ type: "text", text: "A neutral harness prompt." }],
+				tools: [{ name: "__pi_deferred_placeholder__", input_schema: { type: "object" } }],
+			}),
+		);
+		await wire("https://api.anthropic.com/v1/messages", {
+			method: "POST",
+			headers: { "content-type": "application/json", "content-length": String(body.length) },
+			body,
+		});
+		const init = sent[0];
+		if (!init) throw new Error("Missing shaped request");
+		expect(typeof init.body).toBe("string");
+		const headers = new Headers(init.headers);
+		expect(headers.get("x-app")).toBe("cli");
+		expect(headers.has("content-length")).toBe(false);
+		const shaped = JSON.parse(String(init.body));
+		expect(shaped.system.map((block: { text: string }) => block.text.split("\n")[0])).toEqual([
+			expect.stringContaining("x-anthropic-billing-header: cc_version=2.1.311."),
+			"You are Claude Code, Anthropic's official CLI for Claude.",
+			"A neutral harness prompt.",
+		]);
+		expect(shaped.metadata.user_id).toContain("account_uuid");
+		expect(shaped.tools[0].name).toBe("DeferredToolPlaceholder");
+		expect(shaped.tools[0].defer_loading).toBe(true);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});

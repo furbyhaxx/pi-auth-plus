@@ -65,6 +65,21 @@ async function requestBody(
 	return undefined;
 }
 
+/**
+ * Reads a body as text whoever serialized it. A host that builds the request itself (pig hands
+ * over an already-encoded Uint8Array) would otherwise skip body shaping, and Anthropic answers an
+ * OAuth turn without the Claude Code identity blocks with 429 `rate_limit_error`.
+ */
+async function bodyText(body: RequestInit["body"]): Promise<string | undefined> {
+	if (typeof body === "string") return body;
+	if (body instanceof Uint8Array) return new TextDecoder().decode(body);
+	if (body instanceof ArrayBuffer) return new TextDecoder().decode(new Uint8Array(body));
+	if (ArrayBuffer.isView(body))
+		return new TextDecoder().decode(new Uint8Array(body.buffer, body.byteOffset, body.byteLength));
+	if (typeof Blob === "function" && body instanceof Blob) return body.text();
+	return undefined;
+}
+
 export function claudeFetch(transport: ClaudeTransport): FetchFunction {
 	const underlying = transport.underlying ?? globalThis.fetch;
 	const insecure = insecureTls(transport.env);
@@ -98,8 +113,9 @@ export function claudeFetch(transport: ClaudeTransport): FetchFunction {
 		const headers = shapeHeaders(mergeRequestHeaders(input, init), transport.token, version);
 		headers.set("x-claude-code-session-id", session);
 		let body = await requestBody(input, init);
-		if (typeof body === "string") {
-			body = shapeBody(body, version, transport.rules, userId);
+		const text = await bodyText(body);
+		if (text !== undefined) {
+			body = shapeBody(text, version, transport.rules, userId);
 			for (const name of STALE_BODY_HEADERS) headers.delete(name);
 		}
 		const shaped: BunRequestInit = { ...init, body, headers };

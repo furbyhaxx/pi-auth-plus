@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-02
+
 ### Added
 
 - **Pig host support.** The extension resolves pig's agent directory and project config

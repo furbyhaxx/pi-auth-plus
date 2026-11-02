@@ -1,0 +1,6 @@
+Auth › Quotas
+Synthetic: sub 0% (↻ 4h 59m), 7d 8% (↻ 1h 21m), srch 0% (↻ 59m) | Claude: 7d 34% (↻ 5d 3h), fab 0% (↻ 5d 3h), cap 100% (↻ 2d 17h) | OpenAI Codex: 7d 36% (↻ 5d 23h) (r 1) | OpenRouter: 7.98$ (day $1.80 · wk $1.80 · mo $7.88) | DeepSeek: 8.89$ (granted $0.00 · topped-up $8.89)
+
+Auth › Quotas
+xAI: needs auth (No credential configured; run /login xai)
+

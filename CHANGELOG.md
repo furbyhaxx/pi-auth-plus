@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Signed-out providers leave the quota surfaces.** A provider without a credential has no
+  quota, so the line, the Quotas tab and `/quotas` output omit it instead of printing `login`.
+  `/auth providers` still lists it with its `/login` hint, and `/quotas <provider>` still shows
+  it. Set `quotas.hideSignedOut` to `false` for the previous behaviour. No action needed.
+
 ## [0.5.2] - 2026-11-02
 
 ### Added

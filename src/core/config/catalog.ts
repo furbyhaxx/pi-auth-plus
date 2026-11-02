@@ -96,6 +96,12 @@ export const SETTINGS = {
 		description: "Use short provider ids at every width",
 		default: false,
 	}),
+	"quotas.hideSignedOut": booleanField({
+		label: "Hide signed-out providers",
+		description:
+			"Omit providers without a credential from the quota line, panel and summaries; /auth providers still lists them with a login hint",
+		default: true,
+	}),
 	"quotas.creditHealthyUsd": numberField({
 		label: "Healthy credit (USD)",
 		description: "Credit balance at or above this renders as healthy",

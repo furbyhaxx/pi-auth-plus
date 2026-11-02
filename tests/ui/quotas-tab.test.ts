@@ -42,6 +42,7 @@ function open(
 	solo?: string,
 	bindings: KeybindingsConfig = {},
 	dashboardHost?: TabViewHost,
+	lineConfig?: LineConfig,
 ) {
 	let report: QuotaReport = { v: 1, generatedAt: 0, providers };
 	let placement: LinePlacement = "below-editor-first";
@@ -58,7 +59,11 @@ function open(
 		_next,
 		scope,
 	) => ({ committed: true, scope, shadowed: [], warnings: [] });
-	const config: LineConfig = { percentDisplay: "used", creditHealthyUsd: 50, creditCriticalUsd: 5 };
+	const config: LineConfig = lineConfig ?? {
+		percentDisplay: "used",
+		creditHealthyUsd: 50,
+		creditCriticalUsd: 5,
+	};
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS, bindings);
 	const host: TabViewHost = {
 		theme: { fg: theme.fg, bg: (_token, text) => text, bold: (text) => text },
@@ -716,4 +721,32 @@ test("clipped window labels keep the qualifier that tells sibling windows apart"
 	);
 	expect(fitLabel("Claude and GPT models (7d)", 19)).toEndWith(" (7d)");
 	expect(fitLabel("Short (7d)", 19)).toBe("Short (7d)");
+});
+
+test("signed-out providers are omitted unless the view was opened on one", () => {
+	const signedOut: ReportProvider = {
+		...provider("two"),
+		state: "needs-auth",
+		needsAuth: true,
+		windows: [],
+	};
+	const config: LineConfig = {
+		percentDisplay: "used",
+		creditHealthyUsd: 50,
+		creditCriticalUsd: 5,
+		hideSignedOut: true,
+	};
+	const all = open([provider("one"), signedOut], undefined, {}, undefined, config);
+	expect(lines(all.view).join("\n")).not.toContain("two");
+	expect(selected(all.view)).toContain("one");
+	all.view.dispose();
+
+	const solo = open([provider("one"), signedOut], "two", {}, undefined, config);
+	expect(selected(solo.view)).toContain("two");
+	expect(lines(solo.view).join("\n")).toContain("/login two");
+	solo.view.dispose();
+
+	const empty = open([signedOut], undefined, {}, undefined, config);
+	expect(lines(empty.view).join("\n")).toContain("No provider is signed in");
+	empty.view.dispose();
 });

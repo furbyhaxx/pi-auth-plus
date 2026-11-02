@@ -241,6 +241,13 @@ export function renderLineTemplate(
 	inUse?: readonly string[],
 ): string[] {
 	const enabled = new Map(views.map((view) => [view.provider.id, view]));
+	// A provider without a credential has no quota to report; keeping it would print "login" in
+	// place of the item the user configured.
+	const hidden = config.hideSignedOut
+		? new Set(
+				views.flatMap((view) => (view.snapshot?.needsAuth === true ? [view.provider.id] : [])),
+			)
+		: undefined;
 	const active = new Set(inUse?.map((id) => compiled.resolve(id.trim().toLowerCase())));
 	const relevant = (view: QuotaView): boolean =>
 		active.has(view.provider.id) ||
@@ -248,11 +255,24 @@ export function renderLineTemplate(
 		(view.snapshot?.credits?.remaining !== undefined &&
 			creditStress(view.snapshot.credits.remaining, config) >= 0.9);
 	const remainder = views.filter((view) => !compiled.explicit.has(view.provider.id));
-	function render(parts: readonly TemplatePart[]): { segments: string[]; available: boolean } {
+	function render(parts: readonly TemplatePart[]): {
+		segments: string[];
+		dropped: boolean[];
+		available: boolean;
+	} {
 		const segments = [""];
+		// A segment that names a hidden provider belongs to it, so its literal text goes too.
+		const dropped = [false];
 		let available = true;
 		const append = (text: string) => {
 			segments[segments.length - 1] = (segments.at(-1) ?? "") + text;
+		};
+		const newSegment = () => {
+			segments.push("");
+			dropped.push(false);
+		};
+		const drop = () => {
+			dropped[dropped.length - 1] = true;
 		};
 		const auto = (view: QuotaView, short: boolean, style?: TokenStyle): Value => {
 			const { provider, snapshot } = view;
@@ -280,13 +300,17 @@ export function renderLineTemplate(
 					append(theme.fg("dim", part.text));
 					break;
 				case "sep":
-					segments.push("");
+					newSegment();
 					break;
 				case "group": {
 					const child = render(part.parts);
 					if (child.available) {
 						append(child.segments[0] ?? "");
-						segments.push(...child.segments.slice(1));
+						dropped[dropped.length - 1] ||= child.dropped[0] ?? false;
+						for (let index = 1; index < child.segments.length; index++) {
+							segments.push(child.segments[index] ?? "");
+							dropped.push(child.dropped[index] ?? false);
+						}
 					}
 					break;
 				}
@@ -294,6 +318,10 @@ export function renderLineTemplate(
 					const view = enabled.get(part.id);
 					if (!view) {
 						available = false;
+						break;
+					}
+					if (hidden?.has(part.id)) {
+						drop();
 						break;
 					}
 					const result = part.fields
@@ -315,23 +343,25 @@ export function renderLineTemplate(
 				}
 				case "all":
 				case "in-use": {
-					const selected = part.kind === "all" ? remainder : remainder.filter(relevant);
+					const candidates = remainder.filter((view) => !hidden?.has(view.provider.id));
+					const selected = part.kind === "all" ? candidates : candidates.filter(relevant);
 					selected.forEach((view, index) => {
-						if (index > 0) segments.push("");
+						if (index > 0) newSegment();
 						const result = auto(view, shortIds || part.short);
 						append(result.text);
 						available &&= result.available;
 					});
-					const omitted = remainder.length - selected.length;
+					const omitted = candidates.length - selected.length;
 					if (part.kind === "in-use" && omitted > 0) {
-						if (selected.length) segments.push("");
+						if (selected.length) newSegment();
 						append(theme.fg("dim", `+${omitted}`));
 					}
 					break;
 				}
 			}
 		}
-		return { segments, available };
+		return { segments, dropped, available };
 	}
-	return render(compiled.parts).segments.filter(Boolean);
+	const rendered = render(compiled.parts);
+	return rendered.segments.filter((segment, index) => segment && !rendered.dropped[index]);
 }

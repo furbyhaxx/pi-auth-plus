@@ -129,6 +129,12 @@ remaining fields ignore `percentDisplay`. Named percentages round to whole perce
 `{all}` renders enabled providers not explicitly placed elsewhere; `{all:short}` forces
 short summaries. `{sep}` inserts a preferred break, displayed as ` · ` within a row.
 
+A provider without a credential has no quota, so its item is dropped entirely, including
+the literal text around its tokens: with `quotas.hideSignedOut` (default), `antigravity`
+and `xai` disappear from the line until you `/login` them. Set it to `false` to keep them
+and read `login` in place of their metrics. `{antigravity:pct}` naming a hidden provider
+drops its whole ` · ` segment; put each provider in its own segment to keep neighbours.
+
 `{in-use}` renders like `{all}`, but only providers the session actually uses: the current
 model's provider, providers of running subagents, and any provider under quota pressure
 (a window at 90% used or a balance below the critical threshold). `{in-use:short}` forces
@@ -145,8 +151,9 @@ the group:
 ```
 
 With 27% usage and one credit this reads `codex: 27% (1r)`; without a credit it reads
-`codex: 27%`. Before data arrives, fields show `…`; missing login shows `login`;
-an error without usable windows or balance shows `err`; unknown metrics show `?`.
+`codex: 27%`. Before data arrives, fields show `…`; an error without usable windows or
+balance shows `err`; unknown metrics show `?`. A provider that is not signed in shows
+`login` only while `quotas.hideSignedOut` is `false`.
 
 Escape literal brackets, braces and backslashes with a backslash; double the backslash
 inside JSON strings. Token styles follow `|`:
@@ -179,8 +186,11 @@ The exact default template is:
 `/auth quotas [provider]`, `/quotas [provider]` and `/quota [provider]` open the same
 live view. A provider argument starts in solo mode; `a` returns to all providers.
 The panel shows every window, balances, reset countdowns, plan badges where reported,
-fetch age, errors, login hints and observed drainage. Opening it does not itself fetch.
-Without a TUI, these commands print cached text instead.
+fetch age, errors, login hints and observed drainage. Providers without a credential are
+omitted from the list unless the view was opened on one (`quotas.hideSignedOut`).
+Opening it does not itself fetch.
+Without a TUI, these commands print cached text instead, and omit the same providers
+unless one is named.
 
 | Key | Action |
 |---|---|

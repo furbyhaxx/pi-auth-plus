@@ -10,8 +10,11 @@ export function formatPlainTextSummary(
 	now = Date.now(),
 ): string {
 	const list = filterId ? views.filter((view) => view.provider.id === filterId) : views;
+	// Asking for one provider shows its login state; the full list omits providers that have none.
+	const hide = filterId === undefined && config.hideSignedOut === true;
+	const visible = hide ? list.filter((view) => view.snapshot?.needsAuth !== true) : list;
 	const parts: string[] = [];
-	for (const view of list) {
+	for (const view of visible) {
 		const meta = { title: view.provider.label };
 		const snap = view.snapshot;
 		if (!snap) {
@@ -36,5 +39,7 @@ export function formatPlainTextSummary(
 		const rBadge = snap.resetCredits ? ` (r ${snap.resetCredits})` : "";
 		parts.push(`${meta.title}: ${winSummaries.join(", ") || "no windows"}${rBadge}`);
 	}
+	if (parts.length === 0 && visible.length === 0 && list.length > 0)
+		return "no quota provider is signed in; /auth providers lists them with a login hint";
 	return parts.map(plainText).join(" | ");
 }

@@ -6,6 +6,11 @@ export interface LineConfig {
 	percentDisplay: "used" | "remaining";
 	creditHealthyUsd: number;
 	creditCriticalUsd: number;
+	/**
+	 * Omits a provider whose snapshot reports no credential. Absent keeps it and prints its login
+	 * state, which is what direct callers and tests expect; the settings catalog defaults to hiding.
+	 */
+	hideSignedOut?: boolean | undefined;
 }
 
 /** Clamps a known fraction for display; non-finite inputs retain the upstream zero fallback. */

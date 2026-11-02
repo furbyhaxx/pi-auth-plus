@@ -23,6 +23,7 @@ export function quotaLineConfig(settings: AppSettings): QuotaLineConfig {
 		percentDisplay: settings.get("quotas.percentDisplay"),
 		creditHealthyUsd: settings.get("quotas.creditHealthyUsd"),
 		creditCriticalUsd: settings.get("quotas.creditCriticalUsd"),
+		hideSignedOut: settings.get("quotas.hideSignedOut"),
 	};
 }
 

@@ -67,6 +67,11 @@ function text(value: string): string {
 	return sanitize(value).replace(/\n/g, " ");
 }
 
+/** A provider with no credential: its quota row carries a login hint instead of usage. */
+function signedOut(provider: ReportProvider): boolean {
+	return provider.needsAuth === true || provider.state === "needs-auth";
+}
+
 function age(provider: ReportProvider, now: number): string {
 	const seconds =
 		provider.fetchedAt === undefined
@@ -149,7 +154,12 @@ export class QuotasView implements TabView {
 	#providers(): readonly ReportProvider[] {
 		const all = this.#deps.report().providers;
 		if (this.#solo && !all.some((provider) => provider.id === this.#solo)) this.#solo = undefined;
-		const providers = this.#solo ? all.filter((provider) => provider.id === this.#solo) : all;
+		// An explicit `all`/solo request still shows the provider and its login hint.
+		const providers = this.#solo
+			? all.filter((provider) => provider.id === this.#solo)
+			: this.#deps.lineConfig().hideSignedOut === true
+				? all.filter((provider) => !signedOut(provider))
+				: all;
 		if (!providers.some((provider) => provider.id === this.#selected)) {
 			this.#selected = providers[0]?.id;
 			this.#reveal = true;
@@ -180,7 +190,7 @@ export class QuotasView implements TabView {
 			append(
 				` ${selected ? theme.fg("accent", "❯") : " "} ${title} ${theme.fg("dim", `(${text(provider.short)})`)}${tier}${theme.fg("dim", age(provider, now))}`,
 			);
-			if (provider.needsAuth || provider.state === "needs-auth") {
+			if (signedOut(provider)) {
 				append(
 					`     ${theme.fg("warning", "⚠")} ${text(provider.loginHint ?? `/login ${provider.id}`)}`,
 				);
@@ -227,7 +237,15 @@ export class QuotasView implements TabView {
 			}
 			ranges.set(provider.id, { first, last: lines.length - 1 });
 		}
-		if (lines.length === 0) append(` ${theme.fg("muted", "No quota providers enabled.")}`);
+		if (lines.length === 0)
+			append(
+				` ${theme.fg(
+					"muted",
+					this.#deps.report().providers.length > 0
+						? "No provider is signed in; /auth providers lists the login hints."
+						: "No quota providers enabled.",
+				)}`,
+			);
 		return { lines, ranges };
 	}
 
@@ -359,8 +377,7 @@ export class QuotasView implements TabView {
 		const selectedProvider = this.#providers().find((provider) => provider.id === this.#selected);
 		const fullFeedback = [
 			...(body.fullFeedback ?? []),
-			...(selectedProvider &&
-			(selectedProvider.needsAuth || selectedProvider.state === "needs-auth")
+			...(selectedProvider && signedOut(selectedProvider)
 				? [
 						this.#host.theme.fg(
 							"warning",

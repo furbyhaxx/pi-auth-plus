@@ -110,3 +110,30 @@ describe("plain quota summary", () => {
 		).toBe("Claude: needs auth (Login required)");
 	});
 });
+
+describe("plain quota summary with signed-out providers", () => {
+	const hide = { ...config, hideSignedOut: true };
+	const signedIn = view(snapshot);
+	const signedOut = {
+		...view({ ...snapshot, provider: "codex", needsAuth: true, error: "Login required" }),
+		provider: { id: "codex", label: "OpenAI", aliases: [] } satisfies ProviderEntry,
+	};
+
+	test("hides them unless one is asked for", () => {
+		const views = [signedIn, signedOut];
+		expect(formatPlainTextSummary(views, hide)).toBe("Claude: no windows");
+		expect(formatPlainTextSummary(views, hide, "claude")).toBe("Claude: no windows");
+		expect(formatPlainTextSummary(views, hide, "codex")).toBe(
+			"OpenAI: needs auth (Login required)",
+		);
+		expect(formatPlainTextSummary(views, config)).toBe(
+			"Claude: no windows | OpenAI: needs auth (Login required)",
+		);
+	});
+
+	test("an all-signed-out list names the surface that still lists them", () => {
+		expect(formatPlainTextSummary([signedOut], hide)).toBe(
+			"no quota provider is signed in; /auth providers lists them with a login hint",
+		);
+	});
+});

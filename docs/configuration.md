@@ -72,6 +72,7 @@ listed range. Booleans must be JSON booleans; enum values are exact strings.
 | `quotas.percentDisplay` | `"used"` | `"used"` or `"remaining"`; affects broad line metrics and panel percentages. Explicit named used/remaining tokens keep their meaning; bars/colors remain based on used allowance. |
 | `quotas.compactWidthCols` | `100` | Number, 40–220 columns; short identities below this width. Panel adjustment step: 5. |
 | `quotas.alwaysShortIds` | `false` | Boolean; short line identities at every width. |
+| `quotas.hideSignedOut` | `true` | Boolean; omit providers without a credential from the quota line, quotas tab and summaries. `/auth providers` still lists them with a login hint, and `/quotas <provider>` still shows the provider asked for. |
 | `quotas.creditHealthyUsd` | `50` | Number, 5–500; balance at or above this is healthy. Panel step: 5. |
 | `quotas.creditCriticalUsd` | `5` | Number, 0–100; balance at or below this is critical. |
 | `quotas.lineTemplate` | Seven-provider template | Nonblank string, preserved verbatim; [default and grammar](quotas.md#template-reference). |

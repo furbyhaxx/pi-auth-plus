@@ -504,3 +504,58 @@ describe("quota templates", () => {
 		expect(styles.at(-1)?.options.fg).toEqual(parseColor("#aaa"));
 	});
 });
+
+describe("signed-out providers", () => {
+	const signedOutConfig: LineConfig = { ...DEFAULT_QUOTAS_CONFIG, hideSignedOut: true };
+	const signedIn = views(snapshot([win("5h"), win("7d", undefined, 0.5)])).map((view) =>
+		view.provider.id === "xai" || view.provider.id === "antigravity"
+			? { ...view, snapshot: { ...snapshot(), needsAuth: true } }
+			: view,
+	);
+	const run = (source: string, config: LineConfig = signedOutConfig) =>
+		renderLineTemplate(theme, compileLineTemplate(source), signedIn, config, 0, false);
+
+	test("an explicit item disappears with its literal text", () => {
+		const template =
+			"{codex:id}: {codex:pct} · {antigravity:id}: gem/{antigravity:window-7d-gemini-used-percent} arg/{antigravity:window-7d-gemini-4-argon-used-percent} · {claude:id}: {claude:pct} · {xai:id}: {xai:credits}";
+		expect(run(template)).toEqual(["codex: 25%", "claude: 25%"]);
+		expect(run(template, DEFAULT_QUOTAS_CONFIG)).toEqual([
+			"codex: 25%",
+			"antigravity: gem/login arg/login",
+			"claude: 25%",
+			"xai: login",
+		]);
+	});
+	test("all and in-use never list a provider without a credential", () => {
+		expect(run("{all:short}")).toEqual(["cox: 25%/50%", "cl: 25%/50%"]);
+		expect(
+			renderLineTemplate(
+				theme,
+				compileLineTemplate("{in-use:short}"),
+				signedIn,
+				signedOutConfig,
+				0,
+				false,
+				["openai"],
+			),
+		).toEqual(["cox: 25%/50%", "+1"]);
+		expect(
+			renderLineTemplate(
+				theme,
+				compileLineTemplate("{all:short}"),
+				signedIn,
+				DEFAULT_QUOTAS_CONFIG,
+				0,
+				false,
+			),
+		).toEqual(["cox: 25%/50%", "cl: 25%/50%", "ag: login", "xai: login"]);
+	});
+	test("a signed-out provider drops the segment that names it, never a neighbour", () => {
+		expect(run("{codex:id}: {codex:pct} {antigravity:id}: {antigravity:pct}")).toEqual([]);
+		expect(
+			run(
+				"{codex:id}: {codex:pct} · {antigravity:id}: {antigravity:pct} · {claude:id}: {claude:pct}",
+			),
+		).toEqual(["codex: 25%", "claude: 25%"]);
+	});
+});

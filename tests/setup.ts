@@ -12,3 +12,7 @@ process.env["XDG_STATE_HOME"] = join(root, "state");
 process.env["XDG_DATA_HOME"] = join(root, "data");
 process.env["PI_CODING_AGENT_DIR"] = join(root, "agent");
 process.env["PI_OFFLINE"] = "1";
+// The suite may run inside pig; a host report would point paths at the developer's real agent dir.
+delete process.env["PIG_EXT_HOST_INFO"];
+delete process.env["PIG_CODING_AGENT_DIR"];
+delete process.env["PIG_HOME"];

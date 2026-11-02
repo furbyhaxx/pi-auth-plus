@@ -14,9 +14,61 @@ export function homeDir(env: PathEnv = process.env): string {
 
 /** Pi's agent directory, matching Pi's `getAgentDir()` without a value import from Pi. */
 export function agentDir(env: PathEnv = process.env): string {
-	const configured = nonEmpty(env["PI_CODING_AGENT_DIR"]);
+	const host = pigHost(env).agentDir;
+	if (host) return expandTilde(host, env);
+	const configured = nonEmpty(env["PI_CODING_AGENT_DIR"]) ?? nonEmpty(env["PIG_CODING_AGENT_DIR"]);
 	if (configured) return expandTilde(configured, env);
+	const root = nonEmpty(env["PIG_HOME"]);
+	if (root) return join(expandTilde(root, env), "agent");
 	return join(homeDir(env), ".pi", "agent");
+}
+
+/**
+ * The host's per-project config directory: `.pi` for Pi, `.pig` for pig, which keeps its own tree
+ * unless `PIG_USE_PI_DIRS=1` selects Pi's. pig's extension host reports the resolved value.
+ */
+export function projectConfigDir(env: PathEnv = process.env): string {
+	return pigHost(env).configDirName ?? ".pi";
+}
+
+/**
+ * What pig's extension host reports about this process. Pi has no equivalent variable, so an
+ * absent or malformed value means a Pi host.
+ */
+function pigHost(env: PathEnv): { agentDir?: string; configDirName?: string } {
+	const raw = nonEmpty(env["PIG_EXT_HOST_INFO"]);
+	if (raw === undefined) return {};
+	if (pigHostCache?.raw === raw) return pigHostCache.value;
+	const value = parsePigHost(raw);
+	pigHostCache = { raw, value };
+	return value;
+}
+
+let pigHostCache:
+	| {
+			readonly raw: string;
+			readonly value: { agentDir?: string; configDirName?: string };
+	  }
+	| undefined;
+
+const CONFIG_DIR_RE = /^\.[\w.-]+$/;
+
+function parsePigHost(raw: string): { agentDir?: string; configDirName?: string } {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return {};
+	}
+	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
+	const agent = "agentDir" in parsed ? parsed.agentDir : undefined;
+	const configDir = "configDirName" in parsed ? parsed.configDirName : undefined;
+	return {
+		...(typeof agent === "string" && agent !== "" ? { agentDir: agent } : {}),
+		...(typeof configDir === "string" && CONFIG_DIR_RE.test(configDir)
+			? { configDirName: configDir }
+			: {}),
+	};
 }
 
 /** Pi's credential store; read through `core/auth` only. */
@@ -34,8 +86,8 @@ export function userSettingsPath(env: PathEnv = process.env): string {
 }
 
 /** Project settings; callers pass `ctx.cwd`, never `process.cwd()`. */
-export function projectSettingsPath(cwd: string): string {
-	return join(cwd, ".pi", SETTINGS_FILE_NAME);
+export function projectSettingsPath(cwd: string, env: PathEnv = process.env): string {
+	return join(cwd, projectConfigDir(env), SETTINGS_FILE_NAME);
 }
 
 /** Host cache shared by every session on this machine (quota snapshots and drainage history). */

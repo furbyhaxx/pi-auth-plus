@@ -14,8 +14,13 @@ Each key resolves from lowest to highest priority:
 4. Runtime: memory in the current session.
 
 `<agentDir>` is `PI_CODING_AGENT_DIR`, otherwise `~/.pi/agent`; a leading `~` in the
-override expands to the home directory. `<cwd>` is Pi's active context working directory.
-Home resolves from `HOME`, then `USERPROFILE`, then the operating system.
+override expands to the home directory. On Pig, the extension host reports the agent
+directory it resolved (`PIG_EXT_HOST_INFO`), which wins: it is `~/.pig/agent` unless
+`PIG_CODING_AGENT_DIR` or `PIG_HOME` moved it, and only `PIG_USE_PI_DIRS=1` selects Pi's
+tree. The project file follows the host's config directory, so it is
+`<cwd>/.pig/auth-plus.json` on Pig and `<cwd>/.pi/auth-plus.json` on Pi. `<cwd>` is the
+host's active context working directory. Home resolves from `HOME`, then `USERPROFILE`,
+then the operating system.
 
 Files are partial JSON objects with nested sections, not dotted top-level keys:
 
@@ -118,6 +123,8 @@ those remain Pi's settings.
 | Variable | Effect |
 |---|---|
 | `PI_CODING_AGENT_DIR` | Agent directory override, including credentials, user settings and quota cache |
+| `PIG_EXT_HOST_INFO` | Set by Pig's extension host: its `agentDir` and `configDirName` replace the Pi defaults above |
+| `PIG_CODING_AGENT_DIR`, `PIG_HOME` | Pig's own agent directory override and config root, read only when no host report is present |
 | `HOME`, `USERPROFILE` | Home resolution, in that order |
 | `XDG_STATE_HOME` | State base directory for migration markers and Claude device identity; default `~/.local/state` |
 | `XDG_CACHE_HOME` | Tokenizer artifact cache base directory; default `~/.cache`. It does not relocate the quota snapshot, which remains under `<agentDir>/cache/auth-plus/quotas.json`. |

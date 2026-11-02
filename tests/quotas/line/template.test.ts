@@ -550,6 +550,27 @@ describe("signed-out providers", () => {
 			),
 		).toEqual(["cox: 25%/50%", "cl: 25%/50%", "ag: login", "xai: login"]);
 	});
+	test("only a missing credential hides; a failure or stale data keeps its row", () => {
+		const failing = signedIn.map((view) =>
+			view.provider.id === "xai"
+				? {
+						...view,
+						snapshot: { ...snapshot(), error: "network failed" },
+						backoff: { until: 2_000, error: "network failed" },
+					}
+				: view,
+		);
+		expect(
+			renderLineTemplate(
+				theme,
+				compileLineTemplate("{all:short}"),
+				failing,
+				signedOutConfig,
+				0,
+				false,
+			),
+		).toEqual(["cox: 25%/50%", "cl: 25%/50%", "xai: err"]);
+	});
 	test("a signed-out provider drops the segment that names it, never a neighbour", () => {
 		expect(run("{codex:id}: {codex:pct} {antigravity:id}: {antigravity:pct}")).toEqual([]);
 		expect(

@@ -293,7 +293,6 @@ describe("quota bus client", () => {
 		]);
 
 		for (const diagnostics of [
-			null,
 			{},
 			"invalid",
 			["invalid"],
@@ -323,6 +322,30 @@ describe("quota bus client", () => {
 		}
 		expect(contexts).toHaveLength(4);
 		offContext();
+	});
+	test("an absent optional field serialized as null decodes as absent", async () => {
+		const bus = createEventBus();
+		const report = {
+			provider: "claude",
+			model: "claude-sonnet",
+			contextWindow: null,
+			tokens: { tokens: 12, source: "estimate", diagnostics: null },
+			percent: null,
+			anchor: null,
+			tail: { tokens: 4, source: "estimate" },
+			tailMessages: 1,
+			pi: null,
+			computedAt: clock,
+		};
+		const off = serve(
+			bus,
+			"tokens",
+			"query",
+			() => ({}),
+			() => ({ v: 1, ok: true, report }),
+		);
+		expect(await queryTokens(bus)).toMatchObject({ report: { model: "claude-sonnet" } });
+		off();
 	});
 	test("subscriptions validate broadcasts and unsubscribe", () => {
 		const bus = createEventBus();

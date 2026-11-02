@@ -68,3 +68,20 @@ describe("core/redact", () => {
 		expect(redactValue(a)).toEqual({ name: "a", self: "[circular]" });
 	});
 });
+
+test("an absent field stays absent instead of serializing as null", () => {
+	expect(redactValue({ provider: "claude", anchor: undefined, tail: { tokens: 1 } })).toEqual({
+		provider: "claude",
+		tail: { tokens: 1 },
+	});
+});
+
+test("a payload that reuses one object copies it twice and only real cycles collapse", () => {
+	const shared = { tokens: 12, source: "estimate" };
+	const out = redactValue({ tail: shared, tokens: shared });
+	expect(out).toEqual({
+		tail: { tokens: 12, source: "estimate" },
+		tokens: { tokens: 12, source: "estimate" },
+	});
+	expect(JSON.stringify(out)).not.toContain("[circular]");
+});

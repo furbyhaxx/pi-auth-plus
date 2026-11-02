@@ -20,7 +20,9 @@ function optionalFields(
 	keys: readonly string[],
 	test: (value: unknown) => boolean,
 ): boolean {
-	return keys.every((key) => raw[key] === undefined || test(raw[key]));
+	// A host that round-trips payloads through its own typed container turns an absent field into
+	// null (pig does), so null must read as absent rather than as an invalid value.
+	return keys.every((key) => raw[key] === undefined || raw[key] === null || test(raw[key]));
 }
 function string(raw: unknown): raw is string {
 	return typeof raw === "string";

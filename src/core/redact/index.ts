@@ -39,7 +39,7 @@ export function redactText(text: string, secrets: KnownSecrets = []): string {
 
 /** Deep copy with sensitive keys masked and every string scrubbed; cycles become "[circular]". */
 export function redactValue(value: unknown, secrets: KnownSecrets = []): unknown {
-	return scrub(value, secrets, new WeakSet());
+	return scrub(value, secrets, new WeakSet(), new WeakMap());
 }
 
 /** A new Error with a scrubbed message, name and own fields; a secret-bearing cause is dropped. */
@@ -60,22 +60,45 @@ export function redactError(error: unknown, secrets: KnownSecrets = []): Error {
 	return safe;
 }
 
-function scrub(value: unknown, secrets: KnownSecrets, seen: WeakSet<object>): unknown {
+function scrub(
+	value: unknown,
+	secrets: KnownSecrets,
+	ancestors: WeakSet<object>,
+	memo: WeakMap<object, unknown>,
+): unknown {
 	if (typeof value === "string") return redactText(value, secrets);
 	if (value === null || typeof value !== "object") return value;
-	if (seen.has(value)) return "[circular]";
-	seen.add(value);
-	if (value instanceof Error) return redactError(value, secrets);
-	if (Array.isArray(value)) return value.map((item) => scrub(item, secrets, seen));
-	if (value instanceof Headers) {
-		const headers: Record<string, string> = {};
-		for (const [key, item] of value) headers[key] = maskField(key, item, secrets);
-		return headers;
-	}
+	// Only an ancestor is a cycle; a value the payload reuses is copied once and shared as data.
+	if (ancestors.has(value)) return "[circular]";
+	if (memo.has(value)) return memo.get(value);
+	ancestors.add(value);
+	let out: unknown;
+	if (value instanceof Error) out = redactError(value, secrets);
+	else if (Array.isArray(value)) out = value.map((item) => scrub(item, secrets, ancestors, memo));
+	else if (value instanceof Headers) out = headersValue(value, secrets);
+	else out = objectValue(value, secrets, ancestors, memo);
+	ancestors.delete(value);
+	memo.set(value, out);
+	return out;
+}
+
+function headersValue(value: Headers, secrets: KnownSecrets): Record<string, string> {
+	const headers: Record<string, string> = {};
+	for (const [key, item] of value) headers[key] = maskField(key, item, secrets);
+	return headers;
+}
+
+function objectValue(
+	value: object,
+	secrets: KnownSecrets,
+	ancestors: WeakSet<object>,
+	memo: WeakMap<object, unknown>,
+): Record<string, unknown> {
 	const out: Record<string, unknown> = {};
 	for (const [key, item] of Object.entries(value)) {
-		out[key] =
-			SENSITIVE_KEY.test(key) && item !== undefined ? REDACTED : scrub(item, secrets, seen);
+		// An absent field stays absent: a host that serializes payloads would turn it into null.
+		if (item === undefined) continue;
+		out[key] = SENSITIVE_KEY.test(key) ? REDACTED : scrub(item, secrets, ancestors, memo);
 	}
 	return out;
 }

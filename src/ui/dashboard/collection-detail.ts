@@ -11,7 +11,10 @@ import type { FieldOption, TextRule } from "../../core/config/fields.ts";
 import { sanitize } from "../frame/index.ts";
 import type { TabBody, TabView, TabViewHost } from "./view.ts";
 
-type ListKey = "quotas.providers" | "openai.verbosityProviders";
+export type ListKey =
+	| "quotas.providers"
+	| "openai.verbosityProviders"
+	| "claude.cacheRetentionProviders";
 type DetailArgs =
 	| [
 			TabViewHost,

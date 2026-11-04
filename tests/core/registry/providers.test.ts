@@ -65,6 +65,7 @@ function sessionHooks() {
 	};
 	const pi: ExtensionAPI = {
 		on: (event: string, handler: unknown) => {
+			if (event === "before_provider_request") return () => {};
 			if (event !== "session_start" || typeof handler !== "function") return unexpected();
 			handlers.push(() => handler({ type: "session_start" }, ctx));
 			return () => {};

@@ -35,6 +35,7 @@ Files are partial JSON objects with nested sections, not dotted top-level keys:
   "models": { "rules": ["openrouter/*", "!openrouter/google/*"] },
   "synthetic": { "webSearch": true },
   "claude": {
+    "cacheRetention": "long",
     "replacePatterns": [
       { "match": "old phrase", "replacement": "new phrase" },
       { "match": "paragraph to remove" }
@@ -84,6 +85,8 @@ listed range. Booleans must be JSON booleans; enum values are exact strings.
 | `openai.verbosity` | `"default"` | `"default"`, `"low"`, `"medium"`, `"high"`. Default leaves the provider request unchanged. Overrides are applied only to Responses requests for the selected model; other requests are untouched. |
 | `openai.verbosityProviders` | `["openai", "openai-codex"]` | Provider IDs for the verbosity override. An empty list disables it. |
 | `claude.replacePatterns` | `[]` | Array of literal text rules: nonblank `match`, optional string `replacement`. With a replacement, rewrite matching system-prompt text; without one, drop paragraphs containing the match. These are not regular expressions. One malformed rule rejects the field. |
+| `claude.cacheRetention` | `"default"` | `"default"`, `"short"`, `"long"`. Default leaves the provider request unchanged. `long` gives every Anthropic Messages cache breakpoint the 1-hour lifetime (`ttl: "1h"`), `short` the 5-minute one; all breakpoints move together. Models whose `compat.supportsLongCacheRetention` is `false` keep Pi's request. Applies only to the selected model's requests; helper requests are untouched. The host still assumes its own retention (`PI_CACHE_RETENTION`) for cache warming and miss notices. |
+| `claude.cacheRetentionProviders` | `["claude", "anthropic"]` | Provider IDs for the cache retention override. An empty list disables it. |
 | `synthetic.webSearch` | `false` | Boolean; controls active membership of `synthetic_web_search`. The tool is registered inactive; membership is synchronized at session start and after setting changes. This setting or the one-run `--synthetic-web-search` flag enables it, so the flag can keep it active when this setting is false. Execution requires a Synthetic credential. |
 | `tokens.warningPercent` | `70` | Number, 0–100%; fallback-footer context usage at or above this percentage gets warning color. Must be strictly below `tokens.errorPercent`. |
 | `tokens.errorPercent` | `90` | Number, 0–100%; fallback-footer context usage at or above this percentage gets error color. Must be strictly above `tokens.warningPercent`. |

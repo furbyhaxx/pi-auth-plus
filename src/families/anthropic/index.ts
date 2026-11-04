@@ -3,6 +3,7 @@ import type { TextRule } from "../../core/config/fields.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
 import type { FamilyAdapter } from "../../core/registry/index.ts";
 import type { TokenCounter } from "../../tokens/types.ts";
+import { applyClaudeCacheRetention } from "./cache-retention.ts";
 import { claudeTokenCounter } from "./count.ts";
 import { claudeAuth } from "./oauth.ts";
 import { claudeProvider, PROVIDER } from "./provider.ts";
@@ -56,7 +57,25 @@ export function createAnthropicFamily(
 			}
 			return counter;
 		},
-		register: (pi) => {
+		physical: (_model, host) => ({
+			payload: (payload, actualModel) =>
+				applyClaudeCacheRetention(
+					payload,
+					actualModel,
+					host.settings().get("claude.cacheRetention"),
+					host.settings().get("claude.cacheRetentionProviders"),
+				),
+		}),
+		register: (pi, host) => {
+			pi.on("before_provider_request", (event, ctx) => {
+				if (host.physicalHooksAvailable?.()) return;
+				return applyClaudeCacheRetention(
+					event.payload,
+					ctx.model,
+					host.settings().get("claude.cacheRetention"),
+					host.settings().get("claude.cacheRetentionProviders"),
+				);
+			});
 			const override = version.override;
 			if (override.kind !== "outdated" && override.kind !== "invalid") return;
 			let warned = false;

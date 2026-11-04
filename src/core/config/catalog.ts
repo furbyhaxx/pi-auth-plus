@@ -191,6 +191,22 @@ export const SETTINGS = {
 			"Literal rules for claude system prompts: rewrite match to replacement, or drop paragraphs containing match",
 		default: [],
 	}),
+	"claude.cacheRetention": enumField({
+		label: "Claude cache retention",
+		description:
+			"Prompt-cache lifetime for Anthropic Messages requests of the listed providers; default leaves Pi's request unchanged",
+		default: "default",
+		options: [
+			{ value: "default", label: "Pi default" },
+			{ value: "short", label: "Short (5 minutes)" },
+			{ value: "long", label: "Long (1 hour)" },
+		],
+	}),
+	"claude.cacheRetentionProviders": listField({
+		label: "Cache retention providers",
+		description: "Provider IDs for the Claude cache retention override",
+		default: ["claude", "anthropic"],
+	}),
 	"synthetic.webSearch": booleanField({
 		label: "Synthetic web search",
 		description:

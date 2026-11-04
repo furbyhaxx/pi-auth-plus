@@ -997,7 +997,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 						.filter(({ provider }) => key !== "quotas.providers" || provider.quota)
 						.map(({ provider }) => [provider.id, { value: provider.id, label: provider.label }]),
 				);
-				if (key === "openai.verbosityProviders")
+				if (key === "openai.verbosityProviders" || key === "claude.cacheRetentionProviders")
 					for (const model of modelCatalog())
 						if (!options.has(model.provider))
 							options.set(model.provider, { value: model.provider, label: model.provider });

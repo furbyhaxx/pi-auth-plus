@@ -10,7 +10,7 @@ import { type AppSettings, SETTINGS } from "../../core/config/catalog.ts";
 import type { Field, FieldOption, FieldValue, SaveScope } from "../../core/config/index.ts";
 import { formatSaveOutcome, type SettingsSaver } from "../../core/config/save.ts";
 import { padTo, sanitize } from "../frame/index.ts";
-import { CollectionDetail } from "./collection-detail.ts";
+import { CollectionDetail, type ListKey } from "./collection-detail.ts";
 import type { TabBody, TabView, TabViewHost } from "./view.ts";
 
 /** Services owned by the command and the current session. */
@@ -18,9 +18,7 @@ export interface SettingsTabDeps {
 	store(): AppSettings;
 	readonly save: SettingsSaver;
 	/** Registry choices for provider lists; omitted choices remain editable as custom IDs. */
-	providerOptions?: (
-		key: "quotas.providers" | "openai.verbosityProviders",
-	) => readonly FieldOption[];
+	providerOptions?: (key: ListKey) => readonly FieldOption[];
 	previewTemplate?(
 		source: string,
 		width: number,
@@ -114,9 +112,7 @@ export class SettingsView implements TabView {
 		return true;
 	}
 
-	#openCollection(
-		key: "quotas.providers" | "openai.verbosityProviders" | "claude.replacePatterns",
-	): void {
+	#openCollection(key: ListKey | "claude.replacePatterns"): void {
 		const value = this.#value(key);
 		let detail: CollectionDetail;
 		const back = () => {
@@ -307,6 +303,7 @@ export class SettingsView implements TabView {
 			if (
 				key === "quotas.providers" ||
 				key === "openai.verbosityProviders" ||
+				key === "claude.cacheRetentionProviders" ||
 				key === "claude.replacePatterns"
 			) {
 				this.#openCollection(key);

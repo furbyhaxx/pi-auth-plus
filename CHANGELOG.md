@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-11-04
+
+### Added
+
+- **Claude cache retention.** `claude.cacheRetention` set to `"long"` gives every Anthropic
+  Messages cache breakpoint the 1-hour lifetime for the providers in
+  `claude.cacheRetentionProviders` (`claude` and `anthropic` by default), so a pause longer
+  than five minutes no longer re-bills the whole conversation. `"short"` forces the 5-minute
+  tier; the default leaves Pi's request unchanged. 1-hour cache writes cost more than
+  5-minute ones; set it in `/auth settings` or `auth-plus.json`.
+
 ## [0.5.3] - 2026-11-02
 
 ### Changed

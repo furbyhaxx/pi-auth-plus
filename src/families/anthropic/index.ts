@@ -67,15 +67,16 @@ export function createAnthropicFamily(
 				),
 		}),
 		register: (pi, host) => {
-			pi.on("before_provider_request", (event, ctx) => {
-				if (host.physicalHooksAvailable?.()) return;
-				return applyClaudeCacheRetention(
+			// Not gated on physical hooks: Pig reports them installed, yet its requests bypass them.
+			// The transform is idempotent, so a request seen by both hooks is changed once.
+			pi.on("before_provider_request", (event, ctx) =>
+				applyClaudeCacheRetention(
 					event.payload,
 					ctx.model,
 					host.settings().get("claude.cacheRetention"),
 					host.settings().get("claude.cacheRetentionProviders"),
-				);
-			});
+				),
+			);
 			const override = version.override;
 			if (override.kind !== "outdated" && override.kind !== "invalid") return;
 			let warned = false;

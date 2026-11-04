@@ -87,4 +87,21 @@ describe("Claude cache retention", () => {
 		await host.settings().save("runtime", { "claude.cacheRetention": "default" });
 		expect(request?.({ payload: payload() }, { model: claude })).toBeUndefined();
 	});
+
+	test("session hook still applies when physical hooks report installed", async () => {
+		const host = {
+			...(await testHost({ "claude.cacheRetention": "long" })),
+			physicalHooksAvailable: () => true,
+		};
+		const handlers = new Map<string, (event: { payload: unknown }, context: unknown) => unknown>();
+		const pi = {
+			on: (name: string, fn: (event: { payload: unknown }, context: unknown) => unknown) => {
+				handlers.set(name, fn);
+			},
+		} as unknown as ExtensionAPI;
+		await createAnthropicFamily({}).register?.(pi, host);
+		expect(
+			handlers.get("before_provider_request")?.({ payload: payload() }, { model: claude }),
+		).toEqual(payload({ type: "ephemeral", ttl: "1h" }));
+	});
 });

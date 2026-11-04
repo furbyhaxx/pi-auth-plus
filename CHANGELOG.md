@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-11-04
+
+### Fixed
+
+- **Claude cache retention applies under Pig.** Pig reports physical request hooks as installed
+  but its requests bypass them, so `claude.cacheRetention` had no effect there. The setting now
+  also applies from the session-level request hook. No action needed.
+
 ## [0.5.4] - 2026-11-04
 
 ### Added

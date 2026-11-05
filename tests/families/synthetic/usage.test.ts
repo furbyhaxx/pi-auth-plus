@@ -269,6 +269,29 @@ describe("Synthetic tokenizer usage", () => {
 		expect(end(assistant(captured.usage))).toBeUndefined();
 	});
 
+	test("folds interleaved blocks even when physical hooks are reported installed", async () => {
+		const host = { ...(await testHost()), physicalHooksAvailable: () => true };
+		const { end } = await registered(store(), host);
+		const captured = CAPTURED[0];
+		if (!captured) throw new Error("missing captured usage");
+		const interleaved: AssistantMessage = {
+			...assistant(captured.usage),
+			content: [
+				{ type: "thinking", thinking: "Let me check" },
+				{ type: "text", text: " the gate." },
+				{ type: "thinking", thinking: " Then commit." },
+			],
+		};
+		const result = end(interleaved);
+		const message = result?.message;
+		if (!message || message.role !== "assistant") throw new Error("no assistant message");
+		expect(message.content).toEqual([
+			{ type: "thinking", thinking: "Let me check Then commit." },
+			{ type: "text", text: " the gate." },
+		]);
+		expect(message.usage).toEqual(interleaved.usage);
+	});
+
 	test("preloads on lifecycle events without awaiting, captures and persists matching usage", async () => {
 		const loads: string[] = [];
 		const tokenizers = store();

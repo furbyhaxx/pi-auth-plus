@@ -119,16 +119,20 @@ export function createSyntheticFamily(
 				payload = event.payload;
 			});
 			pi.on("message_end", ({ message }) => {
-				if (familyHost.physicalHooksAvailable?.() || message.role !== "assistant") return;
+				if (message.role !== "assistant") return;
 				const request = payload;
 				payload = undefined;
 				const folded = foldInterleavedBlocks(message);
-				const corrected = correctSyntheticRequestUsage(
-					folded ?? message,
-					request,
-					tokenizers,
-					sourceModel(message.model),
-				);
+				// Usage stays with the physical wrapper when the host serves one. Folding cannot:
+				// pig reports physical hooks installed yet its requests bypass them.
+				const corrected = familyHost.physicalHooksAvailable?.()
+					? undefined
+					: correctSyntheticRequestUsage(
+							folded ?? message,
+							request,
+							tokenizers,
+							sourceModel(message.model),
+						);
 				const next = corrected ?? folded;
 				return next && { message: next };
 			});

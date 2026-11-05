@@ -228,7 +228,10 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
   `refreshModels` with Pi's store and a 4 h TTL, and has real prices and limits. Under pig, where
   the seam does not exist, `prepareProviders` primes `cache/auth-plus/synthetic/catalog.json`
   (2 s bound, 10 min backoff, leased) and the registration lists it in place of the snapshot.
-  Rows without a usable price or tool support are skipped. `synthetic_web_search` registers inactive in the factory;
+  Rows without a usable price or tool support are skipped. Some models (DeepSeek V4) stream an
+  answer as alternating thinking and text blocks; `interleaved.ts` folds each channel into one
+  block so reasoning never renders inside prose, and it never touches signed or redacted
+  reasoning. `synthetic_web_search` registers inactive in the factory;
   session startup and settings changes synchronize active membership from `synthetic.webSearch`
   or `--synthetic-web-search`. Disabled execution is refused. It returns highlights and saves
   full page text to a 0600 temp file, since pages run to 100 KB.

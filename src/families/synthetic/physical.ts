@@ -4,6 +4,7 @@ import { type ModelAlias, rewriteAliasPayload } from "../../models/aliases/index
 import type { PhysicalRequestHooks } from "../../models/runtime/physical.ts";
 import type { TokenizerStore } from "../../tokens/types.ts";
 import { PROVIDER } from "./catalog.ts";
+import { foldInterleavedBlocks } from "./interleaved.ts";
 import { requestModel, syntheticTokenizerRepo } from "./request-tokens.ts";
 import { correctSyntheticRequestUsage } from "./usage.ts";
 
@@ -31,7 +32,14 @@ export function syntheticPhysicalHooks(
 				requestModel(logicalPayload) !== model.id
 			)
 				return undefined;
-			return correctSyntheticRequestUsage(message, logicalPayload, tokenizers, source);
+			const folded = foldInterleavedBlocks(message);
+			const corrected = correctSyntheticRequestUsage(
+				folded ?? message,
+				logicalPayload,
+				tokenizers,
+				source,
+			);
+			return corrected ?? folded;
 		},
 	};
 }

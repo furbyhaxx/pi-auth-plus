@@ -18,6 +18,13 @@ All notable changes to this project are documented here. The format follows
   so a start that cannot reach the network still lists the last catalog it verified. Pi keeps
   using its own `models-store.json` lifecycle. A machine that never refreshed still falls back
   to the bundled snapshot.
+- **Reasoning no longer mixes into the answer.** Synthetic streams DeepSeek V4 as alternating
+  thinking and text blocks, so one answer arrived as several of each and rendered as reasoning
+  interleaved with prose, sometimes split across paragraphs. Every thinking block is now folded
+  into one and every text block into one, anchored where that kind first appears, with tool
+  calls untouched. Signed or redacted reasoning is opaque replay data and is never merged. This
+  applies to `hf:deepseek-ai/DeepSeek-V4.1-Flash` and `-1017`, and to any future Synthetic model
+  that multiplexes the two channels.
 
 ## [0.5.5] - 2026-11-04
 

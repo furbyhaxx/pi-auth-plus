@@ -1499,6 +1499,11 @@ describe("catalog priming where the host has no refresh seam", () => {
 		join(agentDir, "cache", "auth-plus", "synthetic", "catalog.json");
 	const cachedIds = ["hf:example/cached"];
 	const liveIds = () => parseCatalog(fixture).map((model) => model.id);
+	// DeepSeek V4 and the vision rows take images; the persisted catalog must keep that.
+	const imageIds = () =>
+		parseCatalog(fixture)
+			.filter((model) => model.input.includes("image"))
+			.map((model) => model.id);
 
 	function writeCache(agentDir: string, fetchedAt: number): void {
 		const [first] = parseCatalog(fixture);
@@ -1525,7 +1530,7 @@ describe("catalog priming where the host has no refresh seam", () => {
 	async function registrations(
 		env: Record<string, string>,
 		fetchFn: FetchFn,
-	): Promise<{ models: string[]; cache: string | undefined }> {
+	): Promise<{ models: string[]; images: string[]; cache: string | undefined }> {
 		let config: Config | undefined;
 		const family = createSyntheticFamily(env, fetchFn, () => Date.now());
 		const pi = {
@@ -1536,22 +1541,26 @@ describe("catalog priming where the host has no refresh seam", () => {
 		await registerFamilyProviders(pi, new Registry([family]), await testHost());
 		if (!config?.models) throw new Error("Synthetic was not registered");
 		const models = config.models.map((model) => model.id);
+		const images = config.models
+			.filter((model) => model.input?.includes("image"))
+			.map((model) => model.id);
 		const file = env["PIG_EXT_HOST_INFO"]
 			? cacheFile((JSON.parse(env["PIG_EXT_HOST_INFO"]) as { agentDir: string }).agentDir)
 			: undefined;
-		return { models, cache: file };
+		return { models, images, cache: file };
 	}
 
 	test("pig primes the live catalog when it has none, and registers it", async () => {
 		const agentDir = mkdtempSync(join(tmpdir(), "synthetic prime empty-"));
 		dirs.push(agentDir);
 		let calls = 0;
-		const { models, cache } = await registrations(pigHost(agentDir), async () => {
+		const { models, images, cache } = await registrations(pigHost(agentDir), async () => {
 			calls += 1;
 			return Response.json(fixture);
 		});
 		expect(calls).toBe(1);
 		expect(models).toEqual(liveIds());
+		expect(images).toEqual(imageIds());
 		const stored = JSON.parse(readFileSync(cache ?? "", "utf8")) as {
 			entries: { catalog: { value: { id: string }[] } };
 		};
@@ -1563,12 +1572,14 @@ describe("catalog priming where the host has no refresh seam", () => {
 		dirs.push(agentDir);
 		writeCache(agentDir, Date.now());
 		let calls = 0;
-		const { models } = await registrations(pigHost(agentDir), async () => {
+		const { models, images } = await registrations(pigHost(agentDir), async () => {
 			calls += 1;
 			return Response.json(fixture);
 		});
 		expect(calls).toBe(0);
 		expect(models).toEqual(cachedIds);
+		// The persisted entry keeps its image modality through parseStoredCatalog.
+		expect(images).toEqual(cachedIds);
 	});
 
 	test("an expired catalog is fetched again", async () => {

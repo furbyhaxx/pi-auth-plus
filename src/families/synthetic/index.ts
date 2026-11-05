@@ -7,6 +7,7 @@ import { estimateCounter, tokenizerCounter } from "../../tokens/estimate/index.t
 import type { TokenCounter, TokenizerStore } from "../../tokens/types.ts";
 import { BASE_URL, bundledModels, PROVIDER, refreshCatalog } from "./catalog.ts";
 import { cachedCatalog, primeCatalogCache, syntheticCatalogCache } from "./catalog-cache.ts";
+import { foldInterleavedBlocks } from "./interleaved.ts";
 import { syntheticPhysicalHooks } from "./physical.ts";
 import { syntheticQuota } from "./quota.ts";
 import { requestModel, syntheticTokenizerRepo } from "./request-tokens.ts";
@@ -121,13 +122,15 @@ export function createSyntheticFamily(
 				if (familyHost.physicalHooksAvailable?.() || message.role !== "assistant") return;
 				const request = payload;
 				payload = undefined;
+				const folded = foldInterleavedBlocks(message);
 				const corrected = correctSyntheticRequestUsage(
-					message,
+					folded ?? message,
 					request,
 					tokenizers,
 					sourceModel(message.model),
 				);
-				return corrected && { message: corrected };
+				const next = corrected ?? folded;
+				return next && { message: next };
 			});
 			pi.on("session_start", (_event, ctx) => {
 				if (tokenizers) preload(ctx.model);

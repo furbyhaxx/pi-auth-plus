@@ -24,6 +24,26 @@ export function agentDir(env: PathEnv = process.env): string {
 }
 
 /**
+ * True when the host reports itself as pig. pig implements no provider refresh seam, so a
+ * dynamic catalog has to be refreshed by the extension itself.
+ */
+export function isPigHost(env: PathEnv = process.env): boolean {
+	return nonEmpty(env["PIG_EXT_HOST_INFO"]) !== undefined;
+}
+
+/** `--offline`, `PI_OFFLINE` or `PIG_OFFLINE`: no catalog, quota or credit fetch. */
+export function offlineRequested(
+	env: PathEnv = process.env,
+	argv: readonly string[] = process.argv,
+): boolean {
+	return argv.includes("--offline") || off("PI_OFFLINE", env) || off("PIG_OFFLINE", env);
+}
+
+function off(name: string, env: PathEnv): boolean {
+	return ["1", "true", "yes"].includes((nonEmpty(env[name]) ?? "").toLowerCase());
+}
+
+/**
  * The host's per-project config directory: `.pi` for Pi, `.pig` for pig, which keeps its own tree
  * unless `PIG_USE_PI_DIRS=1` selects Pi's. pig's extension host reports the resolved value.
  */

@@ -154,7 +154,10 @@ Read it before touching registration, and correct it when Pi changes.
   `publish({ persist })` only when the catalog changed. Pi runs the network refresh in the
   background after interactive start and when `/model` opens. No catalog cache of our own; a
   bundled snapshot in `assets/` covers only a first run that never refreshed (print mode never
-  does).
+  does). pig implements no provider refresh seam at all (`provider.refreshModels` is a
+  documented exception for every pig runtime), so a family that owns a dynamic catalog primes
+  the host cache from `prepareProviders` under pig — bounded, offline-aware, leased and
+  backed off — and registers that cached catalog. Updates and `session_start` stay network-free.
 - **Login is Pi's.** Every provider logs in and out through Pi's `/login` and `/logout` via the
   provider's `oauth` or API-key config. No login commands or flows of our own. One user-approved
   exception: the `codex` quota (ChatGPT usage rejects Pi's `openai` login) reads Pi's
@@ -222,8 +225,10 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
   identical bytes, so anonymous free models work from Pi-Bolt only. No workaround exists at the
   header or body level (`.project/analyses/opencode-cli/2.1.2/report.md`).
 - **synthetic:** native `anthropic-messages` with no stream of our own; the catalog comes from
-  `refreshModels` with Pi's store and a 4 h TTL, and has real prices and limits. Rows without a usable
-  price or tool support are skipped. `synthetic_web_search` registers inactive in the factory;
+  `refreshModels` with Pi's store and a 4 h TTL, and has real prices and limits. Under pig, where
+  the seam does not exist, `prepareProviders` primes `cache/auth-plus/synthetic/catalog.json`
+  (2 s bound, 10 min backoff, leased) and the registration lists it in place of the snapshot.
+  Rows without a usable price or tool support are skipped. `synthetic_web_search` registers inactive in the factory;
   session startup and settings changes synchronize active membership from `synthetic.webSearch`
   or `--synthetic-web-search`. Disabled execution is refused. It returns highlights and saves
   full page text to a 0600 temp file, since pages run to 100 KB.

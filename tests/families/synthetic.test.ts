@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
@@ -28,7 +28,11 @@ import {
 	Registry,
 	registerFamilyProviders,
 } from "../../src/core/registry/index.ts";
-import { CATALOG_TTL_MS, parseCatalog } from "../../src/families/synthetic/catalog.ts";
+import {
+	bundledModels,
+	CATALOG_TTL_MS,
+	parseCatalog,
+} from "../../src/families/synthetic/catalog.ts";
 import { createSyntheticFamily, WEB_SEARCH_FLAG } from "../../src/families/synthetic/index.ts";
 import { parseResults, TOOL_NAME, truncateHead } from "../../src/families/synthetic/web-search.ts";
 import { AliasCatalog } from "../../src/models/aliases/runtime.ts";
@@ -1478,5 +1482,164 @@ describe("families/synthetic", () => {
 		expect(JSON.stringify(details).length).toBeLessThan(30_000);
 		expect(JSON.stringify(details)).not.toContain("long page body");
 		expect(JSON.stringify(details)).not.toContain("PUBLIC PASSAGE");
+	});
+});
+
+describe("catalog priming where the host has no refresh seam", () => {
+	const dirs: string[] = [];
+	afterAll(() => {
+		for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+	});
+
+	const pigHost = (agentDir: string): Record<string, string> => ({
+		SYNTHETIC_API_KEY: "test",
+		PIG_EXT_HOST_INFO: JSON.stringify({ agentDir, configDirName: ".pig", version: "1.4.0" }),
+	});
+	const cacheFile = (agentDir: string) =>
+		join(agentDir, "cache", "auth-plus", "synthetic", "catalog.json");
+	const cachedIds = ["hf:example/cached"];
+	const liveIds = () => parseCatalog(fixture).map((model) => model.id);
+
+	function writeCache(agentDir: string, fetchedAt: number): void {
+		const [first] = parseCatalog(fixture);
+		if (!first) throw new Error("fixture has no usable model");
+		mkdirSync(join(agentDir, "cache", "auth-plus", "synthetic"), { recursive: true });
+		writeFileSync(
+			cacheFile(agentDir),
+			JSON.stringify({
+				version: 1,
+				entries: {
+					catalog: {
+						value: [{ ...first, id: cachedIds[0], name: "Cached" }],
+						fetchedAt,
+						updatedAt: fetchedAt,
+						parserVersion: 1,
+					},
+				},
+				leases: {},
+				backoff: {},
+			}),
+		);
+	}
+
+	async function registrations(
+		env: Record<string, string>,
+		fetchFn: FetchFn,
+	): Promise<{ models: string[]; cache: string | undefined }> {
+		let config: Config | undefined;
+		const family = createSyntheticFamily(env, fetchFn, () => Date.now());
+		const pi = {
+			registerProvider: (_id: string, value: Config) => {
+				config = value;
+			},
+		} as unknown as ExtensionAPI;
+		await registerFamilyProviders(pi, new Registry([family]), await testHost());
+		if (!config?.models) throw new Error("Synthetic was not registered");
+		const models = config.models.map((model) => model.id);
+		const file = env["PIG_EXT_HOST_INFO"]
+			? cacheFile((JSON.parse(env["PIG_EXT_HOST_INFO"]) as { agentDir: string }).agentDir)
+			: undefined;
+		return { models, cache: file };
+	}
+
+	test("pig primes the live catalog when it has none, and registers it", async () => {
+		const agentDir = mkdtempSync(join(tmpdir(), "synthetic prime empty-"));
+		dirs.push(agentDir);
+		let calls = 0;
+		const { models, cache } = await registrations(pigHost(agentDir), async () => {
+			calls += 1;
+			return Response.json(fixture);
+		});
+		expect(calls).toBe(1);
+		expect(models).toEqual(liveIds());
+		const stored = JSON.parse(readFileSync(cache ?? "", "utf8")) as {
+			entries: { catalog: { value: { id: string }[] } };
+		};
+		expect(stored.entries.catalog.value.map((model) => model.id)).toEqual(liveIds());
+	});
+
+	test("a catalog younger than the TTL is used without a fetch", async () => {
+		const agentDir = mkdtempSync(join(tmpdir(), "synthetic prime fresh-"));
+		dirs.push(agentDir);
+		writeCache(agentDir, Date.now());
+		let calls = 0;
+		const { models } = await registrations(pigHost(agentDir), async () => {
+			calls += 1;
+			return Response.json(fixture);
+		});
+		expect(calls).toBe(0);
+		expect(models).toEqual(cachedIds);
+	});
+
+	test("an expired catalog is fetched again", async () => {
+		const agentDir = mkdtempSync(join(tmpdir(), "synthetic prime stale-"));
+		dirs.push(agentDir);
+		writeCache(agentDir, Date.now() - CATALOG_TTL_MS - 1_000);
+		let calls = 0;
+		const { models } = await registrations(pigHost(agentDir), async () => {
+			calls += 1;
+			return Response.json(fixture);
+		});
+		expect(calls).toBe(1);
+		expect(models).toEqual(liveIds());
+	});
+
+	test("a failed fetch keeps the bundled catalog and backs off", async () => {
+		const agentDir = mkdtempSync(join(tmpdir(), "synthetic prime failure-"));
+		dirs.push(agentDir);
+		const { models, cache } = await registrations(
+			pigHost(agentDir),
+			async () => new Response("nope", { status: 500 }),
+		);
+		expect(models).toEqual(bundledModels().map((model) => model.id));
+		const stored = JSON.parse(readFileSync(cache ?? "", "utf8")) as {
+			backoff: Record<string, { status?: number }>;
+		};
+		expect(stored.backoff["catalog"]?.status).toBe(500);
+	});
+
+	test("offline pig and Pi itself never prime", async () => {
+		const offlineDir = mkdtempSync(join(tmpdir(), "synthetic prime offline-"));
+		const piDir = mkdtempSync(join(tmpdir(), "synthetic prime pi-"));
+		dirs.push(offlineDir, piDir);
+		let calls = 0;
+		const fetchFn: FetchFn = async () => {
+			calls += 1;
+			return Response.json(fixture);
+		};
+		const offline = await registrations({ ...pigHost(offlineDir), PIG_OFFLINE: "1" }, fetchFn);
+		const pi = await registrations({ SYNTHETIC_API_KEY: "test" }, fetchFn);
+		expect(calls).toBe(0);
+		expect(offline.models).toEqual(bundledModels().map((model) => model.id));
+		expect(pi.models).toEqual(bundledModels().map((model) => model.id));
+	});
+
+	test("a persisted catalog that does not validate is ignored", async () => {
+		const agentDir = mkdtempSync(join(tmpdir(), "synthetic prime invalid-"));
+		dirs.push(agentDir);
+		mkdirSync(join(agentDir, "cache", "auth-plus", "synthetic"), { recursive: true });
+		writeFileSync(
+			cacheFile(agentDir),
+			JSON.stringify({
+				version: 1,
+				entries: {
+					catalog: {
+						value: [{ id: "broken" }],
+						fetchedAt: Date.now(),
+						updatedAt: Date.now(),
+						parserVersion: 1,
+					},
+				},
+				leases: {},
+				backoff: {},
+			}),
+		);
+		let calls = 0;
+		const { models } = await registrations(pigHost(agentDir), async () => {
+			calls += 1;
+			return Response.json(fixture);
+		});
+		expect(calls).toBe(1);
+		expect(models).toEqual(liveIds());
 	});
 });

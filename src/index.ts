@@ -17,7 +17,13 @@ import { type AppSettings, SETTINGS } from "./core/config/catalog.ts";
 import { SettingsStore } from "./core/config/index.ts";
 import { createSettingsSaver } from "./core/config/save.ts";
 import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts/index.ts";
-import { cacheDir, modelsPath, projectSettingsPath, userSettingsPath } from "./core/paths/index.ts";
+import {
+	cacheDir,
+	modelsPath,
+	offlineRequested,
+	projectSettingsPath,
+	userSettingsPath,
+} from "./core/paths/index.ts";
 import { type ProviderSink, Registry, registerFamilyProviders } from "./core/registry/index.ts";
 import {
 	compatiblePhysicalHooks,
@@ -159,9 +165,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	});
 	const modeIndex = process.argv.indexOf("--mode");
 	const rpcStartup = modeIndex >= 0 && process.argv[modeIndex + 1] === "rpc";
-	const offline =
-		process.argv.includes("--offline") ||
-		["1", "true", "yes"].includes((process.env["PI_OFFLINE"] ?? "").toLowerCase());
+	const offline = offlineRequested();
 	let startupCoordinator: ReturnType<typeof installStartupCoordinator>;
 	if (rpcStartup && !offline) {
 		try {

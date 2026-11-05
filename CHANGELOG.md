@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Synthetic's model list refreshes under Pig.** Pig implements no provider refresh seam, so
+  `refreshModels` never ran there and the provider kept rendering the bundled snapshot from
+  install time: models added upstream after the snapshot (such as
+  `hf:moonshotai/Kimi-K3.1-Pro`) never appeared in `/model`, `--list-models` or `--model`, while
+  retired ones lingered. Under pig the catalog is now fetched once per 4 h through
+  `prepareProviders` — bounded at 2 s, skipped when offline, leased across sessions and backed
+  off for 10 min after a failure — and persisted in `cache/auth-plus/synthetic/catalog.json`,
+  so a start that cannot reach the network still lists the last catalog it verified. Pi keeps
+  using its own `models-store.json` lifecycle. A machine that never refreshed still falls back
+  to the bundled snapshot.
+
 ## [0.5.5] - 2026-11-04
 
 ### Fixed

@@ -1,11 +1,12 @@
 /** Synthetic registers an Anthropic Messages endpoint using Pi's native transport and login. */
 import { tmpdir } from "node:os";
 import type { FetchFn } from "../../core/http/index.ts";
-import type { PathEnv } from "../../core/paths/index.ts";
+import { isPigHost, offlineRequested, type PathEnv } from "../../core/paths/index.ts";
 import type { FamilyAdapter, FamilyHost } from "../../core/registry/index.ts";
 import { estimateCounter, tokenizerCounter } from "../../tokens/estimate/index.ts";
 import type { TokenCounter, TokenizerStore } from "../../tokens/types.ts";
 import { BASE_URL, bundledModels, PROVIDER, refreshCatalog } from "./catalog.ts";
+import { cachedCatalog, primeCatalogCache, syntheticCatalogCache } from "./catalog-cache.ts";
 import { syntheticPhysicalHooks } from "./physical.ts";
 import { syntheticQuota } from "./quota.ts";
 import { requestModel, syntheticTokenizerRepo } from "./request-tokens.ts";
@@ -24,6 +25,7 @@ export function createSyntheticFamily(
 	tokenizers?: TokenizerStore,
 ): FamilyAdapter {
 	const counters = new Map<string, TokenCounter>();
+	const catalogCache = syntheticCatalogCache(env);
 	let host: FamilyHost | undefined;
 	let syncWebSearch: (() => void) | undefined;
 	const sourceModel = (id: string): string =>
@@ -53,6 +55,13 @@ export function createSyntheticFamily(
 			counters.set(source, counter);
 			return counter;
 		},
+		prepareProviders: async () => {
+			await catalogCache.sync();
+			// pig has no provider refresh seam, so a rebuilt catalog never reaches the host on its
+			// own. Priming here keeps `--list-models`, `--model` and `/model` current there.
+			if (!isPigHost(env) || offlineRequested(env)) return;
+			await primeCatalogCache(catalogCache, { fetch: fetchFn, now });
+		},
 		providerRegistrations: () => [
 			{
 				name: PROVIDER,
@@ -61,7 +70,7 @@ export function createSyntheticFamily(
 					baseUrl: BASE_URL,
 					api: "anthropic-messages",
 					apiKey: "$SYNTHETIC_API_KEY",
-					models: bundledModels(),
+					models: cachedCatalog(catalogCache) ?? bundledModels(),
 					refreshModels: (ctx) => refreshCatalog(ctx, fetchFn, now),
 				},
 			},

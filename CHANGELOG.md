@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-11-08
+
 ### Fixed
 
 - **Long sessions no longer fail pig's turn boundaries three times over.** Under pig, every

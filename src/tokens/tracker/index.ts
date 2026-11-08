@@ -112,7 +112,6 @@ export function createTokenTracker(
 		pi.on("model_select", (_event, context) => schedule(context, "model_select")),
 		pi.on("thinking_level_select", (_event, context) => schedule(context, "thinking_level_select")),
 		pi.on("message_end", (_event, context) => schedule(context, "message_end")),
-		pi.on("turn_end", (_event, context) => schedule(context, "turn_end")),
 		pi.on("session_compact", (_event, context) => schedule(context, "session_compact")),
 		pi.on("session_tree", (_event, context) => schedule(context, "session_tree")),
 		pi.on("session_shutdown", shutdown),

@@ -80,7 +80,6 @@ test("event bursts debounce once and publish the last event reason", async () =>
 			"session_start",
 			"model_select",
 			"message_end",
-			"turn_end",
 			"session_compact",
 			"session_tree",
 		])
@@ -90,6 +89,16 @@ test("event bursts debounce once and publish the last event reason", async () =>
 		expect(calls).toBe(1);
 		expect(tracker.latest()).toBe(report);
 		expect(changes).toEqual([[report, "session_tree"]]);
+	} finally {
+		tracker.dispose();
+	}
+});
+
+test("the tracker never subscribes to boundary events, whose pig frames carry the whole context", () => {
+	const { tracker, handlers } = rig();
+	try {
+		expect(handlers.has("turn_end")).toBe(false);
+		expect(handlers.has("agent_before_settle")).toBe(false);
 	} finally {
 		tracker.dispose();
 	}
@@ -123,11 +132,11 @@ test("model changes invalidate immediately, suppress stale work, and same-model 
 		await wait(30);
 		expect(tracker.latest()).toBe(nextReport);
 
-		run("turn_end", nextContext);
+		run("message_end", nextContext);
 		expect(tracker.latest()).toBe(nextReport);
 		await wait(30);
 		expect(tracker.latest()).toBe(nextReport);
-		expect(changes).toContainEqual([nextReport, "turn_end"]);
+		expect(changes).toContainEqual([nextReport, "message_end"]);
 	} finally {
 		tracker.dispose();
 	}

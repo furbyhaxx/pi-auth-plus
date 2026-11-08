@@ -11,12 +11,14 @@ import {
 	SessionManager,
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import { shareBoundaryEvents } from "../../../src/core/boundary/index.ts";
 import { bundledModels } from "../../../src/families/google/catalog.ts";
 import { registerCompatibleThoughtSignatures } from "../../../src/families/google/compatible-signatures.ts";
 import { antigravityProject } from "../../../src/families/google/project.ts";
 import { antigravityProvider } from "../../../src/families/google/provider.ts";
 import { registerThoughtSignatureRecovery } from "../../../src/families/google/signature-recovery.ts";
 import { wrapNativeAliases } from "../../../src/models/aliases/native.ts";
+import { registerGroupSettlement } from "../../../src/models/groups/settlement.ts";
 import { installPhysicalRequestHooks } from "../../../src/models/runtime/physical.ts";
 
 const DUMMY = "skip_thought_signature_validator";
@@ -162,7 +164,9 @@ async function runScenario(
 						]
 					: []),
 				(pi: ExtensionAPI) => {
-					const recovery = registerThoughtSignatureRecovery(pi);
+					const boundary = shareBoundaryEvents(pi);
+					const recovery = registerThoughtSignatureRecovery(boundary);
+					registerGroupSettlement(boundary, () => []);
 					if (options.physical) {
 						const available = installPhysicalRequestHooks({ runtime }, (model, context) => {
 							const hooks = recovery.factory(model, context);

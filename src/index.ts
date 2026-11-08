@@ -13,6 +13,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { handleQuotaCli, registerQuotaCliFlags } from "./cli/index.ts";
 import { credentialStatus, readCredential } from "./core/auth/index.ts";
+import { shareBoundaryEvents } from "./core/boundary/index.ts";
 import { type AppSettings, SETTINGS } from "./core/config/catalog.ts";
 import { SettingsStore } from "./core/config/index.ts";
 import { createSettingsSaver } from "./core/config/save.ts";
@@ -635,8 +636,9 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	const familyPi: ExtensionAPI = { ...pi, on: familyOn };
 	for (const family of registry.families) await family.register?.(familyPi, host);
 	registerCompatibleThoughtSignatures(pi);
-	const recovery = registerThoughtSignatureRecovery(pi);
-	const settlement = registerGroupSettlement(pi, () => settings.get("models.groups"));
+	const boundaryPi = shareBoundaryEvents(pi);
+	const recovery = registerThoughtSignatureRecovery(boundaryPi);
+	const settlement = registerGroupSettlement(boundaryPi, () => settings.get("models.groups"));
 	const groupQuota = (provider: string) => {
 		const id = registry.resolve(provider)?.provider.id ?? provider;
 		return quotas.view().find((view) => view.provider.id === id)?.snapshot;

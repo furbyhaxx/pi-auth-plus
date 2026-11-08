@@ -11,6 +11,8 @@ import {
 	SessionManager,
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import { shareBoundaryEvents } from "../../../src/core/boundary/index.ts";
+import { registerThoughtSignatureRecovery } from "../../../src/families/google/signature-recovery.ts";
 import type { ModelGroup } from "../../../src/models/groups/config.ts";
 import { createGroupDefinition } from "../../../src/models/groups/route.ts";
 import { registerGroupSettlement } from "../../../src/models/groups/settlement.ts";
@@ -216,7 +218,9 @@ async function run(scenario: Scenario, count = 2) {
 							ctx.modelRegistry.getAvailable = () => [...originalAvailable(), logical];
 						});
 					}
-					const settlement = registerGroupSettlement(pi, () => [group]);
+					const boundary = shareBoundaryEvents(pi);
+					registerThoughtSignatureRecovery(boundary);
+					const settlement = registerGroupSettlement(boundary, () => [group]);
 					pi.registerVirtualModel(
 						createGroupDefinition(group, {
 							catalog: () => runtime.getModels(),

@@ -5,9 +5,9 @@ document:
   title: "Pi 1.4 provider seams"
   description: "Verified Pi 1.4.0 startup, provider, catalog, auth, event, request and token-counting extension seams."
   status: "published"
-  revision: 2
+  revision: 3
   created_at: "2026-10-27T09:58:49+01:00"
-  updated_at: "2026-10-27T10:17:31+01:00"
+  updated_at: "2026-11-08T20:49:53+01:00"
   created_by: "pi"
   updated_by: "pi"
   changelog:
@@ -17,6 +17,9 @@ document:
     - revision: 2
       reason: "source verification and corrections"
       changes: ["Verified against installed Pi 1.4.0 and corrected request-hook filtering, first-run catalogs, and token usage persistence"]
+    - revision: 3
+      reason: "pig boundary-event frame cost"
+      changes: ["Recorded that pig sends each boundary handler its own frame carrying the whole context preview, and that pi-auth-plus multiplexes its boundary handlers"]
 ---
 
 # Pi 1.4 provider seams
@@ -34,6 +37,7 @@ Read this report before changing provider registration in pi-auth-plus.
 - `refCA`: `/mnt/Projects/nukular/nukular-ai/.references/pi/packages/coding-agent/`
 - `refAI`: `/mnt/Projects/nukular/nukular-ai/.references/pi/packages/ai/`
 - `BOLT`: `/home/furbyhaxx/.pi-bolt/pi-bolt-linux-x64/docs/`
+- `PIG`: `/mnt/Projects/furbyhaxx/pig/` at `3dbc68a70`
 
 Both installed packages and both reference-checkout manifests report version `1.4.0` (`pkgCA:package.json:3`, `pkgAI:package.json:3`, `refCA:package.json:3`, `refAI:package.json:3`). The installed package manifests ship `dist`, not TypeScript `src` (`pkgCA:package.json:23-29`, `pkgAI:package.json:54-56`); the installed packages have no package-source `src/` tree. Treat installed `dist` as authoritative where it differs from the same-version-labelled checkout.
 
@@ -123,6 +127,8 @@ Both installed packages and both reference-checkout manifests report version `1.
 - Installed Pi 1.4.0 parses a `provider/` prefix at the first slash (`iCA:core/model-resolver.js:60-69`). The same-version-labelled checkout now matches the longest known provider id, so do not assume slash-containing provider IDs work in the installed build (`CA:core/model-resolver.ts:127-140`). `registerVirtualModel` is the explicit selectable virtual-model/alias seam (`CA:core/extensions/types.ts:1907-1918`).
 - Provider `compat` is merged with per-model `compat`; configured headers overlay model headers, with extension headers over `models.json` headers (`CA:core/provider-composer.ts:128-137,249,400-405,708-720`).
 - Pi-Bolt requires literal imports, embedded file assets, light factories and a 256 KB bytecode ceiling per function/module. It recommends type-only imports from `pi-coding-agent`; value imports from `pi-ai` and `typebox` are free (`BOLT:PLUGINS.md:166-177,269-292,312-313,393-398`).
+
+- Boundary events under pig: `turn_end` and `agent_before_settle` carry the rebuilt context preview (`contextEntries` with each `sourceEntry` and its `messages`, `contextMessages`, `llmMessages`), so the branch is encoded about four times (`PIG:coding/extension/events.go:607-627`). pig sends one request frame per handler (`PIG:coding/extension/host/subprocess/host.go:4440-4505`) and rejects frames above 128 MiB (`PIG:coding/extension/host/subprocess/protocol.go:46`). Observed 2026-11-08: a 36 MB uncompacted session produced 144 MB frames and every `turn_end` handler failed. pi-auth-plus therefore registers one handler per boundary event (`src/core/boundary/`); add consumers there, never with a direct `pi.on`.
 
 **Consequence:** avoid accidental builtin ids, keep model ids unambiguous and slash-free where practical, and make provider initialization AOT-safe. Recheck the installed resolver before relying on slash-containing provider IDs after an upgrade.
 

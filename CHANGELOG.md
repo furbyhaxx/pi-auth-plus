@@ -8,6 +8,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **Long sessions no longer fail pig's turn boundaries three times over.** Under pig, every
+  `turn_end` and `agent_before_settle` handler receives its own IPC frame, and each frame
+  carries the whole rebuilt context several times. In a long uncompacted session that frame
+  exceeds pig's 128 MiB limit, and pi-auth-plus reported the `IPC frame limit` error once per
+  handler, three times per turn. Group failover and Antigravity signature recovery now share
+  one handler per boundary event, and token counting no longer listens to `turn_end`: its
+  `message_end` refresh already covers every message. pi-auth-plus now sends one frame per
+  boundary event instead of three. The limit itself is pig's: compact very long sessions, or
+  all extensions that handle `turn_end` keep failing there. The `tokens:context` bus reason
+  `turn_end` is no longer emitted.
+
 - **Synthetic's model list refreshes under Pig.** Pig implements no provider refresh seam, so
   `refreshModels` never ran there and the provider kept rendering the bundled snapshot from
   install time: models added upstream after the snapshot (such as

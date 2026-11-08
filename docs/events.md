@@ -318,8 +318,9 @@ its success payload is `{ v: 1, ok: true, report: ContextReport | null, breakdow
 `context` is emitted when a recount completes or the report is cleared.
 
 `reason` is one of `session_start`, `session_shutdown`, `model_select`,
-`thinking_level_select`, `message_end`, `turn_end`, `session_compact`, `session_tree` and
-`request`. A model or thinking change clears the old report before the replacement count arrives.
+`thinking_level_select`, `message_end`, `session_compact`, `session_tree` and `request`. The
+v1 type still accepts `turn_end`, but it is no longer emitted: `message_end` already covers
+every message of a turn. A model or thinking change clears the old report before the replacement count arrives.
 
 ```typescript
 type TokenSource = "provider" | "count-endpoint" | "tokenizer" | "estimate";

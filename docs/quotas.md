@@ -28,11 +28,11 @@ OpenCode's `opencode` and `opencode-go` have no quota source.
 
 Provider details:
 
-- **Claude:** reads `/api/oauth/usage`. New `limits[]` windows keep server order;
+- **Claude:** reads `/api/oauth/usage?cedar_ember=1`. New `limits[]` windows keep server order;
   legacy five-hour, weekly, Opus, Sonnet and OAuth-app windows are used when that list
   is absent. Percentages are used allowance; extra-usage money is converted from minor
   units. Disabled extra usage is omitted. Scoped names do not imply a universal plan
-  limit. There is no Claude reset-credit spend action.
+  limit. Eligible accounts also expose cedar_ember reset grants and their remaining count.
 - **Antigravity:** discovers the project through `loadCodeAssist`, then calls
   `retrieveUserQuotaSummary`. `remainingFraction` is converted to used allowance;
   an omitted fraction stays unknown. The most-used known bucket per group is marked
@@ -213,9 +213,15 @@ See [commands](commands.md) for shared dashboard and Settings keys.
 
 ## Reset credits
 
-Only `codex` supports spending reset credits. Use `x` on its Quotas row or
+`claude` and `codex` support spending reset credits. Use `x` on their Quotas row or
 `/quotas reset [provider]` (also `/quota reset`, `resets`). With no provider, the first
-enabled reset-capable provider is used: currently `codex`.
+enabled reset-capable provider is used. Specify a provider to choose explicitly.
+
+Claude lists cedar_ember grants, including what each clears. Its count includes usable
+queued grants, but only the server-selected next grant can be spent; other usable grants
+remain `queued`, and paused or unusable grants are `unavailable`. Organization identity is
+resolved transiently from the OAuth profile when consuming, never stored. These private
+Claude endpoints may change without notice; reset claims have not been live-tested.
 
 Credits are listed first; the soonest-expiring available credit is selected. The dialog
 shows the credit and current windows. **Keep the credit** is the first choice; only
@@ -224,9 +230,10 @@ missing UI or no redeemable credit spends nothing. Headless use only lists credi
 
 A consume is sent once and never retried. Every attempt is followed by a forced quota
 refresh, including failures or a provider refusal. Outcomes are `reset`,
-`nothing_to_reset`, `no_credit` or `already_redeemed`; only `reset` confirms a spend.
+`nothing_to_reset`, `no_credit`, `already_redeemed` or `refused` (with an optional provider
+reason, such as cooldown or ineligibility); only `reset` confirms a spend.
 If a request fails or is interrupted, the credit may already be spent: list again with
-`/quotas reset codex` and inspect before approving anything else. There is no CLI reset.
+`/quotas reset <provider>` and inspect before approving anything else. There is no CLI reset.
 [Bus reset requests](events.md) still require the same in-session approval.
 
 ## Read-only CLI

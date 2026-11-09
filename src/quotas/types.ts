@@ -76,13 +76,20 @@ export interface ResetCreditList {
 }
 
 /** Provider verdict for one consume request; only `reset` spends a credit. */
-export type ResetOutcomeCode = "reset" | "nothing_to_reset" | "no_credit" | "already_redeemed";
+export type ResetOutcomeCode =
+	| "reset"
+	| "nothing_to_reset"
+	| "no_credit"
+	| "already_redeemed"
+	| "refused";
 
 export interface ResetOutcome {
 	readonly provider: string;
 	readonly code: ResetOutcomeCode;
 	readonly creditId: string;
 	readonly windowsReset: number;
+	/** Optional provider explanation for a refusal. */
+	readonly reason?: string | undefined;
 }
 
 /** The credential a quota fetch authenticates with, resolved through Pi (OAuth already refreshed). */

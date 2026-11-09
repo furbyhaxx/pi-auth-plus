@@ -138,7 +138,8 @@ export function decodeOutcome(raw: unknown): ResetOutcome | undefined {
 		!record(raw) ||
 		!string(raw["provider"]) ||
 		!string(raw["creditId"]) ||
-		!finite(raw["windowsReset"])
+		!finite(raw["windowsReset"]) ||
+		!optionalFields(raw, ["reason"], string)
 	)
 		return undefined;
 	const code = raw["code"];
@@ -146,13 +147,15 @@ export function decodeOutcome(raw: unknown): ResetOutcome | undefined {
 		code !== "reset" &&
 		code !== "nothing_to_reset" &&
 		code !== "no_credit" &&
-		code !== "already_redeemed"
+		code !== "already_redeemed" &&
+		code !== "refused"
 	)
 		return undefined;
 	return {
 		provider: raw["provider"],
 		creditId: raw["creditId"],
 		windowsReset: raw["windowsReset"],
+		reason: typeof raw["reason"] === "string" ? raw["reason"] : undefined,
 		code,
 	};
 }

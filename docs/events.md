@@ -275,11 +275,16 @@ interface ResetCredit {
 }
 interface ResetOutcome {
   provider: string;
-  code: "reset" | "nothing_to_reset" | "no_credit" | "already_redeemed";
+  code: "reset" | "nothing_to_reset" | "no_credit" | "already_redeemed" | "refused";
   creditId: string;
   windowsReset: number;
+  reason?: string;
 }
 ```
+
+`refused` and optional `reason` are additive v1 reset-outcome extensions. Claude uses
+`refused` for cooldown, ineligibility, unavailability and unknown result values; only
+`reset` confirms a spend. Consumers must allow additive outcome codes.
 
 These channels replace pi-quotas's namespace and its wire envelope. Update raw bus
 consumers rather than changing only the channel prefix; prefer the client helpers.

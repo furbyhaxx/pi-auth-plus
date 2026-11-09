@@ -4,7 +4,7 @@ import { claudeQuota, fetchClaudeQuota } from "../../../src/families/anthropic/q
 import type { QuotaFetchContext } from "../../../src/quotas/types.ts";
 import usage from "../../fixtures/quotas/claude-usage.json";
 
-const endpoint = "https://api.anthropic.com/api/oauth/usage";
+const endpoint = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1";
 const now = 1_800_000_000_000;
 let ctx: { -readonly [Key in keyof QuotaFetchContext]: QuotaFetchContext[Key] };
 beforeEach(() => {
@@ -88,7 +88,7 @@ test("quota metadata and missing auth", async () => {
 	expect(claudeQuota).toMatchObject({
 		kind: "windows",
 		shortLabel: "cl",
-		parserVersion: 1,
+		parserVersion: 2,
 		minPollMs: 300_000,
 	});
 	ctx.auth = async () => undefined;
@@ -391,4 +391,11 @@ describe("Claude usage contract", () => {
 		respond(body);
 		await expect(fetchQuota()).rejects.toThrow("invalid quota JSON");
 	});
+});
+
+test("a malformed cedar_ember block leaves the reset count unknown and keeps windows", async () => {
+	const { parseClaudeQuota } = await import("../../../src/families/anthropic/quota.ts");
+	const snapshot = parseClaudeQuota({ ...usage, cedar_ember: { grants: "bad" } }, now);
+	expect(snapshot.windows.length).toBeGreaterThan(0);
+	expect(snapshot.resetCredits).toBeUndefined();
 });

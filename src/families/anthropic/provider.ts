@@ -18,7 +18,7 @@ import {
 } from "@earendil-works/pi-ai/compat";
 import type { TextRule } from "../../core/config/fields.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
-import { bundledModels, refreshCatalog } from "./catalog.ts";
+import { bundledModels, hasCatalogPrice, refreshCatalog } from "./catalog.ts";
 import { toolNameRestorer } from "./tool-names.ts";
 import { claudeFetch, oauthToken } from "./transport.ts";
 
@@ -110,7 +110,7 @@ export function claudeProvider(deps: ClaudeProviderDeps): Provider<"anthropic-me
 		auth: deps.auth,
 		models,
 		filterModels: (catalog, credential) =>
-			credential?.type === "oauth" ? catalog.map(freeOf) : catalog,
+			credential?.type === "oauth" ? catalog.map(freeOf) : catalog.filter(hasCatalogPrice),
 		api: {
 			stream(model, context, options) {
 				const shaped = prepare(model as AnthropicModel, context, options);

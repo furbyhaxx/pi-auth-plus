@@ -11,6 +11,8 @@ All notable changes to this project are documented here. The format follows
 - **Claude's account model catalog refreshes automatically.** Active models newly available
   to your account appear without waiting for a Pi catalog update. Open `/model` online to
   refresh; offline and `--list-models` use Pi's saved catalog or the bundled first-run list.
+  Prices come from models.dev, with Pi's same-model prices as fallback; unpriced models are
+  available only for OAuth subscriptions, never billed using a different model's price.
 
 ## [0.5.6] - 2026-11-08
 

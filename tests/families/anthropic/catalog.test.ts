@@ -9,6 +9,7 @@ import {
 	parseCatalog,
 	refreshCatalog,
 } from "../../../src/families/anthropic/catalog.ts";
+import prices from "../../fixtures/claude/models-dev-anthropic.json";
 import fixture from "../../fixtures/claude/v1-models.json";
 
 const now = 1_800_000_000_000;
@@ -42,12 +43,92 @@ function deps(overrides: Partial<CatalogDeps> = {}): CatalogDeps {
 }
 
 describe("families/anthropic/catalog", () => {
+	test("API-key refresh uses models.dev prices for new and bundled models", async () => {
+		const { ctx } = context({
+			allowNetwork: true,
+			credential: { type: "api_key", key: "test-key" },
+		});
+		const models = await refreshCatalog(
+			ctx,
+			deps({
+				fetch: async (url, init) => {
+					if (String(url) === CATALOG_URL) return Response.json(fixture);
+					expect(String(url)).toBe("https://models.dev/api.json");
+					expect(new Headers(init?.headers).has("x-api-key")).toBe(false);
+					expect(init?.signal).toBeInstanceOf(AbortSignal);
+					return Response.json(prices);
+				},
+			}),
+		);
+		expect(models.find((model) => model.id === "claude-fable-5-2")?.cost).toEqual({
+			input: 8,
+			output: 40,
+			cacheRead: 0.2,
+			cacheWrite: 10,
+		});
+		const bundled = bundledModels();
+		const template = bundled.find((model) => model.id === "claude-fable-5-1");
+		if (!template) throw new Error("missing template");
+		const mapped = parseCatalog(
+			fixture,
+			[{ ...template, cost: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1 } }],
+			prices,
+		);
+		expect(mapped.find((model) => model.id === template.id)?.cost).toEqual({
+			input: 10,
+			output: 50,
+			cacheRead: 0.25,
+			cacheWrite: 12.5,
+		});
+	});
+
+	test("dated ids use undated prices and ignore tiers", () => {
+		const row = fixture.data[0];
+		if (!row) throw new Error("missing fixture row");
+		const models = parseCatalog(
+			{ data: [{ ...row, id: "claude-fable-5-2-20261109" }], has_more: false },
+			bundledModels(),
+			{
+				anthropic: {
+					models: {
+						"claude-fable-5-2": {
+							cost: {
+								...prices.anthropic.models["claude-fable-5-2"].cost,
+								tiers: [{ input: 99, output: 99 }],
+							},
+						},
+					},
+				},
+			},
+		);
+		expect(models[0]?.cost).toEqual({ input: 8, output: 40, cacheRead: 0.2, cacheWrite: 10 });
+	});
+
+	test("price-source failure retains unpriced models only for OAuth and preserves bundled prices", async () => {
+		for (const auth of [credential, { type: "api_key", key: "test-key" } as const]) {
+			const { ctx } = context({ allowNetwork: true, credential: auth });
+			const models = await refreshCatalog(
+				ctx,
+				deps({
+					fetch: async (url) => {
+						if (String(url) === CATALOG_URL) return Response.json(fixture);
+						return new Response("unavailable", { status: 503 });
+					},
+				}),
+			);
+			expect(models.some((model) => model.id === "claude-fable-5-2")).toBe(auth.type === "oauth");
+			expect(models.find((model) => model.id === "claude-fable-5-1")?.cost).toEqual(
+				bundledModels().find((model) => model.id === "claude-fable-5-1")?.cost,
+			);
+		}
+	});
 	test("persists the account listing with derived metadata and OAuth identity", async () => {
 		const { ctx, publications } = context({ allowNetwork: true, credential });
 		const models = await refreshCatalog(
 			ctx,
 			deps({
 				fetch: async (url, init) => {
+					if (String(url) !== CATALOG_URL) return Response.json(prices);
 					expect(String(url)).toBe(CATALOG_URL);
 					const headers = new Headers(init?.headers);
 					expect(headers.get("Authorization")).toBe("Bearer test-access");
@@ -63,7 +144,7 @@ describe("families/anthropic/catalog", () => {
 			name: "Claude Fable 5.2",
 			contextWindow: 1000000,
 			maxTokens: 128000,
-			cost: template?.cost,
+			cost: { input: 8, output: 40, cacheRead: 0.2, cacheWrite: 10 },
 			promptCache: template?.promptCache,
 			inputLimits: template?.inputLimits,
 			input: ["text", "image"],
@@ -114,7 +195,8 @@ describe("families/anthropic/catalog", () => {
 			await refreshCatalog(
 				ctx,
 				deps({
-					fetch: async (_url, init) => {
+					fetch: async (url, init) => {
+						if (String(url) !== CATALOG_URL) return Response.json(prices);
 						if (ctx.credential?.type === "api_key")
 							expect(new Headers(init?.headers).get("x-api-key")).toBe("test-key");
 						return Response.json(fixture);
@@ -147,6 +229,8 @@ describe("families/anthropic/catalog", () => {
 				},
 				template,
 			],
+			undefined,
+			true,
 		);
 		expect(models).toHaveLength(2);
 		expect(models[0]).toMatchObject({
@@ -155,7 +239,8 @@ describe("families/anthropic/catalog", () => {
 			contextWindow: 100,
 			thinkingLevelMap: template.thinkingLevelMap,
 		});
-		expect(models[1]?.cost).toEqual(template.cost);
+		expect(models[1]?.cost).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+		expect(models[1]?.claudeUnpriced).toBe(true);
 	});
 
 	test("errors never expose response bodies or credentials and do not publish", async () => {

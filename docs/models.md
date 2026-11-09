@@ -13,10 +13,11 @@ save cannot be interrupted by navigation. Scoped settings saves report keys shad
 higher-priority scope and any committed warnings.
 
 The `claude` catalog refreshes from Anthropic's account model listing through Pi's model
-refresh lifecycle, with a four-hour freshness window. Active listed models use Pi's bundled
-pricing and compatibility metadata, inheriting from the newest model in the same line when
-needed; unknown lines are omitted. Pi restores its saved catalog offline and uses its bundled
-list before the first refresh. Open `/model` online to refresh; `--list-models` only reads the
+refresh lifecycle, with a four-hour freshness window. Prices come from models.dev's Anthropic
+catalog, falling back to Pi's bundled price for the same model if unavailable. Compatibility
+metadata comes from Pi, inheriting from the newest model in the same line when needed;
+unknown lines are omitted. Models without a verified price are offered only for OAuth.
+Pi restores its saved catalog offline and uses its bundled list before the first refresh. Open `/model` online to refresh; `--list-models` only reads the
 saved or bundled list. OAuth subscription models still show zero cost.
 
 ## Visibility rules

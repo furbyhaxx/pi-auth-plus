@@ -100,7 +100,17 @@ function setup(overrides: { messages?: Message[]; tools?: Tool[] } = {}) {
 describe("families/anthropic/provider", () => {
 	test("offline restoration replaces both listings only after an accepted publication", async () => {
 		const { provider, model } = setup();
-		const stored = { models: [{ ...model, id: "stored-model" }] };
+		const stored = {
+			models: [
+				{ ...model, id: "stored-model" },
+				{
+					...model,
+					id: "unpriced-model",
+					claudeUnpriced: true,
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+				},
+			],
+		};
 		const refresh = provider.refreshModels;
 		if (!refresh) throw new Error("missing refresh seam");
 		await refresh({
@@ -130,6 +140,11 @@ describe("families/anthropic/provider", () => {
 			})[0]?.cost,
 		).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
 		expect(provider.getModels()[0]?.cost).toEqual(model.cost);
+		expect(
+			provider
+				.filterModels?.(provider.getModels(), { type: "api_key", key: "test-key" })
+				.map((entry) => entry.id),
+		).toEqual(["stored-model"]);
 	});
 	test("an OAuth turn uses header auth, Claude Code shaping, zero cost and Pi's tool names", async () => {
 		const { provider, model, context } = setup();

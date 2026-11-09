@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Claude reset grants:** quota polls now show cedar_ember reset counts. Use
+  `/quotas reset claude` to inspect grant scopes and approve one irreversible claim;
+  queued grants follow the server-selected order. Reset outcomes add `refused` and
+  an optional provider reason for bus consumers.
+
 ## [0.5.6] - 2026-11-08
 
 ### Fixed

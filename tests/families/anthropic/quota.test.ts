@@ -4,7 +4,7 @@ import { claudeQuota, fetchClaudeQuota } from "../../../src/families/anthropic/q
 import type { QuotaFetchContext } from "../../../src/quotas/types.ts";
 import usage from "../../fixtures/quotas/claude-usage.json";
 
-const endpoint = "https://api.anthropic.com/api/oauth/usage";
+const endpoint = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1";
 const now = 1_800_000_000_000;
 let ctx: { -readonly [Key in keyof QuotaFetchContext]: QuotaFetchContext[Key] };
 beforeEach(() => {
@@ -88,7 +88,7 @@ test("quota metadata and missing auth", async () => {
 	expect(claudeQuota).toMatchObject({
 		kind: "windows",
 		shortLabel: "cl",
-		parserVersion: 1,
+		parserVersion: 2,
 		minPollMs: 300_000,
 	});
 	ctx.auth = async () => undefined;
@@ -377,7 +377,7 @@ describe("Claude usage contract", () => {
 				expect(error.message).toContain("Claude");
 				expect(error.message).toContain(String(status));
 				expect(error.message).toContain(
-					status === 401 ? "/login" : status === 403 || status === 429 ? "rate limited" : "retry",
+					status === 401 || status === 403 ? "/login" : status === 429 ? "rate limited" : "retry",
 				);
 			}
 			expect(calls).toBe(1);

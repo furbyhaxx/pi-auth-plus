@@ -79,6 +79,29 @@ test("reset descriptions use registry labels, scrub controls and show Zurich dat
 	expect(unsupportedResetMessage("fake", [])).toContain("Supported: none.");
 });
 
+test("refusals show sanitized reasons without claiming a confirmed spend", () => {
+	const outcome = describeResetOutcome(
+		{
+			provider: "fake",
+			code: "refused",
+			creditId: "one",
+			windowsReset: 0,
+			reason: "\u001b[31mcooldown\u001b[0m",
+		},
+		registry,
+	);
+	expect(outcome).toEqual({
+		text: "Provider label: reset refused (cooldown); check the credit list before approving another attempt.",
+		tone: "warning",
+	});
+	expect(
+		describeResetOutcome(
+			{ provider: "fake", code: "refused", creditId: "one", windowsReset: 0 },
+			registry,
+		).text,
+	).toContain("reset refused;");
+});
+
 for (const code of [
 	"reset",
 	"nothing_to_reset",

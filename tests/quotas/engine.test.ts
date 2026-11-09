@@ -108,6 +108,7 @@ describe("quota engine", () => {
 		"nothing_to_reset",
 		"no_credit",
 		"already_redeemed",
+		"refused",
 		"throw",
 	] as const) {
 		test(`reset ${code} consumes once and force-refreshes after an in-flight refresh`, async () => {

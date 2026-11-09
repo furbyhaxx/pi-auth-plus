@@ -7,9 +7,24 @@ import type {
 	QuotaWindow,
 } from "../../quotas/types.ts";
 import { PROVIDER } from "./provider.ts";
+import {
+	consumeClaudeResetCredit,
+	listClaudeResetCredits,
+	parseClaudeResetCredits,
+} from "./resets.ts";
 import { PINNED_VERSION, userAgent } from "./version.ts";
 
-const USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
+const USAGE_URL = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1";
+
+/** Headers shared by Claude's OAuth usage, profile and reset endpoints. */
+export function claudeQuotaHeaders(token: string): Record<string, string> {
+	return {
+		Authorization: `Bearer ${token}`,
+		"anthropic-beta": "oauth-2025-04-20",
+		"User-Agent": userAgent(PINNED_VERSION),
+		Accept: "application/json",
+	};
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -262,21 +277,20 @@ export function parseClaudeQuota(body: unknown, now: number): ProviderQuotaSnaps
 			`Claude usage (GET ${USAGE_URL}): missing recognized quota windows or extra_usage; retry later`,
 		);
 	}
-	return { provider: PROVIDER, fetchedAt: now, source: "endpoint", windows };
+	return {
+		provider: PROVIDER,
+		fetchedAt: now,
+		source: "endpoint",
+		windows,
+		resetCredits:
+			body["cedar_ember"] == null ? undefined : parseClaudeResetCredits(body, now).available,
+	};
 }
 
 /** Fetches usage, replaying a 401 only when Pi resolves a different credential. */
-export async function fetchClaudeQuota(ctx: QuotaFetchContext): Promise<ProviderQuotaSnapshot> {
+export async function fetchClaudeUsage(ctx: QuotaFetchContext): Promise<unknown> {
 	const auth = await ctx.auth();
-	if (!auth)
-		return {
-			provider: PROVIDER,
-			fetchedAt: ctx.now(),
-			source: "endpoint",
-			windows: [],
-			needsAuth: true,
-			error: "Claude: no credential configured; run /login claude",
-		};
+	if (!auth) return undefined;
 	const get = (token: string) =>
 		request(USAGE_URL, {
 			provider: PROVIDER,
@@ -287,12 +301,7 @@ export async function fetchClaudeQuota(ctx: QuotaFetchContext): Promise<Provider
 			secrets: [token],
 			method: "GET",
 			redirect: "error",
-			headers: {
-				Authorization: `Bearer ${token}`,
-				"anthropic-beta": "oauth-2025-04-20",
-				"User-Agent": userAgent(PINNED_VERSION),
-				Accept: "application/json",
-			},
+			headers: claudeQuotaHeaders(token),
 		});
 	let response: Response;
 	try {
@@ -316,14 +325,29 @@ export async function fetchClaudeQuota(ctx: QuotaFetchContext): Promise<Provider
 			`Claude usage (GET ${USAGE_URL}) returned HTTP ${response.status} with invalid quota JSON; retry later`,
 		);
 	}
+	return body;
+}
+
+/** Fetches the windows and grant count in one usage poll. */
+export async function fetchClaudeQuota(ctx: QuotaFetchContext): Promise<ProviderQuotaSnapshot> {
+	const body = await fetchClaudeUsage(ctx);
+	if (body === undefined)
+		return {
+			provider: PROVIDER,
+			fetchedAt: ctx.now(),
+			source: "endpoint",
+			windows: [],
+			needsAuth: true,
+			error: "Claude: no credential configured; run /login claude",
+		};
 	return parseClaudeQuota(body, ctx.now());
 }
 
 function contextualHttpError(error: ProviderHttpError): ProviderHttpError {
 	const recovery =
-		error.status === 401
+		error.status === 401 || error.status === 403
 			? "run /login claude"
-			: error.status === 403 || error.status === 429
+			: error.status === 429
 				? "rate limited; retry after the Retry-After hold expires"
 				: "retry later; check the provider service";
 	return new ProviderHttpError(
@@ -339,8 +363,9 @@ function contextualHttpError(error: ProviderHttpError): ProviderHttpError {
 export const claudeQuota: QuotaSource = {
 	kind: "windows",
 	shortLabel: "cl",
-	parserVersion: 1,
+	parserVersion: 2,
 	minPollMs: 300_000,
 	fetch: fetchClaudeQuota,
 	headers: parseClaudeHeaders,
+	resets: { list: listClaudeResetCredits, consume: consumeClaudeResetCredit },
 };

@@ -44,7 +44,8 @@ export function formatResetDate(at: number | undefined): string {
 export function describeResetCredit(credit: ResetCredit): string {
 	const expiry =
 		credit.expiresAtMs === undefined ? "" : `, expires ${formatResetDate(credit.expiresAtMs)}`;
-	return `${plain(credit.title ?? credit.type)} (${plain(credit.status)}${expiry})`;
+	const description = credit.description ? ` — ${plain(credit.description)}` : "";
+	return `${plain(credit.title ?? credit.type)} (${plain(credit.status)}${expiry})${description}`;
 }
 
 /** Lists all credits under the registry's provider label. */
@@ -75,6 +76,11 @@ export function describeResetOutcome(
 			return { text: `${name}: nothing to reset; no credit was spent.`, tone: "warning" };
 		case "no_credit":
 			return { text: `${name}: no reset credit available; nothing was spent.`, tone: "warning" };
+		case "refused":
+			return {
+				text: `${name}: reset refused${outcome.reason ? ` (${plain(outcome.reason)})` : ""}; check the credit list before approving another attempt.`,
+				tone: "warning",
+			};
 		case "already_redeemed":
 			return { text: `${name}: that credit was already redeemed.`, tone: "warning" };
 	}

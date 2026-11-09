@@ -1,5 +1,5 @@
 /**
- * The `claude` provider: Pi's Anthropic catalog and Messages implementation, re-tagged. OAuth
+ * The `claude` provider: an account-refreshed catalog and Pi's Messages implementation. OAuth
  * turns switch to header-owned auth so Pi's own Claude Code emulation stays out and the
  * transport shapes each request exactly once; API-key turns go through Pi unchanged.
  */
@@ -15,10 +15,10 @@ import {
 	anthropicMessagesApi,
 	createProvider,
 	getCurrentTools,
-	getModels,
 } from "@earendil-works/pi-ai/compat";
 import type { TextRule } from "../../core/config/fields.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
+import { bundledModels, refreshCatalog } from "./catalog.ts";
 import { toolNameRestorer } from "./tool-names.ts";
 import { claudeFetch, oauthToken } from "./transport.ts";
 
@@ -59,11 +59,12 @@ function freeOf<T extends AnthropicModel>(model: T): T {
 }
 
 export function claudeModels(): AnthropicModel[] {
-	return getModels("anthropic").map((model) => ({ ...model, provider: PROVIDER }));
+	return bundledModels();
 }
 
 export function claudeProvider(deps: ClaudeProviderDeps): Provider<"anthropic-messages"> {
 	const models = claudeModels();
+	let current = models;
 	const anthropic = anthropicMessagesApi();
 
 	function prepare<T extends StreamOptions>(
@@ -102,7 +103,7 @@ export function claudeProvider(deps: ClaudeProviderDeps): Provider<"anthropic-me
 		};
 	}
 
-	return createProvider<"anthropic-messages">({
+	const provider = createProvider<"anthropic-messages">({
 		id: PROVIDER,
 		name: "Claude",
 		baseUrl: models[0]?.baseUrl ?? DEFAULT_BASE_URL,
@@ -121,4 +122,17 @@ export function claudeProvider(deps: ClaudeProviderDeps): Provider<"anthropic-me
 			},
 		},
 	});
+	return {
+		...provider,
+		getModels: () => current,
+		getAllModels: () => current,
+		async refreshModels(ctx) {
+			const models = await refreshCatalog(ctx, { fetch, now: Date.now });
+			await ctx.publish({
+				update: () => {
+					current = models;
+				},
+			});
+		},
+	};
 }

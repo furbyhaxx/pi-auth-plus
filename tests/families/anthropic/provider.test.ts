@@ -98,6 +98,39 @@ function setup(overrides: { messages?: Message[]; tools?: Tool[] } = {}) {
 }
 
 describe("families/anthropic/provider", () => {
+	test("offline restoration replaces both listings only after an accepted publication", async () => {
+		const { provider, model } = setup();
+		const stored = { models: [{ ...model, id: "stored-model" }] };
+		const refresh = provider.refreshModels;
+		if (!refresh) throw new Error("missing refresh seam");
+		await refresh({
+			allowNetwork: false,
+			stored,
+			signal: new AbortController().signal,
+			publish: async () => false,
+		});
+		expect(provider.getModels()).not.toEqual(stored.models);
+		await refresh({
+			allowNetwork: false,
+			stored,
+			signal: new AbortController().signal,
+			publish: async ({ update }) => {
+				update?.();
+				return true;
+			},
+		});
+		expect(provider.getModels()).toEqual(stored.models);
+		expect(provider.getAllModels?.()).toEqual(stored.models);
+		expect(
+			provider.filterModels?.(provider.getModels(), {
+				type: "oauth",
+				access: "test-access",
+				refresh: "test-refresh",
+				expires: 0,
+			})[0]?.cost,
+		).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+		expect(provider.getModels()[0]?.cost).toEqual(model.cost);
+	});
 	test("an OAuth turn uses header auth, Claude Code shaping, zero cost and Pi's tool names", async () => {
 		const { provider, model, context } = setup();
 		const sent: Captured[] = [];

@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Claude's account model catalog refreshes automatically.** Active models newly available
+  to your account appear without waiting for a Pi catalog update. Open `/model` online to
+  refresh; offline and `--list-models` use Pi's saved catalog or the bundled first-run list.
+
 ## [0.5.6] - 2026-11-08
 
 ### Fixed

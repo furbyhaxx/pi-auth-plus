@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **New Claude models show up right after updating.** The model store that Pi and pig share
+  still held the old bundled Claude list, stamped with a recent check time, so the account
+  listing was skipped for up to four hours and Fable 5.2 stayed hidden. Stored listings now
+  carry a format version; an older stored list refreshes on the next online `/model`. An
+  undated alias of an unpriced model is also kept unpriced, so it stays hidden from API keys.
+
 ## [0.6.1] - 2026-11-09
 
 ### Fixed

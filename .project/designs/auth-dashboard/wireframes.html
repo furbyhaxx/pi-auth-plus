@@ -1,0 +1,382 @@
+<!doctype html><meta charset="utf-8"><title>/auth dashboard wireframes</title>
+<style>body{background:#111;color:#ddd;font:14px/1.2 ui-monospace,monospace;padding:1rem}h3{color:#9cf;margin:1.5rem 0 .3rem}
+pre{background:#000;padding:.5rem;overflow:auto;margin:0}.r{color:#c9a227}.a{background:#5fb3ff;color:#000;font-weight:bold}.i{background:#444}</style>
+<h1>/auth dashboard wireframes (96 columns)</h1><h3>1. Providers</h3><pre><span class="r">── Auth › Providers ─────────────────────────────────────────────── 9 providers · 7 signed in ──</span>
+  ❱<span class="a"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ Type to filter…
+<span class="r"></span>
+→ Claude          ● subscription · Max 20x · expires in 6h 12m      5h 6% · 7d 58%
+  Antigravity     ● subscription · expires in 41m                   gem 59% · arg 35%
+  OpenAI Codex    ● subscription (openai-codex) · expires in 9d     5h 12% · 7d 31%
+  Synthetic       ● API key                                         66% of pack
+  OpenCode Zen    ◐ anonymous · free models only · /login opencode
+  OpenCode Go     ○ not signed in · /login opencode-go
+  xAI             ● API key from XAI_API_KEY                        $12.40 left
+  OpenRouter      ● API key                                         $29.35 left
+  DeepSeek        ● API key                                         $20.41 left
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Sign-in state, plan, expiry and headline quota per provider. Sign in with /login &lt;provider&gt;.
+ ↑↓ move · enter details · tab/shift+tab tab · type to filter · f1 help · esc close
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>2. Provider detail (Enter on a provider)</h3><pre><span class="r">── Auth › Providers › Claude ────────────────────────────────────────────── claude · alias cl ──</span>
+  ❱<span class="a"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ Filter fields…
+<span class="r"></span>
+  Provider       claude (Claude subscription) · alias cl
+  Credential     ● OAuth in auth.json · expires in 6h 12m · refreshes on next request
+  Plan           Max 20x
+  Logout         /logout claude
+  Models         4 listed · 0 hidden · 1 alias                         → open in Models
+  Quota          5h 6% · 7d 58% · Fable 18% · $250 cap 100%            → open in Quotas
+  Tokens         native count endpoint (count_tokens)
+  Wire identity  Claude Code CLI &lt;pinned version&gt; · installed newer wins
+  Settings       cacheRetention long · 2 prompt rules                  → open in Settings
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Everything pi-auth-plus knows about one provider. Read-only; jumps open the owning tab.
+ ↑↓ move · enter open · esc back
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>3. Quotas (one summary row per provider; Enter opens the detail)</h3><pre><span class="r">── Auth › Quotas ─────────────────────────────────────── refreshed 2m ago · line below editor ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="a"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ Type to filter…
+<span class="r"></span>
+→ Claude         5h  ▕█░░░░░░▏  6% ↻4h16m · 7d ▕████░░░▏ 58% ↻4d2h          2m ago
+  Antigravity    gem ▕████░░░▏ 59% ↻21h54m · arg ▕██░░░░░▏ 35% ↻6d19h        54s ago
+  OpenAI Codex   5h  ▕█░░░░░░▏ 12% ↻3h02m · 7d ▕██░░░░░▏ 31% ↻5d1h · 1 reset  1m ago
+  Synthetic      pack ▕█████░░▏ 66% ↻ monthly                                 3m ago
+  OpenRouter     credits $29.35 left                                          1m ago
+  DeepSeek       credits $20.41 left                                          1m ago
+  xAI            credits $12.40 left · ⚠ low                                  1m ago
+  OpenCode Go    ○ not signed in · /login opencode-go
+  OpenCode Zen   – no quota endpoint (anonymous)
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Usage windows and credits per provider; each provider&#x27;s own numbers, unknown stays unknown.
+ ↑↓ move · enter details · alt+r refresh · alt+a all · alt+o solo · alt+p line · alt+x reset
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>4. Quota detail</h3><pre><span class="r">── Auth › Quotas › Claude ─────────────────────────────────────────────── fetched 2m ago · ok ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="a"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ Filter windows…
+<span class="r"></span>
+  5h session   ▕██░░░░░░░░░░░░░░▏   6% used · ↻ 4h 16m
+               10.6%/h window · 10.6%/h 1h · 10.6%/h 24h · resets before empty
+  7d weekly    ▕█████████░░░░░░░▏  58% used · ↻ 4d 2h
+               3.2%/h window · 2.4%/h 1h · 3.2%/h 24h · empty in 12h 58m
+  7d Fable     ▕███░░░░░░░░░░░░░▏  18% used · ↻ 4d 2h
+               1.3%/h window · 1.2%/h 1h · 1.3%/h 24h · empty in 2d 15h
+  $250 cap     ▕████████████████▏ 100% used ($250.22 / $250) · ↻ 8d 16h
+               0.0%/h · source: api.anthropic.com/api/oauth/usage · HTTP 200
+<span class="r"></span>
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Every window the provider exposes, with burn rate and projected exhaustion.
+ ↑↓ scroll · alt+r refresh · alt+x reset · esc back
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>5. Quota reset confirmation (alt+x)</h3><pre><span class="r">── Auth › Quotas › OpenAI Codex › Reset ─────────────────────────────────────── 1 credit left ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="a"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ 
+<span class="r"></span>
+  Spend one OpenAI Codex rate-limit reset?
+<span class="r"></span>
+  Credits     1 of 1 available · next grant in 12d
+  Applies to  the windows OpenAI resets (shown after the reset, not guessed)
+<span class="r"></span>
+→ No, keep the credit
+  Yes, spend 1 reset
+<span class="r"></span>
+<span class="r"></span>
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Resets are irreversible and spend a limited credit.
+ ↑↓ move · enter choose · esc cancel
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>6. Quota line position (alt+p)</h3><pre><span class="r">── Auth › Quotas › Line position ─────────────────────────────── current: below editor, first ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="a"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ 
+<span class="r"></span>
+→ Below editor, first      ● current
+  Below editor, last
+  Above editor
+  Footer status
+  Hidden
+<span class="r"></span>
+  Preview  cl: 5h/6% 7d/58% · ag: gem/59% arg/35% · syn: 66% · or: $29.35
+<span class="r"></span>
+<span class="r"></span>
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Where the quota line renders. Saving asks for a scope.
+ ↑↓ move · enter choose · ctrl+s save · esc back
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>7. Tokens</h3><pre><span class="r">── Auth › Tokens ────────────────────────────────────────────── claude/claude-opus-5-5 · high ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="a"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ Filter breakdown…
+<span class="r"></span>
+  Context     ▕████░░░░░░░░░░░░▏ 24.1% of 200K · 48,211 tokens
+  Source      ● provider usage (authoritative)
+  Pi          46,980 · Δ +1,231 vs Pi estimate
+  Anchor      assistant usage 2 turns ago · tail 1,402 estimated
+<span class="r"></span>
+  Breakdown   full request · native count endpoint
+  system      7,204   ▕██░░░░░░▏ 15%   3 blocks
+  tools       12,880  ▕███░░░░░▏ 27%   41 tools
+  messages    28,127  ▕█████░░░▏ 58%   86 messages
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Live session context count, where it came from, and what fills it.
+ ↑↓ scroll · alt+r recount · esc close
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>8. Models: rules</h3><pre><span class="r">── Auth › Models › Rules ──────────────────────────────────── 3 rules · 212 hidden · ▲ staged ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="a"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ Type to filter…
+<span class="r"></span>
+→ 1  openrouter/*                       hides 198
+  2  !openrouter/google/*               shows 11
+  3  synthetic/hf:example/*             hides 25
+  4  # xai/grok-4.7                     disabled
+<span class="r"></span>
+  Catalog  412 models from 7 signed-in providers · 200 listed · 212 hidden
+  Not shown: 2 signed-out providers (opencode-go, …)
+<span class="r"></span>
+<span class="r"></span>
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Last matching rule wins; ! shows, # disables. shift+alt+↑↓ reorders.
+ ↑↓ move · enter edit · alt+n new · alt+t toggle · alt+d delete · alt+v catalog · ctrl+s save
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>9. Models: catalog (search active)</h3><pre><span class="r">── Auth › Models › Catalog ──────────────────────────────────────── 1–8 of 23 matching &quot;opus&quot; ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="a"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ opus▏
+<span class="r"></span>
+→ claude/claude-opus-5-5             Claude Opus 5.5              listed
+  claude/claude-fable-5-1            Claude Fable 5.1             listed · rule 2
+  antigravity/claude-opus-5-5        Claude Opus 5.5 (AG)         listed
+  openrouter/anthropic/claude-opus…  Claude Opus 5.5              hidden · rule 1
+  openrouter/anthropic/claude-opus…  Claude Opus 5.1              hidden · rule 1
+  openrouter/anthropic/claude-fabl…  Claude Fable 5.1             hidden · rule 1
+  claude/opus                        alias of claude-opus-5-5     listed
+  claude/opus-long                   alias · 1M context           listed
+<span class="r"></span>
+<span class="r"></span>
+<span class="r">────────────────────────────────────────── ↓ 15 more ───────────────────────────────────────────</span>
+ Only models from signed-in providers. Enter edits overrides; alt+h appends a hide/show rule.
+ ↑↓ move · pgup/pgdn page · enter details · alt+h hide/show · alt+i identity · alt+v rules
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>10. Model detail</h3><pre><span class="r">── Auth › Models › claude/claude-opus-5-5 ─────────────────────────────── listed · ▲ 1 staged ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="a"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ Filter fields…
+<span class="r"></span>
+→ Name               Claude Opus 5.5                       provider
+  Context window     200,000 → ▲ 1,000,000                 staged
+  Max tokens         64,000                                provider
+  Reasoning          on                                    provider
+  Input              text, image                           provider
+  Cost in / out      $0 / $0 per 1M (subscription)         provider
+  Response verbosity –                                     n/a
+  Visibility         listed · no matching rule
+  Aliases            opus, opus-long                       → enter to manage
+  + New alias
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Overrides apply on top of the provider&#x27;s catalog; user scope only.
+ ↑↓ move · enter edit · alt+u default · ctrl+s save · esc back
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>11. Alias detail</h3><pre><span class="r">── Auth › Models › claude/claude-opus-5-5 › opus-long ────────────────────── alias · ▲ staged ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="a"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ Filter fields…
+<span class="r"></span>
+→ Alias ID           opus-long
+  Source             claude/claude-opus-5-5
+  Display name       Claude Opus 5.5 (1M)
+  Context window     1,000,000
+  Max tokens         64,000
+<span class="r"></span>
+  Remove alias       asks first
+<span class="r"></span>
+<span class="r"></span>
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ An alias is a second selectable id for the same physical model.
+ ↑↓ move · enter edit · alt+d remove · ctrl+s save · esc back
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>12. Groups</h3><pre><span class="r">── Auth › Groups ─────────────────────────────────────────────────────────────────── 2 groups ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="a"> Groups </span>❱ Settings
+ ⌕ Type to filter…
+<span class="r"></span>
+→ group/smart     failover · 3 members · 200K   ● claude/claude-opus-5-5 selected
+  group/cheap     balance  · 2 members · 128K   ● synthetic/hf:…/DeepSeek-V4.1-Flash
+<span class="r"></span>
+  + New group
+<span class="r"></span>
+<span class="r"></span>
+<span class="r"></span>
+<span class="r"></span>
+<span class="r"></span>
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Virtual models that route to members and fail over on rate limit, quota or auth errors.
+ ↑↓ move · enter edit · alt+n new · alt+d delete · ctrl+s save · esc close
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>13. Group detail</h3><pre><span class="r">── Auth › Groups › smart ──────────────────────────────────────────────── failover · ▲ staged ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="a"> Groups </span>❱ Settings
+ ⌕ Filter fields…
+<span class="r"></span>
+→ Group ID          smart
+  Display name      Smart
+  Strategy          ‹ failover ›   sticky · failover · balance · random
+  Triggers          [x] rate-limit  [x] quota  [ ] auth
+  Context window    200,000 (smallest member 200,000)
+  Member 1          claude/claude-opus-5-5          ● 5h 6% · 7d 58%
+  Member 2          antigravity/claude-opus-5-5     ● arg 35%
+  Member 3          openai-codex/gpt-6.1-sol        ● 7d 31%
+  + Add member
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Members are tried in order; quota state decides balance and failover.
+ ↑↓ move · ←→ change · enter edit · shift+alt+↑↓ order · alt+d remove · ctrl+s save · esc
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>14. Group member picker</h3><pre><span class="r">── Auth › Groups › smart › Add member ──────────────────────────────────────────── 1–8 of 200 ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="a"> Groups </span>❱ Settings
+ ⌕ Search signed-in models…
+<span class="r"></span>
+→ claude/claude-sonnet-5-5           Claude Sonnet 5.5
+  claude/claude-haiku-5-5            Claude Haiku 5.5
+  antigravity/gemini-4-argon         Gemini 4 Argon
+  openai-codex/gpt-6-luna            GPT-6 Luna
+  synthetic/hf:…/DeepSeek-V4.1-Flash DeepSeek V4.1 Flash
+  xai/grok-4.7                       Grok 4.7
+  openrouter/google/gemini-4-argon   Gemini 4 Argon
+  claude/claude-fable-5-1            Claude Fable 5.1
+<span class="r"></span>
+<span class="r"></span>
+<span class="r">────────────────────────────────────────── ↓ 192 more ──────────────────────────────────────────</span>
+ Only models from signed-in providers that are not already members.
+ ↑↓ move · pgup/pgdn page · enter add · alt+i identity · esc back
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>15. Settings</h3><pre><span class="r">── Auth › Settings ───────────────────────────────────────────────── 29 settings · ▲ 1 staged ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱<span class="a"> Settings </span>
+ ⌕ Type to filter…
+<span class="r"></span>
+  Quotas
+→   Refresh interval          ▲ 120 s                          staged → user
+    Refresh after requests      on                             default
+    Providers                   all sources                    user
+    Line placement              Below editor, first            user
+    Line template               {claude:id}: {claude:5h}…      project
+  Claude
+    Cache retention             long                           user
+    Prompt rules                2 rules                        user
+  Synthetic
+<span class="r">────────────────────────────────────────── ↓ 19 more ───────────────────────────────────────────</span>
+ Seconds between endpoint refreshes; provider polling floors still apply.
+ ↑↓ move · ←→ change · enter edit · alt+u default · ctrl+s save · esc close
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>16. Settings: quota provider list</h3><pre><span class="r">── Auth › Settings › Quota providers ──────────────────────────────────── empty = all sources ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱<span class="a"> Settings </span>
+ ⌕ Filter providers…
+<span class="r"></span>
+→ [x] claude          Claude
+  [x] antigravity     Antigravity
+  [x] codex           OpenAI Codex
+  [ ] synthetic       Synthetic
+  [x] openrouter      OpenRouter
+  [ ] xai             xAI
+  [ ] deepseek        DeepSeek
+  ⚠ zai               unknown id · alt+d removes it
+  + Custom ID
+  ✓ Apply to Settings
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Toggle providers or add a custom ID. Apply stages the list back into Settings.
+ ↑↓ move · enter toggle · alt+n custom · alt+d remove · esc back
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>17. Settings: Claude prompt rules</h3><pre><span class="r">── Auth › Settings › Claude prompt rules ──────────────────────────────────────────── 2 rules ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱<span class="a"> Settings </span>
+ ⌕ Filter rules…
+<span class="r"></span>
+→ 1 rewrite  match   &quot;You are Pi, a coding agent&quot;
+             replace &quot;You are Claude Code, Anthropic&#x27;s official CLI&quot;
+  2 drop     match   &quot;Pi documentation (read only when&quot;
+<span class="r"></span>
+  + Rewrite rule
+  + Drop rule
+  ✓ Apply to Settings
+<span class="r"></span>
+<span class="r"></span>
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Literal match; an omitted replacement drops matching paragraphs.
+ ↑↓ move · enter edit · alt+n new · shift+alt+↑↓ order · alt+d delete · esc back
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>18. Settings: quota line template</h3><pre><span class="r">── Auth › Settings › Quota line template ──────────────────────────── valid · 1 ignored token ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱<span class="a"> Settings </span>
+ ⌕ 
+<span class="r"></span>
+  Template
+→ {claude:id}: {claude:5h}/{claude:7d} · {antigravity:id}: {antigravity:gem}▏
+<span class="r"></span>
+  Preview at 96 cols
+  cl: 5h/6% 7d/58% · ag: gem/59%
+  Preview at 57 cols
+  cl: 5h/6% 7d/58% · ag: gem/59%
+<span class="r"></span>
+  ⚠ {xai:credits-left} ignored: xai is not in quota providers
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Tokens are {provider:field}; the preview updates live.
+ enter stage · pgup/pgdn page preview · esc cancel
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>19. Save scope prompt (ctrl+s)</h3><pre><span class="r">── Auth › Settings › Save ──────────────────────────────────────────────────────── ▲ 3 staged ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱<span class="a"> Settings </span>
+ ⌕ 
+<span class="r"></span>
+  Save 3 staged values to:
+<span class="r"></span>
+→ User      ~/.pig/agent/auth-plus.json                      2 values
+  Project   .pig/auth-plus.json · trusted project            1 value
+  Session   this session only · not written to disk
+<span class="r"></span>
+  ⚠ quotas.refreshIntervalSec stays overridden by project scope after a user save
+<span class="r"></span>
+<span class="r"></span>
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Saving keeps unknown keys, refuses a malformed file and reports keys still overridden above.
+ ↑↓ move · enter save · esc back
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>20. Discard confirmation (esc with staged edits)</h3><pre><span class="r">── Auth › Models › Rules ───────────────────────────────────────────────────────── ▲ 2 staged ──</span>
+  ❱<span class="i"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="a"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ 
+<span class="r"></span>
+  Discard 2 staged changes?
+<span class="r"></span>
+    Models     1 rule edited
+    Settings   1 value
+<span class="r"></span>
+→ Keep editing
+  Discard and close
+<span class="r"></span>
+<span class="r"></span>
+<span class="r"></span>
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+ Staged edits are lost; saved values are unchanged.
+ ↑↓ move · enter choose · esc keep editing
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre><h3>21. Help (f1)</h3><pre><span class="r">── Auth › Help ──────────────────────────────────────────────────────────────────── Providers ──</span>
+  ❱<span class="a"> Providers </span>❱<span class="i"> Quotas </span>❱<span class="i"> Tokens </span>❱<span class="i"> Models </span>❱<span class="i"> Groups </span>❱ Settings
+ ⌕ Filter help…
+<span class="r"></span>
+  Navigation
+    tab / shift+tab     next / previous tab
+    ↑↓                  move · alt+↑↓ scroll a line
+    enter               open · esc clear filter, back, then close
+    printable keys      always type into the filter; actions use alt+…
+  Editing
+    ctrl+s              save staged values, then pick a scope
+    alt+u               stage the default value for a field
+  Providers
+    Sign in with /login &lt;provider&gt;; pi-auth-plus never logs in.
+<span class="r">────────────────────────────────────────── ↓ 24 more ───────────────────────────────────────────</span>
+ Full descriptions and bindings; drafts are kept.
+ ↑↓ scroll · f1/esc back
+<span class="r">────────────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre>

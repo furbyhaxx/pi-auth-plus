@@ -346,11 +346,19 @@ Adopted from pi-workbench; a new surface looks like the existing ones.
 - Headless-safe: panels need `ctx.mode === "tui" && ctx.hasUI`. Without a TUI, read-only
   output renders as text; interactive-only actions say so and name the alternative.
 - Feedback via `ctx.ui.notify` with the right tone; multi-line results render as a message.
-- Panels use `ctx.ui.custom` and the one shared frame in `ui/`. Keys come from the user's
-  keybindings and hint rows show them. Enter confirms, Esc goes back (asks before discarding
-  staged edits), Ctrl+C dismisses, Tab switches sections, `/` or typing filters long lists.
-- Panels size to content, cap at terminal height minus Pi's footer, then scroll. Side-by-side
-  layouts fall back to a separate screen when narrow.
+- Panels use `ctx.ui.custom` and the one shared frame in `ui/`: the nine-line frame of
+  `.project/designs/auth-dashboard/design.md` (rules in the thinking-level color, tab bar,
+  search line, body, description, hints). Keys come from the user's keybindings and hint rows
+  show them. Enter confirms, Esc clears the filter, then goes back (asks before discarding
+  staged edits), Ctrl+C dismisses, Tab switches sections, typing filters long lists.
+- No single-key actions: a printable key only types into the filter or an inline input; every
+  action is a modifier chord (`ctrl+s`, `alt+n`, …), nested editors end in a `✓ Apply` row, and
+  scope prompts and confirms are lists.
+- Editor-replacing panels have a fixed height while open (tallest tab, capped at terminal height
+  minus Pi's footer), padded when short and scrolling inside the body; switching tabs, filtering
+  or drilling in never changes it. Only a deliberately declared full-height view (live
+  transcript, diff, long log) may use all available height. Side-by-side layouts fall back to a
+  separate screen when narrow.
 - Settings panels stage edits, show each value's source scope and save to an explicit scope;
   saving preserves unknown keys, and a malformed file blocks the save.
 - A panel, refresh or login belongs to the session that started it; late results after

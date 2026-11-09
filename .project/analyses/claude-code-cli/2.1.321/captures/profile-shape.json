@@ -1,0 +1,33 @@
+{
+  "account": [
+    "uuid",
+    "full_name",
+    "display_name",
+    "email",
+    "has_claude_max",
+    "has_claude_pro",
+    "created_at"
+  ],
+  "organization": {
+    "uuid": "<redacted>",
+    "keys": [
+      "uuid",
+      "name",
+      "organization_type",
+      "billing_type",
+      "rate_limit_tier",
+      "seat_tier",
+      "has_extra_usage_enabled",
+      "subscription_status",
+      "subscription_created_at",
+      "cc_onboarding_flags",
+      "claude_code_trial_ends_at",
+      "claude_code_trial_duration_days",
+      "payment_auth_hosted_invoice_url",
+      "claude_ai_completion_feedback_enabled",
+      "claude_ai_safety_feedback_enabled",
+      "plan_display_name",
+      "plan_display_label"
+    ]
+  }
+}

@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-09
+
 ### Fixed
 
 - **New Claude models show up right after updating.** The model store that Pi and pig share

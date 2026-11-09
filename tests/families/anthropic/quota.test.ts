@@ -377,7 +377,7 @@ describe("Claude usage contract", () => {
 				expect(error.message).toContain("Claude");
 				expect(error.message).toContain(String(status));
 				expect(error.message).toContain(
-					status === 401 || status === 403 ? "/login" : status === 429 ? "rate limited" : "retry",
+					status === 401 ? "/login" : status === 403 || status === 429 ? "rate limited" : "retry",
 				);
 			}
 			expect(calls).toBe(1);
@@ -391,4 +391,11 @@ describe("Claude usage contract", () => {
 		respond(body);
 		await expect(fetchQuota()).rejects.toThrow("invalid quota JSON");
 	});
+});
+
+test("a malformed cedar_ember block leaves the reset count unknown and keeps windows", async () => {
+	const { parseClaudeQuota } = await import("../../../src/families/anthropic/quota.ts");
+	const snapshot = parseClaudeQuota({ ...usage, cedar_ember: { grants: "bad" } }, now);
+	expect(snapshot.windows.length).toBeGreaterThan(0);
+	expect(snapshot.resetCredits).toBeUndefined();
 });

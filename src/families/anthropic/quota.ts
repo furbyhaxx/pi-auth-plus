@@ -282,9 +282,18 @@ export function parseClaudeQuota(body: unknown, now: number): ProviderQuotaSnaps
 		fetchedAt: now,
 		source: "endpoint",
 		windows,
-		resetCredits:
-			body["cedar_ember"] == null ? undefined : parseClaudeResetCredits(body, now).available,
+		resetCredits: resetCreditCount(body, now),
 	};
+}
+
+/** A malformed grants block leaves the count unknown; it never fails the window poll. */
+function resetCreditCount(body: Record<string, unknown>, now: number): number | undefined {
+	if (body["cedar_ember"] == null) return undefined;
+	try {
+		return parseClaudeResetCredits(body, now).available;
+	} catch {
+		return undefined;
+	}
 }
 
 /** Fetches usage, replaying a 401 only when Pi resolves a different credential. */
@@ -345,9 +354,9 @@ export async function fetchClaudeQuota(ctx: QuotaFetchContext): Promise<Provider
 
 function contextualHttpError(error: ProviderHttpError): ProviderHttpError {
 	const recovery =
-		error.status === 401 || error.status === 403
+		error.status === 401
 			? "run /login claude"
-			: error.status === 429
+			: error.status === 403 || error.status === 429
 				? "rate limited; retry after the Retry-After hold expires"
 				: "retry later; check the provider service";
 	return new ProviderHttpError(

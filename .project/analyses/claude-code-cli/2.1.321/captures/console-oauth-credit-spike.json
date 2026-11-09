@@ -1,0 +1,18 @@
+{
+  "captured_at": "2026-11-09T23:21:00+01:00",
+  "kind": "sanitized-observation-summary",
+  "goal": "read the Console API prepaid wallet (purchased + promotional credit) through OAuth instead of the Console sessionKey cookie",
+  "authorize": "https://platform.claude.com/oauth/authorize, Claude Code client id, requested scope 'user:profile user:inference', user chose the API (api_individual, prepaid) organization",
+  "token_response": {"status": 200, "granted_scope": "user:profile", "note": "server silently dropped user:inference for the Console org", "fields": ["token_type","access_token","expires_in","refresh_token","scope","token_uuid","refresh_token_expires_in","organization","account"]},
+  "probes": [
+    {"method": "GET", "url": "api.anthropic.com/api/oauth/profile", "status": 200, "organization_type": "api_individual", "billing_type": "prepaid"},
+    {"method": "GET", "url": "api.anthropic.com/api/oauth/organizations/<ORG>/prepaid/credits", "status": 403, "error_code": "oauth_scope_insufficient", "required_scopes": ["user:profile","user:inference"]},
+    {"method": "GET", "url": "api.anthropic.com/api/oauth/organizations/<NONEXISTENT>/prepaid/credits", "status": 403, "error_code": "oauth_scope_insufficient"},
+    {"method": "GET", "url": "api.anthropic.com/api/oauth/organizations/<ORG>/prepaid/bundles", "status": 403, "error_code": "oauth_scope_insufficient"},
+    {"method": "GET", "url": "api.anthropic.com/api/oauth/organizations/<ORG>/contracts/prepaid/credits", "status": 405},
+    {"method": "GET", "url": "platform.claude.com/api/organizations/<ORG>/prepaid/credits", "status": 403, "error_code": "oauth_token_not_accepted"},
+    {"method": "GET", "url": "api.anthropic.com/api/organizations/<ORG>/prepaid/credits", "status": 403, "error_code": "oauth_token_not_accepted"}
+  ],
+  "conclusion": "The OAuth prepaid route needs user:inference, which Anthropic grants only to claude.ai subscription orgs; the Max token holds it but answers an empty zero for every org (pig-auth-plus ANA-anthropic-api-credits). The Console-org token cannot get it. The Console routes reject all OAuth tokens. OAuth cannot read the API wallet; the remaining route is the Console sessionKey cookie.",
+  "credential_kept": "Console OAuth token (user:profile only) stored 0600 at $XDG_STATE_HOME/pi-auth-plus/console-oauth.json at the user's request; never printed or committed"
+}

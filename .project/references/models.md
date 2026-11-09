@@ -57,6 +57,7 @@ Examples, docs, tests and specs use model ids from this list only. Ids are nukul
 | `openai/gpt-daybreak-blue-latest` | yes | |
 | `claude/claude-opus-5-5` | yes | subscription (Claude OAuth) |
 | `claude/claude-fable-5-1` | yes | subscription (Claude OAuth) |
+| `claude/claude-fable-5-2` | yes | subscription (Claude OAuth); listed live 2026-11-09 |
 | `claude/claude-sonnet-5-5` | yes | subscription (Claude OAuth) |
 | `claude/claude-haiku-5-5` | yes | subscription (Claude OAuth) |
 | `xai/grok-4.7` | yes | |

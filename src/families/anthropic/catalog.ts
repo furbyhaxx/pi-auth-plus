@@ -109,7 +109,26 @@ export function parseCatalog(
 			compat: { ...compat, forceAdaptiveThinking: adaptive && !enabled && !disabled },
 		});
 	}
-	return models;
+	return [...models, ...undatedAliases(models, bundled)];
+}
+
+/** Keeps bundled undated aliases of listed dated ids, so saved selections stay resolvable. */
+function undatedAliases(models: AnthropicModel[], bundled: AnthropicModel[]): AnthropicModel[] {
+	const listed = new Set(models.map((model) => model.id));
+	const aliases: AnthropicModel[] = [];
+	for (const alias of bundled) {
+		if (listed.has(alias.id)) continue;
+		const dated = models.find((model) => model.id !== alias.id && undated(model.id) === alias.id);
+		if (!dated) continue;
+		listed.add(alias.id);
+		aliases.push({
+			...alias,
+			cost: dated.cost,
+			contextWindow: dated.contextWindow,
+			maxTokens: dated.maxTokens,
+		});
+	}
+	return aliases;
 }
 
 /** Restores the host snapshot offline; stale authenticated refreshes persist priced models. */

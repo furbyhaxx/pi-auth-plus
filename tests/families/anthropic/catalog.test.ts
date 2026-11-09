@@ -232,7 +232,8 @@ describe("families/anthropic/catalog", () => {
 			undefined,
 			true,
 		);
-		expect(models).toHaveLength(2);
+		expect(models).toHaveLength(3);
+		expect(models[2]).toMatchObject({ id: template.id, contextWindow: 100 });
 		expect(models[0]).toMatchObject({
 			id: `${template.id}-20261109`,
 			name: template.name,

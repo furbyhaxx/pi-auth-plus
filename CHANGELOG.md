@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Undated Claude aliases survive the account catalog.** After the first live refresh,
+  `claude-opus-4-5` and `claude-haiku-4-5` disappeared because the listing reports only dated
+  ids, which broke saved selections and `--model` values. Bundled undated aliases of a listed
+  active model are kept; deprecated listings (such as Sonnet 4.5) are still dropped.
+
 ## [0.6.0] - 2026-11-09
 
 ### Added

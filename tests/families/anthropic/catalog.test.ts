@@ -178,8 +178,8 @@ describe("families/anthropic/catalog", () => {
 		expect(await refreshCatalog(context().ctx, deps())).toEqual(models);
 	});
 
-	test("honors freshness, forced refresh and API-key auth", async () => {
-		const models = bundledModels();
+	test("honors freshness, forced refresh, older stored formats and API-key auth", async () => {
+		const models = bundledModels().map((model) => ({ ...model, claudeListing: 1 }));
 		const fresh = context({
 			allowNetwork: true,
 			credential,
@@ -189,6 +189,7 @@ describe("families/anthropic/catalog", () => {
 		for (const overrides of [
 			{ stored: { models, checkedAt: now - CATALOG_TTL_MS } },
 			{ stored: { models, checkedAt: now }, force: true },
+			{ stored: { models: bundledModels(), checkedAt: now } },
 			{ credential: { type: "api_key", key: "test-key" } as const },
 		]) {
 			const { ctx, publications } = context({ allowNetwork: true, credential, ...overrides });

@@ -9,7 +9,12 @@ export const CATALOG_URL = "https://api.anthropic.com/v1/models?limit=1000";
 export const CATALOG_TTL_MS = 4 * 60 * 60 * 1000;
 const PRICES_URL = "https://models.dev/api.json";
 const FREE_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-type AnthropicModel = Model<"anthropic-messages"> & { claudeUnpriced?: true };
+/** Bumped when the stored listing's shape changes; older stored catalogs refetch when online. */
+const LISTING_VERSION = 1;
+type AnthropicModel = Model<"anthropic-messages"> & {
+	claudeUnpriced?: true;
+	claudeListing?: number;
+};
 
 /** Refresh transport and clock, independent of Pi's registration lifecycle. */
 export interface CatalogDeps {
@@ -109,7 +114,10 @@ export function parseCatalog(
 			compat: { ...compat, forceAdaptiveThinking: adaptive && !enabled && !disabled },
 		});
 	}
-	return [...models, ...undatedAliases(models, bundled)];
+	return [...models, ...undatedAliases(models, bundled)].map((model) => ({
+		...model,
+		claudeListing: LISTING_VERSION,
+	}));
 }
 
 /** Keeps bundled undated aliases of listed dated ids, so saved selections stay resolvable. */
@@ -126,6 +134,7 @@ function undatedAliases(models: AnthropicModel[], bundled: AnthropicModel[]): An
 			cost: dated.cost,
 			contextWindow: dated.contextWindow,
 			maxTokens: dated.maxTokens,
+			...(dated.claudeUnpriced ? { claudeUnpriced: true as const } : {}),
 		});
 	}
 	return aliases;
@@ -145,8 +154,10 @@ export async function refreshCatalog(
 	const credential = ctx.credential;
 	const token = credential?.type === "oauth" ? credential.access : credential?.key;
 	if (!ctx.allowNetwork || !token) return stored ?? bundledModels();
+	const listed = stored?.every((model) => model.claudeListing === LISTING_VERSION) === true;
 	if (
 		stored &&
+		listed &&
 		!ctx.force &&
 		ctx.stored?.checkedAt !== undefined &&
 		deps.now() - ctx.stored.checkedAt < CATALOG_TTL_MS

@@ -1,0 +1,76 @@
+{
+  "captured_at": "2026-11-10T09:28:05.039Z",
+  "kind": "public-frontend-source-excerpts",
+  "method": "Fetched current public login JS; no credentials, cookie import, CAPTCHA solving or login mutation",
+  "findings": {
+    "send": "send_magic_link body receives client_attestation from send_magic_link channel",
+    "verify": "email-code verification also mints client_attestation",
+    "attestation": "hcaptcha_token from browser hcaptcha.render(size=invisible) and execute callback",
+    "terminal": "No browser-free token minting path found in these public login modules",
+    "live_rejection": "Earlier approved send request: 400 missing_client_attestation; no email confirmed sent",
+    "limits": "Static excerpts do not establish all server policies or exclude other authentication mechanisms; no valid hCaptcha browser token was supplied"
+  },
+  "sources": [
+    {
+      "url": "https://platform.claude.com/_next/static/immutable/chunks/0ref1z-za-813.js",
+      "status": 200,
+      "sha256": "bfc2d95f55f45e8b736f4ed6717cc8b480107f0289c58af8d856c0ab37ef5755",
+      "excerpts": [
+        {
+          "anchor": "(0,W.p)(\"send_magic_link\")",
+          "character_offset": 4865,
+          "text": "get(\"email\"),eX=(0,g.useProductSurface)(),{mintAttestation:e$,mintFreshAttestation:eJ,reset:eY,reloadScriptOnPress:e0,labels:e1,heldTokenAgeLimit:e9}=(0,W.p)(\"send_magic_link\"),[e5,e7]=(0,A.useState)(!1),e4=(es=(0,A.useRef)(void 0),ea=(0,A.useRef)(0),(0,A.useEffect)(()=>()=>{es.current?.abort(),es.current=void 0},[]),(0,A.useCallback)(()=>{ea.current+=1;let e=ea.current;return es.current||(es.current=new AbortController),{formGone:es.current.signal,isLatest:()=>ea.current===e}},[])),e3=(0,Z.f)(),{mutate:e2,isPending:e6,isPaused:e8}=(0,q.K)({onSuccess:(e,t)=>{let n=eL.current,r=eR.current;eL.current=!1,eR.current=!1;let s=t.email_address,a=e=>null!=e&&s.trim().toLowerCase()===e.trim().toLowerCase(),l=!r&&(n||a(eH)||a(d)),o=!0===i||l;if(e.sso_url){(0,R.b)(e.sso_url);let n=(0,el.k)(e.sso_url);if(null!==n){if(eG.current&&(0,X.D)()&&(0,X.B)(),"
+        },
+        {
+          "anchor": "client_attestation:e",
+          "character_offset": 7356,
+          "text": ":(e7(!0),void await (0,Q.f)({mintAttestation:e=>e$({...e,callerGone:r}),mintFreshAttestation:eJ,reset:eY,labels:e1,heldTokenAgeLimit:e9},e=>(e2({...i,client_attestation:e}),Promise.resolve()),{reuseHeldToken:!0,isLive:()=>!r.aborted,requestKind:\"send_link\"}).then(e=>{e7(!1),\"sent\"!==e.status||e.clientAttestation?.hcaptcha_token?\"inactive\"===e.status&&(\"account_switched\"===e.cause&&eY(),s()&&eC(ec)):eY()},e=>{e7(!1),s()&&eC(e);let t=e_(Error(\"Sending the sign-in email threw an error\"),\"Sending the sign-in email threw an error\",\"literal\");(0,_.f)(e instanceof Error?(0,y.M)(e,t):t,{source:\"email_link_send\"})}))}let s=!eL.current,a={};s&&(e7(!0),a=await e$().catch(()=>({hcaptcha_mint_error:\"unknown\"}))),e2({utc_offset:(0,E.s)()?0:new Date().getTimezoneOffset(),email_address:e,login_intent:t,locale:eh?(0,j.x)(ef.locale):void 0,oauth_client_id:"
+        },
+        {
+          "anchor": "credentials:{method:\"code\"",
+          "character_offset": 15305,
+          "text": "ack to sign-in\",id:\"JXcAShnhLZ\"})})})]});let I=L||M;return(0,t.jsxs)(ey,{action:\"\",onSubmit:e=>{e.preventDefault(),C(e),y(null),R(!0),b().then(e=>{T({credentials:{method:\"code\",email_address:a,code:x},join_token:l,locale:N?(0,j.x)(h.locale):void 0,referral_code:K,oauth_client_id:o,client_attestation:(0,F.b)(e)}),R(!1)})},children:[(0,t.jsxs)(\"div\",{className:\"text-secondary text-center\",children:[(0,t.jsx)(\"p\",{children:(0,t.jsx)(U.K,{defaultMessage:\"To continue, click the link sent to\",id:\"dwdsPmDrtC\"})}),(0,t.jsx)(\"p\",{dir:\"ltr\",className:\"wrap-anywhere text-primary font-medium\",children:(0,Y.f)(a)}),(0,t.jsx)(ej,{email:a,screen:\"input_code\",variant:\"link\",className:\"mt-1\"})]}),(0,t.jsxs)(\"div\",{className:\"text-secondary text-body text-center\",children:[(0,t.jsx)(\"p\",{children:(0,t.jsx)(U.K,{defaultMessage:\"Not seeing the email in your "
+        }
+      ]
+    },
+    {
+      "url": "https://platform.claude.com/_next/static/immutable/chunks/30--7pn3zakso.js",
+      "status": 200,
+      "sha256": "e6b7f168a3b0681846556912f8525fe759c0cbbb965926e3452deebf3c3516cb",
+      "excerpts": [
+        {
+          "anchor": "https://js.hcaptcha.com/1/api.js",
+          "character_offset": 759,
+          "text": "7),o=e.i(341911),c=e.i(681061),s=e.i(105132),u=e.i(976163),d=e.i(579686),l=e.i(203231),_=e.i(142931),h=e.i(803217),f=e.i(275820);function v(e){return`https://js.hcaptcha.com/1/api.js?render=explicit&recaptchacompat=off&onload=${e}`}let m=\"__antClientAttestationHcaptchaInvisibleReady\",p=v(m),g=\"hcaptcha_script_reload_on_press\",w=[\"claude_ai_login\",\"claude_ai_login_send\",\"claude_ai_login_social\"],k={now:()=>performance.now(),apiScriptLoads:()=>performance.getEntriesByName(p,\"resource\").map(e=>e.duration)},y=new WeakMap;function M(e,t){return void 0===t?void 0:Math.round(t-e)}function b(e){try{return e()}catch{return}}let E=Symbol(\"hcaptcha-mint-timed-out\");function A(e,t,r){let n=e.get(t);return n||(n=new Set,e.set(t,n)),!n.has(r)&&(n.add(r),!0)}async function x(e,t,r,n,i,a,o,c){var s;let u,l,h,f=Date.now(),v=performance.now();n.current.req"
+        },
+        {
+          "anchor": "e.api.execute(e.id)",
+          "character_offset": 11438,
+          "text": "e)})).then(e=>new Promise(t=>{if(!H(e))return void t(e);X.current=t,Y.current=Date.now(),Z.current=void 0,I(\"executing\"),eh.current?.executing(a);try{e.api.execute(e.id)}catch{X.current=void 0,Y.current=void 0,I(\"ready\"),t((0,_.k)(\"execute_error\"))}})).finally(()=>{clearTimeout(t),et.current===a&&(et.current=void 0)});return et.current=a,a}),x(e=>{var t;let r=Q.current.off;if(void 0===r||\"script_load_error\"!==(t=r.mintError)&&\"script_onload_without_api\"!==t&&\"timeout_script_loading\"!==t)return;q+=1;let n=ei.current?\"script_load_error\"!==r.mintError?\"reason_not_covered\":j()?\"script_present\":function(e,t=\"u\"<typeof navigator?void 0:navigator.userActivation){let r=e instanceof Event?e:e.nativeEvent;return r instanceof Event?r.isTrusted?D.has(r.type)?r.eventPhase===Event.NONE?\"dispatch_ended\":void 0===t||t.isActive?void 0:\"no_activation\":\"not"
+        },
+        {
+          "anchor": "t.render(U.current,{sitekey:ef,size:\"invisible\"",
+          "character_offset": 16404,
+          "text": "!0,T=A.length,C+=P,P=0,d=c.now(),_=e)}),switchChanged:()=>void b(H),stop:()=>b(j)}})}(U.current,()=>e_.current,z?.surface);let n=()=>{o||p(void 0)},i=t.render(U.current,{sitekey:ef,size:\"invisible\",callback:e=>{if(o)return;T(!1);let t=Y.current;if(void 0!==t){p(e,l?Date.now():t),f(e);return}let r=Z.current;if(Z.current=void 0,B?.()!==!0||void 0!==r&&Date.now()-r<=9e4){p(e,r),f(e),void 0!==r&&(0,u.j)({sinceExecuteWallMs:Date.now()-r,visibilityAtEnd:(0,d.$)(),channel:s,surface:z?.surface,ageLimit:B?.()});return}(0,u.e)({mintError:\"late_token_dropped\",channel:s,surface:z?.surface,ageLimit:!0,elapsedMs:void 0,timeoutMs:void 0,widgetPhase:J.current,held:!1,challengeShown:void 0}),ee.current?.()},\"expired-callback\":()=>{n(),f((0,_.k)(\"token_expired\"))},\"chalexpired-callback\":()=>{T(!1),n(),A(),f((0,_.k)(\"challenge_expired\"))},\"error-callback\":e"
+        }
+      ]
+    },
+    {
+      "url": "https://platform.claude.com/_next/static/immutable/chunks/06uqdwvxnlsh2.js",
+      "status": 200,
+      "sha256": "40fd566f481ab1bc8a17618b21a90d5806ea70772387a625d8246c3c8cc9f5b6",
+      "excerpts": [
+        {
+          "anchor": "/api/auth/send_magic_link",
+          "character_offset": 14834,
+          "text": "de?\"incorrect_code\":\"unknown\"})),e.onError?.(n,t,r,i)}})},\"K\",0,(e={})=>{let{track:i}=(0,n.useAnalytics)(),o=(0,r.useProductSurface)();return(0,t.p)(\"/api/auth/send_magic_link\",\"POST\",{...e,meta:Z(e.meta),onSuccess:(n,t,r,o)=>{n.sso_url?(null===(0,eo.k)(n.sso_url)&&i({event_key:\"login.email.sso_initiated\"}),D(n.sso_url)):i({event_key:\"login.email.magic_link_sent\"}),e.onSuccess&&e.onSuccess(n,t,r,o)},onError:(n,t,r,o)=>{n instanceof b||i({event_key:\"login.email.magic_link_send_error\",error:n.message,error_type:n instanceof a.E?n.type:\"unknown\"}),e.onError&&e.onError(n,t,r,o)},onMutate:e=>{i({event_key:\"login.email.sending_magic_link\"})},transformVariables:async e=>{let n=J({...e,source:eM(o)});return _ in n&&await Y(e.email_address),n}})},\"o\",0,function(){let e=(0,t.V)(\"Query error\",void 0,\"json\",!0);return(0,u.useCallback)((n,t)=>e(eO(n),"
+        },
+        {
+          "anchor": "/api/auth/verify_magic_link",
+          "character_offset": 18187,
+          "text": ">(q(),{...e,source:eM(s)})})},\"q\",0,(e={})=>{let{track:l}=(0,n.useAnalytics)(),u=(0,r.useProductSurface)(),d=(0,i.useCookies)(),f=ew();return(0,t.p)(\"/api/auth/verify_magic_link\",\"POST\",{...e,meta:Z(e.meta),redactResponseBodyInReports:!0,onSuccess:(n,t,r,i)=>{if(!n.success&&n.sso_url){l({event_key:\"login.email.sso_initiated\"}),\"code\"===t.credentials.method&&(0,eo.K)(t.credentials.email_address),(0,c.b)(n.sso_url),em(),D(n.sso_url),(0,o.f)(n.sso_url),window.location.assign(n.sso_url);return}if(eK(n)){em(),(0,ev.B)(),e.onSuccess?.(n,t,r,i);return}(\"code\"===t.credentials.method?l({event_key:\"login.email.finished\"}):l({event_key:\"login.email.magic_link_success\"}),eN(n,l,\"email\",\"magic_link\",u,t.oauth_client_id,d.get(s.$.RETURN_TO)),el(n,u,d,{returnToCookie:\"nonce\"===t.credentials.method,lastLoginMethod:\"nonce\"===t.credentials.method?void 0:\"m"
+        }
+      ]
+    }
+  ]
+}

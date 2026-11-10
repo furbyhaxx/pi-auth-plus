@@ -1,0 +1,21 @@
+{
+  "captured_at": "2026-11-10T07:27:00+01:00",
+  "kind": "sanitized-observation-summary",
+  "goal": "read the Console API prepaid wallet with the official ant CLI OAuth client (anthropics/anthropic-cli main@a05f5da, pkg/cmd/cmd_auth.go)",
+  "authorize": "platform.claude.com/oauth/authorize, client 41077d10-94b8-4194-be48-d251e9eb21b4, redirect /oauth/code/callback?app=anthropic-cli, scope 'user:profile user:inference user:developer', orgUUID=<API org>",
+  "token_response": {"status": 200, "granted_scope": "user:developer user:inference user:profile", "extra_fields": ["organization", "account", "workspace"]},
+  "probes": [
+    {"url": "api.anthropic.com/api/oauth/profile", "status": 200, "organization_type": "api_individual", "billing_type": "prepaid"},
+    {"url": "api.anthropic.com/api/oauth/organizations/<ORG>/prepaid/credits", "status": 403, "message": "This endpoint is only available for Pro, Max, and Ultra plans"},
+    {"url": "api.anthropic.com/api/oauth/organizations/<NONEXISTENT>/prepaid/credits", "status": 403, "message": "This endpoint is only available for Pro, Max, and Ultra plans"},
+    {"url": "api.anthropic.com/api/oauth/organizations/<ORG>/prepaid/bundles", "status": 403, "message": "only available for Pro, Max, and Ultra plans"},
+    {"url": "api.anthropic.com/api/oauth/organizations/<ORG>/payment_method", "status": 403, "message": "only available for Pro, Max, and Ultra plans"},
+    {"url": "api.anthropic.com/api/oauth/organizations/<ORG>/overage_credit_grant", "status": 200, "body": {"available": false, "eligible": false, "granted": false, "amount_minor_units": null}},
+    {"url": "api.anthropic.com/api/oauth/organizations/<ORG>/contracts/auto_reload_settings", "status": 405},
+    {"url": "api.anthropic.com/v1/organizations/{me,spend_limits,cost_report}", "status": 403, "message": "Authentication method not allowed for this endpoint."},
+    {"url": "api.anthropic.com/api/organizations/<ORG>/{prepaid/credits,current_spend}", "status": 403, "error_code": "oauth_token_not_accepted"},
+    {"url": "api.anthropic.com/api/claude_cli_profile", "status": 403, "message": "deny_all(): this endpoint does not accept OAuth"}
+  ],
+  "conclusion": "The OAuth prepaid family is gated on the organization's subscription plan (Pro/Max/Ultra), resolved from the token, not the path org; it reads the subscription org's Claude Code prepaid wallet (empty), never the Console API wallet. Console billing routes reject every OAuth token. With all three OAuth identities tried (Max, Claude Code Console, ant CLI Console), no OAuth route reads purchased or promotional API credit. Public Admin API cost/usage reports are pre-credit spend (and need org:admin), not a balance.",
+  "credential_kept": "ant CLI Console token (user:profile user:inference user:developer, refreshable) stored 0600 at $XDG_STATE_HOME/pi-auth-plus/console-ant-oauth.json at the user's request"
+}

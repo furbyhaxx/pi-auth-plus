@@ -1,0 +1,2 @@
+# Browser HAR exports carry live session cookies; never commit them.
+*.har

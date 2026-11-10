@@ -1,0 +1,30 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://platform.claude.com/api/organizations/<ORG>/current_spend",
+    "auth": "Cookie sessionKey (browser session); no Authorization header",
+    "cookie_names": [
+      "GAESA",
+      "__cf_bm",
+      "__ssid",
+      "_cfuvid",
+      "_dd_s_v2",
+      "activitySessionId",
+      "ajs_anonymous_id",
+      "anthropic-consent-preferences",
+      "anthropic-device-id",
+      "console-workspace",
+      "intercom-device-id-lupk8zyo",
+      "intercom-session-lupk8zyo",
+      "lastActiveOrg",
+      "routingHint",
+      "sessionKey",
+      "sessionKeyLC"
+    ]
+  },
+  "status": 200,
+  "body": {
+    "amount": 686,
+    "resets_at": "2026-12-01T00:00:00Z"
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://platform.claude.com/api/organizations/<ORG>/prepaid/credits",
+    "auth": "Cookie sessionKey (browser session); no Authorization header",
+    "cookie_names": [
+      "GAESA",
+      "__cf_bm",
+      "__ssid",
+      "_cfuvid",
+      "_dd_s_v2",
+      "activitySessionId",
+      "ajs_anonymous_id",
+      "anthropic-consent-preferences",
+      "anthropic-device-id",
+      "console-workspace",
+      "intercom-device-id-lupk8zyo",
+      "intercom-session-lupk8zyo",
+      "lastActiveOrg",
+      "routingHint",
+      "sessionKey",
+      "sessionKeyLC"
+    ]
+  },
+  "status": 200,
+  "body": {
+    "amount": 20490,
+    "currency": "USD",
+    "balance": {
+      "money": null,
+      "credits": {
+        "amount_minor": 20490,
+        "exponent": 2
+      }
+    },
+    "balance_credits": 204,
+    "amount_without_scoped_credits": 500,
+    "auto_reload_settings": null,
+    "auto_reload_disabled_reason": null,
+    "auto_reload_stripe_error_code": null,
+    "pending_invoice_amount_cents": null,
+    "last_paid_purchase_cents": 500,
+    "expiry_policy_months": null,
+    "credit_expiry_policy": null,
+    "auto_reload_terms_banner": null,
+    "tranches": [
+      {
+        "remaining_amount_minor_units": 499,
+        "currency": "USD",
+        "expires_at": "2027-09-17T00:00:00Z",
+        "granted_amount_minor_units": 500,
+        "granted_at": "2026-09-16T18:45:57Z",
+        "remaining": {
+          "money": null,
+          "credits": {
+            "amount_minor": 499,
+            "exponent": 2
+          }
+        },
+        "granted": {
+          "money": null,
+          "credits": {
+            "amount_minor": 500,
+            "exponent": 2
+          }
+        },
+        "program_id": "api_credits",
+        "name": null,
+        "id": "<UUID>",
+        "scope": {
+          "kind": "unscoped",
+          "applies_to": []
+        }
+      }
+    ],
+    "promo_tranches": [
+      {
+        "remaining_amount_minor_units": 19989,
+        "currency": "USD",
+        "expires_at": "2026-12-07T00:00:00Z",
+        "granted_amount_minor_units": 20000,
+        "granted_at": "2026-11-04T16:20:34.592000Z",
+        "remaining": {
+          "money": null,
+          "credits": {
+            "amount_minor": 19989,
+            "exponent": 2
+          }
+        },
+        "granted": {
+          "money": null,
+          "credits": {
+            "amount_minor": 20000,
+            "exponent": 2
+          }
+        },
+        "program_id": "subscription_api_credit",
+        "name": "API credit (Ultra)",
+        "id": "<UUID>",
+        "scope": {
+          "kind": "scoped",
+          "applies_to": [
+            {
+              "product": "agent_sdk",
+              "model_family": null,
+              "model_version": null
+            },
+            {
+              "product": "api",
+              "model_family": null,
+              "model_version": null
+            },
+            {
+              "product": "batch",
+              "model_family": null,
+              "model_version": null
+            },
+            {
+              "product": "console",
+              "model_family": null,
+              "model_version": null
+            },
+            {
+              "product": "managed-agents",
+              "model_family": null,
+              "model_version": null
+            },
+            {
+              "product": "managed-agents-onprem",
+              "model_family": null,
+              "model_version": null
+            }
+          ]
+        }
+      }
+    ],
+    "next_expires_at": "2026-12-07T00:00:00Z"
+  }
+}

@@ -4,7 +4,7 @@
  * request needs without the live catalog.
  */
 
-export type WireEffort = "LOW" | "MEDIUM" | "HIGH";
+export type WireEffort = "LOW" | "MEDIUM" | "HIGH" | "XHIGH";
 
 /** How a level reaches `generationConfig.thinkingConfig`. */
 export type ThinkingSpec =
@@ -22,7 +22,7 @@ export interface WireLevel {
 }
 
 const SEP = "|";
-const EFFORTS: readonly string[] = ["LOW", "MEDIUM", "HIGH"];
+const EFFORTS: readonly string[] = ["LOW", "MEDIUM", "HIGH", "XHIGH"];
 
 /** `gemini-4-argon-low|MODEL_PLACEHOLDER_M419|level:LOW`. */
 export function encodeLevel(level: WireLevel): string {
@@ -52,14 +52,22 @@ export function decodeLevel(value: string): WireLevel | undefined {
 	return undefined;
 }
 
-/** The CLI's `thinkingConfig` for a level; adaptive (Claude) keeps a zero budget. */
+/**
+ * The CLI's `thinkingConfig` for a level; adaptive (Claude) keeps a zero budget. XHIGH is a
+ * catalog level with no wire value in the recovered enum, so it maps down to HIGH; the
+ * envelope `model` still names the XHIGH level id.
+ */
 export function thinkingConfig(spec: ThinkingSpec): Record<string, unknown> {
 	switch (spec.kind) {
 		case "level":
-			return { includeThoughts: true, thinkingLevel: spec.level };
+			return { includeThoughts: true, thinkingLevel: wireLevel(spec.level) };
 		case "adaptive":
-			return { includeThoughts: true, thinkingBudget: 0, thinkingLevel: spec.level };
+			return { includeThoughts: true, thinkingBudget: 0, thinkingLevel: wireLevel(spec.level) };
 		case "budget":
 			return { includeThoughts: true, thinkingBudget: spec.budget };
 	}
+}
+
+function wireLevel(level: WireEffort): "LOW" | "MEDIUM" | "HIGH" {
+	return level === "XHIGH" ? "HIGH" : level;
 }

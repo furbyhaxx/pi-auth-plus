@@ -17,8 +17,10 @@ Each key resolves from lowest to highest priority:
 override expands to the home directory. On Pig, the extension host reports the agent
 directory it resolved (`PIG_EXT_HOST_INFO`), which wins: it is `~/.pig/agent` unless
 `PIG_CODING_AGENT_DIR` or `PIG_HOME` moved it, and only `PIG_USE_PI_DIRS=1` selects Pi's
-tree. The project file follows the host's config directory, so it is
-`<cwd>/.pig/auth-plus.json` on Pig and `<cwd>/.pi/auth-plus.json` on Pi. `<cwd>` is the
+tree. On oh-my-pi the directory is `~/.omp/agent`; it is detected from the running `omp`
+binary, not from `OMPCODE`, which child processes inherit. The project file follows the
+host's config directory, so it is `<cwd>/.pig/auth-plus.json` on Pig,
+`<cwd>/.omp/auth-plus.json` on oh-my-pi, and `<cwd>/.pi/auth-plus.json` on Pi. `<cwd>` is the
 host's active context working directory. Home resolves from `HOME`, then `USERPROFILE`,
 then the operating system.
 
@@ -126,7 +128,7 @@ those remain Pi's settings.
 
 | Variable | Effect |
 |---|---|
-| `PI_CODING_AGENT_DIR` | Agent directory override, including credentials, user settings and quota cache |
+| `PI_CODING_AGENT_DIR` | Agent directory override on Pi, Pi-Bolt, Pig and oh-my-pi, including credentials, user settings and quota cache |
 | `PIG_EXT_HOST_INFO` | Set by Pig's extension host: its `agentDir` and `configDirName` replace the Pi defaults above |
 | `PIG_CODING_AGENT_DIR`, `PIG_HOME` | Pig's own agent directory override and config root, read only when no host report is present |
 | `HOME`, `USERPROFILE` | Home resolution, in that order |

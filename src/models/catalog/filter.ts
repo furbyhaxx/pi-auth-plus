@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
-import { type AnyModel, isModelType } from "@earendil-works/pi-ai";
+import type { AnyModel } from "@earendil-works/pi-ai";
 import type { ModelRuntime, ProviderConfig } from "@earendil-works/pi-coding-agent";
+import { isModelType } from "../model-type.ts";
 import { parseJsonc } from "../overrides/jsonc.ts";
 
 function record(value: unknown): Record<string, unknown> | undefined {

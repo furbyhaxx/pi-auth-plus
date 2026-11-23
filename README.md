@@ -1,7 +1,7 @@
 # pi-auth-plus
 
 One [Pi](https://pi.dev) package for subscription and API-key providers, quota monitoring
-and a shared `/auth` dashboard.
+and a shared `/auth` dashboard. Runs on Pi, Pi-Bolt, Pig and oh-my-pi (`omp`).
 
 ## Features
 
@@ -22,6 +22,7 @@ and a shared `/auth` dashboard.
 
 ```bash
 pi install git:https://github.com/furbyhaxx/pi-auth-plus
+omp plugin install git:github.com/furbyhaxx/pi-auth-plus@dev
 ```
 
 Remove pi-claude-auth, pi-opencode-auth, pi-synthetic-auth, pi-antigravity-auth **and

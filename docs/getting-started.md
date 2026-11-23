@@ -4,6 +4,8 @@ pi-auth-plus adds subscription/API-key providers, quota monitoring and one `/aut
 dashboard to Pi. Use Pi-Bolt (Bun) or stock Pi on Node >=22.19. Anonymous OpenCode Zen
 requires Pi-Bolt; the other providers do not require Bun. Pig is supported as a Pi-compatible
 host: it keeps its own `~/.pig` configuration tree, which this package follows.
+oh-my-pi (`omp`) is supported too: it keeps `~/.omp/agent` and `.omp` project files, and
+its extension facade omits a few newer Pi hooks, listed below.
 
 ## Install
 
@@ -12,9 +14,10 @@ pi-opencode-auth, pi-synthetic-auth, pi-antigravity-auth and pi-quotas.
 
 ```sh
 pi install git:https://github.com/furbyhaxx/pi-auth-plus
+omp plugin install git:github.com/furbyhaxx/pi-auth-plus@dev
 ```
 
-Restart Pi after changing packages. `/auth` opens Providers; `/auth quotas` opens the
+Restart the host after changing packages. `/auth` opens Providers; `/auth quotas` opens the
 quota view. Use `/model` to choose a provider/model, `--list-models` to inspect the
 catalog, or `--model <provider>/<model>` to select one at startup. Providers register
 before model resolution, so scoped models and session restore use the same ids.
@@ -37,7 +40,14 @@ for stored credentials, environment/model-file sources and anonymous access.
 | `deepseek` | Pi's `/login deepseek` with an API key for balance reporting. |
 
 `claude`, `antigravity` and `synthetic` provide model catalogs; OpenCode is a patch of
-Pi's built-ins. The last four rows use Pi's providers for inference/auth; pi-auth-plus
+Pi's built-ins.
+
+On oh-my-pi, providers are registered through its runtime under namespaced API ids
+(`pi-auth-plus-anthropic-messages`, `pi-auth-plus-google-generative-ai`); the model ids,
+`/login` and wire behaviour are the same. Three surfaces need a fuller Pi host: virtual
+model groups, custom session-entry rendering, and visibility rules for providers another
+extension registered. `omp` keeps its own builtin providers, so a `synthetic` model id
+present in both catalogs uses this package's entry. The last four rows use Pi's providers for inference/auth; pi-auth-plus
 adds quota sources rather than new inference providers. Quota aliases do not rename
 Pi's login commands.
 

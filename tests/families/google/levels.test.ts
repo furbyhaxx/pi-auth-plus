@@ -22,6 +22,11 @@ const LEVELS: WireLevel[] = [
 		modelEnum: "MODEL_PLACEHOLDER_M318",
 		thinking: { kind: "budget", budget: -1 },
 	},
+	{
+		id: "gemini-4-hydrogen-xhigh",
+		modelEnum: "MODEL_PLACEHOLDER_M500",
+		thinking: { kind: "level", level: "XHIGH" },
+	},
 ];
 
 describe("families/google/levels", () => {
@@ -60,6 +65,11 @@ describe("families/google/levels", () => {
 		expect(thinkingConfig({ kind: "budget", budget: 4000 })).toEqual({
 			includeThoughts: true,
 			thinkingBudget: 4000,
+		});
+		// XHIGH has no value in the recovered wire enum; the envelope model carries the level.
+		expect(thinkingConfig({ kind: "level", level: "XHIGH" })).toEqual({
+			includeThoughts: true,
+			thinkingLevel: "HIGH",
 		});
 	});
 });

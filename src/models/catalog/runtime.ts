@@ -1,5 +1,5 @@
 /** Composed catalog filtering for providers not owned by this extension. */
-import { type AnyModel, InMemoryCredentialStore } from "@earendil-works/pi-ai";
+import type { AnyModel, CredentialStore } from "@earendil-works/pi-ai";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -7,6 +7,8 @@ import type {
 	ProviderConfig,
 } from "@earendil-works/pi-coding-agent";
 import type { AppSettings } from "../../core/config/catalog.ts";
+import { hostProviderSink } from "../../core/host/index.ts";
+import { registeredProviders } from "../../core/host/registry.ts";
 import { modelsPath } from "../../core/paths/index.ts";
 import { redactText } from "../../core/redact/index.ts";
 import { plainText } from "../../quotas/line/values.ts";
@@ -23,6 +25,14 @@ export interface CatalogApplication {
 function application(signal: AbortSignal, warnings: ReadonlySet<string>): CatalogApplication {
 	return { signal, warnings: [...warnings].map((warning) => redactText(plainText(warning))) };
 }
+
+/** The catalog mirror inspects foreign providers only, so it must never resolve real auth. */
+const emptyCredentials: CredentialStore = {
+	read: async () => undefined,
+	list: async () => [],
+	modify: async () => undefined,
+	delete: async () => {},
+};
 
 /** Applies composed-catalog rules and warns when provider ownership conflicts are detected. */
 export class CatalogVisibility {
@@ -55,9 +65,10 @@ export class CatalogVisibility {
 	async #runtime(signal: AbortSignal): Promise<ModelRuntime | undefined> {
 		if (this.#mirror) return this.#mirror;
 		const { ModelRuntime } = await import("@earendil-works/pi-coding-agent");
+		if (typeof ModelRuntime?.create !== "function") return undefined;
 		if (signal.aborted) return;
 		const mirror = await ModelRuntime.create({
-			credentials: new InMemoryCredentialStore(),
+			credentials: emptyCredentials,
 			modelsPath: modelsPath(),
 			allowModelNetwork: false,
 			signal,
@@ -153,14 +164,15 @@ export class CatalogVisibility {
 			}
 		}
 		if (signal.aborted) return false;
-		if (ctx) {
+		const ownership = ctx ? registeredProviders(ctx.modelRegistry) : undefined;
+		if (ctx && ownership) {
 			for (const [provider, registration] of this.#registrations) {
-				const current = ctx.modelRegistry.getRegisteredProviderConfig(provider);
+				const current = ownership.config(provider);
 				const extra =
 					current &&
 					Object.keys(current).some((key) => !["models", "refreshModels", "apiKey"].includes(key));
 				if (
-					ctx.modelRegistry.getRegisteredNativeProvider(provider) ||
+					ownership.native(provider) ||
 					!current ||
 					current.refreshModels !== registration.refreshModels ||
 					current.models !== registration.models ||
@@ -185,9 +197,16 @@ export class CatalogVisibility {
 						const registered = this.#registrations.get(provider);
 						if (registered || !mirror.getAllModels(provider).some((model) => !visible(model)))
 							continue;
-						const existing = ctx?.modelRegistry.getRegisteredProviderConfig(provider);
+						if (ctx && !ownership) {
+							warnings.add(
+								`Model rules for ${provider} are unavailable on this host: it does not expose provider ownership. Use Pi or Pi-Bolt for built-in provider rules.`,
+							);
+							this.#foreign.add(provider);
+							continue;
+						}
+						const existing = ownership?.config(provider);
 						if (
-							ctx?.modelRegistry.getRegisteredNativeProvider(provider) ||
+							ownership?.native(provider) ||
 							(existing && Object.keys(existing).some((key) => key !== "apiKey"))
 						) {
 							if (signal.aborted) return false;
@@ -204,7 +223,7 @@ export class CatalogVisibility {
 							modelsPath(),
 						);
 						if (signal.aborted) return false;
-						this.#pi.registerProvider(provider, config);
+						hostProviderSink(this.#pi).registerProvider(provider, config);
 						if (signal.aborted) return false;
 						this.#registrations.set(provider, config);
 						if (ctx) this.#pendingProviders.add(provider);

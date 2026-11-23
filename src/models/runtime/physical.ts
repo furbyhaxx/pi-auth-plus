@@ -1,17 +1,17 @@
 /** Request-local hooks around Pi's physical model runtime. */
-import {
-	type Api,
-	type AssistantMessage,
-	type AssistantMessageEvent,
-	type AssistantMessageEventStream,
-	type Context,
-	lazyStream,
-	type Model,
-	type ModelsSimpleStreamOptions,
-	type ProviderHeaders,
-	type ProviderResponse,
+import type {
+	Api,
+	AssistantMessage,
+	AssistantMessageEvent,
+	AssistantMessageEventStream,
+	Context,
+	Model,
+	ModelsSimpleStreamOptions,
+	ProviderHeaders,
+	ProviderResponse,
 } from "@earendil-works/pi-ai";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { lazyStream } from "../../core/streams/lazy.ts";
 
 export interface PhysicalRequestHooks {
 	headers?: (headers: ProviderHeaders) => ProviderHeaders | Promise<ProviderHeaders>;

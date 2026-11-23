@@ -4,14 +4,14 @@ import {
 	type AssistantMessage,
 	type AssistantMessageEvent,
 	type AssistantMessageEventStream,
-	isModelType,
-	lazyStream,
 	type Model,
 	normalizeContext,
 	type Provider,
 	type StreamOptions,
 	type TranscriptContext,
 } from "@earendil-works/pi-ai";
+import { lazyStream } from "../../core/streams/lazy.ts";
+import { isModelType } from "../model-type.ts";
 import {
 	type AliasCatalogEntry,
 	type AliasIssue,

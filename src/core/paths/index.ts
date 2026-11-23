@@ -1,6 +1,6 @@
 /** Owns every filesystem location pi-auth-plus reads or writes, resolved from env and cwd. */
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 export type PathEnv = Readonly<Record<string, string | undefined>>;
 
@@ -20,6 +20,7 @@ export function agentDir(env: PathEnv = process.env): string {
 	if (configured) return expandTilde(configured, env);
 	const root = nonEmpty(env["PIG_HOME"]);
 	if (root) return join(expandTilde(root, env), "agent");
+	if (isOhMyPiHost()) return join(homeDir(env), ".omp", "agent");
 	return join(homeDir(env), ".pi", "agent");
 }
 
@@ -29,6 +30,18 @@ export function agentDir(env: PathEnv = process.env): string {
  */
 export function isPigHost(env: PathEnv = process.env): boolean {
 	return nonEmpty(env["PIG_EXT_HOST_INFO"]) !== undefined;
+}
+
+/**
+ * oh-my-pi keeps its own tree under `~/.omp`. Its `OMPCODE` variable is inherited by child
+ * processes, so the running binary decides; `omp` is a compiled binary on every host.
+ */
+export function isOhMyPiHost(
+	execPath: string = process.execPath,
+	argv: readonly string[] = process.argv,
+): boolean {
+	const names = [basename(execPath).toLowerCase(), basename(argv[1] ?? "").toLowerCase()];
+	return names.some((name) => name === "omp" || name.startsWith("omp-"));
 }
 
 /** `--offline`, `PI_OFFLINE` or `PIG_OFFLINE`: no catalog, quota or credit fetch. */
@@ -48,7 +61,7 @@ function off(name: string, env: PathEnv): boolean {
  * unless `PIG_USE_PI_DIRS=1` selects Pi's. pig's extension host reports the resolved value.
  */
 export function projectConfigDir(env: PathEnv = process.env): string {
-	return pigHost(env).configDirName ?? ".pi";
+	return pigHost(env).configDirName ?? (isOhMyPiHost() ? ".omp" : ".pi");
 }
 
 /**

@@ -5,7 +5,7 @@ import {
 	getCurrentTools,
 	type Model,
 	normalizeContext,
-	type SimpleStreamOptions,
+	type StreamOptions,
 	type TranscriptContext,
 } from "@earendil-works/pi-ai";
 import { convertMessages, convertTools } from "./convert.ts";
@@ -106,10 +106,7 @@ export class RequestSessions {
 }
 
 /** The fallback avoids sharing all sessions through the leading system timestamp (0). */
-export function requestSessionKey(
-	context: TranscriptContext,
-	options: SimpleStreamOptions,
-): string {
+export function requestSessionKey(context: TranscriptContext, options: StreamOptions): string {
 	const first = context.messages.find((message) => message.role !== "system");
 	return options.sessionId || (first ? `message:${first.timestamp}` : "__default__");
 }
@@ -170,10 +167,28 @@ function validatedToolConfig(model: string, hasTools: boolean) {
 export interface BuildRequestOptions {
 	readonly model: Model<"google-generative-ai">;
 	readonly context: TranscriptContext;
-	readonly options: SimpleStreamOptions;
+	readonly options: StreamOptions;
 	readonly level: WireLevel;
 	readonly project: string;
 	readonly sessions: RequestSessions;
+}
+
+/**
+ * agy's own opening identity line, recovered from the CLI binary. The backend rejects the
+ * Pi/Pi-Bolt harness sentence ("coding assistant running inside Pi") with HTTP 429, so the
+ * first identity sentence is replaced and every other instruction is left untouched.
+ */
+const AGY_IDENTITY =
+	"You are Antigravity, a powerful agentic AI assistant designed by the Google Deepmind team.";
+const HARNESS_IDENTITY = /^You are (?:a|an) [^.]*running inside [^.]*\.\s*/i;
+/** Pi's own documentation block names the Pi-Bolt harness; the backend rejects that shape too. */
+const HARNESS_DOCS = /<docs>[\s\S]*?<\/docs>\s*/i;
+const NEUTRAL_DOCS =
+	"<docs>Pi documentation ships with the installed package; read it only when the user asks about Pi.</docs>\n";
+
+export function agySystemPrompt(system: string | undefined): string | undefined {
+	if (!system) return system;
+	return system.replace(HARNESS_IDENTITY, `${AGY_IDENTITY} `).replace(HARNESS_DOCS, NEUTRAL_DOCS);
 }
 
 /** Build the ordered Cloud Code envelope without credential or network work. */
@@ -187,7 +202,7 @@ export function buildRequest({
 }: BuildRequestOptions) {
 	const source = model.id.startsWith("claude-") ? claudeContext(context, model) : context;
 	const contents = convertMessages(model, source);
-	const system = getCurrentSystemPrompt(source.messages);
+	const system = agySystemPrompt(getCurrentSystemPrompt(source.messages));
 	const converted = convertTools(getCurrentTools(source.messages), false, false);
 	const tools = converted?.map((tool) => ({
 		functionDeclarations: tool.functionDeclarations.map((declaration) => {

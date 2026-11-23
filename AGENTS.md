@@ -53,6 +53,9 @@ In priority order:
 - `just rpc-verify`: loads the extension in a real Pi RPC session (`PI_BIN`, default
   `pi-bolt`) with a throwaway agent dir, so session-start work never touches your `auth.json`. Required after changing provider, command, flag or event registration, the
   factory, or settings persistence.
+- `just omp-verify`: loads the extension in oh-my-pi's RPC mode with an isolated agent dir and
+  lists commands; skipped when `omp` is not installed. Required after changing host capability
+  code or provider registration.
 - `just parity-verify`: runs `--list-models` and `--model <id>` resolution against an isolated
   agent dir with dummy credentials and asserts every provider of ours is listed. Required after
   touching provider registration or catalogs.
@@ -85,6 +88,8 @@ src/
     cache/              host cache: atomic write, leases, backoff, parser-version fences
     http/               fetch with AbortSignal + timeout, ProviderHttpError, Retry-After
     auth/               auth.json slot access, PKCE, callback server, manual code paste
+    host/               host capability checks and provider/registry projections
+    streams/            local lazy stream wrapper for hosts whose pi-ai omits it
     bus/                versioned pi.events channels, nonce replies, consumer helpers
     redact/             secret redaction for errors, captures and bus payloads
     registry/           family registry: provider ids, aliases, capabilities
@@ -192,6 +197,15 @@ API-key and subscription access get separate ids: `anthropic` → `claude`, `goo
 alike. Aliases come from `core/registry`; never hardcode an id outside its family. Provider
 and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the first slash.
 
+### Hosts
+
+- Targets: Pi, Pi-Bolt (Bun), Pig and oh-my-pi (`omp`). A host may omit newer hooks; `core/host` owns every capability check and projection, and nothing outside it branches on the host.
+- oh-my-pi accepts only `registerProvider(name, config)` on its runtime and reserves built-in API ids. Native providers reach it through `hostProviderSink` → `legacyProviderConfig`, registered under `pi-auth-plus-<api>`; model ids, `/login` and wire behavior stay the same. Its facade also omits `getSettings`, `registerVirtualModel`, `registerEntryRenderer` and provider ownership: settings read empty, groups warn once and stay inactive, custom entries render as plain entries, and rules for foreign providers are skipped with a warning. Auth falls back to `getApiKeyForProvider`.
+- Its bundled pi-ai omits `createProvider`, `lazyStream`, `isModelType` and `InMemoryCredentialStore`; providers are plain objects, `core/streams/lazy.ts`, `models/model-type.ts` and a local empty credential store replace them.
+- Its theme exposes `getColorHex`/`getBgHex`/`fg` and no `colors`/`style`; `quotas/line/theme.ts` adapts it there. Never read `theme.colors` outside that adapter.
+- Detect oh-my-pi from the running binary (`omp`), never `OMPCODE`: the variable is inherited by child shells, so a Pi-Bolt started from an omp shell would be misdetected.
+- `PI_CODING_AGENT_DIR` wins on every host; the oh-my-pi default is `~/.omp/agent` and its project config dir is `.omp`.
+
 ### Family invariants
 
 - **claude:** match the interactive Claude Code CLI on the wire (`cc_entrypoint=cli`, no
@@ -205,14 +219,17 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
   models carry zero cost. The transport shapes whatever body the host hands over, including a
   body the host already serialized to bytes: an unshaped OAuth turn loses the identity blocks
   and Anthropic answers `429 rate_limit_error`.
-- **antigravity:** agy 1.4.8 identity (`google/transport.ts`): user agent and the CLI's header
+- **antigravity:** agy 1.5.15 identity (`google/transport.ts`): user agent and the CLI's header
   set over plain `fetch`, every call to `daily-cloudcode-pa`. One Pi model per family; the
-  wire level comes from `thinkingLevelMap` (encoded catalog level), clamped upward. Envelope
+  wire level comes from `thinkingLevelMap` (encoded catalog level, `XHIGH` included),
+  clamped upward; the wire `thinkingConfig` maps XHIGH to HIGH. Envelope
   `model` is the level id, `labels.model_enum` the catalog model. Project id from
   `loadCodeAssist` once per session and token, never stored. Schema allowlist sanitizer;
   signatures carried for the same model only; Claude keeps signed thinking only in the latest
   same-model turn of an open tool loop. Zero cost. Deltas and evidence:
-  `.project/analyses/antigravity-cli/tracking.md`.
+  `.project/analyses/antigravity-cli/tracking.md`. The backend answers a misleading
+  429 for Pi's harness identity and `<docs>` block, so `agySystemPrompt()` replaces those
+  two with agy's own identity line and a neutral docs note; tools, rules and context stay.
 - **antigravity scope:** reviewed with the user (`.project/analyses/pi-antigravity-auth/inventory.md`):
   one account, no account pool, no Claustrum vault, no `@cortexkit/*` package.
   Fork features not in the inventory's keep list are not ported.
@@ -308,9 +325,10 @@ compiler (`docs/PLUGINS.md` of Pi-Bolt):
   `core/config/catalog.ts`; features never read config files directly. The entrypoint loads it
   per session in a `session_start` handler registered before the families' handlers, and
   families read it through `FamilyHost.settings()`; the factory sees defaults only.
-- `<agentDir>` is `PI_CODING_AGENT_DIR` or `~/.pi/agent`; `<configDir>` is `.pi`. A Pi-compatible
-  host that keeps its own tree reports both (`pig`: `PIG_EXT_HOST_INFO`, `~/.pig/agent` and
-  `.pig`), and the report wins. Paths resolve in `core/paths` only.
+- `<agentDir>` is `PI_CODING_AGENT_DIR`, else the host default; `<configDir>` follows the host.
+  Pi uses `~/.pi/agent` and `.pi`; Pig reports both (`PIG_EXT_HOST_INFO`, `~/.pig/agent`,
+  `.pig`) and the report wins; oh-my-pi uses `~/.omp/agent` and `.omp`. Paths resolve in
+  `core/paths` only.
 - Handlers must not key session state on Pi's event or context object identity: Pi reuses one
   object, pig snapshots a fresh one per handler. The entrypoint keeps a module-level session
   state and falls back to it when an emission's identity is unknown.

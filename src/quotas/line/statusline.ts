@@ -4,6 +4,7 @@ import type { AppSettings } from "../../core/config/catalog.ts";
 import type { Registry } from "../../core/registry/index.ts";
 import type { QuotaEngine } from "../engine.ts";
 import { createQuotaLineRenderer, quotaLineConfig } from "./line.ts";
+import { adaptLineTheme } from "./theme.ts";
 
 /** Segment id inside pi-workbench; its owner prefix is the extension name. */
 export const QUOTA_SEGMENT_ID = "pi-auth-plus:quotas";
@@ -86,7 +87,7 @@ export function createQuotaStatusline(
 		render(ctx): StatuslineContent {
 			const lines = render(
 				ctx.width,
-				ctx.theme,
+				adaptLineTheme(ctx.theme),
 				deps.engine.view(),
 				quotaLineConfig(deps.settings()),
 				deps.now(),

@@ -10,6 +10,7 @@ import { createQuotaLineRenderer, limitQuotaRows, quotaLineConfig } from "./line
 import { createFooterPlacement, type FooterPlacementContext } from "./placement.ts";
 import { createQuotaStatusline } from "./statusline.ts";
 import { compileLineTemplate } from "./template.ts";
+import { adaptLineTheme } from "./theme.ts";
 import { QuotaLineWidget } from "./widget.ts";
 import type { FooterRows } from "./workbench.ts";
 
@@ -58,8 +59,9 @@ export function createQuotaLine(
 		const settings = deps.settings();
 		if (settings.get("quotas.linePlacement") === "off") return [];
 		const config = quotaLineConfig(settings);
-		const lines = render(width, theme, deps.engine.view(), config, deps.now());
-		return limitQuotaRows(width, theme, lines, terminalRows - EDITOR_RESERVE_ROWS);
+		const lineTheme = adaptLineTheme(theme);
+		const lines = render(width, lineTheme, deps.engine.view(), config, deps.now());
+		return limitQuotaRows(width, lineTheme, lines, terminalRows - EDITOR_RESERVE_ROWS);
 	};
 	const statusline = createQuotaStatusline(pi, deps);
 	const footer = createFooterPlacement(

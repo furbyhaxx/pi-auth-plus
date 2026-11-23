@@ -1,11 +1,12 @@
 /** Synthetic's zero-data-retention web search, exposed as the opt-in `synthetic_web_search` tool. */
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { Type } from "@earendil-works/pi-ai";
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
+import { Type } from "typebox";
 import { missingEnvironmentAuth } from "../../core/auth/missing.ts";
 import { atomicWriteFile } from "../../core/fs/index.ts";
+import { providerAuthView } from "../../core/host/registry.ts";
 import {
 	type FetchFn,
 	ProviderHttpError,
@@ -136,8 +137,8 @@ export function registerWebSearch(pi: ExtensionAPI, deps: SearchDeps): void {
 			if (!deps.enabled()) return disabled();
 			let apiKey: string | undefined;
 			try {
-				apiKey = (await waitForAbort(ctx.modelRegistry.getProviderAuth(PROVIDER), signal))?.auth
-					.apiKey;
+				apiKey = (await waitForAbort(providerAuthView(ctx.modelRegistry, PROVIDER), signal))?.auth
+					?.apiKey;
 			} catch (error) {
 				if (signal?.aborted) return aborted();
 				if (missingEnvironmentAuth(error, PROVIDER)) return failure("auth");

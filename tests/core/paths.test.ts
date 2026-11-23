@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	agentDir,
 	cacheDir,
+	isOhMyPiHost,
 	projectSettingsPath,
 	stateDir,
 	userSettingsPath,
@@ -26,6 +27,17 @@ describe("core/paths", () => {
 
 	test("project settings resolve from the given cwd", () => {
 		expect(projectSettingsPath("/repo")).toBe("/repo/.pi/auth-plus.json");
+	});
+});
+
+describe("core/paths under oh-my-pi", () => {
+	test("the running binary identifies the host, not an inherited environment", () => {
+		expect(isOhMyPiHost("/home/u/.local/bin/omp", ["bun", "/$bunfs/root/omp-linux-x64"])).toBe(
+			true,
+		);
+		expect(isOhMyPiHost("/x/pi-bolt", ["bun", "/$bunfs/root/pi-bolt-linux-x64"])).toBe(false);
+		expect(isOhMyPiHost("/usr/bin/bun", ["bun", "/repo/src/index.ts"])).toBe(false);
+		expect(agentDir({ HOME: "/h", OMPCODE: "1" })).toBe("/h/.pi/agent");
 	});
 });
 

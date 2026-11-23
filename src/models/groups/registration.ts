@@ -1,6 +1,7 @@
 /** Registers configured groups as Pi virtual models and keeps that registration current. */
 import type { Api, AssistantMessage, Message, Model } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { supportsVirtualModels } from "../../core/host/index.ts";
 import { redactText } from "../../core/redact/index.ts";
 import { plainText } from "../../quotas/line/values.ts";
 import type { ProviderQuotaSnapshot } from "../../quotas/types.ts";
@@ -66,16 +67,24 @@ function warning(action: "register" | "unregister", id: string, error: unknown):
 export class GroupRegistrations {
 	readonly #pi: ExtensionAPI;
 	readonly #deps: GroupRegistrationDeps;
+	readonly #supported: boolean;
 	#registered = new Map<string, ModelGroup>();
 
 	constructor(pi: ExtensionAPI, deps: GroupRegistrationDeps) {
 		this.#pi = pi;
 		this.#deps = deps;
+		this.#supported = supportsVirtualModels(pi);
 	}
 
 	/** Registers visible groups and returns per-group warnings for operations that failed. */
 	apply(catalog: readonly Model<Api>[] = []): readonly string[] {
 		const groups = this.#deps.groups().filter((group) => this.#deps.visible?.(group.id) ?? true);
+		if (!this.#supported)
+			return groups.length === 0
+				? []
+				: [
+						"Model groups are unavailable on this host: it does not support virtual models. Use Pi or Pi-Bolt for groups.",
+					];
 		const ids = new Set(groups.map((group) => group.id));
 		const warnings: string[] = [];
 		const next = new Map<string, ModelGroup>();

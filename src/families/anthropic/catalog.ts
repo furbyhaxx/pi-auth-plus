@@ -1,5 +1,5 @@
 /** Claude's account model listing, bundled metadata and Pi-owned refresh persistence. */
-import { hasApi, type Model, type RefreshModelsContext } from "@earendil-works/pi-ai";
+import type { AnyModel, Model, RefreshModelsContext } from "@earendil-works/pi-ai";
 import { getModels } from "@earendil-works/pi-ai/compat";
 import { type FetchFn, ProviderHttpError, request } from "../../core/http/index.ts";
 import { PINNED_VERSION, userAgent } from "./version.ts";
@@ -15,6 +15,10 @@ type AnthropicModel = Model<"anthropic-messages"> & {
 	claudeUnpriced?: true;
 	claudeListing?: number;
 };
+
+function isAnthropicModel(model: AnyModel): model is AnthropicModel {
+	return model.api === "anthropic-messages";
+}
 
 /** Refresh transport and clock, independent of Pi's registration lifecycle. */
 export interface CatalogDeps {
@@ -148,7 +152,7 @@ export async function refreshCatalog(
 	const stored = ctx.stored?.models.filter(
 		(model): model is AnthropicModel =>
 			model.provider === PROVIDER &&
-			hasApi(model, "anthropic-messages") &&
+			isAnthropicModel(model) &&
 			(ctx.credential?.type !== "api_key" || hasCatalogPrice(model)),
 	);
 	const credential = ctx.credential;

@@ -1,13 +1,14 @@
 /** The `/auth` command family: one router, standalone entry points, headless text fallback. */
-import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
 import { type AutocompleteItem, Text } from "@earendil-works/pi-tui";
 import type { CredentialStatus } from "../../core/auth/index.ts";
 import { type AppSettings, SETTINGS } from "../../core/config/catalog.ts";
 import type { Field, FieldValue, SaveScope } from "../../core/config/index.ts";
 import { formatSaveOutcome, type SaveOutcome, type SettingsSaver } from "../../core/config/save.ts";
+import { supportsEntryRenderer } from "../../core/host/index.ts";
 import type { Registry } from "../../core/registry/index.ts";
 import { loginCodex } from "../../families/openai/codex-auth/index.ts";
-import type { LineTheme } from "../../quotas/line/format.ts";
+import { adaptLineTheme } from "../../quotas/line/theme.ts";
 import type { TokenTracker } from "../../tokens/tracker/types.ts";
 import { type GroupsTabDeps, GroupsView } from "../dashboard/groups.ts";
 import {
@@ -43,7 +44,7 @@ export interface SettingsPanelDeps {
 	preview?(
 		source: string,
 		width: number,
-		theme: LineTheme,
+		theme: Theme,
 	): { rows: readonly string[]; unknown: readonly string[] };
 }
 
@@ -348,11 +349,12 @@ function sessionTokens(source: TokenTracker, signal: AbortSignal | undefined): T
 }
 
 export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): void {
-	pi.registerEntryRenderer<{ text?: unknown }>(
-		NOTE_TYPE,
-		(entry, _options, theme) =>
-			new Text(theme.fg("toolOutput", sanitize(String(entry.data?.text ?? ""))), 0, 0),
-	);
+	if (supportsEntryRenderer(pi))
+		pi.registerEntryRenderer<{ text?: unknown }>(
+			NOTE_TYPE,
+			(entry, _options, theme) =>
+				new Text(theme.fg("toolOutput", sanitize(String(entry.data?.text ?? ""))), 0, 0),
+		);
 
 	const report = (
 		ctx: ExtensionCommandContext,
@@ -591,7 +593,7 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 						views.quotas = (host) =>
 							new QuotasView(
 								host,
-								theme,
+								adaptLineTheme(theme),
 								quotas,
 								opened.tab === "quotas" ? opened.select : undefined,
 							);

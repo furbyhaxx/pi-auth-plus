@@ -1,17 +1,16 @@
 /** The `antigravity` provider: agy's Cloud Code PA backend behind Pi's OAuth and model store. */
-import {
-	type AssistantMessageEvent,
-	createProvider,
-	lazyStream,
-	type Model,
-	type ModelThinkingLevel,
-	type Provider,
-	type ProviderAuth,
-	type SimpleStreamOptions,
-	type ThinkingLevel,
-	type TranscriptContext,
+import type {
+	AssistantMessageEvent,
+	Model,
+	ModelThinkingLevel,
+	Provider,
+	ProviderAuth,
+	StreamOptions,
+	ThinkingLevel,
+	TranscriptContext,
 } from "@earendil-works/pi-ai";
 import { type FetchFn, parseRetryAfter } from "../../core/http/index.ts";
+import { lazyStream } from "../../core/streams/lazy.ts";
 import { bundledModels, PROVIDER, refreshCatalog } from "./catalog.ts";
 import { AntigravityError, parseAntigravityError } from "./errors.ts";
 import { decodeLevel, type WireLevel } from "./levels.ts";
@@ -65,7 +64,7 @@ export function pickLevel(
 	);
 }
 
-function bearer(options: SimpleStreamOptions | undefined): string | undefined {
+function bearer(options: StreamOptions | undefined): string | undefined {
 	for (const [key, value] of Object.entries(options?.headers ?? {})) {
 		if (key.toLowerCase() === "authorization" && value?.startsWith("Bearer "))
 			return value.slice("Bearer ".length);
@@ -84,13 +83,14 @@ export function antigravityProvider(
 	async function open(
 		model: AntigravityModel,
 		context: TranscriptContext,
-		options: SimpleStreamOptions | undefined,
+		options: StreamOptions | undefined,
+		reasoning: ThinkingLevel | undefined,
 	): Promise<AsyncIterable<AssistantMessageEvent>> {
 		const signal = options?.signal ?? new AbortController().signal;
 		const token = bearer(options);
 		if (!token)
 			throw new AntigravityStreamSetupError("antigravity: no OAuth login; run /login antigravity");
-		const level = pickLevel(model, options?.reasoning);
+		const level = pickLevel(model, reasoning);
 		if (!level)
 			throw new AntigravityStreamSetupError(
 				`antigravity: model ${model.id} has no usable thinking level; refresh models with /models`,
@@ -145,27 +145,20 @@ export function antigravityProvider(
 		});
 	}
 
-	const provider = createProvider<"google-generative-ai">({
+	const models = () => current ?? bundledModels();
+	const provider: Provider<"google-generative-ai"> = {
 		id: PROVIDER,
 		name: "Antigravity",
 		baseUrl: BASE_URL,
 		auth: deps.auth,
-		models: [],
-		api: {
-			stream: (model, context, options) =>
-				lazyStream(model, () => open(model as AntigravityModel, context, options)),
-			streamSimple: (model, context, options) =>
-				lazyStream(model, () => open(model as AntigravityModel, context, options)),
-		},
-	});
-
-	const models = () => current ?? bundledModels();
-	return {
-		...provider,
 		getModels: models,
 		getAllModels: models,
+		stream: (model, context, options) =>
+			lazyStream(model, () => open(model, context, options, undefined)),
+		streamSimple: (model, context, options) =>
+			lazyStream(model, () => open(model, context, options, options?.reasoning)),
 		async refreshModels(ctx) {
-			const models = await refreshCatalog(ctx, {
+			const refreshed = await refreshCatalog(ctx, {
 				fetch: fetchFn,
 				now,
 				headers: () => cliHeaders(),
@@ -173,9 +166,10 @@ export function antigravityProvider(
 			});
 			await ctx.publish({
 				update: () => {
-					current = models;
+					current = refreshed;
 				},
 			});
 		},
 	};
+	return provider;
 }

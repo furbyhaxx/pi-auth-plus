@@ -1,7 +1,7 @@
 /** Pi entrypoint: awaits family registration and wires commands, flags and events. */
 
 import { join } from "node:path";
-import { isModelType, type Provider } from "@earendil-works/pi-ai";
+import type { Provider } from "@earendil-works/pi-ai";
 import type {
 	EventBus,
 	ExtensionAPI,
@@ -18,6 +18,8 @@ import { type AppSettings, SETTINGS } from "./core/config/catalog.ts";
 import { SettingsStore } from "./core/config/index.ts";
 import { createSettingsSaver } from "./core/config/save.ts";
 import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts/index.ts";
+import { hostProviderSink, hostSettings } from "./core/host/index.ts";
+import { legacyProviderConfig } from "./core/host/legacy-provider.ts";
 import {
 	cacheDir,
 	modelsPath,
@@ -43,6 +45,7 @@ import { groupMemberHealth } from "./models/groups/member.ts";
 import { GroupRegistrations } from "./models/groups/registration.ts";
 import { registerGroupSettlement } from "./models/groups/settlement.ts";
 import { readGroupRouteState } from "./models/groups/state.ts";
+import { isModelType } from "./models/model-type.ts";
 import { readOverride, updateOverrides } from "./models/overrides/index.ts";
 import { compileModelRules, evaluateModelRules } from "./models/rules/match.ts";
 import { effectiveModelRules } from "./models/rules/settings.ts";
@@ -58,6 +61,7 @@ import { QuotaEngine } from "./quotas/engine.ts";
 import { createQuotaLine } from "./quotas/line/index.ts";
 import { quotaLineConfig } from "./quotas/line/line.ts";
 import { formatPlainTextSummary } from "./quotas/line/summary.ts";
+import { adaptLineTheme } from "./quotas/line/theme.ts";
 import { carryOverPiQuotas } from "./quotas/migrate/index.ts";
 import { engineReport } from "./quotas/report.ts";
 import { enabledQuotaProviders } from "./quotas/settings.ts";
@@ -240,9 +244,12 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				);
 				const aliased = wrapNativeAliases(providerOrName, () => settings.get("models.aliases"));
 				ownedCatalog.set(providerOrName.id, () => aliased.getModels());
-				pi.registerProvider(
-					filterNativeProvider(aliased, (model) => isVisible(providerOrName.id, model)),
+				const visible = filterNativeProvider(aliased, (model) =>
+					isVisible(providerOrName.id, model),
 				);
+				const legacy = hostProviderSink(pi) !== pi ? legacyProviderConfig(visible) : undefined;
+				if (legacy) hostProviderSink(pi).registerProvider(providerOrName.id, legacy);
+				else hostProviderSink(pi).registerProvider(visible);
 			} else if (config) {
 				if (providerOrName === "synthetic") {
 					ownedProviders.add(providerOrName);
@@ -298,7 +305,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 								: [],
 						),
 					);
-					pi.registerProvider(
+					hostProviderSink(pi).registerProvider(
 						providerOrName,
 						filterOwnedConfig(
 							guarded,
@@ -308,7 +315,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 							},
 						),
 					);
-				} else pi.registerProvider(providerOrName, config);
+				} else hostProviderSink(pi).registerProvider(providerOrName, config);
 			}
 		},
 	};
@@ -508,8 +515,11 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		const startup = startupState(event);
 		if (!startup?.store || startup.signal.aborted) return;
 		const { signal, store } = startup;
-		const configured = NO_EXTENSIONS ? {} : pi.getSettings();
-		const commandPaths = pi.getCommands().map((command) => command.sourceInfo.path);
+		const configured = NO_EXTENSIONS ? {} : hostSettings(pi);
+		const commandPaths = pi
+			.getCommands()
+			.map((command) => command.sourceInfo?.path)
+			.filter((path): path is string => typeof path === "string");
 		if (signal.aborted) return;
 		quotaContext = ctx;
 		const detected = loadsPackage(
@@ -633,7 +643,15 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 			},
 		]);
 	};
-	const familyPi: ExtensionAPI = { ...pi, on: familyOn };
+	// Spreading would drop prototype methods on hosts whose API is a class instance (oh-my-pi),
+	// so families reach the host through a facade that binds every method to the original.
+	const familyPi: ExtensionAPI = new Proxy(pi, {
+		get(target, key) {
+			if (key === "on") return familyOn;
+			const value = Reflect.get(target, key, target);
+			return typeof value === "function" ? value.bind(target) : value;
+		},
+	});
 	for (const family of registry.families) await family.register?.(familyPi, host);
 	registerCompatibleThoughtSignatures(pi);
 	const boundaryPi = shareBoundaryEvents(pi);
@@ -1009,7 +1027,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 							options.set(model.provider, { value: model.provider, label: model.provider });
 				return [...options.values()];
 			},
-			preview: (source, width, theme) => quotaLine.preview(source, width, theme),
+			preview: (source, width, theme) => quotaLine.preview(source, width, adaptLineTheme(theme)),
 		},
 	});
 
@@ -1018,8 +1036,11 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		const startup = startupState(event);
 		if (!startup || startup.signal.aborted || warned) return;
 		// With --no-extensions Pi skips configured packages; only explicit -e loads count then.
-		const settings = NO_EXTENSIONS ? {} : pi.getSettings();
-		const commandPaths = pi.getCommands().map((command) => command.sourceInfo.path);
+		const settings = NO_EXTENSIONS ? {} : hostSettings(pi);
+		const commandPaths = pi
+			.getCommands()
+			.map((command) => command.sourceInfo?.path)
+			.filter((path): path is string => typeof path === "string");
 		if (startup.signal.aborted) return;
 		warned = true;
 		const conflicts = detectConflicts(

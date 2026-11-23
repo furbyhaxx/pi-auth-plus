@@ -80,7 +80,7 @@ describe("families/google/provider", () => {
 			"https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
 		);
 		expect(turn?.headers.get("authorization")).toBe(`Bearer ${TOKEN}`);
-		expect(turn?.headers.get("user-agent")).toStartWith("antigravity/cli/1.4.8 (aidev_client;");
+		expect(turn?.headers.get("user-agent")).toStartWith("antigravity/cli/1.5.15 (aidev_client;");
 		expect(turn?.body).toMatchObject({
 			project: "test-project",
 			model: "claude-opus-5-5-high",

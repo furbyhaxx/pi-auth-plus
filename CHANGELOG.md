@@ -6,6 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-23
+
+### Added
+
+- **oh-my-pi (`omp`) support.** Providers, `/login`, `/auth`, quotas and token counts work
+  on omp with the same model ids: its `~/.omp/agent` tree and `.omp` project settings are
+  followed, native providers are registered through its runtime under namespaced API ids,
+  and its theme is adapted for the quota line. Model groups, custom session-entry rendering
+  and visibility rules for providers another extension registered need a fuller Pi host
+  and say so. Install with `omp plugin install git:github.com/furbyhaxx/pi-auth-plus@dev`.
+
+### Changed
+
+- **Antigravity is pinned to `agy` 1.5.15.** Four-level families such as Gemini 4 Hydrogen
+  and Neon now appear as Pi models with an `xhigh` level; the wire `thinkingConfig` maps
+  XHIGH to HIGH while the envelope model keeps the xhigh level id. The change-list number
+  in the user agent is unchanged because 1.5.15 does not expose a new one. The provider
+  also sends agy's own identity line and a neutral docs note instead of Pi's harness
+  wording, because the backend answered that prefix with a misleading HTTP 429 while the
+  account still had quota.
+- **Host helper imports no longer break on newer Pi releases.** `hasApi`, `Type`,
+  `createProvider`, `lazyStream`, `isModelType` and `InMemoryCredentialStore` came from
+  pi-ai exports that newer hosts changed or removed; local equivalents keep Pi, Pi-Bolt,
+  Pig and omp on one code path.
+
 ## [0.6.2] - 2026-11-09
 
 ### Fixed

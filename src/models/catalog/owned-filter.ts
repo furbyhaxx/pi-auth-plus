@@ -1,6 +1,7 @@
 /** Visibility policies for providers owned by pi-auth-plus. */
-import { isModelType, type Provider } from "@earendil-works/pi-ai";
+import type { Provider } from "@earendil-works/pi-ai";
 import type { ProviderConfig, ProviderModelConfig } from "@earendil-works/pi-coding-agent";
+import { isModelType } from "../model-type.ts";
 
 export type ModelVisibility = (model: { readonly id: string }) => boolean;
 

@@ -81,6 +81,45 @@ function context(id = model.id) {
 }
 
 describe("families/google/request", () => {
+	test("agy's identity replaces the rejected Pi-Bolt opening sentence only", () => {
+		const piPrompt = normalizeContext({
+			systemPrompt:
+				"You are a coding assistant running inside Pi-Bolt, a build of pi (a coding agent harness) compiled ahead of time.\n\n<rules>keep these rules</rules>\n\n<docs>This is Pi-Bolt: its command is `pi-bolt`.</docs>\n\n<addendum>keep</addendum>",
+			messages: [{ role: "user", content: "hi", timestamp: 1 }],
+		});
+		const { body } = buildRequest({
+			model,
+			context: piPrompt,
+			options: {},
+			level,
+			project: "project",
+			sessions: sessions(),
+		});
+		const text = body.request.systemInstruction?.parts[0]?.text ?? "";
+		expect(text).toStartWith(
+			"You are Antigravity, a powerful agentic AI assistant designed by the Google Deepmind team.",
+		);
+		expect(text).not.toContain("Pi-Bolt");
+		expect(text).toContain("<rules>keep these rules</rules>");
+		expect(text).toContain("<addendum>keep</addendum>");
+		expect(text).not.toContain("This is Pi-Bolt");
+
+		const neutral = buildRequest({
+			model,
+			context: normalizeContext({
+				systemPrompt: "You are a coding assistant.",
+				messages: [{ role: "user", content: "hi", timestamp: 1 }],
+			}),
+			options: {},
+			level,
+			project: "project",
+			sessions: sessions(),
+		});
+		expect(neutral.body.request.systemInstruction).toEqual({
+			parts: [{ text: "You are a coding assistant." }],
+		});
+	});
+
 	test("Argon round-trip matches the 1.3.5 captured envelope and payload order", () => {
 		const { body, requestId } = buildRequest({
 			model,

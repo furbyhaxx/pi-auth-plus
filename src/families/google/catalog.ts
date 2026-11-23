@@ -1,5 +1,5 @@
 /** Antigravity's agent catalog, grouped thinking levels and Pi-owned refresh persistence. */
-import { hasApi, type Model, type RefreshModelsContext } from "@earendil-works/pi-ai";
+import type { Model, RefreshModelsContext } from "@earendil-works/pi-ai";
 import snapshotText from "../../../assets/antigravity/models.json" with { type: "text" };
 import { type FetchFn, ProviderHttpError, request } from "../../core/http/index.ts";
 import { encodeLevel, type ThinkingSpec, type WireEffort } from "./levels.ts";
@@ -54,9 +54,10 @@ export function parseCatalog(payload: unknown): AntigravityModel[] {
 				throw new AntigravityCatalogError("expected group modelIds");
 			}
 			for (const id of ids) {
-				const suffix = /-(minimal|low|medium|high)$/.exec(id);
+				const suffix = /-(minimal|low|medium|high|xhigh)$/.exec(id);
 				const effort = suffix?.[1];
-				if (effort !== "low" && effort !== "medium" && effort !== "high") continue;
+				if (effort !== "low" && effort !== "medium" && effort !== "high" && effort !== "xhigh")
+					continue;
 				const row = record(rows[id]);
 				if (!row) continue;
 				const name = nonEmpty(row["displayName"]);
@@ -65,12 +66,12 @@ export function parseCatalog(payload: unknown): AntigravityModel[] {
 				const maxTokens = positiveInteger(row["maxOutputTokens"]);
 				const thinking = parseThinking(row);
 				if (!name || !modelEnum || !contextWindow || !maxTokens || !thinking) continue;
-				const family = id.replace(/-(minimal|low|medium|high)$/, "");
+				const family = id.replace(/-(minimal|low|medium|high|xhigh)$/, "");
 				let model = families.get(family);
 				if (!model) {
 					model = {
 						id: family,
-						name: name.replace(/ \((Minimal|Low|Medium|High)\)$/i, ""),
+						name: name.replace(/ \((Minimal|Low|Medium|High|XHigh)\)$/i, ""),
 						provider: PROVIDER,
 						api: "google-generative-ai",
 						baseUrl: BASE_URL,
@@ -79,7 +80,14 @@ export function parseCatalog(payload: unknown): AntigravityModel[] {
 						contextWindow,
 						maxTokens,
 						cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-						thinkingLevelMap: { off: null, minimal: null, low: null, medium: null, high: null },
+						thinkingLevelMap: {
+							off: null,
+							minimal: null,
+							low: null,
+							medium: null,
+							high: null,
+							xhigh: null,
+						},
 					};
 					families.set(family, model);
 				}
@@ -112,7 +120,7 @@ export async function refreshCatalog(
 ): Promise<AntigravityModel[]> {
 	const stored = ctx.stored?.models.filter(
 		(model): model is AntigravityModel =>
-			model.provider === PROVIDER && hasApi(model, "google-generative-ai"),
+			model.provider === PROVIDER && model.api === "google-generative-ai",
 	);
 	if (!ctx.allowNetwork || ctx.credential?.type !== "oauth" || !ctx.credential.access) {
 		return stored ?? bundledModels();
@@ -162,7 +170,9 @@ function parseThinking(row: Record<string, unknown>): ThinkingSpec | undefined {
 				? "MEDIUM"
 				: row["thinkingLevel"] === 3
 					? "HIGH"
-					: undefined;
+					: row["thinkingLevel"] === 100
+						? "XHIGH"
+						: undefined;
 	if (level)
 		return { kind: row["supportsAdaptiveThinking"] === true ? "adaptive" : "level", level };
 	const budget = row["thinkingBudget"];

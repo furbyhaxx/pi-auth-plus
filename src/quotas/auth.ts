@@ -1,19 +1,18 @@
 /** Resolves quota credentials through Pi's model registry, so OAuth refresh stays Pi's. */
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+
 import { readCredential } from "../core/auth/index.ts";
 import { missingEnvironmentAuth } from "../core/auth/missing.ts";
+import { type ProviderAuthRegistry, providerAuthView } from "../core/host/registry.ts";
 import type { QuotaAuth } from "./types.ts";
 
 /** Uses Pi's refreshed auth, including header-only bearers, plus stored OAuth extras. */
 export async function quotaAuthFor(
 	id: string,
-	modelRegistry: Pick<ExtensionContext["modelRegistry"], "getProviderAuth"> | undefined,
+	modelRegistry: ProviderAuthRegistry | undefined,
 ): Promise<QuotaAuth | undefined> {
-	let resolved:
-		| Awaited<ReturnType<ExtensionContext["modelRegistry"]["getProviderAuth"]>>
-		| undefined;
+	let resolved: Awaited<ReturnType<typeof providerAuthView>>;
 	try {
-		resolved = await modelRegistry?.getProviderAuth(id);
+		resolved = await providerAuthView(modelRegistry, id);
 	} catch (error) {
 		if (missingEnvironmentAuth(error, id)) return undefined;
 		throw error;

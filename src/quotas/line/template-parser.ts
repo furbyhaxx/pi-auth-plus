@@ -1,7 +1,7 @@
 /** Owns template syntax, optional groups and validated token styles. */
 import type { ThemeToken } from "@earendil-works/pi-coding-agent";
 import type { Color } from "@earendil-works/pi-tui";
-import { parseColor } from "@earendil-works/pi-tui";
+import { parseHexColor, THEME_TOKENS } from "./theme.ts";
 import { plainText } from "./values.ts";
 
 /** Fixed fields, in addition to named window percentages. */
@@ -54,64 +54,6 @@ export interface CompiledTemplate {
 	unknown: readonly string[];
 	resolve: (token: string) => string | undefined;
 }
-const TOKENS: readonly ThemeToken[] = [
-	"accent",
-	"border",
-	"borderAccent",
-	"borderMuted",
-	"success",
-	"error",
-	"warning",
-	"muted",
-	"dim",
-	"text",
-	"thinkingText",
-	"scrollbarTrack",
-	"scrollbarThumb",
-	"selectedBg",
-	"searchMatchBg",
-	"searchMatchText",
-	"userMessageBg",
-	"userMessageText",
-	"customMessageBg",
-	"customMessageText",
-	"customMessageLabel",
-	"toolPendingBg",
-	"toolSuccessBg",
-	"toolErrorBg",
-	"toolTitle",
-	"toolOutput",
-	"mdHeading",
-	"mdLink",
-	"mdLinkUrl",
-	"mdCode",
-	"mdCodeBlock",
-	"mdCodeBlockBorder",
-	"mdQuote",
-	"mdQuoteBorder",
-	"mdHr",
-	"mdListBullet",
-	"toolDiffAdded",
-	"toolDiffRemoved",
-	"toolDiffContext",
-	"syntaxComment",
-	"syntaxKeyword",
-	"syntaxFunction",
-	"syntaxVariable",
-	"syntaxString",
-	"syntaxNumber",
-	"syntaxType",
-	"syntaxOperator",
-	"syntaxPunctuation",
-	"thinkingOff",
-	"thinkingMinimal",
-	"thinkingLow",
-	"thinkingMedium",
-	"thinkingHigh",
-	"thinkingXhigh",
-	"thinkingMax",
-	"bashMode",
-];
 function parseStyle(source: string): TokenStyle | undefined {
 	const style: TokenStyle = {};
 	for (const raw of source.split(",")) {
@@ -129,8 +71,8 @@ function parseStyle(source: string): TokenStyle | undefined {
 		if (!match) return undefined;
 		const value = match[2] ?? "";
 		const color = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)
-			? parseColor(value)
-			: TOKENS.find((token) => token === value);
+			? parseHexColor(value)
+			: THEME_TOKENS.find((token) => token === value);
 		if (!color) return undefined;
 		if (match[1] === "fg") style.fg = color;
 		else style.bg = color;

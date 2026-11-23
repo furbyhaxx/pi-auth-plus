@@ -11,11 +11,7 @@ import type {
 	StreamOptions,
 	TranscriptContext,
 } from "@earendil-works/pi-ai";
-import {
-	anthropicMessagesApi,
-	createProvider,
-	getCurrentTools,
-} from "@earendil-works/pi-ai/compat";
+import { anthropicMessagesApi, getCurrentTools } from "@earendil-works/pi-ai/compat";
 import type { TextRule } from "../../core/config/fields.ts";
 import type { PathEnv } from "../../core/paths/index.ts";
 import { bundledModels, hasCatalogPrice, refreshCatalog } from "./catalog.ts";
@@ -103,36 +99,31 @@ export function claudeProvider(deps: ClaudeProviderDeps): Provider<"anthropic-me
 		};
 	}
 
-	const provider = createProvider<"anthropic-messages">({
+	const provider: Provider<"anthropic-messages"> = {
 		id: PROVIDER,
 		name: "Claude",
 		baseUrl: models[0]?.baseUrl ?? DEFAULT_BASE_URL,
 		auth: deps.auth,
-		models,
-		filterModels: (catalog, credential) =>
-			credential?.type === "oauth" ? catalog.map(freeOf) : catalog.filter(hasCatalogPrice),
-		api: {
-			stream(model, context, options) {
-				const shaped = prepare(model as AnthropicModel, context, options);
-				return anthropic.stream(shaped.model, context, shaped.options);
-			},
-			streamSimple(model, context, options) {
-				const shaped = prepare(model as AnthropicModel, context, options);
-				return anthropic.streamSimple(shaped.model, context, shaped.options);
-			},
-		},
-	});
-	return {
-		...provider,
 		getModels: () => current,
 		getAllModels: () => current,
+		filterModels: (catalog, credential) =>
+			credential?.type === "oauth" ? catalog.map(freeOf) : catalog.filter(hasCatalogPrice),
+		stream(model, context, options) {
+			const shaped = prepare(model as AnthropicModel, context, options);
+			return anthropic.stream(shaped.model, context, shaped.options);
+		},
+		streamSimple(model, context, options) {
+			const shaped = prepare(model as AnthropicModel, context, options);
+			return anthropic.streamSimple(shaped.model, context, shaped.options);
+		},
 		async refreshModels(ctx) {
-			const models = await refreshCatalog(ctx, { fetch, now: Date.now });
+			const refreshed = await refreshCatalog(ctx, { fetch, now: Date.now });
 			await ctx.publish({
 				update: () => {
-					current = models;
+					current = refreshed;
 				},
 			});
 		},
 	};
+	return provider;
 }

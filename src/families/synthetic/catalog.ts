@@ -1,5 +1,5 @@
 /** Synthetic's public catalog, model mapping and Pi-owned persistence policy. */
-import { hasApi, type Model, type RefreshModelsContext } from "@earendil-works/pi-ai";
+import type { Model, RefreshModelsContext } from "@earendil-works/pi-ai";
 import snapshotText from "../../../assets/synthetic/models.json" with { type: "text" };
 import { type FetchFn, request } from "../../core/http/index.ts";
 
@@ -122,7 +122,7 @@ export async function refreshCatalog(
 ): Promise<SyntheticModel[]> {
 	const stored = ctx.stored?.models.filter(
 		(model): model is SyntheticModel =>
-			model.provider === PROVIDER && hasApi(model, "anthropic-messages"),
+			model.provider === PROVIDER && model.api === "anthropic-messages",
 	);
 	if (!ctx.allowNetwork) return stored ?? bundledModels();
 	if (

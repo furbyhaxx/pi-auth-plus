@@ -11,6 +11,7 @@ import {
 	refreshCatalog,
 } from "../../../src/families/google/catalog.ts";
 import { decodeLevel } from "../../../src/families/google/levels.ts";
+import fixture1515 from "../../../tests/fixtures/antigravity/models-1.5.15.json";
 
 const now = 1_800_000_000_000;
 const credential = {
@@ -77,7 +78,7 @@ describe("families/google/catalog", () => {
 			);
 			expect(model.thinkingLevelMap?.off).toBeNull();
 			expect(model.thinkingLevelMap?.minimal).toBeNull();
-			expect(model.thinkingLevelMap).not.toHaveProperty("xhigh");
+			expect(model.thinkingLevelMap?.xhigh).toBeNull();
 			expect(model.thinkingLevelMap).not.toHaveProperty("max");
 			for (const [effortIndex, effort] of (["low", "medium", "high"] as const).entries()) {
 				const encoded = model.thinkingLevelMap?.[effort];
@@ -145,6 +146,50 @@ describe("families/google/catalog", () => {
 		});
 		expect(models).toHaveLength(1);
 		expect(models[0]).toMatchObject({ id: "family", contextWindow: 100, maxTokens: 10 });
+	});
+
+	test("the live 1.5.15 catalogue yields four levels for Hydrogen and Neon", () => {
+		const models = parseCatalog(fixture1515);
+		const byId = new Map(models.map((model) => [model.id, model]));
+		for (const family of ["gemini-4-hydrogen", "gemini-4-neon"]) {
+			const map = byId.get(family)?.thinkingLevelMap;
+			const xhigh = map?.xhigh;
+			if (typeof xhigh !== "string") throw new Error(`missing ${family} xhigh`);
+			expect(decodeLevel(xhigh)).toMatchObject({
+				id: `${family}-xhigh`,
+				thinking: { level: "XHIGH" },
+			});
+		}
+		expect(byId.get("gemini-4-argon")?.thinkingLevelMap?.xhigh).toBeNull();
+		expect(byId.has("gemini-4-carbon")).toBe(false);
+	});
+
+	test("a four-level family keeps xhigh as its own catalog level", () => {
+		const row = fixture.models["gemini-4-argon-low"];
+		const models = parseCatalog({
+			models: {
+				"family-low": { ...row, thinkingLevel: 1 },
+				"family-medium": { ...row, thinkingLevel: 2 },
+				"family-high": { ...row, thinkingLevel: 3 },
+				"family-xhigh": { ...row, thinkingLevel: 100 },
+			},
+			agentModelSorts: [
+				{
+					groups: [
+						{
+							modelIds: ["family-low", "family-medium", "family-high", "family-xhigh"],
+						},
+					],
+				},
+			],
+		});
+		expect(models).toHaveLength(1);
+		const map = models[0]?.thinkingLevelMap;
+		expect(map?.low && decodeLevel(map.low)).toMatchObject({ thinking: { level: "LOW" } });
+		expect(map?.xhigh && decodeLevel(map.xhigh)).toMatchObject({
+			id: "family-xhigh",
+			thinking: { level: "XHIGH" },
+		});
 	});
 
 	test("offline and missing OAuth credentials restore without side effects", async () => {

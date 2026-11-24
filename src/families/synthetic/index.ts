@@ -34,6 +34,8 @@ export function createSyntheticFamily(
 	return {
 		id: PROVIDER,
 		label: "Synthetic",
+		// omp ships the provider, login and web search; our quota and tokenizers still apply.
+		ompBuiltin: "provider",
 		providers: [
 			{
 				id: PROVIDER,

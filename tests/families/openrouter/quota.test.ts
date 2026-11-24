@@ -55,7 +55,7 @@ describe("OpenRouter quota", () => {
 	test("contributes quotas without registering a Pi provider", () => {
 		const family = createOpenrouterFamily();
 		expect(family.register).toBeUndefined();
-		expect(family.providers).toEqual([
+		expect(family.providers).toMatchObject([
 			{ id: "openrouter", label: "OpenRouter", aliases: ["or"], quota: openrouterQuota },
 		]);
 		expect(openrouterQuota).toMatchObject({ kind: "credits", shortLabel: "or", parserVersion: 1 });

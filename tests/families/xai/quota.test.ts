@@ -28,7 +28,7 @@ describe("families/xai quota", () => {
 		const family = createXaiFamily();
 		expect(family.id).toBe("xai");
 		expect(family.register).toBeUndefined();
-		expect(family.providers).toEqual([
+		expect(family.providers).toMatchObject([
 			{ id: "xai", label: "xAI", aliases: ["grok"], quota: xaiQuota },
 		]);
 		expect(xaiQuota).toMatchObject({ kind: "windows", shortLabel: "xai", parserVersion: 1 });

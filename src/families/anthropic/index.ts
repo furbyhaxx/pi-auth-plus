@@ -27,6 +27,9 @@ export function createAnthropicFamily(
 				label: "Claude",
 				aliases: ["cl", "cc"],
 				quota: claudeQuota,
+				// omp keeps the Claude subscription under its own `anthropic` login.
+				ompLogins: [{ id: PROVIDER }, { id: "anthropic", oauthOnly: true }],
+				ompUsage: true,
 				ambient: () =>
 					env["ANTHROPIC_API_KEY"] ? { source: "ANTHROPIC_API_KEY", limited: false } : undefined,
 			},

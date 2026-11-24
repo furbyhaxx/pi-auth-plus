@@ -10,7 +10,16 @@ export function createXaiFamily(): FamilyAdapter {
 	return {
 		id: "xai",
 		label: "xAI",
-		providers: [{ id: "xai", label: "xAI", aliases: ["grok"], quota: xaiQuota }],
+		providers: [
+			{
+				id: "xai",
+				label: "xAI",
+				aliases: ["grok"],
+				quota: xaiQuota,
+				// omp's `xai` is the API-key product; the subscription billing is `xai-oauth`.
+				ompLogins: [{ id: "xai-oauth" }],
+			},
+		],
 		tokens: (model) => {
 			if (model.provider !== "xai") return undefined;
 			const cached = counters.get(model.id);

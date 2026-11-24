@@ -57,6 +57,12 @@ Provider details:
   unknown balance, never a fabricated zero. There are no timed windows or concurrency
   counters.
 
+On oh-my-pi the Claude quota also reads omp's `/login anthropic` subscription and the xAI
+quota reads `/login xai-oauth`. The Claude, Antigravity, OpenRouter and DeepSeek readings
+are also served to omp's own status line and `/usage` from the shared cache below, so omp
+adds no polling of its own for them. omp still polls its own `anthropic`, `openai-codex`,
+`synthetic` and `xai-oauth` usage, so Claude's usage endpoint answers 429 more often there.
+
 ## Codex login
 
 Pi's `openai` login ("Sign in with ChatGPT") is rejected with HTTP 401 by the ChatGPT

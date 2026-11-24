@@ -19,6 +19,20 @@ export interface ProviderEntry {
 	readonly quota?: QuotaSource;
 	/** Where to sign in when it is not `/login <id>`, e.g. a quota fed by another provider's login. */
 	readonly login?: ProviderLogin;
+	/**
+	 * oh-my-pi logins that serve this quota, tried in order; replaces the own id there. omp keeps
+	 * its subscriptions under ids of its own (`anthropic`, `xai-oauth`).
+	 */
+	readonly ompLogins?: readonly OmpLogin[];
+	/** Feeds this quota into oh-my-pi's usage display (status line, `/usage`) for this id. */
+	readonly ompUsage?: boolean;
+}
+
+/** One oh-my-pi login a quota may read. */
+export interface OmpLogin {
+	readonly id: string;
+	/** Skip an API key under this id; the quota endpoint takes subscription tokens only. */
+	readonly oauthOnly?: boolean;
 }
 
 /** A sign-in path other than Pi's `/login <id>`. */
@@ -45,6 +59,11 @@ export interface FamilyAdapter {
 	readonly id: string;
 	readonly label: string;
 	readonly providers: readonly ProviderEntry[];
+	/**
+	 * What oh-my-pi ships for this vendor itself: `"all"` drops the family there, `"provider"`
+	 * keeps only its quota and token parts.
+	 */
+	readonly ompBuiltin?: "all" | "provider";
 	/** Loads local state needed to decide registrations, without network or process work. */
 	readonly prepareProviders?: () => void | Promise<void>;
 	/** Declares providers without I/O; called after prepareProviders by registerFamilyProviders. */

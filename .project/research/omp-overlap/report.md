@@ -5,12 +5,15 @@ document:
   title: "oh-my-pi v19.1.1 overlap with pi-auth-plus"
   description: "Where oh-my-pi v19.1.1 already provides providers, quotas, token counting, web search, model management, status line and login surfaces that pi-auth-plus also provides, with the extension seams that could replace our code."
   status: "draft"
-  revision: 1
+  revision: 2
   created_at: "2026-11-24T09:22:40+01:00"
-  updated_at: "2026-11-24T09:22:40+01:00"
+  updated_at: "2026-11-24T10:15:12+01:00"
   created_by: "scout"
-  updated_by: "scout"
+  updated_by: "claude"
   changelog:
+    - revision: 2
+      reason: "hybrid integration landed (0.8.0)"
+      changes: ["Marked conflicts 1, 3, 4, 5 and 7 resolved and 6 reduced by the omp hybrid split"]
     - revision: 1
       reason: "document creation"
       changes: ["Mapped omp v19.1.1 provider, quota, token-counting, web-search, model, status-line and login surfaces against pi-auth-plus; listed concrete conflicts"]
@@ -164,7 +167,7 @@ pi-auth-plus registers all six (`src/families/opencode/index.ts:82,92`,
 
 ## Concrete conflicts
 
-1. **`synthetic` registered twice, with a different wire.** omp's built-in is
+1. **Resolved 0.8.0 (omp's provider serves it): `synthetic` registered twice, with a different wire.** omp's built-in is
    `openai-completions` on `/openai/v1` (`omp/packages/catalog/src/provider-models/openai-compat.ts:4661-4666`);
    our registration replaces its models and points them at `anthropic-messages` on `/anthropic`
    (`src/families/synthetic/index.ts:66-78`) through `registerProvider`, whose contract is "if
@@ -181,7 +184,7 @@ pi-auth-plus registers all six (`src/families/opencode/index.ts:82,92`,
    bearer. `hostProviderConfig` now drops `$NAME` references on omp and moves the static models to
    `fetchDynamicModels`, so omp's own cascade serves the key.
 
-3. **`opencode` vs `opencode-zen` breaks our Zen patch on omp.** Our hooks branch on
+3. **Resolved 0.8.0 (family off on omp): `opencode` vs `opencode-zen` breaks our Zen patch on omp.** Our hooks branch on
    `provider === "opencode"` (`src/families/opencode/index.ts:85,92`) and our anonymous key
    registration uses the same id (`:10,73-76`); omp's Zen provider is `opencode-zen`
    (`omp/packages/catalog/src/compat/provider-ids.ts:69-70`). On omp the header/body spoof never
@@ -190,18 +193,18 @@ pi-auth-plus registers all six (`src/families/opencode/index.ts:82,92`,
    `ses_` identity anywhere in `omp/packages` (search over the tree), so our behaviour cannot be
    reproduced by configuration there.
 
-4. **`opencode-go` shares the id and omp already reports its quota.** Ours registers the id
+4. **Resolved 0.8.0 (family off on omp): `opencode-go` shares the id and omp already reports its quota.** Ours registers the id
    (`src/families/opencode/index.ts:11`) with no quota (`docs/quotas.md:27`); omp has
    `GET /zen/go/v1/usage` with three windows (`omp/packages/ai/src/usage/opencode-go.ts:16-34`).
 
-5. **`xai` names two different products.** Our quota entry is `xai` with alias `grok`
+5. **Resolved 0.8.0 (quota reads `xai-oauth`):** `xai` names two different products. Our quota entry is `xai` with alias `grok`
    (`src/families/xai/index.ts:13`), matching omp's paid API-key provider (`rules/providers/xai.kdl:93`
    in `provider-ids.ts:93`), while the SuperGrok subscription — the account our quota reads — is
    `xai-oauth` in omp (`rules/providers/xai-oauth.kdl:3-6`; usage `usage/xai-oauth.ts:34`).
    Any migration of our quota onto `ProviderConfigInput.usage` under the name `xai` would attach
    subscription usage to the API-key product.
 
-6. **Double quota polling of the same endpoints.** claude (`src/families/anthropic/quota.ts:17`
+6. **Reduced 0.8.0 (claude, antigravity, openrouter, deepseek feed omp from our cache): Double quota polling of the same endpoints.** claude (`src/families/anthropic/quota.ts:17`
    vs `omp/packages/ai/src/usage/claude.ts:704`), codex (`src/families/openai/quota.ts:15` vs
    `omp/packages/ai/src/usage/openai-codex.ts:24`), synthetic (`src/families/synthetic/quota.ts:11`
    vs `omp/packages/ai/src/usage/synthetic.ts:13`) and xai (`src/families/xai/quota.ts:10-11` vs
@@ -210,7 +213,7 @@ pi-auth-plus registers all six (`src/families/opencode/index.ts:82,92`,
    `omp/docs/extensions.md:234-237`) on two schedules (our 60 s default with a 5-min Claude floor,
    `docs/quotas.md:280-285`; omp's 5-minute status-line TTL, `status-line/component.ts:2190-2191`).
 
-7. **Two web-search tools over the same endpoint.** omp `web_search`
+7. **Resolved 0.8.0 (our tool is off on omp): Two web-search tools over the same endpoint.** omp `web_search`
    (`omp/packages/coding-agent/src/web/search/index.ts:593`) and our `synthetic_web_search`
    (`src/families/synthetic/web-search.ts:27`) both eventually POST
    `https://api.synthetic.new/v2/search` (omp `providers/synthetic.ts:18`; ours `:28`). omp's

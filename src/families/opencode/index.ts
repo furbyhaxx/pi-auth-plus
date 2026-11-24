@@ -52,6 +52,8 @@ export function createOpencodeFamily(
 	return {
 		id: "opencode",
 		label: "OpenCode",
+		// omp ships Zen (`opencode-zen`) and Go with their own identity and usage.
+		ompBuiltin: "all",
 		providers: [
 			{
 				id: ZEN_PROVIDER,

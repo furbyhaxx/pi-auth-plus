@@ -19,7 +19,13 @@ export function createGoogleFamily(fetchFn: FetchFn = fetch): FamilyAdapter {
 		id: "google",
 		label: "Google",
 		providers: [
-			{ id: PROVIDER, label: "Antigravity", aliases: ["agy", "ag"], quota: antigravityQuota() },
+			{
+				id: PROVIDER,
+				label: "Antigravity",
+				aliases: ["agy", "ag"],
+				quota: antigravityQuota(),
+				ompUsage: true,
+			},
 		],
 		tokens: (model, deps) => {
 			if (model.provider !== PROVIDER) return undefined;

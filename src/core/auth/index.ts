@@ -68,17 +68,31 @@ export function parseCredential(raw: unknown): StoredCredential | undefined {
 	return { type: "oauth", access, refresh, expires, extra };
 }
 
+/** A host's own credential lookup, for hosts that keep logins outside `auth.json`. */
+export type CredentialReader = (providerId: string) => unknown;
+
+let hostReader: CredentialReader | undefined;
+
+/** Installs or clears the host's credential lookup; `readCredential` prefers it over the file. */
+export function useCredentialReader(reader: CredentialReader | undefined): void {
+	hostReader = reader;
+}
+
 /**
  * Reads one slot synchronously, for factory-time decisions before any session exists.
  * A missing, unreadable or malformed file reads as no credential, as in Pi's own reader.
  */
-export function readCredential(
-	providerId: string,
-	path = authPath(),
-): StoredCredential | undefined {
+export function readCredential(providerId: string, path?: string): StoredCredential | undefined {
+	if (path === undefined && hostReader) {
+		try {
+			return parseCredential(hostReader(providerId));
+		} catch {
+			return undefined;
+		}
+	}
 	let text: string;
 	try {
-		text = readFileSync(path, "utf8");
+		text = readFileSync(path ?? authPath(), "utf8");
 	} catch {
 		return undefined;
 	}

@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-24
+
+### Changed
+
+- **On oh-my-pi, omp's own Synthetic and OpenCode providers take over.** omp ships both with
+  its own login, catalogue and web search, so pi-auth-plus no longer registers `synthetic`,
+  `synthetic_web_search` or the OpenCode patch there. Synthetic models now run over omp's
+  route; our Synthetic quota and `hf:` token counts still apply. Nothing changes on Pi,
+  Pi-Bolt or Pig.
+
+### Added
+
+- **omp's status line and `/usage` show our quotas.** Claude, Antigravity, OpenRouter and
+  DeepSeek readings are served to omp from the shared quota cache, so omp needs no extra
+  polling for them.
+- **Quotas read omp's own logins.** The Claude quota falls back to omp's `/login anthropic`
+  subscription and the xAI quota reads `/login xai-oauth`; no second login is needed.
+
+### Fixed
+
+- **`/auth` showed every provider as signed out on oh-my-pi.** omp keeps logins in its
+  database instead of `auth.json`; `/auth` now reads them from omp.
+
 ## [0.7.1] - 2026-11-24
 
 ### Fixed

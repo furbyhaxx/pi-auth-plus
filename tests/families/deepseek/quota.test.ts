@@ -23,7 +23,7 @@ describe("DeepSeek quota", () => {
 	test("contributes quotas and aliases without registering the builtin", () => {
 		const family = createDeepseekFamily();
 		expect(family.register).toBeUndefined();
-		expect(new Registry([family]).resolve("ds")?.provider).toEqual({
+		expect(new Registry([family]).resolve("ds")?.provider).toMatchObject({
 			id: "deepseek",
 			label: "DeepSeek",
 			aliases: ["ds"],

@@ -7,6 +7,8 @@ export function createDeepseekFamily(): FamilyAdapter {
 	return {
 		id: "deepseek",
 		label: "DeepSeek",
-		providers: [{ id: "deepseek", label: "DeepSeek", aliases: ["ds"], quota: deepseekQuota }],
+		providers: [
+			{ id: "deepseek", label: "DeepSeek", aliases: ["ds"], quota: deepseekQuota, ompUsage: true },
+		],
 	};
 }

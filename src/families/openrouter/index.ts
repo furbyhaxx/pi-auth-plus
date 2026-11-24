@@ -7,6 +7,14 @@ export function createOpenrouterFamily(): FamilyAdapter {
 	return {
 		id: "openrouter",
 		label: "OpenRouter",
-		providers: [{ id: "openrouter", label: "OpenRouter", aliases: ["or"], quota: openrouterQuota }],
+		providers: [
+			{
+				id: "openrouter",
+				label: "OpenRouter",
+				aliases: ["or"],
+				quota: openrouterQuota,
+				ompUsage: true,
+			},
+		],
 	};
 }

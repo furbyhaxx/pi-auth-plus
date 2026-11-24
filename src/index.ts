@@ -12,14 +12,15 @@ import type {
 	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
 import { handleQuotaCli, registerQuotaCliFlags } from "./cli/index.ts";
-import { credentialStatus, readCredential } from "./core/auth/index.ts";
+import { credentialStatus, readCredential, useCredentialReader } from "./core/auth/index.ts";
 import { shareBoundaryEvents } from "./core/boundary/index.ts";
 import { type AppSettings, SETTINGS } from "./core/config/catalog.ts";
 import { SettingsStore } from "./core/config/index.ts";
 import { createSettingsSaver } from "./core/config/save.ts";
 import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts/index.ts";
-import { hostProviderSink, hostSettings, hostTakesConfigsOnly } from "./core/host/index.ts";
+import { hostProviderSink, hostSettings } from "./core/host/index.ts";
 import { legacyProviderConfig } from "./core/host/legacy-provider.ts";
+import { hostCredentialReader, hostFamilies, isOmp, registerOmpUsage } from "./core/host/omp.ts";
 import {
 	cacheDir,
 	modelsPath,
@@ -63,6 +64,7 @@ import { quotaLineConfig } from "./quotas/line/line.ts";
 import { formatPlainTextSummary } from "./quotas/line/summary.ts";
 import { adaptLineTheme } from "./quotas/line/theme.ts";
 import { carryOverPiQuotas } from "./quotas/migrate/index.ts";
+import { engineUsageReport } from "./quotas/omp-usage.ts";
 import { engineReport } from "./quotas/report.ts";
 import { enabledQuotaProviders } from "./quotas/settings.ts";
 import { registerTokenBus } from "./tokens/bus.ts";
@@ -143,6 +145,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		startupOwners.set(event, state);
 		session = state;
 		quotaContext = ctx;
+		useCredentialReader(hostCredentialReader(ctx.modelRegistry));
 		previous.abort();
 		if (signal.aborted) return;
 		physicalResponseProviders.clear();
@@ -190,7 +193,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 	}
 	registerQuotaCliFlags(pi);
 	await handleQuotaCli(process.argv.slice(2));
-	const registry = new Registry(FAMILIES);
+	const registry = new Registry(hostFamilies(pi, FAMILIES));
 	let settings: AppSettings = new SettingsStore(SETTINGS, { user: userSettingsPath() });
 	await settings.load();
 	let lastRules: readonly string[] | undefined;
@@ -247,7 +250,7 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				const visible = filterNativeProvider(aliased, (model) =>
 					isVisible(providerOrName.id, model),
 				);
-				if (!hostTakesConfigsOnly(pi)) hostProviderSink(pi).registerProvider(visible);
+				if (!isOmp(pi)) hostProviderSink(pi).registerProvider(visible);
 				else {
 					const legacy = legacyProviderConfig(visible);
 					if (legacy) hostProviderSink(pi).registerProvider(providerOrName.id, legacy);
@@ -506,6 +509,11 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 		authFor: (id) => quotaAuthFor(id, quotaContext?.modelRegistry),
 		backgroundNetwork: !offline,
 	});
+	registerOmpUsage(
+		pi,
+		registry.providers().map(({ provider }) => provider),
+		engineUsageReport(quotas, () => quotasEnabled),
+	);
 	const quotaLine = createQuotaLine(pi, {
 		engine: quotas,
 		registry,

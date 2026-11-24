@@ -42,14 +42,26 @@ for stored credentials, environment/model-file sources and anonymous access.
 `claude`, `antigravity` and `synthetic` provide model catalogs; OpenCode is a patch of
 Pi's built-ins.
 
-On oh-my-pi, providers are registered through its runtime under namespaced API ids
-(`pi-auth-plus-anthropic-messages`, `pi-auth-plus-google-generative-ai`); the model ids,
-`/login` and wire behaviour are the same. Three surfaces need a fuller Pi host: virtual
-model groups, custom session-entry rendering, and visibility rules for providers another
-extension registered. `omp` keeps its own builtin providers, so a `synthetic` model id
-present in both catalogs uses this package's entry. The last four rows use Pi's providers for inference/auth; pi-auth-plus
-adds quota sources rather than new inference providers. Quota aliases do not rename
-Pi's login commands.
+The last four rows use Pi's providers for inference/auth; pi-auth-plus adds quota sources
+rather than new inference providers. Quota aliases do not rename Pi's login commands.
+
+### On oh-my-pi
+
+omp ships several of these vendors itself, so pi-auth-plus adds only what omp lacks:
+
+| Vendor | On omp |
+|---|---|
+| Claude, Antigravity | Our providers, registered under namespaced API ids (`pi-auth-plus-anthropic-messages`, `pi-auth-plus-google-generative-ai`); model ids, `/login` and wire behaviour are the same as on Pi. |
+| Synthetic | omp's own provider, login and `web_search`; our quota and `hf:` tokenizers still apply. `synthetic_web_search` is not offered. |
+| OpenCode Zen and Go | omp's own `opencode-zen` and `opencode-go`; our patch is off. |
+| Claude quota | Reads `/login claude`, else omp's `/login anthropic` subscription (OAuth only). |
+| xAI quota | Reads omp's `/login xai-oauth`; omp's `xai` is the API-key product. |
+| Codex, Synthetic, xAI quotas | Shown in `/auth`; omp's status line and `/usage` show its own readings. |
+| Claude, Antigravity, OpenRouter, DeepSeek quotas | Also fed into omp's status line and `/usage` from our shared cache. |
+
+`/auth` reads omp's logins. Three surfaces need a fuller Pi host: virtual model groups,
+custom session-entry rendering, and visibility rules for providers another extension
+registered.
 
 Synthetic's catalog refreshes through Pi and persists in Pi's model store. It skips
 models without usable prices or tool support; a bundled catalog covers the first run.

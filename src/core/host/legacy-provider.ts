@@ -3,14 +3,17 @@
  * drain accepts only a name plus config, and it reserves built-in API names, so the stream
  * is exposed under a namespaced API id that its models then reference.
  */
-import type {
-	Credential,
-	OAuthLoginCallbacks,
-	Provider,
-	ProviderAuth,
-	RefreshModelsContext,
-	SimpleStreamOptions,
-	ThinkingLevelMap,
+import {
+	type Context,
+	type Credential,
+	normalizeContext,
+	type OAuthLoginCallbacks,
+	type Provider,
+	type ProviderAuth,
+	type RefreshModelsContext,
+	type SimpleStreamOptions,
+	type ThinkingLevelMap,
+	type TranscriptContext,
 } from "@earendil-works/pi-ai";
 import type { ProviderConfig, ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 
@@ -216,6 +219,25 @@ function withBearer(options: SimpleStreamOptions | undefined): SimpleStreamOptio
 }
 
 /**
+ * Pi carries the prompt and tools in the transcript's system messages; oh-my-pi passes them as
+ * `systemPrompt` (an array of parts) and `tools` beside the messages. Without this a family's
+ * own stream sends neither, and the model answers without instructions or tools.
+ */
+export function transcriptContext(context: TranscriptContext): TranscriptContext {
+	if (context.messages.some((message) => message.role === "system")) return context;
+	const prompt: unknown = Reflect.get(context, "systemPrompt");
+	const parts = Array.isArray(prompt) ? prompt : [prompt];
+	const text = parts.filter((part): part is string => typeof part === "string" && part !== "");
+	const tools: unknown = Reflect.get(context, "tools");
+	const host: Context = {
+		messages: context.messages,
+		...(text.length > 0 ? { systemPrompt: text.join("\n\n") } : {}),
+		...(Array.isArray(tools) && tools.length > 0 ? { tools } : {}),
+	};
+	return normalizeContext(host);
+}
+
+/**
  * A Pi provider config in oh-my-pi's shape: `fetchDynamicModels` in place of `refreshModels`,
  * effort lists in place of `thinkingLevelMap`, and no environment-reference key.
  *
@@ -244,7 +266,7 @@ export function hostProviderConfig(config: ProviderConfig): HostProviderConfig {
 			const thinkingLevelMap = model.thinkingLevelMap ?? restoredLevelMap(model);
 			return streamSimple(
 				thinkingLevelMap ? { ...model, thinkingLevelMap } : model,
-				context,
+				transcriptContext(context),
 				config.oauth ? withBearer(options) : options,
 			);
 		};

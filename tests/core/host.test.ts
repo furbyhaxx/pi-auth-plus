@@ -188,6 +188,37 @@ describe("core/host capabilities", () => {
 			},
 		]);
 	});
+
+	test("an oh-my-pi stream receives the host prompt and tools as Pi's system message", () => {
+		const configs: Record<string, unknown>[] = [];
+		const runtime = {
+			registerProvider: (_name: string, config: Record<string, unknown>) => configs.push(config),
+		};
+		const seen: unknown[] = [];
+		hostProviderSink(fakeApi({ runtime })).registerProvider("antigravity", {
+			name: "Antigravity",
+			baseUrl: "https://example.test",
+			api: "pi-auth-plus-google-generative-ai",
+			apiKey: "k",
+			models: [],
+			streamSimple: (_model, context) => {
+				seen.push(context.messages);
+				throw new Error("stop");
+			},
+		});
+		const stream = configs[0]?.["streamSimple"];
+		if (typeof stream !== "function") throw new Error("streamSimple missing");
+		const tool = { name: "bash", description: "Run a command", parameters: { type: "object" } };
+		const user = { role: "user", content: "hi", timestamp: 5 };
+		const omp = { systemPrompt: ["You are omp.", "Rules."], tools: [tool], messages: [user] };
+		expect(() => stream({ id: "m" }, omp, {})).toThrow("stop");
+		expect(seen).toEqual([
+			[
+				{ role: "system", content: "You are omp.\n\nRules.", toolsAdded: [tool], timestamp: 0 },
+				user,
+			],
+		]);
+	});
 });
 
 describe("core/host registry views", () => {

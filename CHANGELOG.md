@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-24
+
+### Fixed
+
+- **Antigravity and Claude on oh-my-pi lost their tools and system prompt.** omp hands a
+  provider its prompt and tools beside the messages; our own streams read them from Pi's
+  system message, so every request went out without either and models answered that they had
+  no tool access. The prompt and tools now reach the request. Restart running omp sessions after
+  `omp plugin upgrade @furbyhaxx/pi-auth-plus`.
+
 ## [0.8.0] - 2026-11-24
 
 ### Changed

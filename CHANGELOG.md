@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-24
+
 ### Fixed
 
 - **Synthetic quota and the first request work on oh-my-pi.** omp sent the registered key

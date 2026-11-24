@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-11-24
+
+### Fixed
+
+- **Antigravity rejected a turn with "Function call is missing a thought_signature" after
+  another model made a tool call in it.** A fallback model's call (or any call Google did not
+  sign) reached Gemini 3+ without a signature, and the 400 sent the turn to the next fallback.
+  The first unsigned call of each step now carries Google's documented
+  `skip_thought_signature_validator`, on every host; later parallel calls stay bare, real
+  signatures are unchanged.
+
 ## [0.8.2] - 2026-11-24
 
 ### Fixed

@@ -116,6 +116,23 @@ function transcript(target: Model<"google-generative-ai">) {
 	});
 }
 
+/** Upstream plus our one deliberate delta: Gemini 3+ steps whose first call is unsigned get the bypass. */
+function upstreamWithBypass(
+	target: Model<"google-generative-ai">,
+	context: Parameters<typeof upstream.convertMessages>[1],
+) {
+	const contents = upstream.convertMessages(target, context);
+	const version = parts.getGeminiMajorVersion(target.id);
+	if (version === undefined || version < 3) return contents;
+	for (const content of contents) {
+		if (content.role !== "model") continue;
+		const first = content.parts?.find((part) => part.functionCall);
+		if (first && !first.thoughtSignature)
+			first.thoughtSignature = "skip_thought_signature_validator";
+	}
+	return contents;
+}
+
 describe("families/google/convert upstream parity", () => {
 	for (const id of ["gemini-4-argon", "claude-opus-5-5", "gpt-oss-120b", "gemini-2.5-pro"]) {
 		for (const vision of [true, false]) {
@@ -123,7 +140,7 @@ describe("families/google/convert upstream parity", () => {
 				const target = model(id, vision);
 				const context = transcript(target);
 				expect<unknown>(local.convertMessages(target, context)).toEqual(
-					upstream.convertMessages(target, context),
+					upstreamWithBypass(target, context),
 				);
 			});
 		}
@@ -146,7 +163,38 @@ describe("families/google/convert upstream parity", () => {
 			],
 		});
 		expect<unknown>(local.convertMessages(target, context)).toEqual(
-			upstream.convertMessages(target, context),
+			upstreamWithBypass(target, context),
+		);
+	});
+
+	test("only an unsigned first call of a Gemini 3+ step gets the bypass", () => {
+		const target = model("gemini-4-neon");
+		const foreign = { ...target, provider: "openai-codex", id: "gpt-6.2-sol" };
+		const call = (id: string, thoughtSignature?: string) => ({
+			type: "toolCall" as const,
+			id,
+			name: "read",
+			arguments: {},
+			...(thoughtSignature ? { thoughtSignature } : {}),
+		});
+		const context = normalizeContext({
+			messages: [
+				{ role: "user", content: "go", timestamp: 1 },
+				assistant(foreign, [call("a"), call("b")]),
+				assistant(target, [call("c", signature), call("d")]),
+			],
+		});
+		const calls = local
+			.convertMessages(target, context)
+			.filter((content) => content.role === "model")
+			.map((content) => content.parts.map((part) => part.thoughtSignature ?? null));
+		expect(calls).toEqual([
+			["skip_thought_signature_validator", null],
+			[signature, null],
+		]);
+		const older = local.convertMessages(model("gemini-2.5-pro"), context);
+		expect(older.flatMap((content) => content.parts).some((part) => part.thoughtSignature)).toBe(
+			false,
 		);
 	});
 

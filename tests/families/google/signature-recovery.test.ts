@@ -574,13 +574,13 @@ describe("thought signature recovery", () => {
 		expect(result.final?.stopReason).toBe("stop");
 	});
 
-	test("recovers the actual Antigravity provider's nested request, including aliases", async () => {
+	test("the actual Antigravity provider signs an unsigned call up front, including aliases", async () => {
 		for (const alias of [false, true]) {
 			const result = await runAntigravityScenario(alias);
 			expect(result.errors).toEqual([]);
 			expect(result.toolRuns).toBe(1);
-			expect(result.requests).toHaveLength(3);
-			expect(toolParts(result.requests[2] ?? [])[0]?.["thoughtSignature"]).toBe(DUMMY);
+			expect(result.requests).toHaveLength(2);
+			expect(toolParts(result.requests[1] ?? [])[0]?.["thoughtSignature"]).toBe(DUMMY);
 			expect(result.final?.stopReason).toBe("stop");
 		}
 	});

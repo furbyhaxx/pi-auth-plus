@@ -53,6 +53,19 @@ function resolveThoughtSignature(
 ): string | undefined {
 	return isSameProviderAndModel && isValidThoughtSignature(signature) ? signature : undefined;
 }
+
+/**
+ * Google's documented bypass for a function call it did not sign (another model's call, a
+ * dropped signature). Cloud Code requires a signature on the first call of each step and
+ * rejects the request with 400 otherwise; later parallel calls of a step must stay bare.
+ */
+const SKIP_THOUGHT_SIGNATURE = "skip_thought_signature_validator";
+
+function signsFunctionCalls(modelId: string): boolean {
+	const version = getGeminiMajorVersion(modelId);
+	return version !== undefined && version >= 3;
+}
+
 function supportsMultimodalFunctionResponse(modelId: string): boolean {
 	const geminiMajorVersion = getGeminiMajorVersion(modelId);
 	if (geminiMajorVersion !== undefined) {
@@ -101,6 +114,7 @@ export function convertMessages(
 		} else if (msg.role === "assistant") {
 			const parts: Part[] = [];
 			const isSameProviderAndModel = msg.provider === model.provider && msg.model === model.id;
+			let firstCall = true;
 			for (const block of msg.content) {
 				if (block.type === "text") {
 					const thoughtSignature = resolveThoughtSignature(
@@ -131,10 +145,10 @@ export function convertMessages(
 						});
 					}
 				} else if (block.type === "toolCall") {
-					const thoughtSignature = resolveThoughtSignature(
-						isSameProviderAndModel,
-						block.thoughtSignature,
-					);
+					const thoughtSignature =
+						resolveThoughtSignature(isSameProviderAndModel, block.thoughtSignature) ??
+						(firstCall && signsFunctionCalls(model.id) ? SKIP_THOUGHT_SIGNATURE : undefined);
+					firstCall = false;
 					const part: Part = {
 						functionCall: {
 							name: block.name,

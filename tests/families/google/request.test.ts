@@ -81,33 +81,13 @@ function context(id = model.id) {
 }
 
 describe("families/google/request", () => {
-	test("agy's identity replaces the rejected Pi-Bolt opening sentence only", () => {
-		const piPrompt = normalizeContext({
-			systemPrompt:
-				"You are a coding assistant running inside Pi-Bolt, a build of pi (a coding agent harness) compiled ahead of time.\n\n<rules>keep these rules</rules>\n\n<docs>This is Pi-Bolt: its command is `pi-bolt`.</docs>\n\n<addendum>keep</addendum>",
-			messages: [{ role: "user", content: "hi", timestamp: 1 }],
-		});
+	test("the host prompt leaves systemInstruction and leads the first user turn verbatim", () => {
+		const prompt =
+			"You are omp's trusted coding assistant.\n\n<rules>keep these rules</rules>\n\n<docs>This is Pi-Bolt.</docs>";
 		const { body } = buildRequest({
 			model,
-			context: piPrompt,
-			options: {},
-			level,
-			project: "project",
-			sessions: sessions(),
-		});
-		const text = body.request.systemInstruction?.parts[0]?.text ?? "";
-		expect(text).toStartWith(
-			"You are Antigravity, a powerful agentic AI assistant designed by the Google Deepmind team.",
-		);
-		expect(text).not.toContain("Pi-Bolt");
-		expect(text).toContain("<rules>keep these rules</rules>");
-		expect(text).toContain("<addendum>keep</addendum>");
-		expect(text).not.toContain("This is Pi-Bolt");
-
-		const neutral = buildRequest({
-			model,
 			context: normalizeContext({
-				systemPrompt: "You are a coding assistant.",
+				systemPrompt: prompt,
 				messages: [{ role: "user", content: "hi", timestamp: 1 }],
 			}),
 			options: {},
@@ -115,9 +95,17 @@ describe("families/google/request", () => {
 			project: "project",
 			sessions: sessions(),
 		});
-		expect(neutral.body.request.systemInstruction).toEqual({
-			parts: [{ text: "You are a coding assistant." }],
-		});
+		const instruction = body.request.systemInstruction?.parts[0]?.text ?? "";
+		expect(instruction).toStartWith(
+			"You are Antigravity, a powerful agentic AI assistant designed by the Google Deepmind team.",
+		);
+		expect(instruction).not.toContain("omp");
+		expect(instruction).not.toContain("Pi-Bolt");
+		expect(body.request.contents).toHaveLength(1);
+		expect(body.request.contents[0]?.parts).toEqual([
+			{ text: `<operator_instructions>\n${prompt}\n</operator_instructions>` },
+			{ text: "hi" },
+		]);
 	});
 
 	test("Argon round-trip matches the 1.3.5 captured envelope and payload order", () => {
@@ -163,7 +151,9 @@ describe("families/google/request", () => {
 			thinkingConfig: { includeThoughts: true, thinkingLevel: "LOW" },
 		});
 		expect(body.request.contents.map((entry) => entry.role)).toEqual(["user", "model", "user"]);
-		expect(body.request.systemInstruction).toEqual({ parts: [{ text: "Help" }] });
+		expect(body.request.contents[0]?.parts[0]).toEqual({
+			text: "<operator_instructions>\nHelp\n</operator_instructions>",
+		});
 		expect(body.request.tools?.[0]?.functionDeclarations[0]?.["parameters"]).toEqual({
 			type: "OBJECT",
 			properties: { path: { type: "STRING" } },
@@ -191,13 +181,14 @@ describe("families/google/request", () => {
 			project: "p",
 			sessions: sessions(),
 		});
-		expect(body.request.contents[0]?.parts).toEqual([{ text: "Earlier answer" }]);
-		expect(body.request.contents[2]?.parts).toContainEqual({
+		expect(body.request.contents[0]?.role).toBe("user");
+		expect(body.request.contents[1]?.parts).toEqual([{ text: "Earlier answer" }]);
+		expect(body.request.contents[3]?.parts).toContainEqual({
 			thought: true,
 			text: "private",
 			thoughtSignature: "c2lnbmVkLXRob3VnaHQ=",
 		});
-		expect(body.request.contents[2]?.parts).toContainEqual({
+		expect(body.request.contents[3]?.parts).toContainEqual({
 			functionCall: { name: "read", args: { path: "file" }, id: "call1" },
 			thoughtSignature: "c2lnbmVkLWNhbGw=",
 		});

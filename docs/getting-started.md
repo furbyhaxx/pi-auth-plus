@@ -110,6 +110,10 @@ Select models under `antigravity`, not the fork's `google` id. There is one entr
 model family; Pi's thinking level selects the wire level. This is one-account access:
 account pools, Claustrum vault data and fork-specific packages are not imported.
 
+agy's Orchestrator rows (`gemini-pro-orchestrator`, `-neon`, `-argon`) are not offered: agy
+runs them itself as a planner model handing a plan to an executor model, and the server
+rejects those ids. Pick the planner or executor model directly instead.
+
 ### From pi-quotas
 
 Remove pi-quotas, then start a session. While it remains loaded, pi-auth-plus's session

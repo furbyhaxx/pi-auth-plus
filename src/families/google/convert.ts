@@ -29,7 +29,7 @@ interface Part {
 		id?: string;
 	};
 }
-interface Content {
+export interface Content {
 	role: "user" | "model";
 	parts: Part[];
 }

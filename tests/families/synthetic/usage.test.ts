@@ -284,7 +284,7 @@ describe("Synthetic tokenizer usage", () => {
 		};
 		const result = end(interleaved);
 		const message = result?.message;
-		if (!message || message.role !== "assistant") throw new Error("no assistant message");
+		if (message?.role !== "assistant") throw new Error("no assistant message");
 		expect(message.content).toEqual([
 			{ type: "thinking", thinking: "Let me check Then commit." },
 			{ type: "text", text: " the gate." },

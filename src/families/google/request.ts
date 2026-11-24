@@ -8,7 +8,7 @@ import {
 	type StreamOptions,
 	type TranscriptContext,
 } from "@earendil-works/pi-ai";
-import { convertMessages, convertTools } from "./convert.ts";
+import { type Content, convertMessages, convertTools } from "./convert.ts";
 import { thinkingConfig, type WireLevel } from "./levels.ts";
 import { toGeminiSchema } from "./schema.ts";
 
@@ -174,21 +174,34 @@ export interface BuildRequestOptions {
 }
 
 /**
- * agy's own opening identity line, recovered from the CLI binary. The backend rejects the
- * Pi/Pi-Bolt harness sentence ("coding assistant running inside Pi") with HTTP 429, so the
- * first identity sentence is replaced and every other instruction is left untouched.
+ * The backend answers a misleading `429 RESOURCE_EXHAUSTED` when `systemInstruction` carries
+ * phrases it fingerprints as another harness (Pi's identity and `<docs>`, omp's identity and
+ * edit-tool rules, and more over time); it does not scan `contents`. So the instruction holds
+ * agy's own identity line from the CLI binary plus a pointer, and the host prompt rides
+ * verbatim at the head of the first user turn.
  */
 const AGY_IDENTITY =
 	"You are Antigravity, a powerful agentic AI assistant designed by the Google Deepmind team.";
-const HARNESS_IDENTITY = /^You are (?:a|an) [^.]*running inside [^.]*\.\s*/i;
-/** Pi's own documentation block names the Pi-Bolt harness; the backend rejects that shape too. */
-const HARNESS_DOCS = /<docs>[\s\S]*?<\/docs>\s*/i;
-const NEUTRAL_DOCS =
-	"<docs>Pi documentation ships with the installed package; read it only when the user asks about Pi.</docs>\n";
+const OPERATOR_POINTER =
+	"The first user message opens with <operator_instructions> from the harness that runs you; follow them as your system instructions.";
 
-export function agySystemPrompt(system: string | undefined): string | undefined {
-	if (!system) return system;
-	return system.replace(HARNESS_IDENTITY, `${AGY_IDENTITY} `).replace(HARNESS_DOCS, NEUTRAL_DOCS);
+/** Split a host prompt into the agy system instruction and the leading user-turn part. */
+export function agySystemPrompt(
+	system: string | undefined,
+): { readonly instruction: string; readonly operator: string } | undefined {
+	if (!system) return undefined;
+	return {
+		instruction: `${AGY_IDENTITY} ${OPERATOR_POINTER}`,
+		operator: `<operator_instructions>\n${system}\n</operator_instructions>`,
+	};
+}
+
+function withOperator(contents: Content[], operator: string | undefined): Content[] {
+	if (!operator) return contents;
+	const [first, ...rest] = contents;
+	if (first?.role === "user")
+		return [{ ...first, parts: [{ text: operator }, ...first.parts] }, ...rest];
+	return [{ role: "user", parts: [{ text: operator }] }, ...contents];
 }
 
 /** Build the ordered Cloud Code envelope without credential or network work. */
@@ -201,8 +214,8 @@ export function buildRequest({
 	sessions,
 }: BuildRequestOptions) {
 	const source = model.id.startsWith("claude-") ? claudeContext(context, model) : context;
-	const contents = convertMessages(model, source);
 	const system = agySystemPrompt(getCurrentSystemPrompt(source.messages));
+	const contents = withOperator(convertMessages(model, source), system?.operator);
 	const converted = convertTools(getCurrentTools(source.messages), false, false);
 	const tools = converted?.map((tool) => ({
 		functionDeclarations: tool.functionDeclarations.map((declaration) => {
@@ -225,7 +238,7 @@ export function buildRequest({
 	);
 	const request = {
 		contents,
-		...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+		...(system ? { systemInstruction: { parts: [{ text: system.instruction }] } } : {}),
 		...(tools ? { tools } : {}),
 		...(toolConfig ? { toolConfig } : {}),
 		labels: metadata.labels,

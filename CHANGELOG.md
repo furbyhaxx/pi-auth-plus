@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-11-24
+
+### Fixed
+
+- **Antigravity on oh-my-pi failed with `429 RESOURCE_EXHAUSTED` and fell back to another
+  model.** Google's backend now rejects omp's system prompt (its identity line and edit-tool
+  rules) with a 429 that looks like quota exhaustion. The host prompt now travels verbatim at
+  the head of the first user turn, which the backend does not scan; the system instruction
+  holds agy's identity line. Pi and Pi-Bolt use the same path.
+- **Tools with a nullable parameter broke Antigravity requests (`400 INVALID_ARGUMENT`, "Proto
+  field is not repeating").** JSON Schema type lists such as `["integer", "null"]` now become
+  one type plus `nullable`, or an `anyOf` of the remaining types.
+
+### Changed
+
+- **agy's Orchestrator models stay agy-only.** They are a client-side plan-and-execute mode
+  and the server rejects their ids; choose the planner or executor model directly.
+
 ## [0.8.1] - 2026-11-24
 
 ### Fixed

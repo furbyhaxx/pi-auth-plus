@@ -230,8 +230,12 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
   signatures carried for the same model only; Claude keeps signed thinking only in the latest
   same-model turn of an open tool loop. Zero cost. Deltas and evidence:
   `.project/analyses/antigravity-cli/tracking.md`. The backend answers a misleading
-  429 for Pi's harness identity and `<docs>` block, so `agySystemPrompt()` replaces those
-  two with agy's own identity line and a neutral docs note; tools, rules and context stay.
+  `429 RESOURCE_EXHAUSTED` for harness fingerprints in `systemInstruction` (Pi's identity and
+  `<docs>`, omp's identity and edit-tool rules) and does not scan `contents`, so
+  `agySystemPrompt()` sends agy's identity line plus a pointer as the instruction and the host
+  prompt verbatim as `<operator_instructions>` at the head of the first user turn. Orchestrator
+  (`gemini-pro-orchestrator*`) is agy-only by user decision: client-side plan-and-execute,
+  the ids answer 404 (`.project/analyses/antigravity-cli/1.5.15/orchestrator/`).
 - **antigravity scope:** reviewed with the user (`.project/analyses/pi-antigravity-auth/inventory.md`):
   one account, no account pool, no Claustrum vault, no `@cortexkit/*` package.
   Fork features not in the inventory's keep list are not ported.

@@ -92,11 +92,33 @@ function intersection(schema: Record<string, unknown>, hints: string[]): Record<
 	};
 }
 
+/**
+ * Protobuf `Schema.type` is one enum value, so a JSON Schema type list fails the whole request
+ * with 400. `null` becomes `nullable`; one remaining type stays scalar, several become `anyOf`.
+ */
+function typeUnion(schema: Record<string, unknown>): Record<string, unknown> {
+	const types = schema["type"];
+	if (!Array.isArray(types)) return schema;
+	const names = types.filter((name): name is string => typeof name === "string");
+	const concrete = names.filter((name) => name !== "null");
+	const { type: _list, properties, required, items, ...shared } = schema;
+	const nullable = concrete.length < names.length ? { nullable: true } : {};
+	const own = (name: string): Record<string, unknown> => ({
+		type: name,
+		...(name === "object" && properties !== undefined ? { properties } : {}),
+		...(name === "object" && required !== undefined ? { required } : {}),
+		...(name === "array" && items !== undefined ? { items } : {}),
+	});
+	if (concrete.length === 0) return { ...shared, ...nullable };
+	if (concrete.length === 1) return { ...shared, ...own(concrete[0] ?? "string"), ...nullable };
+	return { ...shared, ...nullable, anyOf: concrete.map(own) };
+}
+
 /** Remove unsupported schema keywords recursively without changing property names. */
 export function toGeminiSchema(jsonSchema: unknown, opts: GeminiSchemaOptions = {}): unknown {
 	if (!isObject(jsonSchema)) return jsonSchema;
 	const hints: string[] = [];
-	const schema = intersection(jsonSchema, hints);
+	const schema = intersection(typeUnion(jsonSchema), hints);
 	const result: Record<string, unknown> = {};
 	const type = typeof schema["type"] === "string" ? schema["type"].toUpperCase() : undefined;
 	for (const [key, value] of Object.entries(schema)) {

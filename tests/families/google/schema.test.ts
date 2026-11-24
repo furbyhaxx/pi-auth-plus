@@ -2,6 +2,25 @@ import { describe, expect, test } from "bun:test";
 import { toGeminiSchema } from "../../../src/families/google/schema.ts";
 
 describe("families/google/schema", () => {
+	test("JSON Schema type lists become one protobuf type, nullable or anyOf", () => {
+		const schema = {
+			type: "object",
+			properties: {
+				limit: { type: ["integer", "null"], description: "Max rows" },
+				value: { type: ["string", "array"], items: { type: "string" } },
+				nothing: { type: ["null"] },
+			},
+		};
+		expect(toGeminiSchema(schema)).toEqual({
+			type: "OBJECT",
+			properties: {
+				limit: { type: "INTEGER", nullable: true, description: "Max rows" },
+				value: { anyOf: [{ type: "STRING" }, { type: "ARRAY", items: { type: "STRING" } }] },
+				nothing: { nullable: true },
+			},
+		});
+	});
+
 	test("sanitizes nested unions while preserving property names and required fields", () => {
 		const schema = {
 			$schema: "schema",

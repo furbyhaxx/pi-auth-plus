@@ -5,12 +5,15 @@ document:
   title: "oh-my-pi v19.1.1 overlap with pi-auth-plus"
   description: "Where oh-my-pi v19.1.1 already provides providers, quotas, token counting, web search, model management, status line and login surfaces that pi-auth-plus also provides, with the extension seams that could replace our code."
   status: "draft"
-  revision: 2
+  revision: 3
   created_at: "2026-11-24T09:22:40+01:00"
-  updated_at: "2026-11-24T10:15:12+01:00"
+  updated_at: "2026-11-24T11:32:37+01:00"
   created_by: "scout"
   updated_by: "claude"
   changelog:
+    - revision: 3
+      reason: "user decisions on the remaining conflicts"
+      changes: ["Recorded decisions for conflicts 8-13"]
     - revision: 2
       reason: "hybrid integration landed (0.8.0)"
       changes: ["Marked conflicts 1, 3, 4, 5 and 7 resolved and 6 reduced by the omp hybrid split"]
@@ -269,6 +272,19 @@ pi-auth-plus registers all six (`src/families/opencode/index.ts:82,92`,
     and, per our own host notes, groups warn once and stay inactive (`AGENTS.md` "Hosts";
     `src/core/host/index.ts:24-29`). `models.aliases` likewise has no omp counterpart: aliases are
     catalog-side collapse only (`omp/docs/models.md:799-801`).
+
+## Decisions (2026-11-24, user)
+
+- **8:** settled earlier: Antigravity on omp stays our registered provider with its own OAuth, at parity with Pi.
+- **9:** drop the `openai` alias of `codex` on every host; keep `openai-codex`, `chatgpt`, `cx`, `cox`, `oai`.
+- **10:** on omp, `below-editor-last` falls back to the below-editor widget.
+- **11:** omp-only substitutes; Pi keeps its event paths. Antigravity signature repair moves into
+  our Antigravity stream on omp; model and thinking changes are detected at `turn_start` /
+  `before_agent_start`; the OpenRouter-Gemini signature gap is accepted and documented. The
+  host branch goes through a `core/host` capability check, never a host test in the family.
+- **12:** live-check that the `message_end` usage rewrite reaches omp's Synthetic messages (fix
+  if not), and show omp's and our context number side by side in `/tokens` on omp.
+- **13:** groups and aliases stay off on omp; docs point to omp's model roles and presets.
 
 ## What is already covered (input to keep / delegate / plug into)
 

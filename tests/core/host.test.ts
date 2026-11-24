@@ -56,6 +56,138 @@ describe("core/host capabilities", () => {
 		sink.registerProvider("synthetic", { name: "Synthetic" });
 		expect(registered).toEqual(["synthetic"]);
 	});
+
+	test("oh-my-pi never receives an environment-reference key that would shadow its logins", async () => {
+		const configs: Record<string, unknown>[] = [];
+		const runtime = {
+			registerProvider(_name: string, config: Record<string, unknown>) {
+				configs.push(config);
+			},
+		};
+		const model = {
+			id: "hf:test",
+			name: "Test",
+			reasoning: false,
+			input: ["text" as const],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 1000,
+			maxTokens: 100,
+		};
+		hostProviderSink(fakeApi({ runtime })).registerProvider("synthetic", {
+			name: "Synthetic",
+			baseUrl: "https://example.test",
+			api: "anthropic-messages",
+			apiKey: "$SYNTHETIC_API_KEY",
+			models: [model],
+		});
+		const [config] = configs;
+		expect(config?.["apiKey"]).toBeUndefined();
+		expect(config?.["models"]).toBeUndefined();
+		const fetchModels = config?.["fetchDynamicModels"];
+		expect(typeof fetchModels).toBe("function");
+		if (typeof fetchModels !== "function") return;
+		expect(await fetchModels(undefined)).toEqual([model]);
+	});
+
+	test("oh-my-pi refreshes catalogs through fetchDynamicModels with the resolved credential", async () => {
+		const configs: Record<string, unknown>[] = [];
+		const runtime = {
+			registerProvider(_name: string, config: Record<string, unknown>) {
+				configs.push(config);
+			},
+		};
+		const seen: unknown[] = [];
+		let updated = false;
+		hostProviderSink(fakeApi({ runtime })).registerProvider("antigravity", {
+			name: "Antigravity",
+			baseUrl: "https://example.test",
+			oauth: {
+				name: "Antigravity",
+				login: async () => ({ access: "a", refresh: "r", expires: 1 }),
+				refreshToken: async (credentials) => credentials,
+				getApiKey: (credentials) => credentials.access,
+			},
+			async refreshModels(context) {
+				seen.push(context.credential, context.allowNetwork);
+				await context.publish({ update: () => (updated = true) });
+				return [];
+			},
+		});
+		const [config] = configs;
+		expect(config?.["refreshModels"]).toBeUndefined();
+		const fetchModels = config?.["fetchDynamicModels"];
+		if (typeof fetchModels !== "function") throw new Error("fetchDynamicModels missing");
+		await fetchModels("token");
+		expect(seen).toEqual([
+			{ type: "oauth", access: "token", refresh: "", expires: Number.MAX_SAFE_INTEGER },
+			true,
+		]);
+		expect(updated).toBe(true);
+	});
+
+	test("an oh-my-pi stream gets back the level map and bearer that Pi would hand it", () => {
+		const configs: Record<string, unknown>[] = [];
+		const runtime = {
+			registerProvider(_name: string, config: Record<string, unknown>) {
+				configs.push(config);
+			},
+		};
+		const seen: { levels: unknown; options: unknown }[] = [];
+		const model = {
+			id: "gemini-4-hydrogen",
+			name: "Hydrogen",
+			api: "pi-auth-plus-google-generative-ai",
+			reasoning: true,
+			input: ["text" as const],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 1000,
+			maxTokens: 100,
+			thinkingLevelMap: {
+				off: null,
+				minimal: null,
+				low: "h-low|M|level:LOW",
+				medium: null,
+				high: null,
+				xhigh: "h-xhigh|M|level:XHIGH",
+			},
+		};
+		hostProviderSink(fakeApi({ runtime })).registerProvider("antigravity", {
+			name: "Antigravity",
+			baseUrl: "https://example.test",
+			api: "pi-auth-plus-google-generative-ai",
+			oauth: {
+				name: "Antigravity",
+				login: async () => ({ access: "a", refresh: "r", expires: 1 }),
+				refreshToken: async (credentials) => credentials,
+				getApiKey: (credentials) => credentials.access,
+			},
+			models: [model],
+			streamSimple: (streamed, _context, options) => {
+				seen.push({ levels: streamed.thinkingLevelMap, options });
+				throw new Error("stop");
+			},
+		});
+		const [config] = configs;
+		const models = config?.["models"];
+		if (!Array.isArray(models)) throw new Error("models missing");
+		const [projected] = models;
+		expect(projected.thinking).toEqual({
+			mode: "effort",
+			efforts: ["low", "xhigh"],
+			effortMap: { low: "h-low|M|level:LOW", xhigh: "h-xhigh|M|level:XHIGH" },
+		});
+		const stream = config?.["streamSimple"];
+		if (typeof stream !== "function") throw new Error("streamSimple missing");
+		// The model as oh-my-pi rebuilds it from its cache: known fields only.
+		const { thinkingLevelMap: _dropped, ...rebuilt } = projected;
+		expect(() => stream(rebuilt, { messages: [] }, { apiKey: "token" })).toThrow("stop");
+		expect(seen).toEqual([
+			{
+				levels: { ...model.thinkingLevelMap, max: null },
+				options: { headers: { Authorization: "Bearer token" } },
+			},
+		]);
+	});
 });
 
 describe("core/host registry views", () => {

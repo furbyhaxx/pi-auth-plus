@@ -18,7 +18,7 @@ import { type AppSettings, SETTINGS } from "./core/config/catalog.ts";
 import { SettingsStore } from "./core/config/index.ts";
 import { createSettingsSaver } from "./core/config/save.ts";
 import { conflictMessage, detectConflicts, loadsPackage } from "./core/conflicts/index.ts";
-import { hostProviderSink, hostSettings } from "./core/host/index.ts";
+import { hostProviderSink, hostSettings, hostTakesConfigsOnly } from "./core/host/index.ts";
 import { legacyProviderConfig } from "./core/host/legacy-provider.ts";
 import {
 	cacheDir,
@@ -247,9 +247,11 @@ export default async function piAuthPlus(pi: ExtensionAPI): Promise<void> {
 				const visible = filterNativeProvider(aliased, (model) =>
 					isVisible(providerOrName.id, model),
 				);
-				const legacy = hostProviderSink(pi) !== pi ? legacyProviderConfig(visible) : undefined;
-				if (legacy) hostProviderSink(pi).registerProvider(providerOrName.id, legacy);
-				else hostProviderSink(pi).registerProvider(visible);
+				if (!hostTakesConfigsOnly(pi)) hostProviderSink(pi).registerProvider(visible);
+				else {
+					const legacy = legacyProviderConfig(visible);
+					if (legacy) hostProviderSink(pi).registerProvider(providerOrName.id, legacy);
+				}
 			} else if (config) {
 				if (providerOrName === "synthetic") {
 					ownedProviders.add(providerOrName);

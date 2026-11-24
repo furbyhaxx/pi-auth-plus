@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Synthetic quota and the first request work on oh-my-pi.** omp sent the registered key
+  reference `SYNTHETIC_API_KEY` as the key itself, ahead of your `/login synthetic` key, so
+  the quota showed HTTP 401 and every turn started with a 401 retry. On omp the reference is
+  now left out and omp's own credential lookup serves the key. Update the plugin and restart
+  open omp sessions; the 401 backoff clears within a minute.
+- **oh-my-pi lists the full Antigravity catalogue with `xhigh`.** omp never runs Pi's
+  catalog refresh, so it showed only the five bundled first-run models. The refresh now
+  runs through omp's own model discovery (cached 24 h; `omp models refresh` forces it),
+  and each model's thinking levels, including Hydrogen's and Neon's `xhigh`, reach omp's
+  `--thinking` and model picker.
+- **Antigravity turns on oh-my-pi no longer fail once before succeeding.** omp hands the
+  OAuth token to the stream as an API key and drops the level map from cached models; both
+  now reach the provider the way Pi passes them.
+
 ## [0.7.0] - 2026-11-23
 
 ### Added

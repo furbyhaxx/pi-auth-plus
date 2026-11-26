@@ -1,10 +1,10 @@
 /** The `/auth` dashboard panel: one frame, a tab row, and the active tab's body. */
 import {
-	type KeybindingsManager,
+	type KeyMap,
 	matchesKey,
 	visibleWidth,
 	wrapTextWithAnsi,
-} from "@earendil-works/pi-tui";
+} from "../../core/host/tui/index.ts";
 import {
 	drawFrame,
 	type FrameLayoutOptions,
@@ -74,11 +74,8 @@ const HELP_SCROLL_KEYS = [
 	{ down: "d", up: "u" },
 ] as const;
 
-function isUnbound(keys: KeybindingsManager, input: string): boolean {
-	return Object.values(keys.getResolvedBindings()).every((binding) => {
-		const list = Array.isArray(binding) ? binding : [binding];
-		return list.every((key) => key === undefined || !matchesKey(input, key));
-	});
+function isUnbound(keys: KeyMap, input: string): boolean {
+	return !keys.claims(input);
 }
 
 export class AuthDashboard extends FramePanel<DashboardResult> {
@@ -97,7 +94,7 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	constructor(
 		host: PanelHost,
 		theme: PanelTheme,
-		keys: KeybindingsManager,
+		keys: KeyMap,
 		onDone: (result: DashboardResult) => void,
 		views: Readonly<Record<TabId, TabViewFactory>>,
 		tab: TabId,
@@ -208,7 +205,7 @@ export class AuthDashboard extends FramePanel<DashboardResult> {
 	}
 
 	render(width: number): string[] {
-		const { bodyRows, compact } = layoutFor(this.host.terminal.rows, 1, this.#preferences?.());
+		const { bodyRows, compact } = layoutFor(this.host.rows(), 1, this.#preferences?.());
 		const spec = TABS.find((tab) => tab.id === this.#tab);
 		const count = this.#providerCount;
 		const helpKey = this.#helpKey();

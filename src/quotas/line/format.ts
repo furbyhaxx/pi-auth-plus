@@ -1,6 +1,6 @@
 /** Owns stress-colored text and bars. */
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { Color } from "@earendil-works/pi-tui";
+import type { Color } from "../../core/host/tui/index.ts";
 import { mixColors } from "./theme.ts";
 import { clamp01 } from "./values.ts";
 

@@ -1,5 +1,5 @@
 /** Base for frame panels shown through `ctx.ui.custom`: focus, single-shot close, disposal. */
-import type { Component, Focusable, Keybinding, KeybindingsManager } from "@earendil-works/pi-tui";
+import type { Component, Focusable, Keybinding, KeyMap } from "../../core/host/tui/index.ts";
 import { bindingLabel, type PanelHost, type PanelTheme } from "../frame/index.ts";
 
 /** Async continuations check `isClosed` before touching the screen. */
@@ -7,16 +7,11 @@ export abstract class FramePanel<R> implements Component, Focusable {
 	focused = false;
 	protected readonly host: PanelHost;
 	protected readonly theme: PanelTheme;
-	protected readonly keys: KeybindingsManager;
+	protected readonly keys: KeyMap;
 	readonly #onDone: (result: R) => void;
 	#closed = false;
 
-	constructor(
-		host: PanelHost,
-		theme: PanelTheme,
-		keys: KeybindingsManager,
-		onDone: (result: R) => void,
-	) {
+	constructor(host: PanelHost, theme: PanelTheme, keys: KeyMap, onDone: (result: R) => void) {
 		this.host = host;
 		this.theme = theme;
 		this.keys = keys;

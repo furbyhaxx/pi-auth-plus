@@ -1,13 +1,14 @@
 /** Staged model visibility rules and their catalog preview. */
+
+import type { SaveScope } from "../../core/config/index.ts";
+import { formatSaveOutcome, type SaveOutcome } from "../../core/config/save.ts";
 import {
+	createInput,
 	decodeKittyPrintable,
-	Input,
 	matchesKey,
 	truncateToWidth,
 	visibleWidth,
-} from "@earendil-works/pi-tui";
-import type { SaveScope } from "../../core/config/index.ts";
-import { formatSaveOutcome, type SaveOutcome } from "../../core/config/save.ts";
+} from "../../core/host/tui/index.ts";
 import type { ModelAlias } from "../../models/aliases/index.ts";
 import type { OverrideEdit } from "../../models/overrides/index.ts";
 import { compileModelRules, exactModelRule } from "../../models/rules/match.ts";
@@ -145,7 +146,7 @@ export class ModelsView implements TabView {
 	readonly #host: TabViewHost;
 	readonly #deps: ModelsTabDeps;
 	readonly #picker: ModelPicker;
-	readonly #input = new Input({ prompt: "", placeholder: "provider/model or !provider/model" });
+	readonly #input = createInput({ prompt: "", placeholder: "provider/model or !provider/model" });
 	#staged: string[] | undefined;
 	#view: "rules" | "catalog" = "rules";
 	#mode: "list" | "edit" | "save" = "list";

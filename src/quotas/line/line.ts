@@ -1,6 +1,7 @@
 /** Packs the quota template into width-bounded rows without dropping providers. */
-import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+
 import type { AppSettings } from "../../core/config/catalog.ts";
+import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "../../core/host/tui/index.ts";
 import type { QuotaView } from "../engine.ts";
 import type { LineTheme } from "./format.ts";
 import { compileLineTemplate, renderLineTemplate } from "./template.ts";

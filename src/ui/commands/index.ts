@@ -1,11 +1,11 @@
 /** The `/auth` command family: one router, standalone entry points, headless text fallback. */
 import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
-import { type AutocompleteItem, Text } from "@earendil-works/pi-tui";
 import type { CredentialStatus } from "../../core/auth/index.ts";
 import { type AppSettings, SETTINGS } from "../../core/config/catalog.ts";
 import type { Field, FieldValue, SaveScope } from "../../core/config/index.ts";
 import { formatSaveOutcome, type SaveOutcome, type SettingsSaver } from "../../core/config/save.ts";
 import { supportsEntryRenderer } from "../../core/host/index.ts";
+import { type AutocompleteItem, keyMap, textRows, uiHost } from "../../core/host/tui/index.ts";
 import type { Registry } from "../../core/registry/index.ts";
 import { loginCodex } from "../../families/openai/codex-auth/index.ts";
 import { adaptLineTheme } from "../../quotas/line/theme.ts";
@@ -350,10 +350,8 @@ function sessionTokens(source: TokenTracker, signal: AbortSignal | undefined): T
 
 export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): void {
 	if (supportsEntryRenderer(pi))
-		pi.registerEntryRenderer<{ text?: unknown }>(
-			NOTE_TYPE,
-			(entry, _options, theme) =>
-				new Text(theme.fg("toolOutput", sanitize(String(entry.data?.text ?? ""))), 0, 0),
+		pi.registerEntryRenderer<{ text?: unknown }>(NOTE_TYPE, (entry, _options, theme) =>
+			textRows(theme.fg("toolOutput", sanitize(String(entry.data?.text ?? "")))),
 		);
 
 	const report = (
@@ -618,9 +616,9 @@ export function registerAuthCommands(pi: ExtensionAPI, deps: AuthCommandDeps): v
 								opened.tab === "settings" ? opened.select : undefined,
 							);
 					panel = new AuthDashboard(
-						tui,
+						uiHost(tui),
 						theme,
-						keys,
+						keyMap(keys),
 						done,
 						views,
 						opened.tab,

@@ -1,6 +1,6 @@
 /** Selects one footer owner; the caller wires session, placement and quota-change events. */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { TUI } from "@earendil-works/pi-tui";
+import { type UiHost, uiHost } from "../../core/host/tui/index.ts";
 import type { ContextReport } from "../../tokens/engine/index.ts";
 import {
 	type ContextPercentThresholds,
@@ -37,7 +37,7 @@ export function createFooterPlacement(
 	let enabled = false;
 	let host: WorkbenchFooterHost | undefined;
 	let owner: "own" | WorkbenchFooterHost | undefined;
-	let tui: TUI | undefined;
+	let tui: UiHost | undefined;
 	let generation = 0;
 
 	function unmount(): void {
@@ -64,11 +64,12 @@ export function createFooterPlacement(
 		if (desired === "own" && ctx) {
 			const current = ctx;
 			current.ui.setFooter((activeTui, theme, footerData) => {
-				tui = activeTui;
+				const host = uiHost(activeTui);
+				tui = host;
 				return createFooterWithQuotaLine(
 					pi,
 					current,
-					activeTui,
+					host,
 					theme,
 					footerData,
 					rows,

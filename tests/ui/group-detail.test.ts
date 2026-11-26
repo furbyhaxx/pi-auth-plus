@@ -8,6 +8,7 @@ import {
 	TUI_KEYBINDINGS,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
+import { keyMap } from "../../src/core/host/tui/index.ts";
 import type { ModelGroup } from "../../src/models/groups/config.ts";
 import { GroupDetail } from "../../src/ui/dashboard/group-detail.ts";
 import type { ModelCatalogItem } from "../../src/ui/dashboard/models.ts";
@@ -37,8 +38,8 @@ function open(
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS, bindings);
 	const host: TabViewHost = {
 		theme: { fg: (_color, text) => text, bg: (_color, text) => text, bold: (text) => text },
-		keys,
-		binding: (id) => bindingLabel(keys, id),
+		keys: keyMap(keys),
+		binding: (id) => bindingLabel(keyMap(keys), id),
 		refresh: () => {},
 		finish: () => {},
 	};

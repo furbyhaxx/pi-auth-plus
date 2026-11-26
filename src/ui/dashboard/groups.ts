@@ -1,7 +1,8 @@
 /** Staged model group list and scoped persistence. */
-import { matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
+
 import type { SaveScope } from "../../core/config/index.ts";
 import { formatSaveOutcome, type SaveOutcome } from "../../core/config/save.ts";
+import { matchesKey, truncateToWidth } from "../../core/host/tui/index.ts";
 import { type GroupMember, type ModelGroup, parseGroups } from "../../models/groups/config.ts";
 import type { GroupMemberHealth } from "../../models/groups/member.ts";
 import type { ModelIdentity } from "../../models/groups/priority.ts";

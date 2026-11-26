@@ -1,11 +1,11 @@
 /** Staged, typed edits to one model's user-scoped overrides. */
 import {
-	Input,
+	createInput,
 	matchesKey,
 	truncateToWidth,
 	visibleWidth,
 	wrapTextWithAnsi,
-} from "@earendil-works/pi-tui";
+} from "../../core/host/tui/index.ts";
 import type { OverrideEdit } from "../../models/overrides/index.ts";
 import { type HintItem, sanitize } from "../frame/index.ts";
 import { AliasDetail } from "./alias-detail.ts";
@@ -39,7 +39,7 @@ export class ModelDetail {
 	readonly #item: ModelCatalogItem;
 	readonly #back: () => void;
 	readonly #presentation: (() => DetailPresentation) | undefined;
-	readonly #input = new Input({ prompt: "", placeholder: "" });
+	readonly #input = createInput({ prompt: "", placeholder: "" });
 	readonly #fields: Field[];
 	#override: Record<string, unknown> | undefined;
 	#changes = new Map<number, OverrideEdit>();

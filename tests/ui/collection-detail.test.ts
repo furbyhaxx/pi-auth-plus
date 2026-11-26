@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { stripVTControlCharacters } from "node:util";
 import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
 import type { TextRule } from "../../src/core/config/fields.ts";
+import { keyMap } from "../../src/core/host/tui/index.ts";
 import { CollectionDetail } from "../../src/ui/dashboard/collection-detail.ts";
 import type { TabViewHost } from "../../src/ui/dashboard/view.ts";
 import { bindingLabel, fitHint } from "../../src/ui/frame/index.ts";
@@ -18,8 +19,8 @@ function fixture(confirm = true) {
 	let backs = 0;
 	const host: TabViewHost = {
 		theme: { fg: (_color, text) => text, bg: (_color, text) => text, bold: (text) => text },
-		keys,
-		binding: (id) => bindingLabel(keys, id),
+		keys: keyMap(keys),
+		binding: (id) => bindingLabel(keyMap(keys), id),
 		refresh: () => {},
 		finish: () => {},
 		...(confirm
@@ -264,7 +265,11 @@ describe("collection detail", () => {
 	test("a rebound confirm key takes precedence over navigation aliases", () => {
 		const f = fixture();
 		const keys = new KeybindingsManager(TUI_KEYBINDINGS, { "tui.select.confirm": "j" });
-		const host: TabViewHost = { ...f.host, keys, binding: (id) => bindingLabel(keys, id) };
+		const host: TabViewHost = {
+			...f.host,
+			keys: keyMap(keys),
+			binding: (id) => bindingLabel(keyMap(keys), id),
+		};
 		const staged: (readonly string[])[] = [];
 		const view = new CollectionDetail(
 			host,
@@ -282,7 +287,11 @@ describe("collection detail", () => {
 	test("a rebound confirm does not disable rule removal or mislabel its shortcut", () => {
 		const f = fixture();
 		const keys = new KeybindingsManager(TUI_KEYBINDINGS, { "tui.select.confirm": "d" });
-		const host: TabViewHost = { ...f.host, keys, binding: (id) => bindingLabel(keys, id) };
+		const host: TabViewHost = {
+			...f.host,
+			keys: keyMap(keys),
+			binding: (id) => bindingLabel(keyMap(keys), id),
+		};
 		const staged: (readonly TextRule[])[] = [];
 		const view = new CollectionDetail(
 			host,
@@ -300,7 +309,11 @@ describe("collection detail", () => {
 	test("apply and its hint remain available when ctrl+s is rebound to confirm", () => {
 		const f = fixture();
 		const keys = new KeybindingsManager(TUI_KEYBINDINGS, { "tui.select.confirm": "ctrl+s" });
-		const host: TabViewHost = { ...f.host, keys, binding: (id) => bindingLabel(keys, id) };
+		const host: TabViewHost = {
+			...f.host,
+			keys: keyMap(keys),
+			binding: (id) => bindingLabel(keyMap(keys), id),
+		};
 		const staged: (readonly string[])[] = [];
 		const view = new CollectionDetail(
 			host,
@@ -335,7 +348,11 @@ describe("collection detail", () => {
 	test("reordering remains available when shift-up is rebound", () => {
 		const f = fixture();
 		const keys = new KeybindingsManager(TUI_KEYBINDINGS, { "tui.select.up": "shift+up" });
-		const host: TabViewHost = { ...f.host, keys, binding: (id) => bindingLabel(keys, id) };
+		const host: TabViewHost = {
+			...f.host,
+			keys: keyMap(keys),
+			binding: (id) => bindingLabel(keyMap(keys), id),
+		};
 		const staged: (readonly TextRule[])[] = [];
 		const view = new CollectionDetail(
 			host,

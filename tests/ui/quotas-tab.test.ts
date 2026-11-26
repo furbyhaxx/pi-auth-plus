@@ -9,6 +9,7 @@ import {
 } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../src/core/config/index.ts";
 import type { SaveOutcome } from "../../src/core/config/save.ts";
+import { keyMap } from "../../src/core/host/tui/index.ts";
 import type { LineTheme } from "../../src/quotas/line/format.ts";
 import type { LineConfig } from "../../src/quotas/line/values.ts";
 import type { QuotaReport, ReportProvider } from "../../src/quotas/report.ts";
@@ -67,8 +68,8 @@ function open(
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS, bindings);
 	const host: TabViewHost = {
 		theme: { fg: theme.fg, bg: (_token, text) => text, bold: (text) => text },
-		keys,
-		binding: (id) => bindingLabel(keys, id),
+		keys: keyMap(keys),
+		binding: (id) => bindingLabel(keyMap(keys), id),
 		refresh: () => {
 			renders++;
 		},
@@ -453,9 +454,9 @@ describe("quotas tab", () => {
 			return rig.view;
 		};
 		const panel = new AuthDashboard(
-			{ terminal, requestRender: () => {} },
+			{ rows: () => terminal.rows, requestRender: () => {} },
 			{ fg: theme.fg, bg: (_token, text) => text, bold: (text) => text },
-			new KeybindingsManager(TUI_KEYBINDINGS),
+			keyMap(new KeybindingsManager(TUI_KEYBINDINGS)),
 			() => {},
 			views,
 			"quotas",
@@ -545,7 +546,7 @@ describe("quotas tab", () => {
 		const views = staticViews({ providers: [], nowMs: 0 });
 		views.quotas = () => rebound.view;
 		const panel = new AuthDashboard(
-			{ terminal: { rows: 40 }, requestRender: () => {} },
+			{ rows: () => 40, requestRender: () => {} },
 			f.host.theme,
 			f.host.keys,
 			() => {},
@@ -597,9 +598,9 @@ describe("quotas tab", () => {
 			render: () => ({ lines: [], above: 0, below: 0, hints: [] }),
 		});
 		const panel = new AuthDashboard(
-			{ terminal: { rows: 30 }, requestRender: () => {} },
+			{ rows: () => 30, requestRender: () => {} },
 			{ fg: theme.fg, bg: (_token, text) => text, bold: (text) => text },
-			new KeybindingsManager(TUI_KEYBINDINGS),
+			keyMap(new KeybindingsManager(TUI_KEYBINDINGS)),
 			() => closed++,
 			views,
 			"quotas",

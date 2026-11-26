@@ -1,5 +1,5 @@
 /** Owns pure quota value formatting and stress math shared by the line, panel and CLI. */
-import { stripTerminalSequences } from "@earendil-works/pi-tui";
+import { stripTerminalSequences } from "../../core/host/tui/index.ts";
 
 /** Settings needed by quota-line formatting. */
 export interface LineConfig {

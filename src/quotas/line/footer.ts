@@ -6,8 +6,13 @@ import type {
 	ReadonlyFooterDataProvider,
 	Theme,
 } from "@earendil-works/pi-coding-agent";
-import { type Component, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { SETTINGS } from "../../core/config/catalog.ts";
+import {
+	type Component,
+	truncateToWidth,
+	type UiHost,
+	visibleWidth,
+} from "../../core/host/tui/index.ts";
 import type { ContextReport } from "../../tokens/engine/index.ts";
 import { sanitize } from "../../ui/frame/index.ts";
 import type { FooterRows } from "./workbench.ts";
@@ -60,7 +65,7 @@ const DEFAULT_CONTEXT_PERCENT_THRESHOLDS: ContextPercentThresholds = {
 export function createFooterWithQuotaLine(
 	pi: Pick<ExtensionAPI, "getThinkingLevel">,
 	ctx: FooterContext,
-	tui: Pick<TUI, "requestRender"> & { terminal: Pick<TUI["terminal"], "rows"> },
+	tui: UiHost,
 	theme: Theme,
 	footerData: ReadonlyFooterDataProvider,
 	renderQuotaRows: FooterRows,
@@ -195,7 +200,7 @@ export function createFooterWithQuotaLine(
 				lines.push(truncateToWidth(sorted.join(" "), width, theme.fg("dim", "...")));
 			}
 
-			lines.push(...renderQuotaRows(width, theme, tui.terminal.rows));
+			lines.push(...renderQuotaRows(width, theme, tui.rows()));
 			return lines;
 		},
 	};

@@ -1,6 +1,6 @@
 /** Owns template syntax, optional groups and validated token styles. */
 import type { ThemeToken } from "@earendil-works/pi-coding-agent";
-import type { Color } from "@earendil-works/pi-tui";
+import type { Color } from "../../core/host/tui/index.ts";
 import { parseHexColor, THEME_TOKENS } from "./theme.ts";
 import { plainText } from "./values.ts";
 

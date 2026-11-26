@@ -1,6 +1,6 @@
 /** The above/below-editor quota line component. */
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { Component } from "@earendil-works/pi-tui";
+import type { Component } from "../../core/host/tui/index.ts";
 
 /** Renders quota rows on each frame; data changes request renders from outside. */
 export class QuotaLineWidget implements Component {

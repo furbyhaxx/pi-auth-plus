@@ -1,13 +1,14 @@
 /** Owns the live quota dashboard body, provider selection and quota actions. */
+
+import { SETTINGS } from "../../core/config/catalog.ts";
+import type { SaveScope } from "../../core/config/index.ts";
+import { formatSaveOutcome, type SaveOutcome } from "../../core/config/save.ts";
 import {
 	matchesKey,
 	truncateToWidth,
 	visibleWidth,
 	wrapTextWithAnsi,
-} from "@earendil-works/pi-tui";
-import { SETTINGS } from "../../core/config/catalog.ts";
-import type { SaveScope } from "../../core/config/index.ts";
-import { formatSaveOutcome, type SaveOutcome } from "../../core/config/save.ts";
+} from "../../core/host/tui/index.ts";
 import type { DrainageMetrics } from "../../quotas/drainage.ts";
 import { type LineTheme, renderGradientBar, styleByStress } from "../../quotas/line/format.ts";
 import {

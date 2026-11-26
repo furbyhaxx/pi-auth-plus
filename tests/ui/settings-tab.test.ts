@@ -7,6 +7,7 @@ import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-wor
 import { SETTINGS } from "../../src/core/config/catalog.ts";
 import { type SaveScope, SettingsStore } from "../../src/core/config/index.ts";
 import { createSettingsSaver, type SettingsSaver } from "../../src/core/config/save.ts";
+import { keyMap } from "../../src/core/host/tui/index.ts";
 import { AuthDashboard, staticViews } from "../../src/ui/dashboard/index.ts";
 import { type SettingsTabDeps, SettingsView } from "../../src/ui/dashboard/settings.ts";
 import type { DashboardResult, TabViewHost } from "../../src/ui/dashboard/view.ts";
@@ -51,8 +52,8 @@ function open(
 			bg: (_color, text) => text,
 			bold: (text) => text,
 		},
-		keys,
-		binding: (id) => bindingLabel(keys, id),
+		keys: keyMap(keys),
+		binding: (id) => bindingLabel(keyMap(keys), id),
 		refresh: () => {
 			onRefresh?.();
 			onRefresh = undefined;
@@ -574,7 +575,7 @@ describe("settings tab", () => {
 				"quotas.providers",
 			);
 		const panel = new AuthDashboard(
-			{ terminal: { rows: 80 }, requestRender: () => {} },
+			{ rows: () => 80, requestRender: () => {} },
 			rig.host.theme,
 			rig.host.keys,
 			() => {},
@@ -624,7 +625,7 @@ describe("settings tab", () => {
 		let closed = 0;
 		let onRefresh: (() => void) | undefined;
 		const panel = new AuthDashboard(
-			{ terminal: { rows: 80 }, requestRender: () => onRefresh?.() },
+			{ rows: () => 80, requestRender: () => onRefresh?.() },
 			rig.host.theme,
 			rig.host.keys,
 			() => closed++,

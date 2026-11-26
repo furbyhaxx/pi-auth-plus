@@ -5,14 +5,14 @@ import type {
 	ToolDefinition,
 	ToolRenderResultOptions,
 } from "@earendil-works/pi-coding-agent";
+import type { TSchema } from "typebox";
 import {
 	type Component,
 	sliceByColumn,
 	truncateToWidth,
 	visibleWidth,
 	wrapTextWithAnsi,
-} from "@earendil-works/pi-tui";
-import type { TSchema } from "typebox";
+} from "../../core/host/tui/index.ts";
 import { redactText } from "../../core/redact/index.ts";
 import { sanitize } from "../../ui/frame/index.ts";
 
@@ -84,7 +84,7 @@ function record(value: unknown): Record<string, unknown> | undefined {
 }
 
 function pathPart(path: string, width: number, continuationWidth: number): string {
-	const part = sliceByColumn(path, 0, width, true);
+	const part = sliceByColumn(path, 0, width);
 	const slash = path.lastIndexOf("/");
 	if (
 		slash >= 0 &&

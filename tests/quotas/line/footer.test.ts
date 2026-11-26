@@ -67,7 +67,7 @@ function rig(
 		{ getThinkingLevel: () => thinking },
 		ctx,
 		{
-			terminal: { rows: 40 },
+			rows: () => 40,
 			requestRender() {
 				renders++;
 			},

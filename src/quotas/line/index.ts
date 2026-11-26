@@ -1,7 +1,7 @@
 /** Mounts the quota line at the configured placement and re-renders it on quota changes. */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { TUI } from "@earendil-works/pi-tui";
 import type { AppSettings } from "../../core/config/catalog.ts";
+import { tuiKit, type UiHost, uiHost } from "../../core/host/tui/index.ts";
 import type { Registry } from "../../core/registry/index.ts";
 import type { TokenTracker } from "../../tokens/tracker/types.ts";
 import type { QuotaEngine } from "../engine.ts";
@@ -52,7 +52,7 @@ export function createQuotaLine(
 	const render = createQuotaLineRenderer(resolve);
 	let ctx: QuotaLineContext | undefined;
 	let placement: string | undefined;
-	let tui: TUI | undefined;
+	let tui: UiHost | undefined;
 	let offChange: (() => void) | undefined;
 
 	const rows: FooterRows = (width, theme, terminalRows) => {
@@ -96,16 +96,20 @@ export function createQuotaLine(
 		ctx.ui.setWidget(WIDGET_KEY, undefined);
 		tui = undefined;
 		placement = desired;
-		footer.setEnabled(desired === "below-editor-last");
+		const ownFooter = desired === "below-editor-last" && tuiKit().ownFooter;
+		footer.setEnabled(ownFooter);
 		statusline.invalidate();
-		if (desired !== "above-editor" && desired !== "below-editor-first") return;
+		const widget =
+			desired === "above-editor" ||
+			desired === "below-editor-first" ||
+			(desired === "below-editor-last" && !ownFooter);
+		if (!widget) return;
 		ctx.ui.setWidget(
 			WIDGET_KEY,
 			(active, theme) => {
-				tui = active;
-				return new QuotaLineWidget(theme, (width, current) =>
-					rows(width, current, active.terminal.rows),
-				);
+				const host = uiHost(active);
+				tui = host;
+				return new QuotaLineWidget(theme, (width, current) => rows(width, current, host.rows()));
 			},
 			{ placement: desired === "above-editor" ? "aboveEditor" : "belowEditor" },
 		);

@@ -11,6 +11,7 @@ import {
 } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../src/core/config/index.ts";
 import type { SaveOutcome } from "../../src/core/config/save.ts";
+import { keyMap } from "../../src/core/host/tui/index.ts";
 import type { GroupMember, ModelGroup } from "../../src/models/groups/config.ts";
 import type { GroupMemberHealth } from "../../src/models/groups/member.ts";
 import type { ModelIdentity } from "../../src/models/groups/priority.ts";
@@ -54,8 +55,8 @@ function open(
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS, bindings);
 	const host: TabViewHost = {
 		theme: { fg: (_color, text) => text, bg: (_color, text) => text, bold: (text) => text },
-		keys,
-		binding: (id) => bindingLabel(keys, id),
+		keys: keyMap(keys),
+		binding: (id) => bindingLabel(keyMap(keys), id),
 		refresh: () => {
 			refresh?.();
 			refresh = undefined;
@@ -625,8 +626,8 @@ describe("groups tab", () => {
 		const keys = new KeybindingsManager(TUI_KEYBINDINGS);
 		const host: TabViewHost = {
 			theme: { fg: (_color, text) => text, bg: (_color, text) => text, bold: (text) => text },
-			keys,
-			binding: (id) => bindingLabel(keys, id),
+			keys: keyMap(keys),
+			binding: (id) => bindingLabel(keyMap(keys), id),
 			refresh: () => refreshed?.(),
 			finish: () => {},
 		};

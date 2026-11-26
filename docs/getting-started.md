@@ -4,8 +4,9 @@ pi-auth-plus adds subscription/API-key providers, quota monitoring and one `/aut
 dashboard to Pi. Use Pi-Bolt (Bun) or stock Pi on Node >=22.19. Anonymous OpenCode Zen
 requires Pi-Bolt; the other providers do not require Bun. Pig is supported as a Pi-compatible
 host: it keeps its own `~/.pig` configuration tree, which this package follows.
-oh-my-pi (`omp`) is supported too: it keeps `~/.omp/agent` and `.omp` project files, and
-its extension facade omits a few newer Pi hooks, listed below.
+oh-my-pi (`omp`) 19.2 or newer is supported too: it keeps `~/.omp/agent` and `.omp` project
+files, and its extension facade omits a few newer Pi hooks, listed below. omp loads
+`src/omp.ts`, built on omp's own TUI; omp 19.1 and older cannot load this version.
 
 ## Install
 
@@ -62,6 +63,8 @@ omp ships several of these vendors itself, so pi-auth-plus adds only what omp la
 `/auth` reads omp's logins. Three surfaces need a fuller Pi host: virtual model groups,
 custom session-entry rendering, and visibility rules for providers another extension
 registered.
+On omp the quota line's `below-editor-last` placement shows below the editor as a widget,
+since omp's footer cannot be extended.
 
 Synthetic's catalog refreshes through Pi and persists in Pi's model store. It skips
 models without usable prices or tool support; a bundled catalog covers the first run.

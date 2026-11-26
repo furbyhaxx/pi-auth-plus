@@ -1,13 +1,14 @@
 /** Staged edits to one model alias. */
+
+import type { SaveScope } from "../../core/config/index.ts";
+import { formatSaveOutcome } from "../../core/config/save.ts";
 import {
-	Input,
+	createInput,
 	matchesKey,
 	truncateToWidth,
 	visibleWidth,
 	wrapTextWithAnsi,
-} from "@earendil-works/pi-tui";
-import type { SaveScope } from "../../core/config/index.ts";
-import { formatSaveOutcome } from "../../core/config/save.ts";
+} from "../../core/host/tui/index.ts";
 import { type ModelAlias, parseAliases } from "../../models/aliases/index.ts";
 import { type HintItem, sanitize } from "../frame/index.ts";
 import type { ModelsTabDeps } from "./models.ts";
@@ -25,7 +26,7 @@ export class AliasDetail {
 	readonly #source: string;
 	readonly #original: ModelAlias | undefined;
 	readonly #done: (message?: string) => void;
-	readonly #input = new Input({ prompt: "", placeholder: "" });
+	readonly #input = createInput({ prompt: "", placeholder: "" });
 	readonly #initial: string[];
 	#values: string[];
 	#editInitial = "";

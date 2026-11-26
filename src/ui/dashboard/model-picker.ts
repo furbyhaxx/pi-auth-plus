@@ -1,11 +1,11 @@
 /** A shared, searchable catalog picker; owners may intercept action keys while not editing. */
 import {
+	createInput,
 	decodeKittyPrintable,
-	Input,
 	matchesKey,
 	truncateToWidth,
 	visibleWidth,
-} from "@earendil-works/pi-tui";
+} from "../../core/host/tui/index.ts";
 import { sanitize } from "../frame/index.ts";
 import type { ModelCatalogItem } from "./models.ts";
 import type { TabBody, TabViewHost } from "./view.ts";
@@ -45,7 +45,7 @@ export class ModelPicker {
 	readonly #choose: (item: ModelCatalogItem) => void;
 	readonly #cancel: () => void;
 	readonly #annotation: ((item: ModelCatalogItem, index: number) => string) | undefined;
-	readonly #input = new Input({ prompt: "", placeholder: "provider/id or name" });
+	readonly #input = createInput({ prompt: "", placeholder: "provider/id or name" });
 	#snapshot: readonly SearchItem[] = [];
 	#matches: number[] = [];
 	#query: string | undefined;

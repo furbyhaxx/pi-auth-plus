@@ -6,6 +6,7 @@ import {
 	TUI_KEYBINDINGS,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
+import { keyMap } from "../../src/core/host/tui/index.ts";
 import type { BreakdownPart, ContextReport } from "../../src/tokens/engine/index.ts";
 import type { TokenTracker } from "../../src/tokens/tracker/types.ts";
 import { AuthDashboard, staticViews } from "../../src/ui/dashboard/index.ts";
@@ -53,8 +54,8 @@ function open(bindings: KeybindingsConfig = {}) {
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS, bindings);
 	const host: TabViewHost = {
 		theme: { fg: (_token, text) => text, bg: (_token, text) => text, bold: (text) => text },
-		keys,
-		binding: (id) => bindingLabel(keys, id),
+		keys: keyMap(keys),
+		binding: (id) => bindingLabel(keyMap(keys), id),
 		refresh: () => {
 			renders++;
 		},
@@ -198,7 +199,7 @@ test("switching away cancels counting, returning counts again, and close unsubsc
 	const views = staticViews({ providers: [], nowMs: 0 });
 	views.tokens = (host) => new TokensView(host, f.tracker);
 	const panel = new AuthDashboard(
-		{ terminal: { rows: 40 }, requestRender: () => {} },
+		{ rows: () => 40, requestRender: () => {} },
 		f.host.theme,
 		f.host.keys,
 		() => {},
@@ -225,7 +226,7 @@ test("dashboard grows and shrinks with asynchronous token breakdowns", async () 
 	const views = staticViews({ providers: [], nowMs: 0 });
 	views.tokens = (host) => new TokensView(host, f.tracker);
 	const panel = new AuthDashboard(
-		{ terminal: { rows: 80 }, requestRender: () => {} },
+		{ rows: () => 80, requestRender: () => {} },
 		f.host.theme,
 		f.host.keys,
 		() => {},
@@ -301,7 +302,7 @@ test("provider help retains the complete login command when a narrow row clips i
 	const f = open();
 	const login = `/login ${"long-provider-name-".repeat(5)} --device`;
 	const panel = new AuthDashboard(
-		{ terminal: { rows: 8 }, requestRender: () => {} },
+		{ rows: () => 8, requestRender: () => {} },
 		f.host.theme,
 		f.host.keys,
 		() => {},

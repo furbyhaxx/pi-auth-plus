@@ -1,14 +1,15 @@
 /** Catalog-backed settings editing and scoped, staged saves for the dashboard. */
+
+import { type AppSettings, SETTINGS } from "../../core/config/catalog.ts";
+import type { Field, FieldOption, FieldValue, SaveScope } from "../../core/config/index.ts";
+import { formatSaveOutcome, type SettingsSaver } from "../../core/config/save.ts";
 import {
-	Input,
+	createInput,
 	matchesKey,
 	truncateToWidth,
 	visibleWidth,
 	wrapTextWithAnsi,
-} from "@earendil-works/pi-tui";
-import { type AppSettings, SETTINGS } from "../../core/config/catalog.ts";
-import type { Field, FieldOption, FieldValue, SaveScope } from "../../core/config/index.ts";
-import { formatSaveOutcome, type SettingsSaver } from "../../core/config/save.ts";
+} from "../../core/host/tui/index.ts";
 import { padTo, sanitize } from "../frame/index.ts";
 import { CollectionDetail, type ListKey } from "./collection-detail.ts";
 import type { TabBody, TabView, TabViewHost } from "./view.ts";
@@ -40,7 +41,7 @@ export class SettingsView implements TabView {
 	#mode: "list" | "edit" | "save" = "list";
 	#saveReturnMode: "list" | "edit" = "list";
 	#saveChanges: Record<string, FieldValue | null> = {};
-	readonly #input = new Input({ prompt: "", placeholder: "" });
+	readonly #input = createInput({ prompt: "", placeholder: "" });
 	#editInitial = "";
 	#message = "";
 	#messageOffset = 0;

@@ -2,11 +2,11 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { missingEnvironmentAuth } from "../../core/auth/missing.ts";
 import { atomicWriteFile } from "../../core/fs/index.ts";
 import { providerAuthView } from "../../core/host/registry.ts";
+import { truncateToWidth } from "../../core/host/tui/index.ts";
 import {
 	type FetchFn,
 	ProviderHttpError,

@@ -1,4 +1,5 @@
 /** Isolates HOME, XDG and Pi agent dirs per test file so no test touches real state. */
+import "../src/core/host/tui/install-pi.ts";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

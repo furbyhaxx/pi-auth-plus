@@ -1,5 +1,5 @@
 /** The contract between the `/auth` dashboard frame and one tab's body. */
-import type { Keybinding, KeybindingsManager } from "@earendil-works/pi-tui";
+import type { Keybinding, KeyMap } from "../../core/host/tui/index.ts";
 import type { HintItem, PanelTheme } from "../frame/index.ts";
 import type { TabId } from "./tabs.ts";
 
@@ -11,7 +11,7 @@ export type DashboardResult =
 
 export interface TabViewHost {
 	readonly theme: PanelTheme;
-	readonly keys: KeybindingsManager;
+	readonly keys: KeyMap;
 	binding(id: Keybinding): string;
 	/** Re-render the panel; a no-op once it is closed. */
 	refresh(): void;

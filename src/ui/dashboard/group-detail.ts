@@ -1,5 +1,10 @@
 /** Local editor for a single model group. */
-import { Input, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	createInput,
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+} from "../../core/host/tui/index.ts";
 import { type ModelGroup, parseGroups } from "../../models/groups/config.ts";
 import { isPhysicalGroupMember } from "../../models/groups/member.ts";
 import { sanitize } from "../frame/index.ts";
@@ -98,7 +103,7 @@ export class GroupDetail {
 	readonly #catalog: () => readonly ModelCatalogItem[];
 	readonly #done: (group: ModelGroup) => void;
 	readonly #back: () => void;
-	readonly #input = new Input({ prompt: "", placeholder: "" });
+	readonly #input = createInput({ prompt: "", placeholder: "" });
 	readonly #original: Draft;
 	#draft: Draft;
 	#picker: ModelPicker | undefined;

@@ -1,5 +1,5 @@
 /** The `--list-quotas` table: one row per window, one table, plus stderr diagnostics. */
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { visibleWidth } from "../core/host/tui/index.ts";
 import type { DrainageMetrics, DrainageRate } from "../quotas/drainage.ts";
 import { plainText as clean } from "../quotas/line/values.ts";
 import type { QuotaReport, ReportProvider, ReportWindow } from "../quotas/report.ts";

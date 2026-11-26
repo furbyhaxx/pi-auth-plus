@@ -1,5 +1,5 @@
 /** A read-only, scrollable list of label/value rows; the Providers and Tokens tabs use it. */
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { visibleWidth } from "../../core/host/tui/index.ts";
 import { padTo, sanitize } from "../frame/index.ts";
 import type { Row, TabContent } from "./tabs.ts";
 import type { TabBody, TabView, TabViewHost } from "./view.ts";

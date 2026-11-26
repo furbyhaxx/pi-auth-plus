@@ -80,8 +80,11 @@ In priority order:
 
 ```text
 src/
-  index.ts              Pi entrypoint: awaits family registration, registers commands, flags,
-                        events. No logic.
+  index.ts              Pi entrypoint: installs pi-tui's kit, then the shared extension.
+  omp.ts                oh-my-pi entrypoint (`package.json` `omp`): installs omp's kit, same
+                        extension.
+  extension.ts          the shared extension: awaits family registration, registers commands,
+                        flags, events.
   core/                 shared seams, no vendor knowledge
     paths/              agent dir, XDG state/cache/data, project .pi
     config/             settings catalog, layers, sanitizing parse, staged save, legacy migration
@@ -119,10 +122,14 @@ README.md, CHANGELOG.md, LICENSE, NOTICE, AGENTS.md
   through `core/registry`.
 - Split a module by responsibility; ~400 lines is the point where a module does two jobs.
 - Tests live in `tests/`, mirroring `src/`. Fixtures stay byte-for-byte as captured.
-- The package ships raw TypeScript: `pi.extensions` → `./src/index.ts`, `files` ships `src/`,
-  `assets/`, `docs/`. No build step; Pi-Bolt compiles the installed package itself.
+- The package ships raw TypeScript: `pi.extensions` → `./src/index.ts`, `omp.extensions` →
+  `./src/omp.ts`, `files` ships `src/`, `assets/`, `docs/`. No build step; Pi-Bolt compiles the
+  installed package itself.
 - Import `@earendil-works/*` only through specifiers Pi's loader aliases (`pi-ai`,
-  `pi-ai/compat`, `pi-ai/oauth`, `pi-coding-agent`, `pi-tui`); anything else mixes Pi versions.
+  `pi-ai/compat`, `pi-ai/oauth`, `pi-coding-agent`); anything else mixes Pi versions.
+  `@earendil-works/pi-tui` appears only in `core/host/tui/pi.ts`: oh-my-pi ≥ 19.2 refuses to
+  load a graph that names it anywhere, `import type` included. Everything else imports the kit
+  `core/host/tui/index.ts`.
 
 ## Not yet aligned
 
@@ -205,6 +212,11 @@ and model ids stay slash-free: installed Pi 1.4.0 splits `provider/model` at the
 - The split with omp is declared by families and applied by `core/host/omp.ts`: `ompBuiltin: "all"` drops a family on omp (OpenCode), `"provider"` keeps only quota and token parts (Synthetic), `ompLogins` lists the omp login ids a quota reads (`anthropic` OAuth for Claude, `xai-oauth` for xAI), `ompUsage` feeds the quota into omp's status line and `/usage` from our cache. omp keeps logins in `agent.db`, so `/auth` reads them through `useCredentialReader` (installed at `session_start`).
 - Its bundled pi-ai omits `createProvider`, `lazyStream`, `isModelType` and `InMemoryCredentialStore`; providers are plain objects, `core/streams/lazy.ts`, `models/model-type.ts` and a local empty credential store replace them.
 - Its theme exposes `getColorHex`/`getBgHex`/`fg` and no `colors`/`style`; `quotas/line/theme.ts` adapts it there. Never read `theme.colors` outside that adapter.
+- Its TUI is not pi-tui. `core/host/tui/omp.ts` builds the kit from `@oh-my-pi/pi-tui/text/*` and
+  its key decoder (omp ≥ 19.2), with our own `LineInput`; views stay `{ render, handleInput }`
+  rows objects, `ctx.ui.custom` hands `ui.size()` and a keymap with `matchesId`/`keysFor`
+  (adapted by `uiHost`/`keyMap`), and `setFooter` passes no footer data, so the
+  `below-editor-last` quota line mounts as a widget there (`ownFooter: false`).
 - Detect oh-my-pi from the running binary (`omp`), never `OMPCODE`: the variable is inherited by child shells, so a Pi-Bolt started from an omp shell would be misdetected.
 - `PI_CODING_AGENT_DIR` wins on every host; the oh-my-pi default is `~/.omp/agent` and its project config dir is `.omp`.
 
@@ -394,8 +406,8 @@ Adopted from pi-workbench; a new surface looks like the existing ones.
 
 ### TUI widths
 
-- Theme tokens and Pi's ANSI-aware helpers (`visibleWidth`, `truncateToWidth`,
-  `wrapTextWithAnsi`); never `String.length` for layout.
+- Theme tokens and the host kit's ANSI-aware helpers (`visibleWidth`, `truncateToWidth`,
+  `wrapTextWithAnsi` from `core/host/tui/index.ts`); never `String.length` for layout.
 - Every line fits. Check 36, 57, 80 and 140 columns. Identity and primary state survive
   truncation; secondary metrics go first.
 - Color is never the only signal. Strip control characters from provider-supplied text.

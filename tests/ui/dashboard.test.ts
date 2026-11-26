@@ -3,6 +3,7 @@ import { stripVTControlCharacters } from "node:util";
 import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
 import { SETTINGS } from "../../src/core/config/catalog.ts";
 import { SettingsStore } from "../../src/core/config/index.ts";
+import { keyMap } from "../../src/core/host/tui/index.ts";
 import type { LineTheme } from "../../src/quotas/line/format.ts";
 import { AliasDetail } from "../../src/ui/dashboard/alias-detail.ts";
 import { GroupsView } from "../../src/ui/dashboard/groups.ts";
@@ -59,11 +60,12 @@ function open(
 ) {
 	let closed = 0;
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS);
-	const host = { terminal: { rows }, requestRender: () => {} };
+	const terminal = { rows };
+	const host = { terminal, rows: () => terminal.rows, requestRender: () => {} };
 	const panel = new AuthDashboard(
 		host,
 		theme,
-		keys,
+		keyMap(keys),
 		() => closed++,
 		staticViews(data),
 		tab,
@@ -166,9 +168,9 @@ function draftRig(
 		};
 	}
 	const panel = new TestDashboard(
-		{ terminal: { rows }, requestRender: () => {} },
+		{ rows: () => rows, requestRender: () => {} },
 		theme,
-		keys,
+		keyMap(keys),
 		(result) => {
 			events.push("finish");
 			results.push(result);
@@ -363,9 +365,9 @@ describe("ui/dashboard", () => {
 					now: () => 0,
 				});
 			const panel = new AuthDashboard(
-				{ terminal: { rows: 8 }, requestRender: () => {} },
+				{ rows: () => 8, requestRender: () => {} },
 				theme,
-				keys,
+				keyMap(keys),
 				() => {},
 				factories,
 				"settings",
@@ -432,9 +434,9 @@ describe("ui/dashboard", () => {
 			handleInput: () => true,
 		});
 		const panel = new AuthDashboard(
-			{ terminal: { rows: 8 }, requestRender: () => {} },
+			{ rows: () => 8, requestRender: () => {} },
 			theme,
-			new KeybindingsManager(TUI_KEYBINDINGS),
+			keyMap(new KeybindingsManager(TUI_KEYBINDINGS)),
 			() => {},
 			factories,
 			"providers",
@@ -484,9 +486,9 @@ describe("ui/dashboard", () => {
 				() => {},
 			);
 		const panel = new AuthDashboard(
-			{ terminal: { rows: 8 }, requestRender: () => {} },
+			{ rows: () => 8, requestRender: () => {} },
 			theme,
-			new KeybindingsManager(TUI_KEYBINDINGS),
+			keyMap(new KeybindingsManager(TUI_KEYBINDINGS)),
 			() => {},
 			factories,
 			"models",
@@ -512,9 +514,9 @@ describe("ui/dashboard", () => {
 				save: async () => ({ committed: false, error: "Unexpected save" }),
 			});
 		const panel = new AuthDashboard(
-			{ terminal: { rows: 8 }, requestRender: () => {} },
+			{ rows: () => 8, requestRender: () => {} },
 			theme,
-			new KeybindingsManager(TUI_KEYBINDINGS),
+			keyMap(new KeybindingsManager(TUI_KEYBINDINGS)),
 			() => {},
 			factories,
 			"groups",
@@ -642,9 +644,9 @@ describe("ui/dashboard", () => {
 						"quotas.refreshOnRequest",
 					);
 				const panel = new AuthDashboard(
-					{ terminal: { rows }, requestRender: () => {} },
+					{ rows: () => rows, requestRender: () => {} },
 					theme,
-					keys,
+					keyMap(keys),
 					() => {},
 					factories,
 					"settings",
@@ -746,9 +748,9 @@ describe("ui/dashboard", () => {
 				}),
 			});
 		const panel = new AuthDashboard(
-			{ terminal: { rows: 8 }, requestRender: () => {} },
+			{ rows: () => 8, requestRender: () => {} },
 			theme,
-			new KeybindingsManager(TUI_KEYBINDINGS),
+			keyMap(new KeybindingsManager(TUI_KEYBINDINGS)),
 			() => {},
 			factories,
 			"groups",
@@ -784,9 +786,9 @@ describe("ui/dashboard", () => {
 				() => {},
 			);
 		const panel = new AuthDashboard(
-			{ terminal: { rows: 8 }, requestRender: () => {} },
+			{ rows: () => 8, requestRender: () => {} },
 			theme,
-			new KeybindingsManager(TUI_KEYBINDINGS),
+			keyMap(new KeybindingsManager(TUI_KEYBINDINGS)),
 			() => {},
 			factories,
 			"models",

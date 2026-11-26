@@ -3,17 +3,17 @@ import { stripVTControlCharacters } from "node:util";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
 	type Keybinding,
-	type KeybindingsManager,
-	type TUI,
+	type KeyMap,
 	truncateToWidth,
+	type UiHost,
 	visibleWidth,
-} from "@earendil-works/pi-tui";
+} from "../../core/host/tui/index.ts";
 
 /** Theme tokens the panels use; a structural subset of Pi's `Theme`. */
 export type PanelTheme = Pick<Theme, "fg" | "bg" | "bold">;
 
 /** The part of the TUI a panel needs: repainting and the terminal height. */
-export type PanelHost = Pick<TUI, "requestRender"> & { terminal: Pick<TUI["terminal"], "rows"> };
+export type PanelHost = UiHost;
 
 /** Rows a full frame adds to its header and body. */
 export const FRAME_ROWS = 5;
@@ -128,7 +128,7 @@ const KEY_GLYPHS: Readonly<Record<string, string>> = {
 };
 
 /** The user's first key for a binding, in hint notation. */
-export function bindingLabel(keys: KeybindingsManager, id: Keybinding): string {
+export function bindingLabel(keys: KeyMap, id: Keybinding): string {
 	const key = keys.getKeys(id)[0];
 	return key === undefined ? "" : (KEY_GLYPHS[key] ?? key);
 }

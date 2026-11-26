@@ -8,6 +8,7 @@ import {
 } from "@earendil-works/pi-tui";
 import type { SaveScope } from "../../src/core/config/index.ts";
 import type { SaveOutcome } from "../../src/core/config/save.ts";
+import { keyMap } from "../../src/core/host/tui/index.ts";
 import type { ModelAlias } from "../../src/models/aliases/index.ts";
 import { compileModelRules, evaluateModelRules } from "../../src/models/rules/match.ts";
 import { AuthDashboard, staticViews } from "../../src/ui/dashboard/index.ts";
@@ -39,8 +40,8 @@ function open(
 			bg: (_color, text) => text,
 			bold: (text) => text,
 		},
-		keys,
-		binding: (id) => bindingLabel(keys, id),
+		keys: keyMap(keys),
+		binding: (id) => bindingLabel(keyMap(keys), id),
 		refresh: () => {
 			onRefresh?.();
 			onRefresh = undefined;
@@ -142,9 +143,9 @@ function dashboard(
 		return modelView;
 	};
 	const panel = new AuthDashboard(
-		{ terminal: { rows }, requestRender: () => {} },
+		{ rows: () => rows, requestRender: () => {} },
 		{ fg: (_color, value) => value, bg: (_color, value) => value, bold: (value) => value },
-		keys,
+		keyMap(keys),
 		() => closed++,
 		views,
 		"models",
@@ -200,8 +201,8 @@ describe("models tab", () => {
 					bg: (_color, value) => value,
 					bold: (value) => value,
 				},
-				keys,
-				binding: (id) => bindingLabel(keys, id),
+				keys: keyMap(keys),
+				binding: (id) => bindingLabel(keyMap(keys), id),
 				refresh: () => {},
 				finish: () => {},
 			},
@@ -583,8 +584,8 @@ describe("models tab", () => {
 					bg: (_color, value) => value,
 					bold: (value) => value,
 				},
-				keys,
-				binding: (id) => bindingLabel(keys, id),
+				keys: keyMap(keys),
+				binding: (id) => bindingLabel(keyMap(keys), id),
 				refresh: () => {},
 				finish: () => {},
 			},

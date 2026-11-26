@@ -6,6 +6,7 @@ import {
 	TUI_KEYBINDINGS,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
+import { keyMap } from "../../src/core/host/tui/index.ts";
 import { ModelPicker } from "../../src/ui/dashboard/model-picker.ts";
 import type { ModelCatalogItem } from "../../src/ui/dashboard/models.ts";
 import type { TabViewHost } from "../../src/ui/dashboard/view.ts";
@@ -32,7 +33,7 @@ function open(
 			bg: (_color, text) => text,
 			bold: (text) => text,
 		},
-		keys,
+		keys: keyMap(keys),
 		binding(id) {
 			return bindingLabel(this.keys, id);
 		},

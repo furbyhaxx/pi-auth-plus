@@ -1,13 +1,14 @@
 /** Local typed editors for provider lists and literal prompt rules. */
+
+import { SETTINGS } from "../../core/config/catalog.ts";
+import type { FieldOption, TextRule } from "../../core/config/fields.ts";
 import {
-	Input,
+	createInput,
 	matchesKey,
 	sliceByColumn,
 	truncateToWidth,
 	visibleWidth,
-} from "@earendil-works/pi-tui";
-import { SETTINGS } from "../../core/config/catalog.ts";
-import type { FieldOption, TextRule } from "../../core/config/fields.ts";
+} from "../../core/host/tui/index.ts";
 import { sanitize } from "../frame/index.ts";
 import type { TabBody, TabView, TabViewHost } from "./view.ts";
 
@@ -95,7 +96,7 @@ export class CollectionDetail implements TabView {
 	readonly #host: TabViewHost;
 	readonly #back: () => void;
 	readonly #data: Data;
-	#input = new Input({ prompt: "", placeholder: "" });
+	#input = createInput({ prompt: "", placeholder: "" });
 	readonly #replacements = new WeakMap<TextRule, string>();
 	#edit: { row: EditableRow; initial: string } | undefined;
 	#pasting = false;
@@ -219,7 +220,7 @@ export class CollectionDetail implements TabView {
 					? (rule?.replacement ?? "")
 					: "";
 		const initial = clean(value);
-		this.#input = new Input({ prompt: "", placeholder: "" });
+		this.#input = createInput({ prompt: "", placeholder: "" });
 		this.#input.focused = true;
 		if (initial) this.#input.handleInput(`\x1b[200~${initial}\x1b[201~`);
 		this.#edit = { row, initial };
@@ -504,7 +505,7 @@ export class CollectionDetail implements TabView {
 				this.#showIdentity &&
 				(row.kind === "choice" || row.kind === "unknown")
 			) {
-				label = `ID: ${this.#detailOffset > 0 ? "…" : ""}${sliceByColumn(clean(row.value), this.#detailOffset, Math.max(1, width - 9), true)}`;
+				label = `ID: ${this.#detailOffset > 0 ? "…" : ""}${sliceByColumn(clean(row.value), this.#detailOffset, Math.max(1, width - 9))}`;
 				value = "";
 			}
 			const prefix = ` ${index === this.#selected ? theme.fg("accent", "❯") : " "} ${label}`;

@@ -4,8 +4,7 @@
  * byte-identical and gives the other host the same gradient and explicit colors.
  */
 import type { Theme, ThemeColor, ThemeStyle, ThemeToken } from "@earendil-works/pi-coding-agent";
-import type { Color } from "@earendil-works/pi-tui";
-import * as tui from "@earendil-works/pi-tui";
+import { type Color, tuiKit } from "../../core/host/tui/index.ts";
 import type { LineTheme } from "./format.ts";
 
 export const THEME_TOKENS: readonly ThemeToken[] = [
@@ -169,16 +168,14 @@ function mix(first: Color, second: Color, amount: number): Color {
 
 /** Pi's OKLCH mix when the host exports it, sRGB otherwise. */
 export function mixColors(first: Color, second: Color, amount: number): Color {
-	return typeof tui.mixColors === "function"
-		? tui.mixColors(first, second, amount)
-		: mix(first, second, amount);
+	const hostMix = tuiKit().mixColors;
+	return hostMix ? hostMix(first, second, amount) : mix(first, second, amount);
 }
 
 /** Hex input is the only form the template accepts; returns undefined on anything else. */
 export function parseHexColor(value: string): Color | undefined {
-	return typeof tui.parseColor === "function"
-		? (parseHex(value) ?? tui.parseColor(value))
-		: parseHex(value);
+	const hostParse = tuiKit().parseColor;
+	return hostParse ? (parseHex(value) ?? hostParse(value)) : parseHex(value);
 }
 
 function nearest(values: readonly number[], target: number): number {

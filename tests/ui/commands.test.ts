@@ -24,7 +24,7 @@ import {
 import type { AuthDashboard } from "../../src/ui/dashboard/index.ts";
 import type { LinePlacement } from "../../src/ui/dashboard/quotas.ts";
 import type { DashboardResult } from "../../src/ui/dashboard/view.ts";
-import type { PanelHost, PanelTheme } from "../../src/ui/frame/index.ts";
+import type { PanelTheme } from "../../src/ui/frame/index.ts";
 
 function rig(
 	mode: "tui" | "rpc",
@@ -67,7 +67,7 @@ function rig(
 			select: async () => "Spend 1 credit now (cannot be undone)",
 			custom: async (
 				factory: (
-					host: PanelHost,
+					host: { terminal: { rows: number }; requestRender(): void },
 					theme: PanelTheme,
 					keys: KeybindingsManager,
 					done: (result: DashboardResult) => void,
@@ -1214,7 +1214,7 @@ describe("ui/commands", () => {
 		Object.assign(f.ctx.ui, {
 			custom: async (
 				factory: (
-					host: PanelHost,
+					host: { terminal: { rows: number }; requestRender(): void },
 					theme: PanelTheme,
 					keys: KeybindingsManager,
 					done: (result: DashboardResult) => void,

@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **oh-my-pi 19.2 refused to load the extension** ("imports @earendil-works/pi-tui, which omp
+  no longer provides"). omp now loads its own entry, `src/omp.ts`, built on omp's TUI helpers;
+  Pi, Pi-Bolt and Pig keep pi-tui. omp 19.1 and older can no longer load pi-auth-plus: run
+  `omp update`. On omp the `below-editor-last` quota line shows as a widget below the editor.
+
 ## [0.8.3] - 2026-11-24
 
 ### Fixed

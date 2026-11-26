@@ -1,5 +1,5 @@
 /** Live context totals and cancellable, on-demand contribution counts. */
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth } from "../../core/host/tui/index.ts";
 import type { BreakdownPart, ContextReport } from "../../tokens/engine/index.ts";
 import type { TokenTracker } from "../../tokens/tracker/types.ts";
 import type { TokenCount } from "../../tokens/types.ts";

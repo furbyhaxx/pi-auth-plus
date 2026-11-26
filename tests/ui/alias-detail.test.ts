@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { KeybindingsManager, TUI_KEYBINDINGS, visibleWidth } from "@earendil-works/pi-tui";
 import type { SaveOutcome } from "../../src/core/config/save.ts";
+import { keyMap } from "../../src/core/host/tui/index.ts";
 import type { ModelAlias } from "../../src/models/aliases/index.ts";
 import { AliasDetail } from "../../src/ui/dashboard/alias-detail.ts";
 import type { TabViewHost } from "../../src/ui/dashboard/view.ts";
@@ -10,8 +11,8 @@ function open(original: ModelAlias) {
 	const keys = new KeybindingsManager(TUI_KEYBINDINGS);
 	const host: TabViewHost = {
 		theme: { fg: (_color, text) => text, bg: (_color, text) => text, bold: (text) => text },
-		keys,
-		binding: (id) => bindingLabel(keys, id),
+		keys: keyMap(keys),
+		binding: (id) => bindingLabel(keyMap(keys), id),
 		refresh: () => {},
 		finish: () => {},
 	};
@@ -45,8 +46,8 @@ describe("alias detail", () => {
 					bg: (_color, value) => value,
 					bold: (value) => value,
 				},
-				keys,
-				binding: (id) => bindingLabel(keys, id),
+				keys: keyMap(keys),
+				binding: (id) => bindingLabel(keyMap(keys), id),
 				refresh: () => {},
 				finish: () => {},
 			},
@@ -122,8 +123,8 @@ describe("alias detail", () => {
 					bg: (_color, value) => value,
 					bold: (value) => value,
 				},
-				keys,
-				binding: (id) => bindingLabel(keys, id),
+				keys: keyMap(keys),
+				binding: (id) => bindingLabel(keyMap(keys), id),
 				refresh: () => refreshes++,
 				finish: () => {},
 			},

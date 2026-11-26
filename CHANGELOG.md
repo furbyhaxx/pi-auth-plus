@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-11-26
+
 ### Fixed
 
 - **oh-my-pi 19.2 refused to load the extension** ("imports @earendil-works/pi-tui, which omp

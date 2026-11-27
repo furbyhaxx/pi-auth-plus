@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-11-27
+
 ### Changed
 
 - **Antigravity quotas show the current pools.** Google replaced the Argon pool with two

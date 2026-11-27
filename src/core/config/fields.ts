@@ -88,13 +88,21 @@ export function enumField<const V extends string>(
 	};
 }
 
-export function stringField(meta: Meta<string> & { readonly allowEmpty?: boolean }): Field<string> {
-	const { allowEmpty = false, ...rest } = meta;
+export function stringField(
+	meta: Meta<string> & {
+		readonly allowEmpty?: boolean;
+		/** Earlier defaults; a stored copy of one reads as the current default. */
+		readonly retired?: readonly string[];
+	},
+): Field<string> {
+	const { allowEmpty = false, retired = [], ...rest } = meta;
 	return {
 		kind: "string",
 		...rest,
-		parse: (raw) =>
-			typeof raw === "string" && (allowEmpty || raw.trim() !== "") ? raw : undefined,
+		parse: (raw) => {
+			if (typeof raw !== "string" || (!allowEmpty && raw.trim() === "")) return undefined;
+			return retired.includes(raw) ? meta.default : raw;
+		},
 	};
 }
 

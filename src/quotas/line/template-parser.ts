@@ -19,6 +19,7 @@ export const TEMPLATE_FIELDS = [
 	"credits-remaining",
 	"resets-available",
 	"in-use",
+	"groups",
 ] as const;
 /** A provider metric or identity requested by a token. */
 export type TemplateField =

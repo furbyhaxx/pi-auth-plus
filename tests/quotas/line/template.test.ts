@@ -271,31 +271,28 @@ describe("quota templates", () => {
 		expect(renderGradientBar(theme, 0, 3)).toBe("▕░░░▏");
 		expect(render("{codex:bar}", snapshot([win("5h", undefined, 0)]))).toEqual(["▕░░░░░░▏"]);
 	});
-	test("antigravity's normalized scopes and legacy Argon ids keep their keys", () => {
-		expect(
-			render(
-				"{ag:window-7d-gemini-used-percent}/{ag:window-5h-3p-used-percent}/{ag:window-7d-gemini-4-argon-used-percent}",
-				snapshot([
-					{ ...win("7d", "gemini", 0.2), id: "gemini-weekly" },
-					{ ...win("5h", "3p", 0.4), id: "3p-5h" },
-					{ ...win("7d", "gemini-4-argon", 0.6), id: "gemini-argon-wtu-weekly" },
-				]),
-			),
-		).toEqual(["20%/40%/60%"]);
-		expect(
-			render(
-				"{ag:window-7d-gemini-4-argon-used-percent}",
-				snapshot([
-					{
-						id: "gemini-argon-wtu-weekly",
-						shortLabel: "arg",
-						label: "Argon",
-						scope: "gemini-argon-wtu",
-						usedFraction: 0.7,
-					},
-				]),
-			),
-		).toEqual(["70%"]);
+	test("groups shows each scope's windows shortest first, limited to configured scopes", () => {
+		const value = snapshot([
+			{ ...win("7d", "gemini", 0.2), id: "gemini-weekly" },
+			{ ...win("5h", "gemini", 0.1), id: "gemini-5h" },
+			{ ...win("7d", "claude", 0.4), id: "3p-weekly" },
+			{ ...win("5h", "claude", undefined), id: "3p-5h", usedFraction: undefined },
+		]);
+		expect(render("{ag:groups}", value)).toEqual(["gem 5h/10% 7d/20% cla 5h/? 7d/40%"]);
+		const only = (scopes: readonly string[]) =>
+			renderLineTemplate(
+				theme,
+				compileLineTemplate("{ag:groups}"),
+				views(value),
+				{ ...DEFAULT_QUOTAS_CONFIG, scopes: { antigravity: scopes } },
+				0,
+				false,
+			);
+		expect(only(["gemini"])).toEqual(["gem 5h/10% 7d/20%"]);
+		expect(only(["claude"])).toEqual(["cla 5h/? 7d/40%"]);
+		expect(only(["none"])).toEqual(["?"]);
+		expect(render("{ag:window-5h-claude-used-percent}", value)).toEqual(["?"]);
+		expect(render("{ag:window-7d-claude-used-percent}", value)).toEqual(["40%"]);
 	});
 	test("deeply nested or nested malformed tokens never throw", () => {
 		for (const source of [

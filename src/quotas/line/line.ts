@@ -15,6 +15,12 @@ export interface QuotaLineConfig extends LineConfig {
 	readonly alwaysShortIds: boolean;
 }
 
+const ANTIGRAVITY_SCOPES = {
+	both: undefined,
+	gemini: { antigravity: ["gemini"] },
+	claude: { antigravity: ["claude"] },
+} as const;
+
 /** Reads the line settings from the catalog. */
 export function quotaLineConfig(settings: AppSettings): QuotaLineConfig {
 	return {
@@ -25,6 +31,7 @@ export function quotaLineConfig(settings: AppSettings): QuotaLineConfig {
 		creditHealthyUsd: settings.get("quotas.creditHealthyUsd"),
 		creditCriticalUsd: settings.get("quotas.creditCriticalUsd"),
 		hideSignedOut: settings.get("quotas.hideSignedOut"),
+		scopes: ANTIGRAVITY_SCOPES[settings.get("quotas.antigravityGroups")],
 	};
 }
 

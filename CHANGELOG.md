@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Antigravity quotas show the current pools.** Google replaced the Argon pool with two
+  pools that each have a 5-hour and a weekly window: Gemini models and Claude/GPT models.
+  The quota line now reads `ag: gem 5h/3% 7d/12% cla 5h/0% 7d/40%` through the new
+  `{antigravity:groups}` template field; the Argon field showed `?`. A saved copy of the old
+  default template upgrades by itself; a hand-written template names
+  `window-5h-gemini`, `window-7d-claude` and so on.
+
+### Added
+
+- **`quotas.antigravityGroups`** (`both`, `gemini`, `claude`) picks which Antigravity pools the
+  quota line shows. Set it in `/auth` › Settings.
+
 ## [0.8.4] - 2026-11-26
 
 ### Fixed

@@ -13,7 +13,7 @@ accepted aliases.
 | Pi id | Accepted aliases | Compact id | Reports |
 |---|---|---|---|
 | `claude` | `cl`, `cc` | `cl` | Claude subscription session (5h), weekly (7d), scoped weekly windows, spend caps and enabled extra usage; response-header updates |
-| `antigravity` | `agy`, `ag` | `ag` | Every reported quota bucket in each group, including Gemini, Argon and third-party pools; reset times |
+| `antigravity` | `agy`, `ag` | `ag` | Every reported quota bucket per pool: Gemini (`gemini`) and Claude/GPT (`claude`), each 5h and 7d; reset times |
 | `synthetic` | None | `syn` | Subscription request count, weekly plan budget, hourly search requests |
 | `codex` | `openai`, `openai-codex`, `chatgpt`, `cx`, `cox`, `oai` | `cox` | ChatGPT primary, secondary and additional primary windows, plan and reset-credit count; response-header updates |
 | `xai` | `grok` | `xai` | Current included period (weekly where reported), positive on-demand cap and positive monthly included limit |
@@ -122,11 +122,12 @@ and listed by the Settings preview. Disabled providers contribute no token outpu
 | `bar` | Primary window's six-cell used-allowance bar |
 | `resets-available` | Bare positive reset-credit count; empty for zero or unknown |
 | `r` | Positive reset-credit badge in the form `(r 1)`; otherwise empty |
+| `groups` | Every scoped window grouped by scope, shortest period first: `gem 5h/3% 7d/12% cla 5h/0% 7d/40%`; follows `percentDisplay`. For Antigravity, `quotas.antigravityGroups` picks the pools |
 | `window-<period>[-<scope>]-used-percent` | A specific window's used percentage |
 | `window-<period>[-<scope>]-remaining-percent` | A specific window's remaining percentage |
 
 Named windows must match exactly one period/scope, such as `5h`, `7d`, `7d-opus`,
-`1h-search`, `7d-gemini` or `7d-gemini-4-argon`. Periods/scopes are lowercased and
+`1h-search`, `5h-gemini` or `7d-claude`. Periods/scopes are lowercased and
 punctuation becomes hyphens. Missing or ambiguous matches show `?`. Explicit used and
 remaining fields ignore `percentDisplay`. Named percentages round to whole percentages.
 
@@ -184,7 +185,16 @@ Examples:
 The exact default template is:
 
 ```text
-{openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {codex:id}: {codex:window-7d-used-percent}[ ({codex:resets-available}r)] · {claude:id}: 5h/{claude:window-5h-used-percent} 7d/{claude:window-7d-used-percent}[ ({claude:resets-available}r)] · {antigravity:id}: gem/{antigravity:window-7d-gemini-used-percent} arg/{antigravity:window-7d-gemini-4-argon-used-percent} · {synthetic:id}: {synthetic:window-7d-used-percent}[ ({synthetic:resets-available}r)] · {xai:id}: {xai:window-7d-used-percent}[ ({xai:resets-available}r)]
+{openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {codex:id}: {codex:window-7d-used-percent}[ ({codex:resets-available}r)] · {claude:id}: 5h/{claude:window-5h-used-percent} 7d/{claude:window-7d-used-percent}[ ({claude:resets-available}r)] · {antigravity:id}: {antigravity:groups} · {synthetic:id}: {synthetic:window-7d-used-percent}[ ({synthetic:resets-available}r)] · {xai:id}: {xai:window-7d-used-percent}[ ({xai:resets-available}r)]
+```
+
+A saved copy of the earlier default (with `gem/… arg/…`) reads as this one. Antigravity
+reports two pools, each with a 5-hour and a weekly window: `gemini` (Gemini models) and
+`claude` (Claude and GPT-OSS). `quotas.antigravityGroups` (`both`, `gemini`, `claude`)
+chooses which `{antigravity:groups}` shows. For a single window, name it instead:
+
+```text
+{antigravity:id}: gem {antigravity:window-5h-gemini-used-percent}/{antigravity:window-7d-gemini-used-percent}
 ```
 
 ## Quotas tab

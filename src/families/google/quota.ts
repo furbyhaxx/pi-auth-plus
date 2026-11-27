@@ -34,11 +34,15 @@ function usedFraction(bucket: PayloadObject): number | undefined {
 		: undefined;
 }
 
-function groupTag(id: string, name: string | undefined): string {
-	if (id.startsWith("gemini-argon")) return "arg";
-	if (id.startsWith("gemini-")) return "gem";
-	if (id.startsWith("3p-")) return "3p";
-	return (name ?? "pool").slice(0, 3).toLowerCase();
+/** The group a bucket id belongs to: `gemini-*` and the `3p-*` Claude and GPT pool. */
+function groupScope(id: string, name: string | undefined): string {
+	if (id.startsWith("gemini-")) return "gemini";
+	if (id.startsWith("3p-")) return "claude";
+	return (name ?? "pool").toLowerCase();
+}
+
+function groupTag(scope: string): string {
+	return scope.slice(0, 3);
 }
 
 function missing(field: string): Error {
@@ -66,7 +70,8 @@ export function parseAntigravityQuota(body: unknown, fetchedAt: number): Provide
 			buckets.push(bucket);
 		}
 		const name = text(group.displayName);
-		const tag = groupTag(text(buckets[0]?.bucketId) ?? "", name);
+		const scope = groupScope(text(buckets[0]?.bucketId) ?? "", name);
+		const tag = groupTag(scope);
 		let maxUsed = -1;
 		let maxIndex = -1;
 		for (const [index, bucket] of buckets.entries()) {
@@ -95,13 +100,7 @@ export function parseAntigravityQuota(body: unknown, fetchedAt: number): Provide
 				important,
 				group: name,
 				period,
-				scope: id.startsWith("gemini-argon-")
-					? "gemini-4-argon"
-					: id.startsWith("gemini-")
-						? "gemini"
-						: id.startsWith("3p-")
-							? "3p"
-							: (name ?? text(bucket.displayName) ?? tag).toLowerCase(),
+				scope,
 			});
 		}
 	}
@@ -114,10 +113,10 @@ export function parseAntigravityQuota(body: unknown, fetchedAt: number): Provide
 			const id = text(bucket.bucketId);
 			if (!id) throw missing("bucketId");
 			if (seen.has(id)) continue;
-			const tag = groupTag(id, undefined);
-			const buckets = flatGroups.get(tag) ?? [];
+			const scope = groupScope(id, undefined);
+			const buckets = flatGroups.get(scope) ?? [];
 			buckets.push(bucket);
-			flatGroups.set(tag, buckets);
+			flatGroups.set(scope, buckets);
 		}
 		for (const buckets of flatGroups.values()) appendGroup({ buckets });
 	}
@@ -173,7 +172,7 @@ export function antigravityQuota(): QuotaSource {
 	return {
 		kind: "windows",
 		shortLabel: "ag",
-		parserVersion: 1,
+		parserVersion: 2,
 		minPollMs: 60_000,
 		async fetch(ctx) {
 			const auth = await ctx.auth();

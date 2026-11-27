@@ -12,7 +12,12 @@ import {
 } from "./index.ts";
 
 const DEFAULT_LINE_TEMPLATE =
-	"{openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {codex:id}: {codex:window-7d-used-percent}[ ({codex:resets-available}r)] · {claude:id}: 5h/{claude:window-5h-used-percent} 7d/{claude:window-7d-used-percent}[ ({claude:resets-available}r)] · {antigravity:id}: gem/{antigravity:window-7d-gemini-used-percent} arg/{antigravity:window-7d-gemini-4-argon-used-percent} · {synthetic:id}: {synthetic:window-7d-used-percent}[ ({synthetic:resets-available}r)] · {xai:id}: {xai:window-7d-used-percent}[ ({xai:resets-available}r)]";
+	"{openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {codex:id}: {codex:window-7d-used-percent}[ ({codex:resets-available}r)] · {claude:id}: 5h/{claude:window-5h-used-percent} 7d/{claude:window-7d-used-percent}[ ({claude:resets-available}r)] · {antigravity:id}: {antigravity:groups} · {synthetic:id}: {synthetic:window-7d-used-percent}[ ({synthetic:resets-available}r)] · {xai:id}: {xai:window-7d-used-percent}[ ({xai:resets-available}r)]";
+
+/** Shipped defaults that named the retired Gemini 4 Argon pool. */
+const RETIRED_LINE_TEMPLATES = [
+	"{openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {codex:id}: {codex:window-7d-used-percent}[ ({codex:resets-available}r)] · {claude:id}: 5h/{claude:window-5h-used-percent} 7d/{claude:window-7d-used-percent}[ ({claude:resets-available}r)] · {antigravity:id}: gem/{antigravity:window-7d-gemini-used-percent} arg/{antigravity:window-7d-gemini-4-argon-used-percent} · {synthetic:id}: {synthetic:window-7d-used-percent}[ ({synthetic:resets-available}r)] · {xai:id}: {xai:window-7d-used-percent}[ ({xai:resets-available}r)]",
+];
 
 export const SETTINGS = {
 	"dashboard.density": enumField({
@@ -102,6 +107,17 @@ export const SETTINGS = {
 			"Omit providers without a credential from the quota line, panel and summaries; /auth providers still lists them with a login hint",
 		default: true,
 	}),
+	"quotas.antigravityGroups": enumField({
+		label: "Antigravity quota groups",
+		description:
+			"Which Antigravity pools the quota line's {antigravity:groups} shows, each with its 5h and 7d window; /auth quotas always lists all",
+		default: "both",
+		options: [
+			{ value: "both", label: "Gemini and Claude" },
+			{ value: "gemini", label: "Gemini only" },
+			{ value: "claude", label: "Claude and GPT only" },
+		],
+	}),
 	"quotas.creditHealthyUsd": numberField({
 		label: "Healthy credit (USD)",
 		description: "Credit balance at or above this renders as healthy",
@@ -130,6 +146,7 @@ export const SETTINGS = {
 		label: "Quota line template",
 		description: "Template tokens {provider:field}; provider ids and aliases both resolve",
 		default: DEFAULT_LINE_TEMPLATE,
+		retired: RETIRED_LINE_TEMPLATES,
 	}),
 	"models.rules": listField({
 		label: "Model visibility rules",

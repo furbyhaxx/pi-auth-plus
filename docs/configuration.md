@@ -76,9 +76,10 @@ listed range. Booleans must be JSON booleans; enum values are exact strings.
 | `quotas.compactWidthCols` | `100` | Number, 40–220 columns; short identities below this width. Panel adjustment step: 5. |
 | `quotas.alwaysShortIds` | `false` | Boolean; short line identities at every width. |
 | `quotas.hideSignedOut` | `true` | Boolean; omit providers without a credential from the quota line, quotas tab and summaries. `/auth providers` still lists them with a login hint, and `/quotas <provider>` still shows the provider asked for. |
+| `quotas.antigravityGroups` | `"both"` | `"both"`, `"gemini"` or `"claude"`; which Antigravity pools `{antigravity:groups}` shows on the quota line, each with its 5h and 7d window. The quotas tab always lists all. |
 | `quotas.creditHealthyUsd` | `50` | Number, 5–500; balance at or above this is healthy. Panel step: 5. |
 | `quotas.creditCriticalUsd` | `5` | Number, 0–100; balance at or below this is critical. |
-| `quotas.lineTemplate` | Seven-provider template | Nonblank string, preserved verbatim; [default and grammar](quotas.md#template-reference). |
+| `quotas.lineTemplate` | Seven-provider template | Nonblank string, preserved verbatim, except a saved copy of an earlier default reads as the current one; [default and grammar](quotas.md#template-reference). |
 | `models.rules` | `[]` | Ordered hide and `!` re-show patterns; last match wins. See [Model management](models.md). |
 | `models.rulesScope` | `"trusted-project"` | `"user"` ignores project rules; `"trusted-project"` accepts trusted project rules. Runtime changes remain available. |
 | `models.hiddenDefault` | `"warn"` | `"warn"` keeps a selected model hidden by rules; `"fallback"` selects an available model when possible. Automatic switching requires Pi-Bolt's cancelable model-selection API; other Pi builds warn and keep the selection. |

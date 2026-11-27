@@ -61,6 +61,14 @@ beforeEach(() => {
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("core/config", () => {
+	test("a stored copy of a retired default template reads as the current default", () => {
+		const field = SETTINGS["quotas.lineTemplate"];
+		const retired =
+			"{openrouter:id}: {openrouter:credits-remaining} · {deepseek:id}: {deepseek:credits-remaining} · {codex:id}: {codex:window-7d-used-percent}[ ({codex:resets-available}r)] · {claude:id}: 5h/{claude:window-5h-used-percent} 7d/{claude:window-7d-used-percent}[ ({claude:resets-available}r)] · {antigravity:id}: gem/{antigravity:window-7d-gemini-used-percent} arg/{antigravity:window-7d-gemini-4-argon-used-percent} · {synthetic:id}: {synthetic:window-7d-used-percent}[ ({synthetic:resets-available}r)] · {xai:id}: {xai:window-7d-used-percent}[ ({xai:resets-available}r)]";
+		expect(field.parse(retired)).toBe(field.default);
+		expect(field.default).toContain("{antigravity:groups}");
+		expect(field.parse("{ag:groups}")).toBe("{ag:groups}");
+	});
 	test("loads groups by scope and rejects an invalid project group list", async () => {
 		const groups = [{ id: "models", members: [{ provider: "claude", id: "example" }] }];
 		write(user, { models: { groups } });

@@ -4,7 +4,7 @@ import { createGoogleFamily } from "../../../src/families/google/index.ts";
 import { antigravityQuota, parseAntigravityQuota } from "../../../src/families/google/quota.ts";
 import { cliHeaders } from "../../../src/families/google/transport.ts";
 import type { QuotaFetchContext } from "../../../src/quotas/types.ts";
-import fullQuota from "../../fixtures/quotas/antigravity-quota.json";
+import fullQuota from "../../fixtures/quotas/antigravity-quota-2026-11-27.json";
 import weeklyOnly from "../../fixtures/quotas/antigravity-weekly-only.json";
 
 function context(body: unknown = fullQuota): QuotaFetchContext {
@@ -21,39 +21,39 @@ function context(body: unknown = fullQuota): QuotaFetchContext {
 	};
 }
 
-test("captured Gemini and Argon buckets have distinct stable template scopes", async () => {
+test("captured Gemini and Claude pools each keep a 5h and a 7d window", async () => {
 	const snapshot = await antigravityQuota().fetch(context());
-	expect(snapshot.windows).toHaveLength(5);
 	expect(
-		snapshot.windows.filter((window) => window.scope === "gemini").map((window) => window.period),
-	).toEqual(["7d", "5h"]);
-	expect(snapshot.windows.find((window) => window.scope === "gemini-4-argon")).toMatchObject({
-		id: "gemini-argon-wtu-weekly",
-		period: "7d",
-		usedFraction: 1,
-		shortLabel: "arg",
-		important: true,
-		resetAtMs: Date.parse("2026-10-26T13:39:05Z"),
-	});
-	expect(snapshot.windows.map((window) => [window.shortLabel, window.important])).toEqual([
-		["gem", true],
-		["gem:5h", false],
-		["3p", true],
-		["3p:5h", false],
-		["arg", true],
+		snapshot.windows.map((window) => [
+			window.scope,
+			window.period,
+			window.shortLabel,
+			window.important,
+		]),
+	).toEqual([
+		["gemini", "7d", "gem", true],
+		["gemini", "5h", "gem:5h", false],
+		["claude", "7d", "cla", true],
+		["claude", "5h", "cla:5h", false],
 	]);
+	expect(snapshot.windows.find((window) => window.id === "gemini-5h")).toMatchObject({
+		usedFraction: 0,
+		resetAtMs: Date.parse("2026-11-27T13:51:19Z"),
+		group: "Gemini Models",
+	});
+	expect(snapshot.windows.find((window) => window.id === "3p-5h")?.resetAtMs).toBeUndefined();
 	expect(snapshot.fetchedAt).toBe(1234);
 	expect(snapshot.tier).toBeUndefined();
 	expect(JSON.stringify(snapshot)).not.toContain("private-project");
 });
 
-test("weekly-only response retains available windows without inventing Argon", async () => {
+test("weekly-only response retains available windows", async () => {
 	const snapshot = await antigravityQuota().fetch(context(weeklyOnly));
 	expect(
 		snapshot.windows.map((window) => [window.scope, window.period, window.usedFraction]),
 	).toEqual([
 		["gemini", "7d", 0],
-		["3p", "7d", 0],
+		["claude", "7d", 0],
 	]);
 });
 
@@ -61,7 +61,7 @@ test("family attaches the versioned quota source", () => {
 	expect(createGoogleFamily().providers[0]?.quota).toMatchObject({
 		kind: "windows",
 		shortLabel: "ag",
-		parserVersion: 1,
+		parserVersion: 2,
 	});
 });
 
@@ -176,7 +176,7 @@ test("flat buckets stay grouped and do not duplicate grouped windows", () => {
 		{ bucketId: "3p-weekly", window: "weekly", remainingFraction: 1 },
 	];
 	const snapshot = parseAntigravityQuota({ buckets }, 0);
-	expect(snapshot.windows.map((window) => window.shortLabel)).toEqual(["gem:7d", "gem", "3p"]);
+	expect(snapshot.windows.map((window) => window.shortLabel)).toEqual(["gem:7d", "gem", "cla"]);
 	expect(parseAntigravityQuota({ groups: [{ buckets }], buckets }, 0).windows).toHaveLength(3);
 });
 
@@ -212,7 +212,7 @@ test("failed project discovery is not cached or replaced by a fallback", async (
 		status: 429,
 		retryAfterMs: 8766,
 	});
-	expect((await source.fetch({ ...ctx, fetch })).windows).toHaveLength(5);
+	expect((await source.fetch({ ...ctx, fetch })).windows).toHaveLength(4);
 	expect(discoveryCalls).toBe(2);
 });
 

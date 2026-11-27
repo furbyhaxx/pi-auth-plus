@@ -57,7 +57,12 @@ const SNAPSHOTS: Record<
 	codex: { windows: [window("7d", 0.27)], resetCredits: 1 },
 	claude: { windows: [window("5h", 0.2), window("7d", 0.24)] },
 	antigravity: {
-		windows: [window("7d", 0, "gemini"), window("7d", 1, "gemini-4-argon")],
+		windows: [
+			window("7d", 0, "gemini"),
+			window("5h", 0, "gemini"),
+			window("7d", 1, "claude"),
+			window("5h", 0.3, "claude"),
+		],
 	},
 	synthetic: { windows: [window("7d", 0.84)] },
 	xai: { windows: [window("7d", 0)] },
@@ -89,7 +94,7 @@ describe("quota line rows", () => {
 		expect(compileLineTemplate(config.lineTemplate, resolve).unknown).toEqual([]);
 		const rows = createQuotaLineRenderer(resolve)(300, theme, views(), config, 0);
 		expect(rows).toEqual([
-			"openrouter: 120.08$ · deepseek: 13.20$ · codex: 27% (1r) · claude: 5h/20% 7d/24% · antigravity: gem/0% arg/100% · synthetic: 84% · xai: 0%",
+			"openrouter: 120.08$ · deepseek: 13.20$ · codex: 27% (1r) · claude: 5h/20% 7d/24% · antigravity: gem 5h/0% 7d/0% cla 5h/30% 7d/100% · synthetic: 84% · xai: 0%",
 		]);
 	});
 
@@ -121,7 +126,8 @@ describe("quota line rows", () => {
 				"13.20$",
 				"27% (1r)",
 				"5h/20% 7d/24%",
-				"gem/0% arg/100%",
+				"gem 5h/0% 7d/0%",
+				"cla 5h/30% 7d/100%",
 				"84%",
 			])
 				expect(text).toContain(value);

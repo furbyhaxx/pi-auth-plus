@@ -52,9 +52,7 @@ function normalize(value: string): string {
 }
 function scope(value: string | undefined): string {
 	const normalized = normalize(value ?? "");
-	if (normalized === "gemini-models") return "gemini";
-	if (normalized === "gemini-argon-wtu" || normalized === "gemini-4-argon") return "gemini-4-argon";
-	return normalized;
+	return normalized === "gemini-models" ? "gemini" : normalized;
 }
 function namedWindow(snapshot: ProviderQuotaSnapshot, key: string): QuotaWindow | undefined {
 	const dash = key.indexOf("-");
@@ -63,12 +61,7 @@ function namedWindow(snapshot: ProviderQuotaSnapshot, key: string): QuotaWindow 
 	const matches = snapshot.windows.filter((window) => {
 		if (window.period !== undefined)
 			return normalize(window.period) === period && scope(window.scope) === requestedScope;
-		const legacy =
-			key === "7d-gemini"
-				? "gemini-weekly"
-				: key === "7d-gemini-4-argon"
-					? "gemini-argon-wtu-weekly"
-					: undefined;
+		const legacy = key === "7d-gemini" ? "gemini-weekly" : undefined;
 		return (
 			(normalize(window.id) === key ||
 				normalize(window.shortLabel) === key ||
@@ -80,6 +73,29 @@ function namedWindow(snapshot: ProviderQuotaSnapshot, key: string): QuotaWindow 
 	// Sessions on older parsers share the cache and may add an unscoped sibling (claude `7d_oi`).
 	const exact = matches.filter((window) => normalize(window.id) === key);
 	return exact.length === 1 ? exact[0] : undefined;
+}
+function periodHours(period: string | undefined): number {
+	const match = /^(\d+)([hdw])$/.exec(period ?? "");
+	if (!match) return Number.POSITIVE_INFINITY;
+	const unit = match[2] === "h" ? 1 : match[2] === "d" ? 24 : 168;
+	return Number(match[1]) * unit;
+}
+/** Windows by scope in report order, shortest period first, limited to the configured scopes. */
+function scopedWindows(
+	snapshot: ProviderQuotaSnapshot,
+	allowed: readonly string[] | undefined,
+): Map<string, QuotaWindow[]> {
+	const groups = new Map<string, QuotaWindow[]>();
+	for (const window of snapshot.windows) {
+		if (!window.scope || !window.period) continue;
+		if (allowed && !allowed.includes(window.scope)) continue;
+		const list = groups.get(window.scope) ?? [];
+		list.push(window);
+		groups.set(window.scope, list);
+	}
+	for (const list of groups.values())
+		list.sort((a, b) => periodHours(a.period) - periodHours(b.period));
+	return groups;
 }
 function concreteStyle(theme: LineTheme, style: TokenStyle | undefined): ThemeStyle {
 	if (!style) return {};
@@ -148,6 +164,22 @@ function providerFields(
 				);
 		} else
 			switch (field) {
+				case "groups": {
+					const groups = scopedWindows(snapshot, config.scopes?.[view.provider.id]);
+					if (groups.size)
+						text = [...groups]
+							.map(
+								([name, windows]) =>
+									`${paint(name.slice(0, 3))} ${windows
+										.map(
+											(window) =>
+												`${paint(`${window.period}/`)}${stress(formatPercent(window.usedFraction, config), window.usedFraction)}`,
+										)
+										.join(" ")}`,
+							)
+							.join(" ");
+					break;
+				}
 				case "tier":
 					if (snapshot.tier) text = paint(snapshot.tier);
 					break;

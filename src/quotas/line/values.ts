@@ -11,6 +11,8 @@ export interface LineConfig {
 	 * state, which is what direct callers and tests expect; the settings catalog defaults to hiding.
 	 */
 	hideSignedOut?: boolean | undefined;
+	/** Window scopes the `groups` field shows per provider id; a provider without an entry shows all. */
+	scopes?: Readonly<Record<string, readonly string[]>> | undefined;
 }
 
 /** Clamps a known fraction for display; non-finite inputs retain the upstream zero fallback. */
